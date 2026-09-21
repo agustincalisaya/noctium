@@ -1,15 +1,235 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ============================================================
+// Noctium — Gestión Integral de un Centro de Atención Académica
+// Sprint 1 (Incremento 1): Sesión, Alumnos, Profesores, Materias,
+// Turnos iniciales, Aulas, Calendario básico.
+//
+// Convención de nombres: los atributos propios de cada entidad
+// llevan el sufijo de la entidad (ej. nombreAlumno, dniProfesor,
+// capacidadAula). Los id (PK) usan id<Entidad> y las claves
+// foráneas usan <entidadReferenciada>Id, ya que ese patrón ya
+// identifica la tabla referenciada y es el esperado por Prisma.
+//
+// IMPORTANTE: este schema modela ÚNICAMENTE el alcance de Sprint 1.
+// No incluye: Pago, historial académico/exámenes, personal de mesa
+// de entrada, gerente, prioridad/forma de pago del turno, ni
+// desactivación (soft delete) de ninguna entidad — todo eso
+// corresponde a los DER de Sprint 2 / Sprint 3.
+// ============================================================
 
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------
+
+enum RolUsuario {
+  ALUMNO
+  PROFESOR
+}
+
+enum FormaPago {
+  EFECTIVO
+  TRANSFERENCIA
+  DEBITO
+  MERCADO_PAGO
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
+
+// Duración del turno, restringida a 1, 2 o 3 horas (HU-C-03 / punto 14 del DER)
+enum DuracionTurno {
+  UNA_HORA
+  DOS_HORAS
+  TRES_HORAS
+}
+
+// ------------------------------------------------------------
+// Sesión / Autenticación
+// (NextAuth con Credentials Provider, sin Prisma Adapter —
+// la sesión se maneja por JWT; esta tabla es propia del dominio,
+// no la impuesta por el adapter oficial de NextAuth)
+// ------------------------------------------------------------
+
+model Usuario {
+  idUsuario        String     @id @default(cuid())
+  emailUsuario     String     @unique
+  passwordHashUsuario String
+  rolUsuario       RolUsuario
+  createdAtUsuario DateTime   @default(now())
+  updatedAtUsuario DateTime   @updatedAt
+
+  alumno   Alumno?
+  profesor Profesor?
+
+  @@map("usuarios")
+}
+
+// ------------------------------------------------------------
+// Alumno (HU-B-01, HU-B-02, HU-B-03, HU-B-04, HU-B-06, HU-B-08)
+// ------------------------------------------------------------
+
+model Alumno {
+  idAlumno  String @id @default(cuid())
+  usuarioId String @unique
+
+  // Datos de identidad (HU-B-01)
+  nombreAlumno   String
+  apellidoAlumno String
+  dniAlumno      String @unique
+
+  // Datos de contacto (HU-B-02)
+  telefonoAlumno  String
+  emailAlumno     String
+  direccionAlumno String?
+
+  // Forma de pago preferida (HU-B-03) — solo dato informativo en Sprint 1,
+  // sin tabla catálogo ni integración real con Mercado Pago todavía.
+  formaPagoPreferidaAlumno FormaPago
+
+  createdAtAlumno DateTime @default(now())
+  updatedAtAlumno DateTime @updatedAt
+
+  usuario Usuario       @relation(fields: [usuarioId], references: [idUsuario], onDelete: Cascade)
+  turnos  TurnoAlumno[]
+
+  @@map("alumnos")
+}
+
+// ------------------------------------------------------------
+// Profesor (HU-D-01, HU-D-02, HU-D-03, HU-D-04, HU-D-05)
+// ------------------------------------------------------------
+
+model Profesor {
+  idProfesor String @id @default(cuid())
+  usuarioId  String @unique
+
+  // Datos de identidad (HU-D-01)
+  nombreProfesor   String
+  apellidoProfesor String
+  dniProfesor      String @unique
+
+  // Datos de contacto (HU-D-02)
+  telefonoProfesor  String
+  emailProfesor     String
+  direccionProfesor String?
+
+  createdAtProfesor DateTime @default(now())
+  updatedAtProfesor DateTime @updatedAt
+
+  usuario  Usuario           @relation(fields: [usuarioId], references: [idUsuario], onDelete: Cascade)
+  materias ProfesorMateria[] // HU-D-03: materias/especialidades asociadas
+  horarios HorarioProfesor[] // HU-D-04: horario de atención
+  turnos   Turno[]
+
+  @@map("profesores")
+}
+
+// Horario de atención del profesor (HU-D-04) — disponibilidad
+// recurrente por día de semana, distinta de un Turno puntual.
+model HorarioProfesor {
+  idHorario       String    @id @default(cuid())
+  profesorId      String
+  diaSemanaHorario DiaSemana
+  horaDesdeHorario DateTime  @db.Time
+  horaHastaHorario DateTime  @db.Time
+
+  profesor Profesor @relation(fields: [profesorId], references: [idProfesor], onDelete: Cascade)
+
+  @@map("horarios_profesor")
+}
+
+// ------------------------------------------------------------
+// Materia (HU-L-01, HU-L-02, HU-L-03)
+// ------------------------------------------------------------
+
+model Materia {
+  idMateria    String  @id @default(cuid())
+  nombreMateria String @unique
+  codigoMateria String? @unique
+
+  profesores ProfesorMateria[]
+  turnos     Turno[]
+
+  @@map("materias")
+}
+
+// Tabla intermedia N:M Profesor <-> Materia
+model ProfesorMateria {
+  profesorId String
+  materiaId  String
+
+  profesor Profesor @relation(fields: [profesorId], references: [idProfesor], onDelete: Cascade)
+  materia  Materia  @relation(fields: [materiaId], references: [idMateria], onDelete: Cascade)
+
+  @@id([profesorId, materiaId])
+  @@map("profesor_materia")
+}
+
+// ------------------------------------------------------------
+// Aula (HU-K-01, HU-K-02)
+// ------------------------------------------------------------
+
+model Aula {
+  idAula       String @id @default(cuid())
+  nombreAula   String @unique // nombre o número de aula
+  capacidadAula Int
+
+  turnos Turno[]
+
+  @@map("aulas")
+}
+
+// ------------------------------------------------------------
+// Turno (HU-C-01, HU-C-03, HU-C-04, HU-C-15)
+// Instancia puntual: fecha + hora fija, no una comisión recurrente.
+// ------------------------------------------------------------
+
+model Turno {
+  idTurno       String        @id @default(cuid())
+  fechaTurno    DateTime      @db.Date
+  horaInicioTurno DateTime    @db.Time
+  duracionTurno DuracionTurno
+
+  materiaId  String
+  profesorId String
+  aulaId     String
+
+  createdAtTurno DateTime @default(now())
+  updatedAtTurno DateTime @updatedAt
+
+  materia  Materia       @relation(fields: [materiaId], references: [idMateria])
+  profesor Profesor      @relation(fields: [profesorId], references: [idProfesor])
+  aula     Aula          @relation(fields: [aulaId], references: [idAula])
+  alumnos  TurnoAlumno[]
+
+  @@map("turnos")
+}
+
+// Tabla intermedia N:M Turno <-> Alumno.
+// Permite turnos grupales: los alumnos se inscriben de a uno
+// hasta completar el cupo (validado en la app contra Aula.capacidadAula).
+model TurnoAlumno {
+  turnoId  String
+  alumnoId String
+
+  turno  Turno  @relation(fields: [turnoId], references: [idTurno], onDelete: Cascade)
+  alumno Alumno @relation(fields: [alumnoId], references: [idAlumno], onDelete: Cascade)
+
+  @@id([turnoId, alumnoId])
+  @@map("turno_alumno")
 }

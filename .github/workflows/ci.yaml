@@ -1,0 +1,46 @@
+name: CI - Noctium
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    env:
+      # El paso "Generar cliente de Prisma" corre `npx prisma generate` de forma
+      # explícita, y `prisma.config.ts` exige DATABASE_URL seteada (aunque no
+      # exista la base) para no fallar con PrismaConfigEnvError — prisma generate
+      # no abre conexión real, solo necesita el formato de connection string.
+      DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Revisar código (Lint)
+        run: npm run lint
+
+      - name: Cache de Next.js
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Generar cliente de Prisma
+        run: npx prisma generate
+
+      - name: Compilar proyecto (Build)
+        run: npm run build

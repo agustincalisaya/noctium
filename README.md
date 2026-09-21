@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Noctium
 
-## Getting Started
+Sistema de gestión de un centro de atención académica (turnos de apoyo escolar). Proyecto de la materia Ingeniería de Software.
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · TypeScript · PostgreSQL · Prisma · NextAuth v5 (Credentials, sesión JWT) · Tailwind CSS v4 · Docker.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Puesta en marcha
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Requisitos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Node.js 20.9 o superior y npm.
+- Docker (con Docker Compose) para la base de datos.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Pasos
 
-## Learn More
+1. **Clonar el repositorio**
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   git clone <url-del-repo>
+   cd noctium
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Configurar las variables de entorno**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   cp .env.example .env
+   ```
 
-## Deploy on Vercel
+   Completar los valores en `.env`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   - `DATABASE_URL`: si usás el `docker-compose.yml` del repo, es
+     `postgresql://noctium:noctium@localhost:5433/noctium_dev`
+     (usuario `noctium`, contraseña `noctium`, base `noctium_dev`, puerto `5433` del host).
+   - `AUTH_SECRET`: generarlo con `npx auth secret` (o cualquier string aleatorio largo).
+   - `AUTH_URL`: opcional, solo si se corre con `next start` en vez de `next dev`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. **Levantar PostgreSQL con Docker**
+
+   ```bash
+   docker compose up -d
+   ```
+
+   Levanta el servicio `db` (contenedor `noctium_db`, Postgres 16) con los datos persistidos en el volumen `postgres_data`.
+
+4. **Instalar dependencias**
+
+   ```bash
+   npm install
+   ```
+
+5. **Aplicar las migraciones**
+
+   ```bash
+   npx prisma migrate dev
+   ```
+
+   Crea las tablas en la base y genera el cliente de Prisma.
+
+6. **Generar el cliente de Prisma** (solo si hace falta, por ejemplo si `@prisma/client` no encuentra los tipos)
+
+   ```bash
+   npx prisma generate
+   ```
+
+7. **Levantar el servidor de desarrollo**
+
+   ```bash
+   npm run dev
+   ```
+
+   La app queda en [http://localhost:3000](http://localhost:3000) (redirige a `/login`).
+
+## Scripts
+
+| Comando | Descripción |
+| --- | --- |
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Build de producción |
+| `npm run start` | Servidor de producción (requiere `AUTH_URL`, ver `.env.example`) |
+| `npm run lint` | ESLint |
+| `npx tsc --noEmit` | Chequeo de tipos |
