@@ -10,10 +10,17 @@ Estas reglas son de cumplimiento obligatorio en todo el código de Noctium. Toda
 ## Regla N.° 1 — Prohibido el borrado físico (`DELETE`)
 Ninguna entidad del dominio se elimina con `DELETE`. Toda "baja" es una actualización lógica: `is_active: false`, `deleted_at: DateTime`, `deleted_by: <usuario_id>`, `deletion_reason: string`. Cada spec de módulo define cuándo `deletion_reason` es obligatorio (p. ej. condicionado a que la entidad tenga turnos, pagos o historial activo asociado). Los registros dados de baja se preservan siempre — turnos pasados, pagos, historial académico nunca se pierden.
 
-## Regla N.° 2 — Auditoría inmutable encadenada
-Toda mutación sensible (altas, bajas lógicas, ediciones, transiciones de estado) emite un evento de dominio, consumido de forma **asíncrona** por el módulo de Sesión/Seguridad (A) para construir un `AuditLog` encadenado por hash (SHA-256 sobre `payload + hash_anterior`). Ningún servicio de negocio escribe `AuditLog` de forma directa o sincrónica.
+## Regla N.° 2 — Trazabilidad de mutaciones sensibles
+Toda mutación sensible (alta, baja lógica, edición, transición de estado) registra de forma verificable **qué** ocurrió, **cuándo** y **quién** la realizó. El mecanismo se elige por caso, sin necesidad de infraestructura de eventos asíncrona ni encadenamiento por hash:
 
-**Regla de emisión:** el evento se publica **después** de que `prisma.$transaction` resuelva exitosamente — nunca dentro de la transacción, para no acoplar el commit de datos a un consumidor lento.
+- **(a) Columnas de auditoría en la propia entidad** (`created_at`, `creado_por_usuario_id`, `updated_at`, etc.) — patrón por defecto cuando la trazabilidad requerida es la del ciclo de vida normal del registro (quién y cuándo lo creó/modificó).
+- **(b) Escritura directa y síncrona a una tabla de eventos por dominio** — cuando se necesita registrar múltiples eventos discretos sobre la misma entidad a lo largo del tiempo (intentos, cambios de estado repetibles, eventos de seguridad). Ver `EventoSeguridad` (módulo A) como patrón de referencia.
+
+La escritura ocurre **después** de que `prisma.$transaction` resuelva exitosamente cuando el registro de trazabilidad es una tabla separada (opción b) — nunca dentro de la misma transacción de negocio, para no acoplar el commit de datos a una escritura secundaria. Cuando la trazabilidad es parte de la propia fila (opción a), se persiste en la misma operación.
+
+Cada spec de módulo indica cuál de las dos opciones usa y por qué, como parte de su documentación normal — no hace falta una nota de excepción cada vez que se elige (a) por sobre (b) o viceversa.
+
+> Nota de historial: esta regla reemplaza una versión anterior que exigía un event bus asíncrono y un `AuditLog` encadenado por hash SHA-256. Se ajustó porque ningún requisito externo (cátedra/PO) pedía ese nivel de garantía, y los primeros módulos implementados (A y L) ya habían resuelto la trazabilidad de forma efectiva con columnas de auditoría y escritura directa. Decisión de equipo, revisada a partir de la implementación real.
 
 ## Regla N.° 3 — Aislamiento de dominio entre módulos
 Un módulo no valida ni consulta directamente tablas internas de otro módulo. La comunicación entre módulos ocurre exclusivamente vía: (a) eventos de dominio, o (b) llamadas explícitas a la capa de servicios **pública** del otro módulo. Ejemplo: Pagos (I) no valida un Turno (C) leyendo su tabla — invoca el servicio público de Turnos o reacciona a su evento.
@@ -48,4 +55,3 @@ Ninguna clave, secreto o credencial se hardcodea. Toda credencial (`NEXTAUTH_SEC
 
 ## Regla N.° 10 — RBAC granular por acción
 Toda ruta protegida requiere sesión autenticada (NextAuth) y verificación de permiso granular por acción (`withPermission("<modulo>:<accion>")`), nunca solo por rol genérico. La matriz de permisos por rol (mesa de entradas, profesor, gerente, alumno) se documenta y mantiene junto a `spec_modulo_A.md`.
-
