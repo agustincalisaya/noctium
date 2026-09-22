@@ -40,16 +40,16 @@ export async function registrarIntentoFallido(email: string, ip: string): Promis
 }
 
 async function registrarEventoSeguridad(params: {
-  tipo: "LOGIN_EXITOSO" | "LOGIN_FALLIDO" | "CUENTA_INACTIVA_RECHAZADA";
+  tipo: "LOGIN_EXITOSO" | "LOGIN_FALLIDO" | "CUENTA_INACTIVA_RECHAZADA" | "LOGOUT";
   usuarioId: string | null;
-  email: string;
+  email?: string;
   ip: string;
 }): Promise<void> {
   await prisma.eventoSeguridad.create({
     data: {
       tipoEvento: params.tipo,
       usuarioId: params.usuarioId,
-      emailEvento: params.email,
+      emailEvento: params.email ?? null,
       ipEvento: params.ip,
     },
   });
@@ -103,4 +103,36 @@ export async function verificarCredenciales(
   });
 
   return { id: usuario.idUsuario, rol: usuario.rolUsuario };
+}
+
+/**
+ * Cierra sesión (spec_modulo_A.md §2.3). `exp` es el vencimiento original
+ * del token que se está cerrando (no `now + algo`) — no es parte de la
+ * firma que propone HU-A-03.md §4.2 (`jti, usuarioId, ip`), pero el
+ * comportamiento exigido ahí mismo ("expira_en igual al exp original") no
+ * se puede resolver sin conocerlo, así que se agrega como 4to parámetro.
+ *
+ * Si el INSERT falla (error de comunicación con la base), igual se
+ * responde éxito al caller: no se reintenta en segundo plano (nota de
+ * sincronización, spec_modulo_A.md §2.3) — el respaldo es que el token de
+ * todos modos deja de ser válido al vencer naturalmente (máx.
+ * SESION_INACTIVIDAD_MIN).
+ */
+export async function cerrarSesion(
+  jti: string,
+  usuarioId: string,
+  ip: string,
+  exp: number,
+): Promise<{ revocado: boolean }> {
+  try {
+    await prisma.tokenRevocado.create({
+      data: { jti, usuarioId, expiraEn: new Date(exp * 1000) },
+    });
+  } catch (error) {
+    console.error("cerrarSesion: no se pudo insertar en TokenRevocado", error);
+  }
+
+  await registrarEventoSeguridad({ tipo: "LOGOUT", usuarioId, ip });
+
+  return { revocado: true };
 }

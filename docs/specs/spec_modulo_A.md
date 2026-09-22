@@ -131,6 +131,12 @@ export type CredencialesLoginInput = z.infer<typeof CredencialesLoginSchema>;
 { "data": { "revocado": true }, "error": null }
 ```
 
+**Nota de sincronización (HU-A-03, resuelta):**
+- **Sin reintento explícito en segundo plano:** el paso 4 de arriba ("se reintenta la revocación en segundo plano") queda simplificado — si el `INSERT` en `TokenRevocado` falla, se loguea el error y no se reintenta. El respaldo es el mismo que ya describe el punto 4: el token deja de ser válido al vencer naturalmente (máx. `SESION_INACTIVIDAD_MIN`, 30min), que acota el daño lo suficiente para no justificar una cola/retry en este sprint.
+- **`TokenRevocado` sin purga — deuda conocida:** no hay job de limpieza de filas vencidas (`expiraEn < now`) en Sprint 1. Cada logout agrega una fila permanente; la tabla crece sin límite mientras no exista ese job. No es un defecto de HU-A-03 (explícitamente fuera de su alcance) sino trabajo pendiente a programar en un sprint futuro — se deja anotado acá para que no se pierda.
+- **Logout sin sesión vigente:** `POST /api/auth/logout` tolera llamarse sin cookie/sesión válida y responde `200 { revocado: true }` igual (no `401`) — no hay nada que revocar, y el objetivo del cliente (no seguir logueado) ya está cumplido. Un `401` acá sería un error técnico sin nada accionable para el cliente, en contra del espíritu del criterio HU-A-03 §6.
+- **`jti` nunca sale de la capa server-side:** para revocar hace falta el `jti` crudo del token, que `callbacks.session` oculta a propósito (HU-A-02). Se resuelve con `getToken()` de `next-auth/jwt` sobre el mismo `decode` HS256 custom — nunca se relaja la regla de HU-A-02 de no exponer `jti` al cliente.
+
 ---
 
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)

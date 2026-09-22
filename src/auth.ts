@@ -47,7 +47,26 @@ export class ErrorRateLimitExcedido extends CredentialsSignin {
   code = "RATE_LIMIT_EXCEDIDO";
 }
 
-function obtenerIp(request: Request): string {
+/**
+ * Extraída como función nombrada (no inline en `jwt.decode`) para que
+ * `app/api/auth/logout/route.ts` pueda leer el `jti`/`exp` crudos del
+ * token vía `getToken()` de next-auth — `callbacks.session` los oculta a
+ * propósito del cliente (HU-A-02), pero el logout los necesita server-side
+ * para revocar. Mismo comportamiento, ahora reutilizable.
+ */
+export async function decodificarToken({ token }: { token?: string }): Promise<JWT | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, getClaveHS256(), {
+      algorithms: ["HS256"],
+    });
+    return payload as JWT;
+  } catch {
+    return null;
+  }
+}
+
+export function obtenerIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) return forwardedFor.split(",")[0]!.trim();
   return request.headers.get("x-real-ip") ?? "unknown";
@@ -92,17 +111,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         .setProtectedHeader({ alg: "HS256" })
         .sign(getClaveHS256());
     },
-    async decode({ token }) {
-      if (!token) return null;
-      try {
-        const { payload } = await jwtVerify(token, getClaveHS256(), {
-          algorithms: ["HS256"],
-        });
-        return payload as JWT;
-      } catch {
-        return null;
-      }
-    },
+    decode: decodificarToken,
   },
   cookies: {
     sessionToken: {
