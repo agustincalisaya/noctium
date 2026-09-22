@@ -75,6 +75,20 @@ Sistema de gestión de un centro de atención académica (turnos de apoyo escola
 
    La app queda en [http://localhost:3000](http://localhost:3000) (redirige a `/login`).
 
+## Seguridad — HTTPS en despliegue
+
+Toda la superficie de autenticación (`/login`, `/api/auth/*` y cualquier endpoint
+que reciba la contraseña) debe servirse exclusivamente sobre HTTPS con TLS 1.2
+o superior (RNF-SEG-01). La contraseña nunca viaja en URL/query params.
+
+- **Local (`next dev` con Docker):** no se exige HTTPS — `localhost` está
+  exceptuado, y los navegadores modernos tratan `http://localhost` como origen
+  seguro a los efectos de cookies `Secure`.
+- **Cualquier entorno desplegado:** el servidor/proxy (reverse proxy, load
+  balancer, etc.) debe rechazar o redirigir a HTTPS todo tráfico HTTP plano
+  hacia estas rutas. Esto es responsabilidad de la configuración de
+  infraestructura del entorno de despliegue, no del código de la aplicación.
+
 ## Scripts
 
 | Comando | Descripción |

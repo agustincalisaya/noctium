@@ -18,5 +18,9 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     rol: RolUsuario;
+    /** Identificador único del token, para revocación (HU-A-03). */
+    jti: string;
+    /** Timestamp (segundos) de inicio de sesión — inmutable durante la renovación. */
+    iat_sesion: number;
   }
 }

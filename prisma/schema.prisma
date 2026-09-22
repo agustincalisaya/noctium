@@ -67,9 +67,15 @@ enum EstadoTurno {
   AGENDADO
 }
 
-// Eventos de seguridad a auditar (RNF-SEG-09): HU-A-03 c3 y HU-B-08 c9.
-// Los intentos de login fallidos tienen su propia tabla (IntentoLoginFallido).
+// Eventos de seguridad a auditar (RNF-SEG-09): HU-A-01 c3/c5, HU-A-03 c3 y HU-B-08 c9.
+// Los intentos de login fallidos tienen su propia tabla (IntentoLoginFallido);
+// LOGIN_FALLIDO igual se registra acá para dejar un rastro unificado de eventos
+// de seguridad, sin duplicar el conteo de rate limiting (que sigue viviendo
+// exclusivamente en IntentoLoginFallido).
 enum TipoEventoSeguridad {
+  LOGIN_EXITOSO
+  LOGIN_FALLIDO
+  CUENTA_INACTIVA_RECHAZADA
   LOGOUT
   REGISTRO_CUENTA
   VERIFICACION_CODIGO_EXITOSA
