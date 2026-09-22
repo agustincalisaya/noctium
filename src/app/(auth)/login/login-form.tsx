@@ -138,8 +138,12 @@ export function LoginForm() {
         </p>
       )}
 
-      <Button type="submit" disabled={pendiente} className="w-full">
-        {pendiente && <Loader2 className="size-4 animate-spin" aria-hidden />}
+      <Button 
+        type="submit" 
+        disabled={pendiente} 
+        className="w-full bg-gradient-to-tr from-cyan-800 to-cyan-500 text-white hover:opacity-90"
+      >
+        {pendiente && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />}
         Iniciar sesión
       </Button>
 

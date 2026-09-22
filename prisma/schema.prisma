@@ -302,6 +302,10 @@ model HorarioProfesor {
 model Materia {
   idMateria    String  @id @default(cuid())
   nombreMateria String @unique
+  // Comparación de unicidad case/acento-insensitiva (HU-L-01 criterio 3:
+  // "Matemática" == "matematica"), vía normalizarTexto() — el @unique de
+  // nombreMateria de arriba compara texto crudo, no alcanza para eso.
+  nombreNormalizadaMateria String @unique
   codigoMateria String? @unique
   activaMateria Boolean @default(true)
 
