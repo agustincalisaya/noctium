@@ -6,6 +6,7 @@ import { CredencialesLoginSchema } from "@/server/sesion/sesion.schema";
 import { verificarCredenciales } from "@/server/sesion/autenticacion.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
+import { calcularRenovacionSesion } from "@/server/sesion/renovacion.service";
 
 /**
  * NextAuth v5 con `strategy: "jwt"` emite por default un JWE cifrado
@@ -119,12 +120,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return !!auth?.user;
     },
     async jwt({ token, user }) {
-      // Rama de sign-in inicial exclusivamente (spec_modulo_A.md §2.2). La
-      // renovación deslizante en solicitudes subsecuentes es HU-A-02: fuera
-      // de alcance acá, así que en cualquier otra invocación el token vuelve
-      // sin tocarse.
+      const ahora = Math.floor(Date.now() / 1000);
+
       if (user) {
-        const ahora = Math.floor(Date.now() / 1000);
+        // Rama de sign-in inicial (spec_modulo_A.md §2.1/§2.2).
         const inactividadMin = await getParametroNumerico("sesion_inactividad_minutos", 30);
 
         token.id = user.id as string;
@@ -133,13 +132,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.iat_sesion = ahora;
         token.iat = ahora;
         token.exp = ahora + inactividadMin * 60;
+        return token;
+      }
+
+      // Rama de renovación deslizante (HU-A-02, spec_modulo_A.md §2.2): solo
+      // se ejecuta cuando ya hay un token entrante con `exp`/`iat_sesion`
+      // (nunca en la rama de sign-in). Si no corresponde renovar, el token
+      // vuelve intacto — su `exp` ya vencido (o el tope de 8h alcanzado) es
+      // lo que hace que decode()/auth() lo traten como sesión inválida.
+      if (typeof token.exp === "number" && typeof token.iat_sesion === "number") {
+        const [inactividadMin, maximaHoras] = await Promise.all([
+          getParametroNumerico("sesion_inactividad_minutos", 30),
+          getParametroNumerico("sesion_duracion_maxima_horas", 8),
+        ]);
+        const resultado = calcularRenovacionSesion(
+          { exp: token.exp, iat_sesion: token.iat_sesion },
+          ahora,
+          inactividadMin,
+          maximaHoras,
+        );
+        if (resultado.renovar) {
+          token.exp = resultado.exp;
+          token.iat = resultado.iat;
+        }
       }
       return token;
     },
     session({ session, token }) {
-      // Nunca expone password_hash ni otro dato sensible (spec_modulo_A.md §2.2).
+      // Nunca expone password_hash, jti ni otro dato sensible/de control
+      // interno (spec_modulo_A.md §2.2).
       session.user.id = token.id;
       session.user.rol = token.rol;
+      // Por default, `expires` viene de `session.maxAge` (30 días fijos de
+      // next-auth), no del `exp` real del token — se pisa acá para que el
+      // cliente pueda calcular el aviso de expiración próxima (HU-A-02
+      // criterio 4) contra el vencimiento verdadero de 30 min.
+      // El tipo de `session.expires` en la firma del callback de next-auth
+      // es una intersección `Date & string` (mezcla las variantes "database"
+      // y "jwt" de la config) — en runtime, con strategy "jwt", siempre es
+      // el string ISO que espera el cliente; el cast puntual evita pelear
+      // contra ese tipo imposible sin tocar el resto del objeto.
+      if (typeof token.exp === "number") {
+        (session as { expires: string }).expires = new Date(token.exp * 1000).toISOString();
+      }
       return session;
     },
   },

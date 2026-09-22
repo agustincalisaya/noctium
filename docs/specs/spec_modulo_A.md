@@ -98,6 +98,11 @@ export type CredencialesLoginInput = z.infer<typeof CredencialesLoginSchema>;
 
 **Aviso de expiración próxima (criterio §4):** resuelto client-side comparando `exp` del JWT decodificado (expuesto de forma no sensible vía `session.expires`) contra la hora actual; "Continuar sesión" dispara una solicitud liviana (ping autenticado) que fuerza la renovación de `callbacks.jwt` sin recargar la página.
 
+**Nota de sincronización (HU-A-02, resuelta):**
+- El paso 2 de `withPermission()` (verificación contra `TokenRevocado`) queda **stubbeado** (comentario `TODO(HU-A-03)`, sin lógica real) hasta que HU-A-03 exista — `TokenRevocado` está creada en el schema pero HU-A-02 no la consulta ni la llena, para no adelantar lógica de una HU no implementada todavía.
+- La matriz `RolPermiso` se puebla **incremental, módulo por módulo**: HU-A-02 solo siembra `"sesion:ping"` (los 4 roles), necesaria para probar el propio middleware. Cada módulo futuro (`turno:crear`, `alumno:editar`, etc.) agrega sus propias filas cuando implemente su HU — sin volver a tocar esta capa.
+- El umbral de aviso (`session_aviso_anticipado_minutos`) y los de renovación/tope ya viven en `ParametroSistema` (no hardcodeados), sembrados por `prisma/seed.ts`.
+
 **Respuesta `401`:**
 ```json
 { "data": null, "error": { "code": "SESION_INVALIDA", "message": "Tu sesión expiró. Iniciá sesión nuevamente" } }
