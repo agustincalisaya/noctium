@@ -62,7 +62,12 @@ Sistema de gestión de un centro de atención académica (turnos de apoyo escola
    npx prisma generate
    ```
 
-7. **Levantar el servidor de desarrollo**
+7. **Cargar la BDD con la seed**
+   ```bash
+   npx prisma db seed
+   ```
+
+8. **Levantar el servidor de desarrollo**
 
    ```bash
    npm run dev
