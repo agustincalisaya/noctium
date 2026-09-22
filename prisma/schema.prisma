@@ -10,10 +10,18 @@
 // identifica la tabla referenciada y es el esperado por Prisma.
 //
 // IMPORTANTE: este schema modela ÚNICAMENTE el alcance de Sprint 1.
-// No incluye: Pago, historial académico/exámenes, personal de mesa
-// de entrada, gerente, prioridad/forma de pago del turno, ni
-// desactivación (soft delete) de ninguna entidad — todo eso
-// corresponde a los DER de Sprint 2 / Sprint 3.
+// No incluye: Pago, historial académico/exámenes, prioridad/forma
+// de pago del turno, ni baja/reactivación de entidades (los flags
+// activo/activa existen, pero ninguna HU de Sprint 1 los modifica)
+// — todo eso corresponde a los DER de Sprint 2 / Sprint 3.
+//
+// Auditoría (creadoPorUsuarioId / modificadoPorUsuarioId): se modelan
+// como campos escalares SIN @relation a Usuario. Una relación explícita
+// obligaría a declarar en Usuario un campo inverso por cada una (con
+// nombres de relación únicos), ensuciando el modelo; además la auditoría
+// solo se escribe al alta/modificación y se lee por id, y sin FK borrar
+// un Usuario no bloquea ni arrastra el historial. La integridad de esos
+// ids la garantiza la aplicación.
 // ============================================================
 
 generator client {
@@ -32,13 +40,16 @@ datasource db {
 enum RolUsuario {
   ALUMNO
   PROFESOR
+  GERENTE
+  MESA_ENTRADA
 }
 
-enum FormaPago {
-  EFECTIVO
-  TRANSFERENCIA
-  DEBITO
-  MERCADO_PAGO
+// Catálogo de género (HU-B-01 / HU-D-01): sin texto libre.
+enum Genero {
+  MASCULINO
+  FEMENINO
+  OTRO
+  PREFIERO_NO_INDICARLO
 }
 
 enum DiaSemana {
@@ -51,11 +62,18 @@ enum DiaSemana {
   DOMINGO
 }
 
-// Duración del turno, restringida a 1, 2 o 3 horas (HU-C-03 / punto 14 del DER)
-enum DuracionTurno {
-  UNA_HORA
-  DOS_HORAS
-  TRES_HORAS
+enum EstadoTurno {
+  PENDIENTE
+  AGENDADO
+}
+
+// Eventos de seguridad a auditar (RNF-SEG-09): HU-A-03 c3 y HU-B-08 c9.
+// Los intentos de login fallidos tienen su propia tabla (IntentoLoginFallido).
+enum TipoEventoSeguridad {
+  LOGOUT
+  REGISTRO_CUENTA
+  VERIFICACION_CODIGO_EXITOSA
+  VERIFICACION_CODIGO_FALLIDA
 }
 
 // ------------------------------------------------------------
@@ -70,6 +88,7 @@ model Usuario {
   emailUsuario     String     @unique
   passwordHashUsuario String
   rolUsuario       RolUsuario
+  activoUsuario    Boolean    @default(true)
   createdAtUsuario DateTime   @default(now())
   updatedAtUsuario DateTime   @updatedAt
 
@@ -79,35 +98,125 @@ model Usuario {
   @@map("usuarios")
 }
 
+// Lista de revocación de JWT (HU-A-02 / HU-A-03, RNF-SEG-04):
+// el jti se conserva hasta el vencimiento original del token.
+model TokenRevocado {
+  jti      String   @id
+  expiraEn DateTime
+
+  @@map("tokens_revocados")
+}
+
+// Bloqueo por intentos fallidos (HU-A-01 c4): 5 intentos del mismo
+// email desde la misma IP en 15 minutos. Nunca se guarda la contraseña.
+model IntentoLoginFallido {
+  idIntento       String   @id @default(cuid())
+  emailIntento    String
+  ipIntento       String
+  creadoEnIntento DateTime @default(now())
+
+  @@index([emailIntento, creadoEnIntento])
+  @@map("intentos_login_fallidos")
+}
+
+// Límite de registros por IP y hora (HU-B-08 c9).
+model IntentoRegistro {
+  idIntentoRegistro       String   @id @default(cuid())
+  ipIntentoRegistro       String
+  creadoEnIntentoRegistro DateTime @default(now())
+
+  @@index([ipIntentoRegistro, creadoEnIntentoRegistro])
+  @@map("intentos_registro")
+}
+
+// Registro de eventos de seguridad (RNF-SEG-09): fecha, hora, usuario e IP.
+// usuarioId es escalar sin relación (ver nota de auditoría en el encabezado).
+model EventoSeguridad {
+  idEvento       String              @id @default(cuid())
+  tipoEvento     TipoEventoSeguridad
+  usuarioId      String?
+  emailEvento    String?
+  ipEvento       String
+  creadoEnEvento DateTime            @default(now())
+
+  @@index([creadoEnEvento])
+  @@map("eventos_seguridad")
+}
+
+// ------------------------------------------------------------
+// Forma de pago — catálogo activable (HU-B-03)
+// ------------------------------------------------------------
+
+model FormaPago {
+  idFormaPago     String  @id @default(cuid())
+  nombreFormaPago String  @unique
+  activaFormaPago Boolean @default(true)
+
+  alumnos Alumno[]
+
+  @@map("formas_pago")
+}
+
 // ------------------------------------------------------------
 // Alumno (HU-B-01, HU-B-02, HU-B-03, HU-B-04, HU-B-06, HU-B-08)
 // ------------------------------------------------------------
 
 model Alumno {
-  idAlumno  String @id @default(cuid())
-  usuarioId String @unique
+  idAlumno     String  @id @default(cuid())
+  // Opcional: HU-B-01 permite fichas sin cuenta; HU-B-08 vincula la cuenta después.
+  usuarioId    String? @unique
+  activoAlumno Boolean @default(true)
 
   // Datos de identidad (HU-B-01)
   nombreAlumno   String
   apellidoAlumno String
   dniAlumno      String @unique
+  fechaNacimientoAlumno DateTime @db.Date
+  generoAlumno   Genero?
 
-  // Datos de contacto (HU-B-02)
-  telefonoAlumno  String
-  emailAlumno     String
+  // Datos de contacto (HU-B-02) — al menos uno es obligatorio, validado en la app.
+  telefonoAlumno  String?
+  emailAlumno     String?
   direccionAlumno String?
 
-  // Forma de pago preferida (HU-B-03) — solo dato informativo en Sprint 1,
-  // sin tabla catálogo ni integración real con Mercado Pago todavía.
-  formaPagoPreferidaAlumno FormaPago
+  // Forma de pago preferida (HU-B-03) — null = "Sin preferencia".
+  formaPagoPreferidaId String?
+
+  // Aceptación de términos en el autorregistro (HU-B-08 c7)
+  terminosAceptadosEn     DateTime?
+  versionTerminosAceptada String?
+
+  // Auditoría (escalares sin relación, ver encabezado). modificadoPor: HU-B-06.
+  creadoPorUsuarioId     String?
+  modificadoPorUsuarioId String?
 
   createdAtAlumno DateTime @default(now())
   updatedAtAlumno DateTime @updatedAt
 
-  usuario Usuario       @relation(fields: [usuarioId], references: [idUsuario], onDelete: Cascade)
-  turnos  TurnoAlumno[]
+  usuario             Usuario?             @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
+  formaPagoPreferida  FormaPago?           @relation(fields: [formaPagoPreferidaId], references: [idFormaPago])
+  turnos              TurnoAlumno[]
+  codigosVerificacion CodigoVerificacion[]
 
   @@map("alumnos")
+}
+
+// Código de verificación del autorregistro sobre una ficha existente
+// sin cuenta (HU-B-08 c4). Solo se guarda el HMAC-SHA256 del código.
+// invalidadoEn: marca de un solo uso / invalidado por un código nuevo; las
+// filas se conservan para contar reenvíos por hora y la espera entre reenvíos.
+model CodigoVerificacion {
+  idCodigo    String    @id @default(cuid())
+  alumnoId    String
+  codigoHash  String
+  expiraEn    DateTime
+  intentos    Int       @default(0)
+  invalidadoEn DateTime?
+  creadoEn    DateTime  @default(now())
+
+  alumno Alumno @relation(fields: [alumnoId], references: [idAlumno], onDelete: Cascade)
+
+  @@map("codigos_verificacion")
 }
 
 // ------------------------------------------------------------
@@ -115,23 +224,30 @@ model Alumno {
 // ------------------------------------------------------------
 
 model Profesor {
-  idProfesor String @id @default(cuid())
-  usuarioId  String @unique
+  idProfesor     String  @id @default(cuid())
+  // Opcional: registrar la ficha NO crea una cuenta (HU-D-01 c5).
+  usuarioId      String? @unique
+  activoProfesor Boolean @default(true)
 
   // Datos de identidad (HU-D-01)
   nombreProfesor   String
   apellidoProfesor String
   dniProfesor      String @unique
+  fechaNacimientoProfesor DateTime @db.Date
+  generoProfesor   Genero?
 
-  // Datos de contacto (HU-D-02)
-  telefonoProfesor  String
-  emailProfesor     String
+  // Datos de contacto (HU-D-02) — al menos uno es obligatorio, validado en la app.
+  telefonoProfesor  String?
+  emailProfesor     String?
   direccionProfesor String?
+
+  // Auditoría (escalar sin relación, ver encabezado)
+  creadoPorUsuarioId String?
 
   createdAtProfesor DateTime @default(now())
   updatedAtProfesor DateTime @updatedAt
 
-  usuario  Usuario           @relation(fields: [usuarioId], references: [idUsuario], onDelete: Cascade)
+  usuario  Usuario?          @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
   materias ProfesorMateria[] // HU-D-03: materias/especialidades asociadas
   horarios HorarioProfesor[] // HU-D-04: horario de atención
   turnos   Turno[]
@@ -148,6 +264,10 @@ model HorarioProfesor {
   horaDesdeHorario DateTime  @db.Time
   horaHastaHorario DateTime  @db.Time
 
+  // Auditoría (HU-D-04 c6: "registra fecha y usuario")
+  createdAtHorario   DateTime @default(now())
+  creadoPorUsuarioId String?
+
   profesor Profesor @relation(fields: [profesorId], references: [idProfesor], onDelete: Cascade)
 
   @@map("horarios_profesor")
@@ -161,6 +281,11 @@ model Materia {
   idMateria    String  @id @default(cuid())
   nombreMateria String @unique
   codigoMateria String? @unique
+  activaMateria Boolean @default(true)
+
+  // Auditoría (escalar sin relación, ver encabezado)
+  createdAtMateria   DateTime @default(now())
+  creadoPorUsuarioId String?
 
   profesores ProfesorMateria[]
   turnos     Turno[]
@@ -188,6 +313,11 @@ model Aula {
   idAula       String @id @default(cuid())
   nombreAula   String @unique // nombre o número de aula
   capacidadAula Int
+  activaAula   Boolean @default(true)
+
+  // Auditoría (escalar sin relación, ver encabezado)
+  createdAtAula      DateTime @default(now())
+  creadoPorUsuarioId String?
 
   turnos Turno[]
 
@@ -203,18 +333,25 @@ model Turno {
   idTurno       String        @id @default(cuid())
   fechaTurno    DateTime      @db.Date
   horaInicioTurno DateTime    @db.Time
-  duracionTurno DuracionTurno
+  // Duración vigente al crear el turno (HU-C-03 c3: duración estándar del
+  // centro). Se guarda en el turno para que cambiar el parámetro no altere
+  // los turnos ya creados.
+  duracionMinutosTurno Int
+  estadoTurno   EstadoTurno   @default(PENDIENTE)
 
   materiaId  String
-  profesorId String
-  aulaId     String
+  profesorId String?
+  aulaId     String?
+
+  // Auditoría (escalar sin relación, ver encabezado)
+  creadoPorUsuarioId String?
 
   createdAtTurno DateTime @default(now())
   updatedAtTurno DateTime @updatedAt
 
   materia  Materia       @relation(fields: [materiaId], references: [idMateria])
-  profesor Profesor      @relation(fields: [profesorId], references: [idProfesor])
-  aula     Aula          @relation(fields: [aulaId], references: [idAula])
+  profesor Profesor?     @relation(fields: [profesorId], references: [idProfesor])
+  aula     Aula?         @relation(fields: [aulaId], references: [idAula])
   alumnos  TurnoAlumno[]
 
   @@map("turnos")
@@ -232,4 +369,15 @@ model TurnoAlumno {
 
   @@id([turnoId, alumnoId])
   @@map("turno_alumno")
+}
+
+// ------------------------------------------------------------
+// Parámetros configurables del centro (clave/valor como texto)
+// ------------------------------------------------------------
+
+model ParametroSistema {
+  clave String @id
+  valor String
+
+  @@map("parametros_sistema")
 }
