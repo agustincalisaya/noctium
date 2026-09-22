@@ -113,6 +113,20 @@ model TokenRevocado {
   @@map("tokens_revocados")
 }
 
+// Matriz RBAC (HU-A-02, Regla N.° 10 de docs/RULES.md): rol -> acción
+// habilitada. Se puebla de forma incremental, módulo por módulo, a medida
+// que cada uno define sus propias acciones (ver nota de sincronización en
+// spec_modulo_A.md) — HU-A-02 solo deja el mecanismo con "sesion:ping".
+model RolPermiso {
+  idPermiso       String     @id @default(cuid())
+  rolPermiso      RolUsuario
+  accionPermiso   String
+  creadoEnPermiso DateTime   @default(now())
+
+  @@unique([rolPermiso, accionPermiso])
+  @@map("roles_permisos")
+}
+
 // Bloqueo por intentos fallidos (HU-A-01 c4): 5 intentos del mismo
 // email desde la misma IP en 15 minutos. Nunca se guarda la contraseña.
 model IntentoLoginFallido {
