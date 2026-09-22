@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 
-// TODO: alinear a costo 12 (RNF-SEG-02) cuando se implemente HU-A-01/HU-B-08
-const SALT_ROUNDS = 10;
+// Factor de costo 12 (RNF-SEG-02, HU-Sprint-1.md HU-B-08 c2).
+const SALT_ROUNDS = 12;
 
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
