@@ -14,11 +14,23 @@ import { getParametroNumerico } from "@/server/shared/parametros";
  * "JWT HS256", así que se reemplaza encode/decode por una firma HS256
  * real vía `jose`, en vez de confiar en el default de la librería.
  */
-const AUTH_SECRET = process.env.AUTH_SECRET;
-if (!AUTH_SECRET) {
-  throw new Error("Falta la variable de entorno AUTH_SECRET (docs/RULES.md Regla N.° 9)");
+// Validación lazy (no a nivel de módulo): `next build` importa este archivo
+// para recolectar metadata de rutas (p. ej. `/login`, `/api/auth/[...nextauth]`)
+// sin necesitar el valor real de AUTH_SECRET — un `throw` en el scope del
+// módulo rompería ese paso del build aunque la ruta nunca se renderice.
+// Se resuelve y memoiza recién cuando algo intenta firmar/verificar un JWT
+// de verdad (primer login, primera lectura de sesión), preservando la
+// Regla N.° 9 de docs/RULES.md: sigue fallando fuerte, solo que en runtime.
+let claveHS256Cache: Uint8Array | undefined;
+function getClaveHS256(): Uint8Array {
+  if (claveHS256Cache) return claveHS256Cache;
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    throw new Error("Falta la variable de entorno AUTH_SECRET (docs/RULES.md Regla N.° 9)");
+  }
+  claveHS256Cache = new TextEncoder().encode(secret);
+  return claveHS256Cache;
 }
-const claveHS256 = new TextEncoder().encode(AUTH_SECRET);
 
 // Códigos de error recuperables desde el Server Action de login (spec_modulo_A.md §2.1).
 // CredentialsSignin.code viaja en la excepción cuando signIn() se invoca desde un
@@ -77,12 +89,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async encode({ token }) {
       return new SignJWT(token as Record<string, unknown>)
         .setProtectedHeader({ alg: "HS256" })
-        .sign(claveHS256);
+        .sign(getClaveHS256());
     },
     async decode({ token }) {
       if (!token) return null;
       try {
-        const { payload } = await jwtVerify(token, claveHS256, {
+        const { payload } = await jwtVerify(token, getClaveHS256(), {
           algorithms: ["HS256"],
         });
         return payload as JWT;
