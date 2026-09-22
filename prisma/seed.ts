@@ -619,7 +619,8 @@ async function main() {
   // sesión está habilitado para los 4 roles (docs/specs/spec_modulo_A.md,
   // nota de sincronización HU-A-02). "materias:crear" es la primera acción
   // real de un módulo de negocio (HU-L-01) — exclusiva de Gerente
-  // (spec_modulo_L.md §2.1).
+  // (spec_modulo_L.md §2.1). "alumnos:crear" (HU-B-01) es exclusiva de Mesa
+  // de Entrada (spec_modulo_B.md §2.1).
   const ROLES: RolUsuario[] = ["MESA_ENTRADA", "PROFESOR", "GERENTE", "ALUMNO"];
   for (const rol of ROLES) {
     await prisma.rolPermiso.upsert({
@@ -633,8 +634,13 @@ async function main() {
     update: {},
     create: { rolPermiso: "GERENTE", accionPermiso: "materias:crear" },
   });
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" } },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" },
+  });
   console.log(
-    `✓ ${ROLES.length + 1} permisos RBAC creados (sesion:ping para los 4 roles, materias:crear para Gerente)`,
+    `✓ ${ROLES.length + 2} permisos RBAC creados (sesion:ping para los 4 roles, materias:crear para Gerente, alumnos:crear para Mesa de Entrada)`,
   );
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
