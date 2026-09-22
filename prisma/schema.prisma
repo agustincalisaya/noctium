@@ -107,8 +107,10 @@ model Usuario {
 // Lista de revocación de JWT (HU-A-02 / HU-A-03, RNF-SEG-04):
 // el jti se conserva hasta el vencimiento original del token.
 model TokenRevocado {
-  jti      String   @id
-  expiraEn DateTime
+  jti               String   @id
+  usuarioId         String?
+  expiraEn          DateTime
+  creadoEnRevocado  DateTime @default(now())
 
   @@map("tokens_revocados")
 }

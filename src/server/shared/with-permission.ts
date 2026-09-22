@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import type { NextAuthRequest } from "next-auth";
-import { auth } from "@/auth";
+import { auth, decodificarToken } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import type { RolUsuario } from "@prisma/client";
+
+// Nombre de la cookie de sesión: next-auth decide el prefijo `__Secure-`
+// mirando el protocolo de la request actual (`url.protocol === "https:"`,
+// @auth/core/lib/init.js), no la config estática de `cookies.sessionToken`
+// — así que en local (http) NUNCA lleva el prefijo aunque `secure: true`
+// esté seteado, y en cualquier entorno servido por https sí lo lleva. Hay
+// que aceptar los dos nombres en vez de asumir uno (esto rompió en la
+// primera prueba real: `getToken({ secureCookie: true })` fuerza el nombre
+// con prefijo y no encuentra nada en dev).
+const NOMBRE_COOKIE_SESION = "authjs.session-token";
+const NOMBRE_COOKIE_SESION_SECURE = "__Secure-authjs.session-token";
 
 // next-auth no exporta `AppRouteHandlerFnContext` desde un subpath público
 // (`next-auth/lib/types` no está en su `package.json#exports`) — se replica
@@ -25,11 +37,45 @@ export class PermisoError extends Error {
   }
 }
 
+/**
+ * Lee y decodifica el JWT crudo de la cookie de sesión vigente (claims
+ * como `jti`/`exp` que `callbacks.session` nunca expone al cliente, ver
+ * HU-A-02): toma la cookie directamente vía `cookies()` de `next/headers`
+ * (funciona igual en Route Handlers, Server Actions y Server Components) y
+ * la decodifica con el mismo `decode` HS256 custom de `@/auth` — sin pasar
+ * por `getToken()`, que fuerza a adivinar el nombre exacto de la cookie.
+ * Reutilizada por `app/api/auth/logout/route.ts` (necesita `exp` además
+ * de `jti`, para poder revocar hasta el vencimiento original — HU-A-03).
+ */
+export async function leerTokenSesion() {
+  const jar = await cookies();
+  const raw =
+    jar.get(NOMBRE_COOKIE_SESION_SECURE)?.value ?? jar.get(NOMBRE_COOKIE_SESION)?.value;
+  if (!raw) return null;
+  return decodificarToken({ token: raw });
+}
+
+async function leerJti(): Promise<string | undefined> {
+  const token = await leerTokenSesion();
+  return token?.jti;
+}
+
+/**
+ * Paso 2 de `withPermission()` (spec_modulo_A.md §2.2, HU-A-03 §4.4): un
+ * `jti` en `TokenRevocado` significa sesión cerrada explícitamente (logout)
+ * aunque el JWT en sí todavía no haya vencido por tiempo. Se devuelve el
+ * mismo código `SESION_INVALIDA` que un token vencido — el cliente no debe
+ * poder distinguir "vencido" de "revocado".
+ */
+async function verificarNoRevocado(jti: string | undefined): Promise<void> {
+  if (!jti) return;
+  const revocado = await prisma.tokenRevocado.findUnique({ where: { jti } });
+  if (revocado) {
+    throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
+  }
+}
+
 async function verificarRolPermiso(rol: RolUsuario, accion: string): Promise<void> {
-  // TODO(HU-A-03): acá también hay que rechazar si el jti del token está en
-  // TokenRevocado antes de confiar en la sesión — la tabla existe, pero
-  // HU-A-02 no la llena ni la consulta (decisión (a) del punto abierto,
-  // docs/tasks/Sprint 1/HU-A-02.md sección 1).
   const permiso = await prisma.rolPermiso.findUnique({
     where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: accion } },
   });
@@ -60,16 +106,23 @@ export async function verificarPermiso(
   if (!session?.user) {
     throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
   }
+
+  const jti = await leerJti();
+  // Orden no negociable (spec_modulo_A.md §2.2 / HU-A-03 §4.4): revocación
+  // antes que permiso, para que un token cerrado nunca llegue a evaluarse
+  // por RBAC.
+  await verificarNoRevocado(jti);
   await verificarRolPermiso(session.user.rol, accion);
   return { id: session.user.id, rol: session.user.rol };
 }
 
 /**
- * Envuelve un Route Handler con la verificación de sesión + permiso
- * (spec_modulo_A.md §2.2, RULES.md Regla N.° 10): 401 SESION_INVALIDA si no
- * hay sesión válida, 403 SIN_PERMISO si el rol no tiene `accion` en
- * RolPermiso, y agrega `Cache-Control: no-store` a toda respuesta (criterio
- * de aceptación 6 de HU-A-02).
+ * Envuelve un Route Handler con la verificación de sesión + revocación +
+ * permiso (spec_modulo_A.md §2.2, RULES.md Regla N.° 10): 401
+ * SESION_INVALIDA si no hay sesión válida o el token fue revocado
+ * (logout, HU-A-03), 403 SIN_PERMISO si el rol no tiene `accion` en
+ * RolPermiso, y agrega `Cache-Control: no-store` a toda respuesta
+ * (criterio de aceptación 6 de HU-A-02).
  *
  * Usa el wrapper `auth(handler)` — no `await auth()` suelto adentro del
  * handler — porque es la única forma en que next-auth reenvía al browser el
@@ -88,6 +141,8 @@ export function withPermission(
     }
 
     try {
+      const jti = await leerJti();
+      await verificarNoRevocado(jti);
       await verificarRolPermiso(session.user.rol, accion);
     } catch (error) {
       if (error instanceof PermisoError) return respuestaError(error);
