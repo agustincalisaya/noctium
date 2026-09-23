@@ -185,6 +185,12 @@ export function NuevoProfesorForm({
           >
             Cargar datos de contacto
           </Link>
+          <Link
+            href={`/profesores/horarios/nuevo?profesorId=${estado.profesorId}`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Registrar horario de atención
+          </Link>
           <Link href={`/profesores/${estado.profesorId}`} className={buttonVariants({ variant: "outline" })}>
             Ver ficha del profesor
           </Link>

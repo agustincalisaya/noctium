@@ -1,13 +1,32 @@
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type DiaSemana } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  HORA_REGEX,
+  diaSemanaDeFecha,
+  horaAMinutos,
+  intervaloContenido,
+  intervalosSeSuperponen,
+  minutosAHora,
+  validarIntervaloHorario,
+} from "@/lib/horario-atencion";
 import { ServiceError } from "@/server/shared/service-error";
+import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
 import type {
   ContactoProfesorInput,
   IdentidadProfesorInput,
 } from "@/server/profesores/profesor.schema";
-import type { MateriaDeProfesor } from "@/types/profesor.types";
+import type {
+  HorarioAtencion,
+  MateriaDeProfesor,
+  ProfesorActivoOpcion,
+} from "@/types/profesor.types";
+
+// Helper puro de superposición re-exportado para quien consuma el módulo D
+// desde el servidor (HU-C-04); vive en @/lib/horario-atencion para que
+// también lo pueda usar el cliente.
+export { intervalosSeSuperponen } from "@/lib/horario-atencion";
 
 
 
@@ -336,4 +355,190 @@ export async function profesorActivoDictaMateria(
     },
   });
 
-  return profesor !== null;}
+  return profesor !== null;
+}
+
+// ------------------------------------------------------------
+// Horario de atención (HU-D-04)
+// ------------------------------------------------------------
+
+/**
+ * `HorarioProfesor` guarda las horas como `@db.Time` (igual que
+ * `Turno.horaInicioTurno`): Prisma las lee/escribe como `Date` sobre
+ * 1970-01-01 en UTC. Estas dos funciones son la única conversión entre ese
+ * formato y los minutos desde las 00:00 con los que se compara.
+ */
+function minutosDeTime(hora: Date): number {
+  return hora.getUTCHours() * 60 + hora.getUTCMinutes();
+}
+
+function timeDeMinutos(minutos: number): Date {
+  return new Date(Date.UTC(1970, 0, 1, Math.floor(minutos / 60), minutos % 60));
+}
+
+function aHorarioAtencion(fila: {
+  idHorario: string;
+  diaSemanaHorario: DiaSemana;
+  horaDesdeHorario: Date;
+  horaHastaHorario: Date;
+}): HorarioAtencion {
+  return {
+    id: fila.idHorario,
+    diaSemana: fila.diaSemanaHorario,
+    horaInicio: minutosAHora(minutosDeTime(fila.horaDesdeHorario)),
+    horaFin: minutosAHora(minutosDeTime(fila.horaHastaHorario)),
+  };
+}
+
+/** Profesores activos para el selector de HU-D-04, por apellido y nombre. */
+export async function listarProfesoresActivos(): Promise<ProfesorActivoOpcion[]> {
+  const profesores = await prisma.profesor.findMany({
+    where: { activoProfesor: true },
+    select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true, dniProfesor: true },
+    orderBy: [{ apellidoProfesor: "asc" }, { nombreProfesor: "asc" }, { dniProfesor: "asc" }],
+  });
+  return profesores.map((profesor) => ({
+    id: profesor.idProfesor,
+    nombre: profesor.nombreProfesor,
+    apellido: profesor.apellidoProfesor,
+    dni: profesor.dniProfesor,
+  }));
+}
+
+/**
+ * Horarios de atención del profesor (HU-D-04 c6, resumen semanal de la
+ * ficha; HU-D-05 lo reutiliza en el detalle). Ordenados por día de la
+ * semana (el enum `DiaSemana` de Postgres ordena por declaración, lunes
+ * primero) y por hora de inicio.
+ */
+export async function obtenerHorariosDelProfesor(profesorId: string): Promise<HorarioAtencion[]> {
+  const filas = await prisma.horarioProfesor.findMany({
+    where: { profesorId },
+    orderBy: [{ diaSemanaHorario: "asc" }, { horaDesdeHorario: "asc" }],
+  });
+  return filas.map(aHorarioAtencion);
+}
+
+/**
+ * Registro de un intervalo de atención (HU-D-04, `spec_modulo_D.md` §2.4).
+ * `input` ya llegó validado por `construirRegistrarHorarioSchema()` en la
+ * capa delgada; `usuarioId` es la sesión ya autorizada con
+ * `profesores:editar` (este servicio no chequea permisos).
+ *
+ * 1. Reglas sin base (día operativo, granularidad, inicio < fin, franja
+ *    operativa) con los parámetros vigentes: la misma
+ *    `validarIntervaloHorario()` del schema, por si se invoca sin él o el
+ *    parámetro cambió entre el formulario y la confirmación.
+ * 2. En una única `$transaction`:
+ *    a. Profesor activo: condición y mutación en un solo `updateMany`
+ *       (Regla N.° 7, mismo patrón que HU-D-03). Además de registrar quién
+ *       modificó al profesor, deja su fila bloqueada hasta el commit: dos
+ *       altas simultáneas para el mismo profesor se serializan, así que la
+ *       segunda ve el intervalo de la primera en el paso b.
+ *    b. Superposición con los intervalos del mismo profesor y día
+ *       (`intervalosSeSuperponen`, contiguos permitidos).
+ *    c. INSERT con fecha de alta (`createdAtHorario`) y usuario
+ *       (`creadoPorUsuarioId`) — Regla N.° 2, opción (a).
+ */
+export async function registrarHorarioProfesor(
+  input: { profesorId: string; diaSemana: DiaSemana; horaInicio: string; horaFin: string },
+  usuarioId: string,
+): Promise<HorarioAtencion> {
+  const parametros = await obtenerParametrosHorarioOperativo();
+  const errorIntervalo = validarIntervaloHorario(input, parametros);
+  if (errorIntervalo) {
+    throw new ServiceError(errorIntervalo.codigo, errorIntervalo.mensaje, {
+      campo: errorIntervalo.campo,
+      apertura: parametros.apertura,
+      cierre: parametros.cierre,
+    });
+  }
+
+  const nuevo = { inicio: horaAMinutos(input.horaInicio), fin: horaAMinutos(input.horaFin) };
+
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.profesor.updateMany({
+      where: { idProfesor: input.profesorId, activoProfesor: true },
+      // updatedAtProfesor lo actualiza Prisma (@updatedAt).
+      data: { modificadoPorUsuarioId: usuarioId },
+    });
+    if (count === 0) {
+      const existe = await tx.profesor.findUnique({
+        where: { idProfesor: input.profesorId },
+        select: { idProfesor: true },
+      });
+      throw existe
+        ? new ServiceError("PROFESOR_INACTIVO", "El profesor no está activo")
+        : new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
+    }
+
+    const delMismoDia = await tx.horarioProfesor.findMany({
+      where: { profesorId: input.profesorId, diaSemanaHorario: input.diaSemana },
+      orderBy: { horaDesdeHorario: "asc" },
+    });
+    const conflicto = delMismoDia.find((fila) =>
+      intervalosSeSuperponen(nuevo, {
+        inicio: minutosDeTime(fila.horaDesdeHorario),
+        fin: minutosDeTime(fila.horaHastaHorario),
+      }),
+    );
+    if (conflicto) {
+      const existente = aHorarioAtencion(conflicto);
+      throw new ServiceError("HORARIO_SUPERPUESTO", "El intervalo se superpone con otro del profesor", {
+        diaSemana: existente.diaSemana,
+        horaInicio: existente.horaInicio,
+        horaFin: existente.horaFin,
+      });
+    }
+
+    const creado = await tx.horarioProfesor.create({
+      data: {
+        profesorId: input.profesorId,
+        diaSemanaHorario: input.diaSemana,
+        horaDesdeHorario: timeDeMinutos(nuevo.inicio),
+        horaHastaHorario: timeDeMinutos(nuevo.fin),
+        creadoPorUsuarioId: usuarioId,
+      },
+    });
+    return aHorarioAtencion(creado);
+  });
+}
+
+/**
+ * Contrato público para HU-C-04 (`spec_modulo_D.md` §2.4, "Contrato para
+ * HU-C-04"): `true` si el intervalo [horaInicio, horaFin) cae COMPLETO dentro
+ * de alguno de los horarios de atención del profesor para el día de la
+ * semana de `fecha`.
+ *
+ * - `fecha`: fecha calendario como `@db.Date` (medianoche UTC), igual que
+ *   `Turno.fechaTurno`; el día se toma con `getUTCDay()`.
+ * - `horaInicio` / `horaFin`: "HH:mm" en 24 h, con `horaInicio < horaFin`.
+ * - No verifica que el profesor esté activo ni que dicte la materia: eso es
+ *   `profesorActivoDictaMateria()`.
+ * - Un intervalo que solo es cubierto por dos horarios contiguos (ej. turno
+ *   11:00–13:00 contra 10:00–12:00 + 12:00–14:00) devuelve `false`: la
+ *   historia pide que caiga dentro de UN horario.
+ * - `db` permite ejecutarla dentro de la transacción de quien la llama.
+ */
+export async function estaDentroDeHorarioAtencion(
+  profesorId: string,
+  fecha: Date,
+  horaInicio: string,
+  horaFin: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<boolean> {
+  if (!HORA_REGEX.test(horaInicio) || !HORA_REGEX.test(horaFin)) return false;
+  const intervalo = { inicio: horaAMinutos(horaInicio), fin: horaAMinutos(horaFin) };
+  if (intervalo.inicio >= intervalo.fin) return false;
+
+  const horarios = await db.horarioProfesor.findMany({
+    where: { profesorId, diaSemanaHorario: diaSemanaDeFecha(fecha) },
+    select: { horaDesdeHorario: true, horaHastaHorario: true },
+  });
+  return horarios.some((horario) =>
+    intervaloContenido(intervalo, {
+      inicio: minutosDeTime(horario.horaDesdeHorario),
+      fin: minutosDeTime(horario.horaHastaHorario),
+    }),
+  );
+}
