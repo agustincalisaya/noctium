@@ -343,7 +343,12 @@ model ProfesorMateria {
 
 model Aula {
   idAula       String @id @default(cuid())
-  nombreAula   String @unique // nombre o número de aula
+  // varchar(30) con collation `natural_es` (HU-K-02, spec_modulo_K.md §2.2):
+  // orden natural ("Aula 2" antes que "Aula 10") a nivel de columna, vía
+  // migración manual — Prisma no modela COLLATE en el DSL, así que este
+  // atributo no aparece acá; @db.VarChar(30) sí, para no perder sincronía
+  // de longitud con la migración.
+  nombreAula   String @unique @db.VarChar(30) // nombre o número de aula
   // Comparación de unicidad case/acento-insensitiva (HU-K-01 criterio 2:
   // "Aula 1" == "aula 1"), vía normalizarTexto() — el @unique de nombreAula
   // de arriba compara texto crudo, no alcanza para eso.
