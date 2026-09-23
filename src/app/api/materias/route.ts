@@ -1,13 +1,24 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
-import { CrearMateriaSchema } from "@/server/materias/materia.schema";
-import { crearMateria } from "@/server/materias/materia.service";
+import { CrearMateriaSchema, ListarMateriasQuerySchema } from "@/server/materias/materia.schema";
+import { crearMateria, listarMaterias } from "@/server/materias/materia.service";
 import { ServiceError } from "@/server/shared/service-error";
 
-// GET (listado) es HU-L-02, todavía no implementada.
-export async function GET() {
-  return NextResponse.json({ error: "No implementado" }, { status: 501 });
-}
+export const GET = withPermission("materias:leer", async (req) => {
+  const parsed = ListarMateriasQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams));
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDACION", message: "Parámetros inválidos", detalles: parsed.error.flatten() },
+      },
+      { status: 400 },
+    );
+  }
+
+  const data = await listarMaterias(parsed.data);
+  return NextResponse.json({ data, error: null });
+});
 
 export const POST = withPermission("materias:crear", async (req) => {
   const body = await req.json().catch(() => null);

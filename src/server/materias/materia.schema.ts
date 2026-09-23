@@ -20,3 +20,9 @@ export const CrearMateriaSchema = z.object({
     .optional(),
 });
 export type CrearMateriaInput = z.infer<typeof CrearMateriaSchema>;
+
+export const ListarMateriasQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+});
+export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;

@@ -41,6 +41,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       icon: Users,
       items: [{ label: "Listado", href: "/alumnos", icon: Users }],
     },
+    {
+      label: "Materias",
+      icon: BookOpen,
+      items: [{ label: "Listado", href: "/materias", icon: BookOpen }],
+    },
   ],
   GERENTE: [
     {
@@ -62,7 +67,15 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       items: [{ label: "Listado", href: "/aulas", icon: DoorOpen }],
     },
   ],
-  PROFESOR: [],
+  // materias:leer (HU-L-02): Profesor también consulta el catálogo al
+  // operar otros módulos (ej. asociar sus propias materias, HU-D-03).
+  PROFESOR: [
+    {
+      label: "Materias",
+      icon: BookOpen,
+      items: [{ label: "Listado", href: "/materias", icon: BookOpen }],
+    },
+  ],
   ALUMNO: [],
 };
 
