@@ -43,6 +43,13 @@ import {
 } from "@prisma/client";
 import { normalizarTexto } from "../src/lib/normalizar-texto";
 import { ContactoSchema } from "../src/server/shared/contacto.schema";
+import {
+  DIAS_SEMANA,
+  horaAMinutos,
+  intervalosSeSuperponen,
+  validarIntervaloHorario,
+  type DiaSemanaValor,
+} from "../src/lib/horario-atencion";
 
 const prisma = new PrismaClient();
 
@@ -73,6 +80,17 @@ function fechaRelativa(semana: number, diaIdx: number): Date {
   );
 }
 
+/** "HH:mm" como valor @db.Time (HorarioProfesor, HU-D-04). */
+function horaTime(hhmm: string): Date {
+  const minutos = horaAMinutos(hhmm);
+  return new Date(Date.UTC(1970, 0, 1, Math.floor(minutos / 60), minutos % 60, 0));
+}
+
+const minutosDe = (h: { desde: string; hasta: string }) => ({
+  inicio: horaAMinutos(h.desde),
+  fin: horaAMinutos(h.hasta),
+});
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // ------------------------------------------------------------
@@ -101,7 +119,10 @@ const AULAS: { nombre: string; capacidad: number; activa: boolean }[] = [
   { nombre: "Laboratorio", capacidad: 15, activa: true },
 ];
 
-type HorarioSeed = { dia: number; desde: number; hasta: number }; // dia: 0 = lunes
+// dia: 0 = lunes; desde/hasta "HH:mm" (HU-D-04). Deben respetar los días,
+// la franja y la granularidad de PARAMETROS — validarDatos() lo verifica con
+// las mismas reglas que la app (validarIntervaloHorario).
+type HorarioSeed = { dia: number; desde: string; hasta: string };
 
 const PROFESORES: {
   nombre: string;
@@ -130,9 +151,9 @@ const PROFESORES: {
     activo: true,
     materias: ["Matemática", "Física"],
     horarios: [
-      { dia: 0, desde: 8, hasta: 12 },
-      { dia: 2, desde: 8, hasta: 12 },
-      { dia: 4, desde: 14, hasta: 18 },
+      { dia: 0, desde: "08:00", hasta: "12:00" },
+      { dia: 2, desde: "08:00", hasta: "12:00" },
+      { dia: 4, desde: "14:00", hasta: "18:00" },
     ],
   },
   {
@@ -149,10 +170,10 @@ const PROFESORES: {
     materias: ["Programación I", "Bases de Datos"],
     horarios: [
       // Intervalos contiguos (10-12 y 12-14): no deben considerarse superpuestos.
-      { dia: 0, desde: 10, hasta: 12 },
-      { dia: 0, desde: 12, hasta: 14 },
-      { dia: 1, desde: 14, hasta: 18 },
-      { dia: 3, desde: 10, hasta: 14 },
+      { dia: 0, desde: "10:00", hasta: "12:00" },
+      { dia: 0, desde: "12:00", hasta: "14:00" },
+      { dia: 1, desde: "14:00", hasta: "18:00" },
+      { dia: 3, desde: "10:00", hasta: "14:00" },
     ],
   },
   {
@@ -168,9 +189,9 @@ const PROFESORES: {
     activo: true,
     materias: ["Química", "Matemática"],
     horarios: [
-      { dia: 1, desde: 8, hasta: 12 },
-      { dia: 3, desde: 14, hasta: 18 },
-      { dia: 4, desde: 8, hasta: 12 },
+      { dia: 1, desde: "08:00", hasta: "12:00" },
+      { dia: 3, desde: "14:00", hasta: "18:00" },
+      { dia: 4, desde: "08:00", hasta: "12:00" },
     ],
   },
   {
@@ -186,9 +207,10 @@ const PROFESORES: {
     activo: true,
     materias: ["Inglés Técnico", "Programación I"],
     horarios: [
-      { dia: 0, desde: 16, hasta: 20 },
-      { dia: 2, desde: 14, hasta: 18 },
-      { dia: 3, desde: 16, hasta: 20 },
+      { dia: 0, desde: "16:00", hasta: "20:00" },
+      { dia: 2, desde: "14:00", hasta: "18:00" },
+      { dia: 3, desde: "16:00", hasta: "20:00" },
+      { dia: 4, desde: "09:30", hasta: "11:00" },
     ],
   },
   {
@@ -205,8 +227,8 @@ const PROFESORES: {
     activo: false,
     materias: ["Física"],
     horarios: [
-      { dia: 1, desde: 10, hasta: 12 },
-      { dia: 3, desde: 8, hasta: 12 },
+      { dia: 1, desde: "10:00", hasta: "12:00" },
+      { dia: 3, desde: "08:00", hasta: "12:00" },
     ],
   },
 ];
@@ -274,6 +296,15 @@ const PARAMETROS: Record<string, string> = {
   terminos_version_vigente: "1.0",
 };
 
+const PARAMETROS_HORARIO = {
+  diasOperativos: PARAMETROS.dias_operativos!
+    .split(",")
+    .filter((dia): dia is DiaSemanaValor => (DIAS_SEMANA as readonly string[]).includes(dia)),
+  apertura: PARAMETROS.horario_operativo_desde!,
+  cierre: PARAMETROS.horario_operativo_hasta!,
+  granularidadMinutos: Number(PARAMETROS.granularidad_turno_minutos),
+};
+
 type TurnoSeed = {
   id: string;
   semana: number; // 0 = semana en curso, 1 = siguiente
@@ -313,19 +344,19 @@ function validarDatos(): void {
   const agendados = TURNOS.filter((t) => t.profesor !== null);
 
   for (const p of PROFESORES) {
-    const ord = [...p.horarios].sort((a, b) => a.dia - b.dia || a.desde - b.desde);
-    for (let i = 1; i < ord.length; i++) {
-      const a = ord[i - 1];
-      const b = ord[i];
-      if (a.dia === b.dia && b.desde < a.hasta) {
-        errores.push(`Horarios superpuestos en ${p.apellido}`);
+    // Mismas reglas que registrarHorarioProfesor() (HU-D-04).
+    p.horarios.forEach((h, i) => {
+      const error = validarIntervaloHorario(
+        { diaSemana: DIAS[h.dia], horaInicio: h.desde, horaFin: h.hasta },
+        PARAMETROS_HORARIO,
+      );
+      if (error) errores.push(`${p.apellido} ${DIAS[h.dia]} ${h.desde}-${h.hasta}: ${error.mensaje}`);
+      for (const otro of p.horarios.slice(i + 1)) {
+        if (otro.dia === h.dia && intervalosSeSuperponen(minutosDe(h), minutosDe(otro))) {
+          errores.push(`Horarios superpuestos en ${p.apellido}`);
+        }
       }
-    }
-    for (const h of p.horarios) {
-      if (h.desde < 8 || h.hasta > 20 || h.desde >= h.hasta || h.dia < 0 || h.dia > 4) {
-        errores.push(`Horario fuera de rango en ${p.apellido}`);
-      }
-    }
+    });
     // Mismas reglas que el formulario de contacto (HU-D-02): al menos uno,
     // teléfono de 8-15 dígitos, email válido.
     const contacto = ContactoSchema.safeParse({ telefono: p.telefono, email: p.email });
@@ -352,12 +383,13 @@ function validarDatos(): void {
   for (const t of agendados) {
     const prof = PROFESORES[t.profesor!];
     const fin = t.hora + t.duracion;
+    const turno = { inicio: t.hora * 60, fin: fin * 60 };
     if (!prof.activo) errores.push(`${t.id}: profesor inactivo`);
     if (!prof.materias.includes(t.materia)) {
       errores.push(`${t.id}: ${prof.apellido} no dicta ${t.materia}`);
     }
     const dentro = prof.horarios.some(
-      (h) => h.dia === t.dia && t.hora >= h.desde && fin <= h.hasta,
+      (h) => h.dia === t.dia && turno.inicio >= horaAMinutos(h.desde) && turno.fin <= horaAMinutos(h.hasta),
     );
     if (!dentro) errores.push(`${t.id}: fuera del horario de ${prof.apellido}`);
     if (t.alumno === null || t.aula === null) {
@@ -583,8 +615,8 @@ async function main() {
       data: p.horarios.map((h) => ({
         profesorId,
         diaSemanaHorario: DIAS[h.dia],
-        horaDesdeHorario: hora(h.desde),
-        horaHastaHorario: hora(h.hasta),
+        horaDesdeHorario: horaTime(h.desde),
+        horaHastaHorario: horaTime(h.hasta),
         creadoPorUsuarioId: gerenteId,
       })),
     });

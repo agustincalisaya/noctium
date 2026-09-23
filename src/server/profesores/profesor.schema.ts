@@ -3,6 +3,12 @@ import type { Genero } from "@prisma/client";
 import { fechaCalendarioValidaSchema, fechaUTCHaceAnios } from "@/server/shared/fecha";
 import { normalizarTextoNombre } from "@/server/shared/texto";
 import { ContactoSchema, type ContactoInput } from "@/server/shared/contacto.schema";
+import {
+  DIAS_SEMANA,
+  HORA_REGEX,
+  validarIntervaloHorario,
+  type ParametrosHorarioOperativo,
+} from "@/lib/horario-atencion";
 
 const NOMBRE_REGEX = /^[\p{L}\s'-]+$/u;
 
@@ -103,3 +109,34 @@ export const AsociarMateriasProfesorSchema = z.object({
 export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfesorSchema>;
 
 export const ProfesorIdSchema = z.cuid();
+
+/**
+ * Registro de horario de atención (HU-D-04, `spec_modulo_D.md` §2.4 con
+ * camelCase, igual que HU-D-03). Mismo patrón que
+ * `construirIdentidadProfesorSchema`: los parámetros operativos se leen de
+ * `ParametroSistema` (`obtenerParametrosHorarioOperativo()`) antes de armar
+ * el schema — en el servidor desde la base, en el cliente como props de la
+ * página —, nunca se hardcodean en el formulario. Las reglas de día, franja
+ * y granularidad son las de `validarIntervaloHorario()`, compartida con el
+ * servicio. La superposición la valida solo el servicio (necesita la base).
+ */
+export function construirRegistrarHorarioSchema(parametros: ParametrosHorarioOperativo) {
+  const horaSchema = (etiqueta: string) =>
+    z
+      .string({ error: `Seleccioná la hora de ${etiqueta}` })
+      .min(1, `Seleccioná la hora de ${etiqueta}`)
+      .regex(HORA_REGEX, `Ingresá la hora de ${etiqueta} en formato 24 h (HH:MM)`);
+
+  return z
+    .object({
+      profesorId: z.cuid("Seleccioná un profesor"),
+      diaSemana: z.enum(DIAS_SEMANA, { error: "Seleccioná un día" }),
+      horaInicio: horaSchema("inicio"),
+      horaFin: horaSchema("fin"),
+    })
+    .superRefine((datos, ctx) => {
+      const error = validarIntervaloHorario(datos, parametros);
+      if (error) ctx.addIssue({ code: "custom", message: error.mensaje, path: [error.campo] });
+    });
+}
+export type RegistrarHorarioInput = z.infer<ReturnType<typeof construirRegistrarHorarioSchema>>;

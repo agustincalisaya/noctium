@@ -4,12 +4,18 @@ import { revalidatePath } from "next/cache";
 import { flattenError } from "zod";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
+import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
+import { mensajeSuperposicion, type DiaSemanaValor } from "@/lib/horario-atencion";
 import {
   AsociarMateriasProfesorSchema,
   ProfesorIdSchema,
+  construirRegistrarHorarioSchema,
 } from "@/server/profesores/profesor.schema";
-import { asociarMateriasAProfesor } from "@/server/profesores/profesor.service";
-import type { EstadoAsociarMaterias } from "@/types/profesor.types";
+import {
+  asociarMateriasAProfesor,
+  registrarHorarioProfesor as registrarHorario,
+} from "@/server/profesores/profesor.service";
+import type { EstadoAsociarMaterias, EstadoRegistrarHorario } from "@/types/profesor.types";
 
 // Actions del módulo D en la ubicación de la Regla N.° 11. Las de HU-D-01/D-02
 // siguen en app/(dashboard)/profesores/actions.ts hasta su refactor propio
@@ -87,6 +93,72 @@ export async function asociarMateriasProfesor(
         return { status: "materias_inactivas", materias: materiasDeDetalles(error) };
       }
       const mensaje = MENSAJES_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
+      return { status: "error", mensaje };
+    }
+    if (error instanceof PermisoError) {
+      return { status: "error", mensaje: error.message };
+    }
+    return { status: "error_comunicacion" };
+  }
+}
+
+// Traducción de HU-D-04 (Regla N.° 5). Los errores de intervalo que el
+// servicio revalida (día, granularidad, franja) ya traen el texto de
+// validarIntervaloHorario(), el mismo que muestra el schema en el cliente.
+const MENSAJES_HORARIO_POR_CODIGO: Record<string, string> = {
+  PROFESOR_INACTIVO: "Solo pueden registrarse horarios de profesores activos",
+  PROFESOR_NO_ENCONTRADO: "El profesor ya no existe",
+};
+
+const CODIGOS_ERROR_INTERVALO = new Set([
+  "DIA_NO_OPERATIVO",
+  "HORA_NO_GRANULAR",
+  "HORARIO_INVERTIDO",
+  "FUERA_DE_HORARIO_OPERATIVO",
+]);
+
+/**
+ * Registro de horario de atención (HU-D-04, `spec_modulo_D.md` §2.4). Mismo
+ * patrón que `asociarMateriasProfesor`: invocación directa desde el
+ * formulario, permiso primero, después Zod (armado con los parámetros
+ * operativos vigentes leídos en el servidor, nunca los que mande el
+ * cliente), después el servicio. Ningún error llega con detalle técnico.
+ */
+export async function registrarHorarioProfesor(formData: FormData): Promise<EstadoRegistrarHorario> {
+  try {
+    const { id: usuarioId } = await verificarPermiso("profesores:editar");
+
+    const schema = construirRegistrarHorarioSchema(await obtenerParametrosHorarioOperativo());
+    const parsed = schema.safeParse({
+      profesorId: formData.get("profesorId"),
+      diaSemana: formData.get("diaSemana"),
+      horaInicio: formData.get("horaInicio"),
+      horaFin: formData.get("horaFin"),
+    });
+    if (!parsed.success) {
+      return { status: "error_validacion", errores: flattenError(parsed.error).fieldErrors };
+    }
+
+    const horario = await registrarHorario(parsed.data, usuarioId);
+
+    revalidatePath(`/profesores/${parsed.data.profesorId}`);
+    revalidatePath("/profesores/horarios/nuevo");
+
+    return { status: "exito", horario };
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      if (error.code === "HORARIO_SUPERPUESTO") {
+        const { diaSemana, horaInicio, horaFin } = error.detalles as {
+          diaSemana: DiaSemanaValor;
+          horaInicio: string;
+          horaFin: string;
+        };
+        return { status: "error", mensaje: mensajeSuperposicion(diaSemana, horaInicio, horaFin) };
+      }
+      if (CODIGOS_ERROR_INTERVALO.has(error.code) && typeof error.detalles?.campo === "string") {
+        return { status: "error_validacion", errores: { [error.detalles.campo]: [error.message] } };
+      }
+      const mensaje = MENSAJES_HORARIO_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
       return { status: "error", mensaje };
     }
     if (error instanceof PermisoError) {

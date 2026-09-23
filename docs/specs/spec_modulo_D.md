@@ -12,6 +12,7 @@
 | HU | Estado previo | Acción |
 |---|---|---|
 | HU-D-03 | §2.3 contractualizada en snake_case, con rutas `lib/`/`app/` y `@@unique`; §4 declara el evento `profesor:materias_asociadas` | Anotada §2.3 (nota de sincronización) y §4 (el módulo D usa la opción (a) de la Regla N.° 2). Sin renumerar. |
+| HU-D-04 | §2.4 contractualizada en snake_case con días fijos L-S y `GRANULARIDAD_MINUTOS` constante; §4 declara `profesor:horario_registrado` | Anotada §2.4 (nota de sincronización + "Contrato para HU-C-04") y §4. Días, franja y granularidad salen de `ParametroSistema`. Sin renumerar. |
 
 **Fuera de alcance de esta spec (explícito):**
 - Modificación de una ficha de profesor ya registrada.
@@ -211,6 +212,85 @@ export type RegistrarHorarioProfesorInput = z.infer<typeof RegistrarHorarioProfe
 }
 ```
 
+**Nota de sincronización (HU-D-04, resuelta):**
+- **Rutas reales (Regla N.° 11):**
+  - Server Action `registrarHorarioProfesor(formData)` en `src/server/profesores/actions.ts`.
+  - Servicio `registrarHorarioProfesor(input, usuarioId)` en `src/server/profesores/profesor.service.ts`.
+  - Schema `construirRegistrarHorarioSchema(parametros)` en `src/server/profesores/profesor.schema.ts`.
+  - Helpers puros (compartidos cliente/servidor) en `src/lib/horario-atencion.ts`.
+  - Route Handler `POST /api/profesores/[id]/horarios` en `src/app/api/profesores/[id]/horarios/route.ts`.
+  - UI: `/profesores/horarios/nuevo?profesorId=<id>` y la sección "Horario de atención" de la ficha.
+- **camelCase**, igual que HU-D-03: payload `{ diaSemana, horaInicio, horaFin }` (el `profesorId` va en la ruta, o en el `FormData` de la action). La respuesta `201` es `{ id, diaSemana, horaInicio, horaFin }`.
+- **Modelo:** se usa el `HorarioProfesor` existente, sin cambios de schema. Las horas son `@db.Time`, igual que `Turno.horaInicioTurno`. El servicio las convierte a minutos desde las 00:00 para comparar. La UI y los contratos usan `"HH:mm"`.
+- **Parámetros:** no se hardcodean. `obtenerParametrosHorarioOperativo()` (`src/server/shared/parametros.ts`) lee de `ParametroSistema` las mismas claves que Turnos:
+  - `dias_operativos`
+  - `horario_operativo_desde` / `horario_operativo_hasta`
+  - `granularidad_turno_minutos`
+  El schema se construye con esos valores, como `construirIdentidadProfesorSchema` con el DNI.
+- **Validaciones:** el schema y el servicio comparten `validarIntervaloHorario()`. Códigos:
+  - `400 DIA_NO_OPERATIVO`, `400 HORA_NO_GRANULAR`, `400 HORARIO_INVERTIDO` y `400 FUERA_DE_HORARIO_OPERATIVO`, con el mensaje "El horario debe estar dentro del horario operativo del centro (08:00 a 20:00)". Se devuelven como error de validación del campo.
+  - `404 PROFESOR_NO_ENCONTRADO`
+  - `409 PROFESOR_INACTIVO`
+  - `409 HORARIO_SUPERPUESTO`
+- **Atomicidad (Regla N.° 7):** una sola `$transaction` hace tres pasos:
+  1. Un `updateMany` condicionado a `activoProfesor: true`, que registra `modificadoPorUsuarioId` (mismo patrón que HU-D-03). También bloquea la fila del profesor hasta el commit.
+  2. La búsqueda de superposición en el mismo día.
+  3. El `INSERT`.
+  Si llegan dos altas simultáneas para el mismo profesor, se serializan. La segunda ve el intervalo de la primera y se rechaza.
+- **Trazabilidad:** opción (a) de la Regla N.° 2. Se usan `createdAtHorario` y `creadoPorUsuarioId` de la fila. No se emite `profesor:horario_registrado` (ver §4).
+- **Resumen semanal:** `ResumenSemanalHorarios` (`src/components/shared/resumen-semanal-horarios.tsx`) recibe el resultado de `obtenerHorariosDelProfesor()`. Agrupa por día y ordena por hora de inicio. HU-D-05 lo reutiliza en el detalle.
+
+#### Contrato para HU-C-04
+
+Servicio público del módulo D (Regla N.° 3) para validar la disponibilidad del profesor al asignar un turno. No hace falta leer `horarios_profesor` directamente.
+
+```typescript
+// src/server/profesores/profesor.service.ts
+export async function estaDentroDeHorarioAtencion(
+  profesorId: string,
+  fecha: Date,        // fecha calendario @db.Date (medianoche UTC), como Turno.fechaTurno
+  horaInicio: string, // "HH:mm", 24 h
+  horaFin: string,    // "HH:mm", 24 h, posterior a horaInicio
+  db?: Prisma.TransactionClient, // opcional: para correr dentro de la transacción de quien llama
+): Promise<boolean>;
+
+// Helper puro de superposición (regla única del proyecto, §3.4). Se exporta
+// desde src/lib/horario-atencion.ts (usable también en cliente) y se
+// re-exporta desde profesor.service.ts.
+export function intervalosSeSuperponen(
+  a: { inicio: number; fin: number }, // minutos desde las 00:00, [inicio, fin)
+  b: { inicio: number; fin: number },
+): boolean; // a.inicio < b.fin && b.inicio < a.fin — los contiguos NO se superponen
+```
+
+**Formato de horas:** strings `"HH:mm"` en 24 h con cero a la izquierda (`"08:00"`, `"13:30"`, nunca `"8:00"`), validadas con `HORA_REGEX` de `src/lib/horario-atencion.ts`. Internamente se comparan como minutos desde las 00:00. En base, `HorarioProfesor` guarda `@db.Time`, que Prisma lee como `Date` 1970-01-01 UTC. Quien llama no manipula ese formato.
+
+**Qué devuelve:**
+- Devuelve `true` si el intervalo `[horaInicio, horaFin)` cae **completo** dentro de **un** horario de atención del profesor. Se consideran solo los horarios del día de la semana de `fecha` (`getUTCDay()`). Los bordes cuentan: un turno 10:00–12:00 entra en un horario 10:00–12:00.
+- No combina horarios contiguos. Un turno 11:00–13:00 contra 10:00–12:00 + 12:00–14:00 devuelve `false`.
+- Devuelve `false` si alguna hora no tiene formato `HH:mm` o si `horaInicio >= horaFin`.
+- No verifica que el profesor esté activo ni que dicte la materia. Para eso está `profesorActivoDictaMateria(profesorId, materiaId)`.
+- Para pasar de/a minutos: `horaAMinutos("10:30") === 630` y `minutosAHora(630) === "10:30"`, en `src/lib/horario-atencion.ts`.
+
+Ejemplo de uso (HU-C-04, dentro de la transacción de asignación):
+
+```typescript
+import { estaDentroDeHorarioAtencion } from "@/server/profesores/profesor.service";
+import { horaAMinutos, minutosAHora } from "@/lib/horario-atencion";
+import { ServiceError } from "@/server/shared/service-error";
+
+// turno: fila de Turno ya leída; tx: Prisma.TransactionClient de la asignación.
+const inicio = minutosAHora(turno.horaInicioTurno.getUTCHours() * 60 + turno.horaInicioTurno.getUTCMinutes());
+const fin = minutosAHora(horaAMinutos(inicio) + turno.duracionMinutosTurno);
+
+if (!(await estaDentroDeHorarioAtencion(profesorId, turno.fechaTurno, inicio, fin, tx))) {
+  throw new ServiceError("FUERA_DE_HORARIO_PROFESOR", "El turno está fuera del horario de atención del profesor");
+}
+
+// Llamada directa, fuera de una transacción (usa el cliente global):
+await estaDentroDeHorarioAtencion(profesorId, new Date(Date.UTC(2026, 8, 21)), "10:00", "12:00"); // lunes
+```
+
 ---
 
 ### 2.5. Listado y detalle de profesores (HU-D-05)
@@ -286,5 +366,6 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 - La trazabilidad se persiste en la propia fila, en la misma operación:
   - `Profesor`: `creadoPorUsuarioId` y `createdAtProfesor` (HU-D-01); `modificadoPorUsuarioId` y `updatedAtProfesor` (HU-D-02, HU-D-03).
   - `ProfesorMateria`: `creadoPorUsuarioId` y `createdAtProfesorMateria` (HU-D-03, migración `profesor_materia_auditoria`). Cada asociación es el alta de una fila, así que esas columnas registran qué se asoció, cuándo y quién.
+  - `HorarioProfesor`: `creadoPorUsuarioId` y `createdAtHorario` (HU-D-04, columnas ya existentes en el schema). Cada intervalo es el alta de una fila.
 - No existe tabla `EventoProfesor`.
 ```
