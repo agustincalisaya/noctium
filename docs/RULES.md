@@ -26,11 +26,15 @@ Cada spec de módulo indica cuál de las dos opciones usa y por qué, como parte
 Un módulo no valida ni consulta directamente tablas internas de otro módulo. La comunicación entre módulos ocurre exclusivamente vía: (a) eventos de dominio, o (b) llamadas explícitas a la capa de servicios **pública** del otro módulo. Ejemplo: Pagos (I) no valida un Turno (C) leyendo su tabla — invoca el servicio público de Turnos o reacciona a su evento.
 
 ## Regla N.° 4 — La capa de servicios es la única dueña de la lógica de negocio
-Route Handlers (`app/api/**/route.ts`) y Server Actions (`app/**/actions.ts`) son capa delgada: validan el payload con Zod, verifican sesión/permiso, invocan `lib/services/<modulo>/*.service.ts` y traducen el resultado al contrato de respuesta estándar. Ninguna regla de negocio vive en un Route Handler o Server Action.
+Route Handlers (`app/api/**/route.ts`) y Server Actions (`src/server/<modulo>/actions.ts`) son capa delgada: validan el payload con Zod, verifican sesión/permiso, invocan `src/server/<modulo>/<modulo>.service.ts` y traducen el resultado al contrato de respuesta estándar. Ninguna regla de negocio vive en un Route Handler o Server Action — vive exclusivamente en el `.service.ts` del módulo, que es una función TypeScript común (sin `"use server"`, sin acceso a `FormData`/`Request`), reutilizable desde Route Handlers, otras Server Actions, scripts o tests.
+
+> Nota de historial: esta regla originalmente referenciaba `lib/services/<modulo>/*.service.ts` como ubicación de la capa de servicios. Se corrigió para reflejar la convención real del proyecto: el service vive junto a la action, dentro de `src/server/<modulo>/`, sin una carpeta `lib/services/` separada en la raíz.
 
 ## Regla N.° 5 — Contrato de respuesta estándar
 - **Route Handlers:** éxito → `NextResponse.json({ data, error: null }, { status })`; error → `NextResponse.json({ data: null, error: { code, message } }, { status })`, con `status` semántico (400/401/403/404/409/422).
 - **Server Actions:** mismo shape como objeto plano serializable (`return { data, error: null }` / `return { data: null, error: {...} }`) — nunca retornan una instancia de `NextResponse`.
+
+> **Excepción — Server Actions consumidas vía `useActionState`:** cuando una Server Action se usa como reducer de `useActionState` (ej. `iniciarSesion` en `login-form.tsx`, `crearMateria` en `materia-form.tsx`), su firma y su shape de retorno quedan determinados por el hook de React y por el estado que consume el formulario (`EstadoLogin`, `EstadoMateria`, con campos como `status: "idle" | "error_validacion" | "error_comunicacion" | ...`), no por el `{ data, error }` genérico de esta regla. El **service** invocado por la action sigue devolviendo datos/errores en forma neutra (o lanzando `ServiceError`); es responsabilidad de la action traducir ese resultado neutro al shape de estado específico del formulario — incluida la traducción de código de error a mensaje de UI (ej. `MENSAJES_POR_CODIGO`), que vive en la action y no en el service, para no acoplar la capa de negocio al copy de UI. Esta excepción aplica a toda Server Action ligada a `useActionState`, no solo a Sesión y Materias.
 
 ## Regla N.° 6 — Validación Zod previa a la capa de servicios
 Todo payload se valida con `schema.safeParse()` antes de tocar la capa de servicios. Un `!success` retorna `400` con el `flatten()` del error de Zod.
@@ -60,9 +64,8 @@ Toda ruta protegida requiere sesión autenticada (NextAuth) y verificación de p
 Cada módulo (Sesión, Materias, Aulas, Turnos, etc.) ubica sus archivos siempre en el mismo lugar, independientemente de qué ruta de `app/` los consuma:
 
 - **Tipos de dominio** → `src/types/<modulo>.types.ts` (ej. `src/types/materia.types.ts`). Los `.d.ts` sueltos en `src/types/` quedan reservados exclusivamente para declaraciones ambientales/globales (ej. `next-auth.d.ts`), no para tipos de dominio.
-- **Server Actions** → `src/server/<modulo>/actions.ts` (ej. `src/server/materias/actions.ts`).
-- **`src/app/**`** contiene únicamente `page.tsx`, `layout.tsx` y componentes propios de esa ruta — nunca tipos ni actions sueltos junto a una página.
+- **Server Actions** → `src/server/<modulo>/actions.ts` (ej. `src/server/materias/actions.ts`). Capa delgada únicamente (ver Regla N.° 4): valida, verifica permiso, llama al service y traduce la respuesta.
+- **Lógica de negocio (services)** → `src/server/<modulo>/<modulo>.service.ts` (ej. `src/server/materias/materia.service.ts`), en el mismo módulo que su action. Es donde vive toda regla de negocio real (ver Regla N.° 4).
+- **`src/app/**`** contiene únicamente `page.tsx`, `layout.tsx` y componentes propios de esa ruta — nunca tipos, actions ni services sueltos junto a una página.
 
 Las importaciones a estos archivos usan siempre el alias configurado (`@/types/...`, `@/server/...`), nunca rutas relativas (`../actions`, `./materia.types`).
-
-> Nota de consistencia pendiente: la Regla N.° 4 referencia `lib/services/<modulo>/*.service.ts` como ubicación de la capa de servicios, pero la implementación real de Sesión y Materias usa `src/server/<modulo>/actions.ts` sin una carpeta `lib/services/` separada. El equipo debe decidir y unificar: o se actualiza la Regla N.° 4 para reflejar `server/` como capa de servicios real, o se migra el código para introducir `lib/services/` como capa intermedia entre las actions y la lógica de negocio.
