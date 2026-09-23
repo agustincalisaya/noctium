@@ -1080,6 +1080,18 @@ for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
   });
   console.log(`✓ 1 permiso RBAC creado (profesores:leer para GERENTE)`);
 
+  // calendario:leer (HU-J-01, spec_modulo_J.md §2): agenda semanal de solo
+  // lectura para Mesa de Entrada, Gerente y Profesor (este último solo ve su
+  // propia agenda; lo resuelve el servicio del módulo J, no el permiso).
+  for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
+    await prisma.rolPermiso.upsert({
+      where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "calendario:leer" } },
+      update: {},
+      create: { rolPermiso: rol, accionPermiso: "calendario:leer" },
+    });
+  }
+  console.log(`✓ 3 permisos RBAC creados (calendario:leer para MESA_ENTRADA, GERENTE y PROFESOR)`);
+
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }
 

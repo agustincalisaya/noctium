@@ -1,4 +1,4 @@
-import { CalendarClock, Users, GraduationCap, BookOpen, DoorOpen, type LucideIcon } from "lucide-react";
+import { CalendarClock, CalendarDays, Users, GraduationCap, BookOpen, DoorOpen, type LucideIcon } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
 import { SidebarNav, type SidebarNavSection } from "./SidebarNav";
@@ -22,9 +22,8 @@ interface SidebarSeccionConfig {
  * se crean páginas nuevas):
  *
  * - Turnos: falta "Nuevo turno" (`/turnos/nuevo`) — HU-C-03.
- * - Calendario: sección completa oculta — "Agenda por profesor"
- *   (`/calendario/profesor`, HU-J-01) y "Agenda por materia"
- *   (`/calendario/materia`, HU-J-02) no tienen page.tsx todavía.
+ * - Calendario: falta "Agenda por materia" (`/calendario/materia`) —
+ *   HU-J-02. "Agenda por profesor" (HU-J-01) ya está.
  * - Alumnos: falta "Nuevo alumno" (`/alumnos/nuevo`) — HU-B-01.
  * - Profesores: falta "Nuevo profesor" (`/profesores/nuevo`) — HU-D-01.
  */
@@ -34,6 +33,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       label: "Turnos",
       icon: CalendarClock,
       items: [{ label: "Listado", href: "/turnos", icon: CalendarClock }],
+    },
+    {
+      label: "Calendario",
+      icon: CalendarDays,
+      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarDays }],
     },
     {
       label: "Alumnos",
@@ -47,6 +51,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     },
   ],
   GERENTE: [
+    {
+      label: "Calendario",
+      icon: CalendarDays,
+      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarDays }],
+    },
     {
       label: "Profesores",
       icon: GraduationCap,
@@ -72,6 +81,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
   // operar otros módulos (ej. asociar sus propias materias, HU-D-03).
   PROFESOR: [
+    {
+      label: "Calendario",
+      icon: CalendarDays,
+      items: [{ label: "Mi agenda", href: "/calendario/profesor", icon: CalendarDays }],
+    },
     {
       label: "Materias",
       icon: BookOpen,
