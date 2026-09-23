@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GraduationCap } from "lucide-react";
 import { auth } from "@/auth";
 
 export default async function AlumnosPage({
@@ -13,7 +14,7 @@ export default async function AlumnosPage({
   return (
     <div className="space-y-4 p-6">
       {creada === "1" && (
-        <p className="rounded-md bg-emerald-100 px-3 py-2 text-sm text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100">
+        <p className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">
           Alumno registrado correctamente
         </p>
       )}
@@ -23,7 +24,11 @@ export default async function AlumnosPage({
         {/* Ocultamiento de UI únicamente (criterio 1) — la verificación real
             es la de verificarPermiso("alumnos:crear") en el Server Action. */}
         {esMesaDeEntrada && (
-          <Link href="/alumnos/nueva" className="text-sm font-medium underline underline-offset-4">
+          <Link
+            href="/alumnos/nueva"
+            className="flex items-center text-sm font-medium underline underline-offset-4"
+          >
+            <GraduationCap className="mr-2 size-4" aria-hidden />
             Nuevo alumno
           </Link>
         )}

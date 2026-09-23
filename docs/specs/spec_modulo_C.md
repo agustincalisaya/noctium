@@ -222,6 +222,11 @@ export const ListarTurnosQuerySchema = z.object({
 
 **Ruta (detalle):** `GET /app/api/turnos/[id]/route.ts` — todos los datos, estado, fecha de creación, usuario que lo registró.
 
+**Notas de implementación de HU-C-01:**
+- `por_pagina` es opcional en la consulta: si se omite, se usa `paginacion_limite_default` de `ParametroSistema` (acotado entre 1 y 20). Un valor explícito puede solicitar hasta 20 elementos. La seed vigente configura 10.
+- Excepción puntual a la Regla N.° 3 de `docs/RULES.md`, limitada a la lectura de HU-C-01: el servicio de Turnos obtiene los datos de presentación de Alumno, Profesor, Materia y Aula mediante las relaciones de Prisma y resuelve el email del usuario creador por su id de auditoría. Esos módulos aún no exponen servicios públicos de lectura por lote para estos datos; esta consulta no valida reglas ni modifica entidades de otros módulos. Cuando existan esos contratos, esta excepción puede sustituirse sin cambiar las rutas ni la vista.
+- El esquema vigente vincula alumnos a turnos mediante `TurnoAlumno`, aunque el modelo de referencia de esta spec describe una FK simple. El listado muestra todos los alumnos vinculados y usa `Sin asignar` cuando no hay ninguno.
+
 ---
 
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
