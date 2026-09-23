@@ -51,7 +51,7 @@ export default async function HomePage() {
     fechaArgentina.charAt(0).toUpperCase() + fechaArgentina.slice(1);
 
   return (
-    <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 p-4 md:p-6 lg:p-8">
+    <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 p-4">
 
       {/* =========================================================
           HERO
@@ -85,25 +85,10 @@ export default async function HomePage() {
               <span className="font-semibold text-foreground">
                 {rol}
               </span>
-              . Desde aquí puedes acceder rápidamente a las herramientas
-              principales de tu área.
             </p>
           </div>
 
-          {/* Información secundaria */}
-          <div className="mt-5 flex flex-wrap gap-4">
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock3 className="h-4 w-4" />
-              Jornada disponible
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              Sin alertas
-            </div>
-
-          </div>
         </div>
       </section>
 
@@ -409,59 +394,7 @@ export default async function HomePage() {
           </div>
         </div>
 
-      </section>
-
-      {/* =========================================================
-          ESTADO DEL SISTEMA
-      ========================================================= */}
-      <section className="overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50/70 shadow-sm dark:border-emerald-900/50 dark:bg-emerald-950/20">
-
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-
-          <div className="flex items-start gap-4">
-
-            {/* Icono */}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            </div>
-
-            {/* Información */}
-            <div>
-
-              <div className="flex flex-wrap items-center gap-2">
-
-                <h2 className="font-semibold text-emerald-950 dark:text-emerald-100">
-                  Estado del sistema
-                </h2>
-
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                  Operativo
-                </span>
-
-              </div>
-
-              <p className="mt-1 text-sm text-emerald-800/80 dark:text-emerald-200/70">
-                Todos los servicios funcionan correctamente. No hay alertas
-                ni acciones pendientes para tu rol.
-              </p>
-
-            </div>
-
-          </div>
-
-          {/* Estado online */}
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-
-            Sistema online
-
-          </div>
-
-        </div>
-
-      </section>
-
+      </section>      
     </main>
   );
 }
