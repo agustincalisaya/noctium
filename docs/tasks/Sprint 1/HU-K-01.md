@@ -132,6 +132,7 @@ Payload: `aula_id, nombre, capacidad, usuario_id` — emitido después del `COMM
 - Tras éxito: redirect con confirmación visual.
 - **Botón "Cancelar" (`HU-Sprint-1.md`, HU-K-01, criterio de aceptación 6):** vuelve al listado de aulas sin guardar. A diferencia de HU-L-01 (Materias), esta HU **no** exige confirmación condicional por datos ingresados — el criterio de aceptación de Aulas es más simple ("'Cancelar' vuelve al listado sin guardar", sin la cláusula de confirmación que sí tiene Materias) — implementar el botón como una navegación directa, sin diálogo intermedio.
 - Gateado por permiso: el enlace/botón "Nueva aula" solo se muestra si el rol de la sesión es Gerente — la verificación real es la del Route Handler.
+- Estilos: seguir `docs/DESIGN.md`. Usar exclusivamente tokens (`bg-primary`, `text-muted-foreground`, `bg-brand-accent`, `bg-success`, `bg-warning`, etc.). Prohibido usar colores hex o la paleta default de Tailwind (`blue-600`, `emerald-100`, etc.).
 
 **Fuera de alcance de frontend:** listado de aulas (HU-K-02); cualquier referencia a turnos o disponibilidad.
 
@@ -179,4 +180,5 @@ Payload: `aula_id, nombre, capacidad, usuario_id` — emitido después del `COMM
 - [ ] Frontend funcional: formulario con validación, mensaje de error específico de duplicado, botón Cancelar sin confirmación intermedia, gateado por permiso.
 - [ ] Ningún `DELETE` físico en ningún punto del código.
 - [ ] Tests de los 3 niveles documentados con evidencia.
+- [ ] UI sin colores hardcodeados: solo tokens definidos en `docs/DESIGN.md`.
 - [ ] PR con diff acotado exclusivamente a esta HU.

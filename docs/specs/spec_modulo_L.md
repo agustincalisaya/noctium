@@ -105,6 +105,8 @@ export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;
 - Cada ítem incluye la cantidad de profesores asociados, resuelta vía `_count` sobre la relación con `ProfesorMateria` (definida en `spec_modulo_D.md` §2.3) — no requiere una consulta separada por materia.
 - Paginación server-side (`skip`/`take`), con metadatos de página en la respuesta.
 
+**Nota de sincronización (HU-L-02) — excepción documentada a la Regla N.° 3 de `docs/RULES.md`:** el `_count` de arriba se resuelve con `prisma.materia.findMany({ include: { _count: { select: { profesores: true } } } })` desde `materia.service.ts`, es decir, consultando directamente la tabla `ProfesorMateria`. En sentido estricto, `ProfesorMateria` es la tabla de asociación de HU-D-03 (Módulo D/Profesor), y la Regla N.° 3 exige que la comunicación entre módulos ocurra vía eventos de dominio o el servicio público del otro módulo, no vía acceso directo a su tabla. Se documenta acá como excepción explícita, en vez de introducir un servicio público en Módulo D sin otro consumidor real hoy, porque `ProfesorMateria` está declarada como relación (`profesores ProfesorMateria[]`) en el propio modelo `Materia` del schema — no es una tabla interna ajena a la que Materias "se asoma" desde afuera, sino una relación N:M que ambos módulos declaran igual de explícitamente en su propio modelo. Si en el futuro el conteo necesita lógica adicional (ej. excluir profesores inactivos), se reevalúa moverlo a un servicio público de Módulo D en ese momento.
+
 **Respuesta `200 OK`:**
 ```json
 {

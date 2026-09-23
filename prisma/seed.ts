@@ -42,6 +42,7 @@ import {
   type RolUsuario,
 } from "@prisma/client";
 import { normalizarTexto } from "../src/lib/normalizar-texto";
+import { ContactoSchema } from "../src/server/shared/contacto.schema";
 
 const prisma = new PrismaClient();
 
@@ -325,7 +326,12 @@ function validarDatos(): void {
         errores.push(`Horario fuera de rango en ${p.apellido}`);
       }
     }
-    if (!p.telefono && !p.email) errores.push(`${p.apellido}: sin ningún contacto`);
+    // Mismas reglas que el formulario de contacto (HU-D-02): al menos uno,
+    // teléfono de 8-15 dígitos, email válido.
+    const contacto = ContactoSchema.safeParse({ telefono: p.telefono, email: p.email });
+    if (!contacto.success) {
+      errores.push(`${p.apellido}: contacto inválido (${contacto.error.issues.map((i) => i.message).join(", ")})`);
+    }
   }
 
   // Cada materia activa debe tener al menos un profesor ACTIVO que la dicte.
@@ -482,14 +488,17 @@ async function main() {
   const profesorIds: string[] = [];
   for (let i = 0; i < PROFESORES.length; i++) {
     const p = PROFESORES[i];
+    // Se guarda normalizado, igual que lo guarda HU-D-02 ("+54 11 5560-0001"
+    // -> "+541155600001"); validarDatos() ya garantizó que parsea.
+    const contacto = ContactoSchema.parse({ telefono: p.telefono, email: p.email });
     const data = {
       nombreProfesor: p.nombre,
       apellidoProfesor: p.apellido,
       dniProfesor: p.dni,
       fechaNacimientoProfesor: new Date(Date.UTC(p.nacimiento[0], p.nacimiento[1] - 1, p.nacimiento[2])),
       generoProfesor: p.genero,
-      telefonoProfesor: p.telefono,
-      emailProfesor: p.email,
+      telefonoProfesor: contacto.telefono ?? null,
+      emailProfesor: contacto.email ?? null,
       direccionProfesor: p.direccion,
       activoProfesor: p.activo,
       usuarioId: usuarioProfesorIds.get(i) ?? null,
@@ -646,14 +655,78 @@ async function main() {
       create: { rolPermiso: rol, accionPermiso: "turnos:leer" },
     });
   }
+
+  // turnos:crear (HU-C-03): exclusivo de Mesa de Entrada.
   await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:crear" } },
+    where: {
+      rolPermiso_accionPermiso: {
+        rolPermiso: "MESA_ENTRADA",
+        accionPermiso: "turnos:crear",
+      },
+    },
     update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:crear" },
+    create: {
+      rolPermiso: "MESA_ENTRADA",
+      accionPermiso: "turnos:crear",
+    },
   });
+  // materias:leer (HU-L-02, spec_modulo_L.md §2.2): todo rol que necesite
+  // consultar el catálogo al operar otro módulo — Gerente, Mesa de Entrada,
+  // Profesor. Alumno queda afuera en este sprint (sin HU que lo requiera
+  // todavía), mismo criterio que turnos:leer arriba.
+for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
+    await prisma.rolPermiso.upsert({
+      where: {
+        rolPermiso_accionPermiso: {
+          rolPermiso: rol,
+          accionPermiso: "materias:leer",
+        },
+      },
+      update: {},
+      create: {
+        rolPermiso: rol,
+        accionPermiso: "materias:leer",
+      },
+    });
+  }
+
   console.log(
-    `✓ ${ROLES.length + 6} permisos RBAC creados`,
+    `✓ ${ROLES.length + 9} permisos RBAC creados`,
   );
+  // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
+    },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (profesores:crear para GERENTE)`);
+
+  // profesores:editar (HU-D-02, contacto; también lo usan HU-D-03/04):
+  // exclusivo de Gerente. La migración 20260923015526_profesor_contacto_modificado_por
+  // también lo inserta, para bases que no corran el seed.
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
+    },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (profesores:editar para GERENTE)`);
+
+  // alumnos:editar (HU-B-02, contacto): exclusivo de Mesa de Entrada, mismo
+  // criterio que alumnos:crear (HU-B-01). La migración
+  // <timestamp>_alumnos_editar_permiso también lo inserta, para bases que
+  // no corran el seed (mismo patrón que profesores:editar arriba).
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
+    },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (alumnos:editar para MESA_ENTRADA)`);
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }

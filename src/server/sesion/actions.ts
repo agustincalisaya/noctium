@@ -2,10 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { CredentialsSignin } from "next-auth";
-import type { RolUsuario } from "@prisma/client";
 import { auth, signIn } from "@/auth";
 import { CredencialesLoginSchema } from "@/server/sesion/sesion.schema";
-import type { EstadoLogin } from "./login.types";
+import type { EstadoLogin } from "@/types/sesion.types";
 
 // Traducción código de servicio -> texto exacto para el usuario (spec_modulo_A.md §2.1).
 // Vive acá, no en el servicio, para no acoplar la capa de negocio al copy de UI.
@@ -13,13 +12,6 @@ const MENSAJES_POR_CODIGO: Record<string, string> = {
   CREDENCIALES_INVALIDAS: "Usuario o contraseña incorrectos",
   CUENTA_INACTIVA: "La cuenta está inactiva. Comunicate con la administración",
   RATE_LIMIT_EXCEDIDO: "Demasiados intentos. Esperá unos minutos e intentá nuevamente",
-};
-
-const RUTA_POR_ROL: Record<RolUsuario, string> = {
-  MESA_ENTRADA: "/mesa-entrada",
-  PROFESOR: "/profesor",
-  GERENTE: "/gerente",
-  ALUMNO: "/alumno",
 };
 
 export async function iniciarSesion(
@@ -56,6 +48,5 @@ export async function iniciarSesion(
   }
 
   const session = await auth();
-  const rol = session?.user?.rol;
-  redirect(rol ? RUTA_POR_ROL[rol] : "/login");
+  redirect(session?.user ? "/home" : "/login");
 }

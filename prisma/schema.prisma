@@ -263,8 +263,9 @@ model Profesor {
   emailProfesor     String?
   direccionProfesor String?
 
-  // Auditoría (escalar sin relación, ver encabezado)
-  creadoPorUsuarioId String?
+  // Auditoría (escalares sin relación, ver encabezado). modificadoPor: HU-D-02.
+  creadoPorUsuarioId     String?
+  modificadoPorUsuarioId String?
 
   createdAtProfesor DateTime @default(now())
   updatedAtProfesor DateTime @updatedAt

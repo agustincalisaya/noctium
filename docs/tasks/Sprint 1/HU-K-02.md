@@ -131,6 +131,7 @@ No hay eventos nuevos — una consulta de lectura no dispara auditoría conforme
   - **Vacío:** si no hay aulas registradas (colección vacía, no error), mostrar el mensaje "No hay aulas registradas" junto con un acceso directo al botón/enlace "Nueva aula" (mismo destino que en HU-K-01).
   - **Error:** si la consulta falla (error de red o `5xx`), mostrar un mensaje de error genérico con un botón "Reintentar" que vuelve a disparar la consulta sin recargar la página completa.
 - Gateado por permiso: la sección completa de Aulas en la navegación solo se muestra si el rol de la sesión tiene `aulas:leer`.
+- Estilos: seguir `docs/DESIGN.md`. Usar exclusivamente tokens (`bg-primary`, `text-muted-foreground`, `bg-brand-accent`, `bg-success`, `bg-warning`, etc.). Prohibido usar colores hex o la paleta default de Tailwind (`blue-600`, `emerald-100`, etc.).
 
 **Fuera de alcance de frontend:** filtros de búsqueda; acciones de edición o baja (no existen en el backend de este sprint); cualquier indicación de disponibilidad por horario.
 
@@ -175,4 +176,5 @@ No hay eventos nuevos — una consulta de lectura no dispara auditoría conforme
 - [ ] Frontend funcional: tabla paginada con estado visible, orden natural verificable, estados de carga/vacío/error con Reintentar, vista de detalle, gateado por permiso.
 - [ ] Ningún `DELETE` físico en ningún punto del código.
 - [ ] Tests de los 3 niveles documentados con evidencia, incluyendo el `SELECT` directo en BD del orden natural.
+- [ ] UI sin colores hardcodeados: solo tokens definidos en `docs/DESIGN.md`.
 - [ ] PR con diff acotado exclusivamente a esta HU (sin tocar `POST /api/aulas`, ya cerrado en HU-K-01).

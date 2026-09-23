@@ -133,6 +133,7 @@ No hay eventos nuevos — una consulta de lectura no dispara auditoría conforme
   - **Error:** si la consulta falla (error de red o `5xx`), mostrar un mensaje de error genérico con un botón "Reintentar" que vuelve a disparar la consulta sin recargar la página completa.
 - Gateado por permiso: la sección completa de Materias en la navegación solo se muestra si el rol de la sesión tiene `materias:leer` — la verificación real es la del Route Handler, esto es solo ocultamiento de UI.
 - Si `profesores_count`/el listado de profesores queda en `0`/vacío por el punto abierto de la sección 1 (opción (b)), la UI igual debe renderizar esa columna sin romperse — no asumir que el dato siempre viene poblado.
+- Estilos: seguir `docs/DESIGN.md`. Usar exclusivamente tokens (`bg-primary`, `text-muted-foreground`, `bg-brand-accent`, `bg-success`, `bg-warning`, etc.). Prohibido usar colores hex o la paleta default de Tailwind (`blue-600`, `emerald-100`, etc.).
 
 **Fuera de alcance de frontend:** filtros de búsqueda; acciones de edición o baja (no existen en el backend de este sprint).
 
@@ -176,4 +177,5 @@ No hay eventos nuevos — una consulta de lectura no dispara auditoría conforme
 - [ ] Frontend funcional: tabla paginada con estado visible, estados de carga/vacío/error con Reintentar, vista de detalle, gateado por permiso.
 - [ ] Ningún `DELETE` físico en ningún punto del código (no aplica en esta task por ser de solo lectura, pero se verifica que no se haya introducido ninguno).
 - [ ] Tests de los 3 niveles documentados con evidencia.
+- [ ] UI sin colores hardcodeados: solo tokens definidos en `docs/DESIGN.md`.
 - [ ] PR con diff acotado exclusivamente a esta HU (sin tocar `POST /api/materias`, ya cerrado en HU-L-01).
