@@ -2,13 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "./login-form";
 
-const RUTA_POR_ROL: Record<string, string> = {
-  MESA_ENTRADA: "/mesa-entrada",
-  PROFESOR: "/profesor",
-  GERENTE: "/gerente",
-  ALUMNO: "/alumno",
-};
-
 export default async function LoginPage({
   searchParams,
 }: {
@@ -17,7 +10,7 @@ export default async function LoginPage({
   // Criterio 7: sesión ya válida -> redirect directo, sin mostrar el formulario.
   const session = await auth();
   if (session?.user) {
-    redirect(RUTA_POR_ROL[session.user.rol] ?? "/login");
+    redirect("/home");
   }
 
   // HU-A-02 criterio 5: fetchAutenticado() redirige con ?motivo=expirada
