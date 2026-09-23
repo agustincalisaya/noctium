@@ -53,5 +53,7 @@ export type DetalleAlumno = {
   telefono: string | null;
   email: string | null;
   forma_pago_preferida: string | null;
+  /** Id de la `FormaPago` preferida actual (HU-B-03) — para precargar el `<select>` por id, no por nombre. */
+  forma_pago_preferida_id: string | null;
   created_at: string;
 };
