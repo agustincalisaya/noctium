@@ -664,6 +664,15 @@ async function main() {
     update: {},
     create: { rolPermiso: "GERENTE", accionPermiso: "aulas:crear" },
   });
+  // aulas:leer (HU-K-02, spec_modulo_K.md §2.2 / HU-K-02.md §4.3): a
+  // diferencia de materias:leer, acá es exclusiva de Gerente por decisión
+  // de producto del backlog oficial — Mesa de Entrada y Profesor no la
+  // tienen en este sprint.
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "aulas:leer" } },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "aulas:leer" },
+  });
   for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
     await prisma.rolPermiso.upsert({
       where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "turnos:leer" } },
@@ -683,7 +692,7 @@ async function main() {
     });
   }
   console.log(
-    `✓ ${ROLES.length + 9} permisos RBAC creados`,
+    `✓ ${ROLES.length + 10} permisos RBAC creados`,
   );
 
   // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
