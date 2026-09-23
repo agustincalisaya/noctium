@@ -79,6 +79,13 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
 { "data": null, "error": { "code": "SIN_PERMISO", "message": "No tenés permisos para acceder a esta sección" } }
 ```
 
+**Nota de sincronización (HU-J-01, implementación):**
+- **Rango por días operativos:** la semana se calcula de lunes a domingo en `America/Argentina/Buenos_Aires` y el rango va del primer al último día de `dias_operativos` (no un `[lunes, sábado]` fijo). Con la configuración actual del seed (`LUNES`–`VIERNES`) el rango es lunes–viernes; con `LUNES`–`SABADO` coincidiría exactamente con lo escrito arriba. `semana_inicio` puede ser cualquier día: se normaliza al lunes de su semana.
+- **Profesor sin ficha vinculada** a su cuenta: `403 SIN_PERMISO` (no tiene agenda propia).
+- **Turnos grupales:** `alumno` se mantiene como string; si el turno tiene más de un alumno se unen como `"Apellido, Nombre; Apellido, Nombre"`.
+- **Lectura de turnos:** `listarTurnosAgendadosPorProfesor()` todavía no existe en el módulo C. Por decisión de equipo, HU-J-01 no modifica `turno.service.ts`: la consulta de solo lectura vive en `src/server/calendario/calendario.service.ts` (`listarTurnosAgendadosDeProfesor`, rango `[desde, hasta)`, filtro `AGENDADO` en la query), con un `TODO` para reemplazarla por el servicio público del módulo C (excepción temporal a §3.4).
+- **Profesor efectivo:** se resuelve con los servicios públicos del módulo D `obtenerOpcionProfesorDeUsuario()` (rol Profesor) y `obtenerOpcionProfesorActivo()` (Mesa/Gerente).
+
 ---
 
 ### 2.2. Calendario semanal por materia (HU-J-02)

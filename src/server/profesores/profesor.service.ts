@@ -460,6 +460,42 @@ export async function listarOpcionesProfesoresActivos(): Promise<OpcionProfesor[
 }
 
 /**
+ * Servicio público para la agenda (HU-J-01, Regla N.° 3): el profesor
+ * activo con ese id, o `null` si no existe o está inactivo.
+ */
+export async function obtenerOpcionProfesorActivo(profesorId: string): Promise<OpcionProfesor | null> {
+  const profesor = await prisma.profesor.findFirst({
+    where: { idProfesor: profesorId, activoProfesor: true },
+    select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true },
+  });
+  return profesor
+    ? {
+        id: profesor.idProfesor,
+        nombreParaMostrar: formatearApellidoNombre(profesor.apellidoProfesor, profesor.nombreProfesor),
+      }
+    : null;
+}
+
+/**
+ * Servicio público para la agenda (HU-J-01, Regla N.° 3): la ficha de
+ * profesor vinculada a una cuenta (`Profesor.usuarioId`), o `null` si la
+ * cuenta no tiene ficha. No filtra por activo: un profesor siempre puede
+ * ver su propia agenda.
+ */
+export async function obtenerOpcionProfesorDeUsuario(usuarioId: string): Promise<OpcionProfesor | null> {
+  const profesor = await prisma.profesor.findUnique({
+    where: { usuarioId },
+    select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true },
+  });
+  return profesor
+    ? {
+        id: profesor.idProfesor,
+        nombreParaMostrar: formatearApellidoNombre(profesor.apellidoProfesor, profesor.nombreProfesor),
+      }
+    : null;
+}
+
+/**
  * Horarios de atención del profesor (HU-D-04 c6, resumen semanal de la
  * ficha; HU-D-05 lo reutiliza en el detalle). Ordenados por día de la
  * semana (el enum `DiaSemana` de Postgres ordena por declaración, lunes
