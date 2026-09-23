@@ -14,14 +14,16 @@ export default async function AulasPage({
 }: {
   searchParams: Promise<{ creada?: string; pagina?: string }>;
 }) {
+  let rol;
   try {
-    await verificarPermiso("aulas:leer");
+    ({ rol } = await verificarPermiso("aulas:leer"));
   } catch (error) {
     if (error instanceof PermisoError) redirect("/home");
     throw error;
   }
 
   const { creada, pagina } = await searchParams;
+  const esGerente = rol === "GERENTE";
 
   return (
     <div className="space-y-4 p-6">
@@ -35,13 +37,15 @@ export default async function AulasPage({
         <h1 className="text-lg font-semibold">Aulas</h1>
         {/* Ocultamiento de UI únicamente — la verificación real es la de
             verificarPermiso("aulas:crear") en el Server Action. */}
-        <Link
-          href="/aulas/nueva"
-          className="flex items-center text-sm font-medium underline underline-offset-4"
-        >
-          <DoorOpen className="mr-2 size-4" aria-hidden />
-          Nueva aula
-        </Link>
+        {esGerente && (
+          <Link
+            href="/aulas/nueva"
+            className="flex items-center text-sm font-medium underline underline-offset-4"
+          >
+            <DoorOpen className="mr-2 size-4" aria-hidden />
+            Nueva aula
+          </Link>
+        )}
       </div>
 
       {/*
@@ -52,7 +56,7 @@ export default async function AulasPage({
        * code de `notFound()` en el detalle).
        */}
       <Suspense fallback={<CargandoAulas />}>
-        <TablaAulas pagina={pagina} />
+        <TablaAulas pagina={pagina} esGerente={esGerente} />
       </Suspense>
     </div>
   );
@@ -67,7 +71,7 @@ function CargandoAulas() {
   );
 }
 
-async function TablaAulas({ pagina }: { pagina: string | undefined }) {
+async function TablaAulas({ pagina, esGerente }: { pagina: string | undefined; esGerente: boolean }) {
   const paginaSolicitada = Number(pagina);
   const query = ListarAulasQuerySchema.parse({
     pagina: Number.isFinite(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : undefined,
@@ -78,9 +82,11 @@ async function TablaAulas({ pagina }: { pagina: string | undefined }) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-md border border-border bg-card py-12 text-center">
         <p className="text-sm text-muted-foreground">No hay aulas registradas</p>
-        <Link href="/aulas/nueva" className="text-sm font-medium text-primary underline underline-offset-4">
-          Nueva aula
-        </Link>
+        {esGerente && (
+          <Link href="/aulas/nueva" className="text-sm font-medium text-primary underline underline-offset-4">
+            Nueva aula
+          </Link>
+        )}
       </div>
     );
   }
