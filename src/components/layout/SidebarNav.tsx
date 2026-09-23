@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Collapsible } from "@base-ui/react/collapsible";
 import { Menu, X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Logo from "../ui/Logo";
 
 export interface SidebarNavItem {
   label: string;
@@ -178,22 +179,24 @@ export function SidebarNav({ secciones }: { secciones: SidebarNavSection[] }) {
           menuMobileAbierto ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <Link
-          href="/"
-          className="flex items-center gap-2 border-b border-sidebar-border px-4 py-4"
-        >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-            N
-          </span>
-          {!colapsado && (
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">Noctium</span>
-              <span className="block truncate text-xs text-sidebar-foreground/70">
-                Centro de Atención
-              </span>
+          <Link
+            href="/home"
+            className="flex items-center gap-2 border-b border-sidebar-border px-4 py-4"
+          >
+            {/* Cambiamos bg-primary por bg-primary/50 para hacerlo más translúcido/claro */}
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-b from-cyan-700 to-cyan-900">
+              <Logo className="size-6" /> 
             </span>
-          )}
-        </Link>
+            
+            {!colapsado && (
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">Noctium</span>
+                <span className="block truncate text-xs text-sidebar-foreground/70">
+                  Centro de Atención
+                </span>
+              </span>
+            )}
+          </Link>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3">
           {secciones.map((seccion) => {
