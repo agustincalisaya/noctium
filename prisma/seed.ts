@@ -452,6 +452,10 @@ async function main() {
     const data = {
       nombreAlumno: a.nombre,
       apellidoAlumno: a.apellido,
+      // Orden case/acento-insensitivo del listado (HU-B-04, spec_modulo_B.md
+      // §2.4) — mismo criterio que nombreNormalizadaMateria de Materias.
+      nombreNormalizadoAlumno: normalizarTexto(a.nombre),
+      apellidoNormalizadoAlumno: normalizarTexto(a.apellido),
       dniAlumno: `4010${String(n).padStart(4, "0")}`,
       fechaNacimientoAlumno: new Date(
         Date.UTC(1996 + (i % 10), i % 12, 3 + ((i * 2) % 25)),
@@ -712,6 +716,34 @@ async function main() {
     create: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
   });
   console.log(`✓ 1 permiso RBAC creado (profesores:editar para GERENTE)`);
+
+  // alumnos:editar (HU-B-02, contacto): exclusivo de Mesa de Entrada, mismo
+  // criterio que alumnos:crear (HU-B-01). La migración
+  // <timestamp>_alumnos_editar_permiso también lo inserta, para bases que
+  // no corran el seed (mismo patrón que profesores:editar arriba).
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
+    },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (alumnos:editar para MESA_ENTRADA)`);
+
+  // alumnos:leer (HU-B-04, listado y detalle): exclusivo de Mesa de Entrada,
+  // mismo criterio que alumnos:crear/alumnos:editar — ninguna HU de este
+  // sprint requiere que Gerente o Profesor lean el listado HTTP de alumnos
+  // (Turnos consume Alumno vía servicio público, no por este permiso). La
+  // migración <timestamp>_alumnos_leer_permiso también lo inserta, para
+  // bases que no corran el seed (mismo patrón que alumnos:editar arriba).
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:leer" },
+    },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:leer" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (alumnos:leer para MESA_ENTRADA)`);
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }
