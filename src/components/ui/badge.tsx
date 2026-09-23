@@ -12,6 +12,8 @@ const badgeVariants = cva(
         // nunca claro — ver la advertencia de contraste en docs/DESIGN.md.
         accent: "border-transparent bg-brand-accent text-foreground",
         outline: "border-border text-foreground",
+        success: "border-transparent bg-success text-success-foreground",
+        muted: "border-transparent bg-muted text-muted-foreground",
       },
     },
     defaultVariants: { variant: "default" },
