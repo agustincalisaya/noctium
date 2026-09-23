@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { AvisoExpiracion } from "@/components/sesion/aviso-expiracion";
 import { ProtegerCacheNavegador } from "@/components/sesion/proteger-cache-navegador";
 import { DirtyStateProvider } from "@/components/sesion/dirty-state-context";
-import { MenuUsuario } from "@/components/sesion/menu-usuario";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 
 // Fuerza que ninguna página de este grupo se sirva desde caché estática
 // (HU-A-02 criterio 6): toda respuesta dinámica que lee cookies() ya recibe
@@ -29,23 +30,18 @@ export default async function DashboardLayout({
 
   const avisoAnticipadoMin = await getParametroNumerico("sesion_aviso_anticipado_minutos", 5);
 
-  // El JWT nunca lleva email (HU-A-01 criterio 3: "nunca datos personales"),
-  // así que para mostrarlo en el menú de usuario (HU-A-03 criterio 1) se
-  // resuelve acá con una lectura server-side normal, no vía claims/sesión.
-  // Usuario no tiene un campo "nombre" en el schema de Sprint 1 (vive en
-  // Alumno/Profesor, fuera del alcance del módulo de Sesión) — se usa el
-  // email como identificador visible en su lugar.
-  const usuario = await prisma.usuario.findUnique({
-    where: { idUsuario: session.user.id },
-    select: { emailUsuario: true },
-  });
-
   return (
     <DirtyStateProvider>
       <ProtegerCacheNavegador />
       <AvisoExpiracion expiresISO={session.expires} avisoAnticipadoMin={avisoAnticipadoMin} />
-      <MenuUsuario email={usuario?.emailUsuario ?? ""} rol={session.user.rol} />
-      {children}
+      <div className="flex h-screen overflow-hidden bg-background">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Navbar />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+          <Footer />
+        </div>
+      </div>
     </DirtyStateProvider>
   );
 }
