@@ -16,14 +16,21 @@ export function Pagination({
   totalPaginas,
   total,
   buildHref,
+  siempreVisible = false,
 }: {
   paginaActual: number;
   totalPaginas: number;
   /** Cantidad total de registros (opcional) — se muestra junto a "Página X de Y" cuando se provee. */
   total?: number;
   buildHref: (pagina: number) => string;
+  /**
+   * Muestra "Página 1 de 1" (con los botones deshabilitados) aunque haya una
+   * sola página — para listados que siempre deben informar página y total
+   * (HU-D-05). Por defecto, con una sola página no se renderiza nada.
+   */
+  siempreVisible?: boolean;
 }) {
-  if (totalPaginas <= 1) return null;
+  if (totalPaginas === 0 || (totalPaginas === 1 && !siempreVisible)) return null;
 
   const hayAnterior = paginaActual > 1;
   const haySiguiente = paginaActual < totalPaginas;

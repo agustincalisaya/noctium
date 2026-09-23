@@ -42,3 +42,49 @@ export type EstadoRegistrarHorario =
   | { status: "exito"; horario: HorarioAtencion };
 
 export const ESTADO_INICIAL_REGISTRAR_HORARIO: EstadoRegistrarHorario = { status: "idle" };
+
+/**
+ * Opción de profesor activo para selectores (HU-J-01, agenda por profesor):
+ * `nombreParaMostrar` es "Apellido, Nombre". Ordenada por apellido, nombre
+ * (case/acento-insensitivo) y DNI.
+ */
+export type OpcionProfesor = { id: string; nombreParaMostrar: string };
+
+/** Fila del listado de profesores (HU-D-05). `materias`: nombres, ordenados. */
+export type ProfesorListadoItem = {
+  id: string;
+  apellido: string;
+  nombre: string;
+  dni: string;
+  telefono: string | null;
+  email: string | null;
+  activo: boolean;
+  materias: string[];
+};
+
+/** Metadatos de paginación server-side (HU-D-05), mismo shape que Alumnos. */
+export type PaginacionProfesores = {
+  total: number;
+  pagina_actual: number;
+  total_paginas: number;
+  por_pagina: number;
+};
+
+/**
+ * Detalle del profesor en modo consulta (HU-D-05 criterio 3): identidad,
+ * contacto, estado, fecha de alta, materias completas y horarios.
+ */
+export type DetalleProfesor = {
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  fechaNacimiento: Date;
+  genero: "MASCULINO" | "FEMENINO" | "OTRO" | "PREFIERO_NO_INDICARLO" | null;
+  telefono: string | null;
+  email: string | null;
+  activo: boolean;
+  fechaAlta: Date;
+  materias: MateriaDeProfesor[];
+  horarios: HorarioAtencion[];
+};

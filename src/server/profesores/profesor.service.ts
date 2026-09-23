@@ -13,14 +13,20 @@ import {
 import { ServiceError } from "@/server/shared/service-error";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
+import { clavesOrdenProfesor, formatearApellidoNombre } from "@/lib/profesor-listado";
 import type {
   ContactoProfesorInput,
   IdentidadProfesorInput,
+  ListarProfesoresQuery,
 } from "@/server/profesores/profesor.schema";
 import type {
+  DetalleProfesor,
   HorarioAtencion,
   MateriaDeProfesor,
+  OpcionProfesor,
+  PaginacionProfesores,
   ProfesorActivoOpcion,
+  ProfesorListadoItem,
 } from "@/types/profesor.types";
 
 // Helper puro de superposición re-exportado para quien consuma el módulo D
@@ -28,8 +34,27 @@ import type {
 // también lo pueda usar el cliente.
 export { intervalosSeSuperponen } from "@/lib/horario-atencion";
 
+/**
+ * Orden único de profesores en todo el módulo (HU-D-05 criterio 2):
+ * apellido y nombre normalizados (case/acento-insensitivo, ver
+ * `clavesOrdenProfesor`) y DNI como desempate. El DNI es único, así que el
+ * orden es total y estable entre páginas: ningún registro se repite ni se
+ * pierde al paginar con skip/take.
+ */
+const ORDEN_PROFESORES = [
+  { apellidoNormalizadoProfesor: "asc" },
+  { nombreNormalizadoProfesor: "asc" },
+  { dniProfesor: "asc" },
+] satisfies Prisma.ProfesorOrderByWithRelationInput[];
 
-
+/**
+ * Orden de las materias de un profesor: por nombre normalizado, igual en el
+ * resumen del listado y en el detalle (las "primeras 2" del listado son las
+ * dos primeras del detalle).
+ */
+const ORDEN_MATERIAS_DEL_PROFESOR = {
+  materia: { nombreNormalizadaMateria: "asc" },
+} satisfies Prisma.ProfesorMateriaOrderByWithRelationInput;
 
 /**
  * Alta de identidad de profesor (HU-D-01, `spec_modulo_D.md` §2.1 punto 3).
@@ -75,6 +100,8 @@ export async function crearProfesor(
         dniProfesor: input.dni,
         fechaNacimientoProfesor: input.fechaNacimiento,
         generoProfesor: input.genero ?? null,
+        // Claves del orden del listado (HU-D-05).
+        ...clavesOrdenProfesor(input),
         // Criterio de aceptación 4 (ficha activa) y 5 (sin cuenta de
         // acceso — las cuentas se administran de manera independiente).
         activoProfesor: true,
@@ -110,8 +137,8 @@ export async function crearProfesor(
 
 /**
  * Ficha del profesor (HU-D-02: identidad resumida + contacto actual, para
- * la ficha y para precargar el formulario de contacto). HU-D-05 la extiende
- * con materias y horarios. `null` si el id no existe.
+ * precargar el formulario de contacto). El detalle completo de HU-D-05 es
+ * `obtenerDetalleProfesor()`. `null` si el id no existe.
  */
 export async function obtenerFichaProfesor(profesorId: string): Promise<{
   id: string;
@@ -230,7 +257,7 @@ export async function obtenerMateriasDelProfesor(profesorId: string): Promise<Ma
         select: { idMateria: true, nombreMateria: true, codigoMateria: true, activaMateria: true },
       },
     },
-    orderBy: { materia: { nombreMateria: "asc" } },
+    orderBy: ORDEN_MATERIAS_DEL_PROFESOR,
   });
 
   return asociaciones.map(({ materia }) => ({
@@ -401,18 +428,34 @@ function aHorarioAtencion(fila: {
   };
 }
 
-/** Profesores activos para el selector de HU-D-04, por apellido y nombre. */
+/**
+ * Profesores activos para selectores (HU-D-04; base de HU-J-01), con el
+ * mismo orden que el listado de HU-D-05.
+ */
 export async function listarProfesoresActivos(): Promise<ProfesorActivoOpcion[]> {
   const profesores = await prisma.profesor.findMany({
     where: { activoProfesor: true },
     select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true, dniProfesor: true },
-    orderBy: [{ apellidoProfesor: "asc" }, { nombreProfesor: "asc" }, { dniProfesor: "asc" }],
+    orderBy: ORDEN_PROFESORES,
   });
   return profesores.map((profesor) => ({
     id: profesor.idProfesor,
     nombre: profesor.nombreProfesor,
     apellido: profesor.apellidoProfesor,
     dni: profesor.dniProfesor,
+  }));
+}
+
+/**
+ * Servicio público para el selector de profesor de la agenda (HU-J-01,
+ * Regla N.° 3): profesores activos ordenados por apellido, nombre y DNI,
+ * con el texto a mostrar ya armado ("Apellido, Nombre").
+ */
+export async function listarOpcionesProfesoresActivos(): Promise<OpcionProfesor[]> {
+  const profesores = await listarProfesoresActivos();
+  return profesores.map((profesor) => ({
+    id: profesor.id,
+    nombreParaMostrar: formatearApellidoNombre(profesor.apellido, profesor.nombre),
   }));
 }
 
@@ -425,6 +468,7 @@ export async function listarProfesoresActivos(): Promise<ProfesorActivoOpcion[]>
 export async function obtenerHorariosDelProfesor(profesorId: string): Promise<HorarioAtencion[]> {
   const filas = await prisma.horarioProfesor.findMany({
     where: { profesorId },
+    select: { idHorario: true, diaSemanaHorario: true, horaDesdeHorario: true, horaHastaHorario: true },
     orderBy: [{ diaSemanaHorario: "asc" }, { horaDesdeHorario: "asc" }],
   });
   return filas.map(aHorarioAtencion);
@@ -552,4 +596,110 @@ export async function estaDentroDeHorarioAtencion(
       fin: minutosDeTime(horario.horaHastaHorario),
     }),
   );
+}
+
+// ------------------------------------------------------------
+// Listado y detalle (HU-D-05)
+// ------------------------------------------------------------
+
+/**
+ * Listado paginado de profesores (HU-D-05, `spec_modulo_D.md` §2.5). Incluye
+ * activos e inactivos (la columna Estado los distingue). Solo selecciona lo
+ * que muestra la tabla: identidad, contacto, estado y nombres de materias.
+ *
+ * Una página fuera de rango se acota a la última (mismo criterio que
+ * `listarAlumnos()`); sin profesores, la página es 1 y `total_paginas` 0.
+ */
+export async function listarProfesores(
+  query: ListarProfesoresQuery,
+): Promise<{ items: ProfesorListadoItem[]; paginacion: PaginacionProfesores }> {
+  const { pagina, por_pagina: porPagina } = query;
+
+  const total = await prisma.profesor.count();
+  const totalPaginas = Math.ceil(total / porPagina);
+  const paginaActual = total === 0 ? 1 : Math.min(pagina, totalPaginas);
+
+  const profesores = await prisma.profesor.findMany({
+    select: {
+      idProfesor: true,
+      apellidoProfesor: true,
+      nombreProfesor: true,
+      dniProfesor: true,
+      telefonoProfesor: true,
+      emailProfesor: true,
+      activoProfesor: true,
+      materias: {
+        select: { materia: { select: { nombreMateria: true } } },
+        orderBy: ORDEN_MATERIAS_DEL_PROFESOR,
+      },
+    },
+    orderBy: ORDEN_PROFESORES,
+    skip: (paginaActual - 1) * porPagina,
+    take: porPagina,
+  });
+
+  return {
+    items: profesores.map((profesor) => ({
+      id: profesor.idProfesor,
+      apellido: profesor.apellidoProfesor,
+      nombre: profesor.nombreProfesor,
+      dni: profesor.dniProfesor,
+      telefono: profesor.telefonoProfesor,
+      email: profesor.emailProfesor,
+      activo: profesor.activoProfesor,
+      materias: profesor.materias.map(({ materia }) => materia.nombreMateria),
+    })),
+    paginacion: {
+      total,
+      pagina_actual: paginaActual,
+      total_paginas: totalPaginas,
+      por_pagina: porPagina,
+    },
+  };
+}
+
+/**
+ * Detalle del profesor en modo consulta (HU-D-05 criterio 3): identidad,
+ * contacto, estado, fecha de alta, todas las materias asociadas (con código
+ * y estado, `obtenerMateriasDelProfesor`) y los horarios de atención
+ * (`obtenerHorariosDelProfesor`, ya ordenados por día y hora). `null` si el
+ * id no existe. No expone la cuenta vinculada ni la auditoría.
+ */
+export async function obtenerDetalleProfesor(profesorId: string): Promise<DetalleProfesor | null> {
+  const profesor = await prisma.profesor.findUnique({
+    where: { idProfesor: profesorId },
+    select: {
+      idProfesor: true,
+      nombreProfesor: true,
+      apellidoProfesor: true,
+      dniProfesor: true,
+      fechaNacimientoProfesor: true,
+      generoProfesor: true,
+      telefonoProfesor: true,
+      emailProfesor: true,
+      activoProfesor: true,
+      createdAtProfesor: true,
+    },
+  });
+  if (!profesor) return null;
+
+  const [materias, horarios] = await Promise.all([
+    obtenerMateriasDelProfesor(profesor.idProfesor),
+    obtenerHorariosDelProfesor(profesor.idProfesor),
+  ]);
+
+  return {
+    id: profesor.idProfesor,
+    nombre: profesor.nombreProfesor,
+    apellido: profesor.apellidoProfesor,
+    dni: profesor.dniProfesor,
+    fechaNacimiento: profesor.fechaNacimientoProfesor,
+    genero: profesor.generoProfesor,
+    telefono: profesor.telefonoProfesor,
+    email: profesor.emailProfesor,
+    activo: profesor.activoProfesor,
+    fechaAlta: profesor.createdAtProfesor,
+    materias,
+    horarios,
+  };
 }
