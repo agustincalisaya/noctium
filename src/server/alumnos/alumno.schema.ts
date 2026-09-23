@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
+import { ContactoSchema, type ContactoInput } from "@/server/shared/contacto.schema";
 
 const REGEX_NOMBRE = /^[\p{L}\s'-]+$/u;
 
@@ -42,3 +43,37 @@ export function crearIdentidadAlumnoSchema(dniLongitudMin: number, dniLongitudMa
   });
 }
 export type IdentidadAlumnoInput = z.infer<ReturnType<typeof crearIdentidadAlumnoSchema>>;
+
+/**
+ * Contacto del alumno (HU-B-02): mismas reglas que el contacto de Profesor
+ * (HU-D-02), así que se reutiliza el schema compartido en vez de
+ * duplicarlo — utilidad de validación transversal, no acoplamiento de
+ * dominio (spec_modulo_B.md §2.2, "mismo requisito en spec_modulo_D.md §2.2").
+ */
+export const ContactoAlumnoSchema = ContactoSchema;
+export type ContactoAlumnoInput = ContactoInput;
+
+/**
+ * Listado de alumnos (HU-B-04, spec_modulo_B.md §2.4) — mismo contrato que
+ * `ListarMateriasQuerySchema` de Materias (HU-L-02).
+ */
+export const ListarAlumnosQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+});
+export type ListarAlumnosQuery = z.infer<typeof ListarAlumnosQuerySchema>;
+
+/**
+ * Forma de pago preferida (HU-B-03, spec_modulo_B.md §2.3). `null` =
+ * "Sin preferencia" — la conversión `"" -> null` del `<select>` HTML ocurre
+ * en la capa delgada (action/route), antes de este `safeParse()`.
+ *
+ * `forma_pago_id` es `z.string().min(1)`, NO `.uuid()` como dice la spec
+ * literal: los ids reales de `FormaPago` no son UUID (ver
+ * `docs/tasks/Sprint 1/HU-B-03.md` sección 8 para el detalle completo de
+ * esta desviación documentada).
+ */
+export const FormaPagoPreferidaSchema = z.object({
+  forma_pago_id: z.string().min(1).nullable(),
+});
+export type FormaPagoPreferidaInput = z.infer<typeof FormaPagoPreferidaSchema>;

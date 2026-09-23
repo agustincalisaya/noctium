@@ -1,14 +1,26 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
-import { crearIdentidadAlumnoSchema } from "@/server/alumnos/alumno.schema";
-import { crearAlumno } from "@/server/alumnos/alumno.service";
+import { crearIdentidadAlumnoSchema, ListarAlumnosQuerySchema } from "@/server/alumnos/alumno.schema";
+import { crearAlumno, listarAlumnos } from "@/server/alumnos/alumno.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 
-// GET (listado) es HU-B-04, todavía no implementada.
-export async function GET() {
-  return NextResponse.json({ error: "No implementado" }, { status: 501 });
-}
+// Listado de alumnos (HU-B-04, spec_modulo_B.md §2.4).
+export const GET = withPermission("alumnos:leer", async (req) => {
+  const parsed = ListarAlumnosQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams));
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "VALIDACION", message: "Parámetros inválidos", detalles: parsed.error.flatten() },
+      },
+      { status: 400 },
+    );
+  }
+
+  const data = await listarAlumnos(parsed.data);
+  return NextResponse.json({ data, error: null });
+});
 
 export const POST = withPermission("alumnos:crear", async (req) => {
   const body = await req.json().catch(() => null);
