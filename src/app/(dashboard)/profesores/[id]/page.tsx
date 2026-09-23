@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
-import { obtenerFichaProfesor } from "@/server/profesores/profesor.service";
+import {
+  obtenerFichaProfesor,
+  obtenerMateriasDelProfesor,
+} from "@/server/profesores/profesor.service";
 import { FichaEncabezado } from "./ficha-encabezado";
 import { FichaContacto } from "./ficha-contacto";
+import { FichaMaterias } from "./ficha-materias";
 
 /**
- * Ficha del profesor. Hoy muestra identidad resumida + contacto (HU-D-02);
- * HU-D-03/04/05 agregan sus secciones (materias, horarios) con el mismo
- * `FichaSeccion`.
+ * Ficha del profesor. Hoy muestra identidad resumida + contacto (HU-D-02) y
+ * materias asociadas (HU-D-03); HU-D-04/05 agregan sus secciones (horarios)
+ * con el mismo `FichaSeccion`.
  *
  * Permiso: `profesores:leer` todavía no existe en `RolPermiso` (lo agrega
  * HU-D-05, que es la dueña del detalle); mientras tanto la ficha exige
@@ -32,6 +36,7 @@ export default async function ProfesorDetallePage({ params }: { params: Promise<
   if (!profesor) {
     notFound();
   }
+  const materias = await obtenerMateriasDelProfesor(profesor.id);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl space-y-5 p-6">
@@ -51,6 +56,12 @@ export default async function ProfesorDetallePage({ params }: { params: Promise<
         profesorId={profesor.id}
         telefono={profesor.telefono}
         email={profesor.email}
+        puedeEditar
+      />
+      <FichaMaterias
+        profesorId={profesor.id}
+        activo={profesor.activo}
+        materias={materias}
         puedeEditar
       />
     </div>
