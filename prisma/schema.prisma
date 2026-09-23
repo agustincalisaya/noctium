@@ -344,6 +344,10 @@ model ProfesorMateria {
 model Aula {
   idAula       String @id @default(cuid())
   nombreAula   String @unique // nombre o número de aula
+  // Comparación de unicidad case/acento-insensitiva (HU-K-01 criterio 2:
+  // "Aula 1" == "aula 1"), vía normalizarTexto() — el @unique de nombreAula
+  // de arriba compara texto crudo, no alcanza para eso.
+  nombreNormalizadaAula String @unique
   capacidadAula Int
   activaAula   Boolean @default(true)
 

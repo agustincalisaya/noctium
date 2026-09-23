@@ -547,12 +547,18 @@ async function main() {
   for (const a of AULAS) {
     const aula = await prisma.aula.upsert({
       where: { nombreAula: a.nombre },
-      update: { capacidadAula: a.capacidad, activaAula: a.activa, creadoPorUsuarioId: gerenteId },
+      update: {
+        capacidadAula: a.capacidad,
+        activaAula: a.activa,
+        creadoPorUsuarioId: gerenteId,
+        nombreNormalizadaAula: normalizarTexto(a.nombre),
+      },
       create: {
         nombreAula: a.nombre,
         capacidadAula: a.capacidad,
         activaAula: a.activa,
         creadoPorUsuarioId: gerenteId,
+        nombreNormalizadaAula: normalizarTexto(a.nombre),
       },
     });
     aulaIds.set(a.nombre, aula.idAula);
@@ -652,6 +658,12 @@ async function main() {
     update: {},
     create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" },
   });
+  // aulas:crear (HU-K-01, spec_modulo_K.md §2.1): exclusiva de Gerente.
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "aulas:crear" } },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "aulas:crear" },
+  });
   for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
     await prisma.rolPermiso.upsert({
       where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "turnos:leer" } },
@@ -671,7 +683,7 @@ async function main() {
     });
   }
   console.log(
-    `✓ ${ROLES.length + 8} permisos RBAC creados`,
+    `✓ ${ROLES.length + 9} permisos RBAC creados`,
   );
 
   // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
