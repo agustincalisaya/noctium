@@ -87,3 +87,19 @@ export type IdentidadProfesorInput = z.infer<
  */
 export const ContactoProfesorSchema = ContactoSchema;
 export type ContactoProfesorInput = ContactoInput;
+
+/**
+ * Asociación de materias al profesor (HU-D-03, `spec_modulo_D.md` §2.3 con
+ * nota de sincronización: camelCase y `z.cuid()` de Zod 4). El dedupe es
+ * defensivo: la UI nunca envía un id dos veces, pero una llamada directa a
+ * la API sí podría, y un id repetido haría fallar el `createMany` con P2002.
+ */
+export const AsociarMateriasProfesorSchema = z.object({
+  materiaIds: z
+    .array(z.cuid("Materia inválida"))
+    .min(1, "Seleccioná al menos una materia nueva")
+    .transform((ids) => [...new Set(ids)]),
+});
+export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfesorSchema>;
+
+export const ProfesorIdSchema = z.cuid();

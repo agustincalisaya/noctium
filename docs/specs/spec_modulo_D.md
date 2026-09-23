@@ -8,6 +8,11 @@
 
 **HU contractualizadas en esta revisión:** HU-D-01 (Identidad), HU-D-02 (Contacto), HU-D-03 (Asociación a materias), HU-D-04 (Horario de atención), HU-D-05 (Listado) — Sprint 1.
 
+**Changelog (trazabilidad Backlog → Spec):**
+| HU | Estado previo | Acción |
+|---|---|---|
+| HU-D-03 | §2.3 contractualizada en snake_case, con rutas `lib/`/`app/` y `@@unique`; §4 declara el evento `profesor:materias_asociadas` | Anotada §2.3 (nota de sincronización) y §4 (el módulo D usa la opción (a) de la Regla N.° 2). Sin renumerar. |
+
 **Fuera de alcance de esta spec (explícito):**
 - Modificación de una ficha de profesor ya registrada.
 - Baja lógica / reactivación del profesor.
@@ -142,6 +147,21 @@ export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfeso
 }
 ```
 
+**Nota de sincronización (HU-D-03, resuelta):**
+- **Rutas reales (Regla N.° 11):** Server Action en `src/server/profesores/actions.ts`, servicio en `src/server/profesores/profesor.service.ts`, schema en `src/server/profesores/profesor.schema.ts`, tipos en `src/types/profesor.types.ts`. Route Handler en `src/app/api/profesores/[id]/materias/route.ts`.
+- **camelCase**, igual que HU-D-01/D-02: el payload es `materiaIds`; la respuesta `201` es `{ profesorId, materiasAsociadas }`; los errores `409` llevan `materiaIdsInvalidas`.
+- **Modelo:** la unicidad de `ProfesorMateria` es la PK compuesta `@@id([profesorId, materiaId])`, no un `@@unique`. Un `P2002` sobre ella se traduce a `MATERIA_YA_ASOCIADA`.
+- **Zod 4:** `z.cuid()` en lugar del deprecado `z.string().cuid()`.
+- **Códigos que esta sección no definía:**
+  - `404 PROFESOR_NO_ENCONTRADO`: profesor inexistente.
+  - `409 PROFESOR_INACTIVO`: profesor inactivo (paso 1).
+  - `404 MATERIA_NO_ENCONTRADA`: algún id no corresponde a ninguna materia.
+- **Orden de validación:** igual que arriba. `MATERIA_INACTIVA` se lanza **después** del chequeo de duplicados (paso 2).
+- **Atomicidad (Regla N.° 7):**
+  - el paso 1 es un `updateMany` condicionado a `activoProfesor: true`, que además registra `modificadoPorUsuarioId`;
+  - el paso 3 usa `bloquearMateriasParaAsociar()` de `spec_modulo_L.md` §2.3, que bloquea las materias con `FOR SHARE` dentro de la misma transacción.
+- **Paso 5 (evento):** no se emite. Ver la nota de §4.
+
 ---
 
 ### 2.4. Registrar horario de atención del profesor (HU-D-04)
@@ -260,4 +280,11 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 | `profesor:contacto_actualizado` | Contacto (2.2) | `profesor_id, campos_modificados, usuario_id` |
 | `profesor:materias_asociadas` | Asociación (2.3) | `profesor_id, materia_ids, usuario_id` |
 | `profesor:horario_registrado` | Horario (2.4) | `profesor_id, dia_semana, hora_inicio, hora_fin, usuario_id` |
+
+**Nota de sincronización (HU-D-03, resuelta): el módulo D usa la opción (a) de la Regla N.° 2 (columnas de auditoría).**
+- Esta tabla se redactó cuando `RULES.md` exigía un event bus. La Regla N.° 2 vigente ya no lo pide. Los eventos de arriba quedan como referencia histórica y **no se emiten**.
+- La trazabilidad se persiste en la propia fila, en la misma operación:
+  - `Profesor`: `creadoPorUsuarioId` y `createdAtProfesor` (HU-D-01); `modificadoPorUsuarioId` y `updatedAtProfesor` (HU-D-02, HU-D-03).
+  - `ProfesorMateria`: `creadoPorUsuarioId` y `createdAtProfesorMateria` (HU-D-03, migración `profesor_materia_auditoria`). Cada asociación es el alta de una fila, así que esas columnas registran qué se asoció, cuándo y quién.
+- No existe tabla `EventoProfesor`.
 ```

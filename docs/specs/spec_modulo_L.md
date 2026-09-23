@@ -8,6 +8,11 @@
 
 **HU contractualizadas en esta revisión:** HU-L-01 (Registrar materia), HU-L-02 (Listar materias) — Sprint 1.
 
+**Changelog (trazabilidad Backlog → Spec):**
+| HU | Estado previo | Acción |
+|---|---|---|
+| HU-D-03 (módulo D, consumidor) | Gap: el módulo L no exponía una consulta pública para revalidar materias dentro de una transacción ajena | Añadida sección 2.3 (`bloquearMateriasParaAsociar()`), aditiva. No modifica ninguna función existente. Sin renumerar. |
+
 **Fuera de alcance de esta spec (explícito):**
 - Modificación de una materia ya registrada.
 - Baja lógica / reactivación de materias.
@@ -139,6 +144,17 @@ export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;
   "error": null
 }
 ```
+
+### 2.3. Consulta pública: bloquear materias para asociar (consumida por HU-D-03)
+
+**Función:** `bloquearMateriasParaAsociar(ids: string[], tx: Prisma.TransactionClient): Promise<{ id, nombre, codigo, activa }[]>` en `src/server/materias/materia.service.ts`.
+**Consumidor:** `asociarMateriasAProfesor()` del módulo D (`spec_modulo_D.md` §2.3), vía llamada explícita a la capa de servicios pública (Regla N.° 3). No tiene Route Handler ni Server Action propios.
+
+**Comportamiento:**
+- Corre sobre el `tx` del llamador. Hace `SELECT … FROM materias WHERE "idMateria" = ANY($ids) FOR SHARE` con `$queryRaw` parametrizado, nunca concatenado.
+- El bloqueo compartido impide que otra transacción cambie `activaMateria` de esas filas hasta el commit del llamador. Así, el chequeo "todas activas" sigue valiendo al momento del `INSERT` (Regla N.° 7).
+- Devuelve solo las materias que existen, activas o no, con su estado en `activa`. No lanza errores: decidir qué hacer con las faltantes o las inactivas es regla de negocio del llamador.
+- No muta ninguna fila de `materias`.
 
 ---
 
