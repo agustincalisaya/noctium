@@ -1,7 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/server/shared/service-error";
-import type { IdentidadProfesorInput } from "@/server/profesores/profesor.schema";
+import type {
+  ContactoProfesorInput,
+  IdentidadProfesorInput,
+} from "@/server/profesores/profesor.schema";
 
 /**
  * Alta de identidad de profesor (HU-D-01, `spec_modulo_D.md` §2.1 punto 3).
@@ -78,4 +81,110 @@ export async function crearProfesor(
     }
     throw error;
   }
+}
+
+/**
+ * Ficha del profesor (HU-D-02: identidad resumida + contacto actual, para
+ * la ficha y para precargar el formulario de contacto). HU-D-05 la extiende
+ * con materias y horarios. `null` si el id no existe.
+ */
+export async function obtenerFichaProfesor(profesorId: string): Promise<{
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  activo: boolean;
+  telefono: string | null;
+  email: string | null;
+} | null> {
+  const profesor = await prisma.profesor.findUnique({
+    where: { idProfesor: profesorId },
+    select: {
+      idProfesor: true,
+      nombreProfesor: true,
+      apellidoProfesor: true,
+      dniProfesor: true,
+      activoProfesor: true,
+      telefonoProfesor: true,
+      emailProfesor: true,
+    },
+  });
+  if (!profesor) return null;
+
+  return {
+    id: profesor.idProfesor,
+    nombre: profesor.nombreProfesor,
+    apellido: profesor.apellidoProfesor,
+    dni: profesor.dniProfesor,
+    activo: profesor.activoProfesor,
+    telefono: profesor.telefonoProfesor,
+    email: profesor.emailProfesor,
+  };
+}
+
+/**
+ * Registro/actualización del contacto del profesor (HU-D-02,
+ * `spec_modulo_D.md` §2.2). `input` ya llegó validado y normalizado por
+ * `ContactoProfesorSchema` en la capa delgada; `usuarioModificadorId` es el
+ * id de la sesión ya autorizada con `profesores:editar` (mismo criterio que
+ * `crearProfesor()` de arriba: este servicio no chequea permisos).
+ *
+ * Se guardan ambos campos siempre: un campo que viene vacío borra el valor
+ * anterior (`null`) — el formulario precarga el contacto actual, así que
+ * vaciarlo es una decisión explícita del usuario. El schema ya garantiza que
+ * al menos uno de los dos quede cargado.
+ *
+ * Todo corre en una única `$transaction`: la verificación de email contra
+ * cuentas existentes y el `UPDATE` se confirman juntos, sin guardado parcial
+ * (criterios 5 y 6). Nunca modifica `Usuario`: las cuentas se administran
+ * de manera independiente (HU-D-01 c5).
+ */
+export async function actualizarContactoProfesor(
+  profesorId: string,
+  input: ContactoProfesorInput,
+  usuarioModificadorId: string,
+): Promise<{ id: string; telefono: string | null; email: string | null }> {
+  return prisma.$transaction(async (tx) => {
+    const profesor = await tx.profesor.findUnique({
+      where: { idProfesor: profesorId },
+      select: { idProfesor: true, usuarioId: true },
+    });
+    if (!profesor) {
+      throw new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
+    }
+
+    if (input.email) {
+      // Criterio 4: el email no puede pertenecer a OTRA cuenta. La cuenta
+      // propia del profesor (si tiene) queda excluida; sin cuenta vinculada,
+      // cualquier coincidencia bloquea. Comparación case-insensitive porque
+      // emailUsuario no garantiza estar guardado en minúsculas.
+      const otraCuenta = await tx.usuario.findFirst({
+        where: {
+          emailUsuario: { equals: input.email, mode: "insensitive" },
+          ...(profesor.usuarioId ? { NOT: { idUsuario: profesor.usuarioId } } : {}),
+        },
+        select: { idUsuario: true },
+      });
+      if (otraCuenta) {
+        throw new ServiceError("EMAIL_YA_ASOCIADO", "El email pertenece a otra cuenta");
+      }
+    }
+
+    const actualizado = await tx.profesor.update({
+      where: { idProfesor: profesorId },
+      data: {
+        telefonoProfesor: input.telefono ?? null,
+        emailProfesor: input.email ?? null,
+        modificadoPorUsuarioId: usuarioModificadorId,
+        // updatedAtProfesor lo actualiza Prisma (@updatedAt).
+      },
+      select: { idProfesor: true, telefonoProfesor: true, emailProfesor: true },
+    });
+
+    return {
+      id: actualizado.idProfesor,
+      telefono: actualizado.telefonoProfesor,
+      email: actualizado.emailProfesor,
+    };
+  });
 }
