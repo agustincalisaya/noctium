@@ -39,6 +39,11 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-brand-accent: var(--brand-accent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -49,38 +54,52 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* Paleta Noctium (docs/DESIGN.md) — valores oklch calculados por
+     conversión sRGB->OKLCH exacta de los hex oficiales, no aproximados. */
+  --background: oklch(0.9643 0.007 88.64); /* Marfil #F5F3EE */
+  --foreground: oklch(0.2648 0.0127 243.35); /* Grafito #20262B */
+  --card: oklch(1 0 0); /* Blanco #FFFFFF */
+  --card-foreground: oklch(0.2648 0.0127 243.35);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.2648 0.0127 243.35);
+  --primary: oklch(0.3341 0.0516 223.81); /* Azul petróleo #123C4A */
+  --primary-foreground: oklch(0.9643 0.007 88.64); /* Marfil */
+  --secondary: oklch(0.2767 0.0388 245.25); /* Azul profundo #172A3A */
+  --secondary-foreground: oklch(0.9643 0.007 88.64); /* Marfil */
+  --muted: oklch(0.93 0.006 243); /* gris neutro, hue de Grafito */
+  --muted-foreground: oklch(0.5 0.01 243);
+  /* Nunca el acento acá (pintaría de verde todos los hovers) — neutro
+     derivado de Marfil, texto en Grafito. */
+  --accent: oklch(0.93 0.008 88.64);
+  --accent-foreground: oklch(0.2648 0.0127 243.35);
+  --destructive: oklch(0.55 0.19 25); /* rojo sobrio */
+  /* Semánticos nuevos — solo definidos acá, ningún componente los usa
+     todavía (docs/DESIGN.md, sección "Deuda de diseño pendiente"). */
+  --success: oklch(0.93 0.045 152);
+  --success-foreground: oklch(0.32 0.09 152);
+  --warning: oklch(0.93 0.06 75);
+  --warning-foreground: oklch(0.38 0.09 60);
+  --border: oklch(0.88 0.006 243);
+  --input: oklch(0.88 0.006 243);
+  --ring: oklch(0.6304 0.1013 183.03); /* Acento #2A9D8F */
+  /* Token de marca expuesto como utilidad propia (bg-brand-accent, etc.) —
+     nunca asignado a --accent. Mismo valor que --ring, pero conceptualmente
+     independiente: --ring puede recalibrarse sin tocar el token de marca. */
+  --brand-accent: oklch(0.6304 0.1013 183.03);
+  --chart-1: oklch(0.33 0.052 224); /* Azul petróleo */
+  --chart-2: oklch(0.6 0.105 183); /* Acento */
+  --chart-3: oklch(0.28 0.039 245); /* Azul profundo */
+  --chart-4: oklch(0.4 0.02 243); /* gris Grafito medio */
+  --chart-5: oklch(0.48 0.075 200); /* teal intermedio azul/acento */
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.2767 0.0388 245.25); /* Azul profundo */
+  --sidebar-foreground: oklch(0.9643 0.007 88.64); /* Marfil */
+  --sidebar-primary: oklch(0.6304 0.1013 183.03); /* Acento */
+  --sidebar-primary-foreground: oklch(0.2648 0.0127 243.35); /* Grafito */
+  --sidebar-accent: oklch(0.34 0.045 245);
+  --sidebar-accent-foreground: oklch(0.9643 0.007 88.64);
+  --sidebar-border: oklch(0.38 0.04 245);
+  --sidebar-ring: oklch(0.6304 0.1013 183.03);
 }
 
 .dark {

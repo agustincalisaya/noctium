@@ -102,7 +102,7 @@ Comportamiento exigido, en este orden, dentro de una única `prisma.$transaction
 
 - <pantalla/componente 1, con qué gatea la acción por permiso>
 - <pantalla/componente 2>
-- Seguir la guía de diseño del proyecto (shadcn/ui + Tailwind).
+- Seguir la guía de diseño del proyecto: `docs/DESIGN.md` (tokens de shadcn/ui + Tailwind — nunca colores hex ni la paleta default de Tailwind directamente en componentes).
 
 **Fuera de alcance de frontend:** <si corresponde>
 
