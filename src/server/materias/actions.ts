@@ -5,7 +5,7 @@ import { CrearMateriaSchema } from "@/server/materias/materia.schema";
 import { crearMateria as crearMateriaService } from "@/server/materias/materia.service";
 import { verificarPermiso, PermisoError } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
-import type { EstadoMateria } from "./materia.types";
+import type { EstadoMateria } from "@/types/materia.types";
 
 export async function crearMateria(
   _estadoAnterior: EstadoMateria,

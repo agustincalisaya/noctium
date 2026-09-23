@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { CredentialsSignin } from "next-auth";
 import { auth, signIn } from "@/auth";
 import { CredencialesLoginSchema } from "@/server/sesion/sesion.schema";
-import type { EstadoLogin } from "./login.types";
+import type { EstadoLogin } from "@/types/sesion.types";
 
 // Traducción código de servicio -> texto exacto para el usuario (spec_modulo_A.md §2.1).
 // Vive acá, no en el servicio, para no acoplar la capa de negocio al copy de UI.

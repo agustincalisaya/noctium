@@ -55,3 +55,14 @@ Ninguna clave, secreto o credencial se hardcodea. Toda credencial (`NEXTAUTH_SEC
 
 ## Regla N.° 10 — RBAC granular por acción
 Toda ruta protegida requiere sesión autenticada (NextAuth) y verificación de permiso granular por acción (`withPermission("<modulo>:<accion>")`), nunca solo por rol genérico. La matriz de permisos por rol (mesa de entradas, profesor, gerente, alumno) se documenta y mantiene junto a `spec_modulo_A.md`.
+
+## Regla N.° 11 — Estructura de carpetas por módulo
+Cada módulo (Sesión, Materias, Aulas, Turnos, etc.) ubica sus archivos siempre en el mismo lugar, independientemente de qué ruta de `app/` los consuma:
+
+- **Tipos de dominio** → `src/types/<modulo>.types.ts` (ej. `src/types/materia.types.ts`). Los `.d.ts` sueltos en `src/types/` quedan reservados exclusivamente para declaraciones ambientales/globales (ej. `next-auth.d.ts`), no para tipos de dominio.
+- **Server Actions** → `src/server/<modulo>/actions.ts` (ej. `src/server/materias/actions.ts`).
+- **`src/app/**`** contiene únicamente `page.tsx`, `layout.tsx` y componentes propios de esa ruta — nunca tipos ni actions sueltos junto a una página.
+
+Las importaciones a estos archivos usan siempre el alias configurado (`@/types/...`, `@/server/...`), nunca rutas relativas (`../actions`, `./materia.types`).
+
+> Nota de consistencia pendiente: la Regla N.° 4 referencia `lib/services/<modulo>/*.service.ts` como ubicación de la capa de servicios, pero la implementación real de Sesión y Materias usa `src/server/<modulo>/actions.ts` sin una carpeta `lib/services/` separada. El equipo debe decidir y unificar: o se actualiza la Regla N.° 4 para reflejar `server/` como capa de servicios real, o se migra el código para introducir `lib/services/` como capa intermedia entre las actions y la lógica de negocio.
