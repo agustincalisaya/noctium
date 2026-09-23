@@ -1,8 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
-import type { FichaAlumno } from "@/types/alumno.types";
-import type { ContactoAlumnoInput, IdentidadAlumnoInput } from "./alumno.schema";
+import type { DetalleAlumno, FichaAlumno } from "@/types/alumno.types";
+import type { ContactoAlumnoInput, IdentidadAlumnoInput, ListarAlumnosQuery } from "./alumno.schema";
 
 const MENSAJES = {
   DNI_DUPLICADO_ACTIVA: "Ya existe un alumno registrado con ese DNI",
@@ -42,6 +43,12 @@ export async function crearAlumno(input: IdentidadAlumnoInput, usuarioId: string
         data: {
           nombreAlumno: input.nombre,
           apellidoAlumno: input.apellido,
+          // Requeridos desde HU-B-04 (orden case/acento-insensitivo del
+          // listado, spec_modulo_B.md §2.4) — corrección necesaria acá
+          // porque el alta (HU-B-01) es el único INSERT de Alumno fuera del
+          // seed.
+          nombreNormalizadoAlumno: normalizarTexto(input.nombre),
+          apellidoNormalizadoAlumno: normalizarTexto(input.apellido),
           dniAlumno: input.dni,
           fechaNacimientoAlumno: input.fecha_nacimiento,
           generoAlumno: input.genero ?? null,
@@ -179,4 +186,79 @@ export async function actualizarContactoAlumno(
       email: actualizado.emailAlumno,
     };
   });
+}
+
+/**
+ * Listado de alumnos (HU-B-04, spec_modulo_B.md §2.4). Sin filtro
+ * `activoAlumno` — incluye activos e inactivos a propósito, la columna
+ * Estado distingue (mismo criterio que `listarMaterias()` de Materias).
+ * Orden por `apellidoNormalizadoAlumno`/`nombreNormalizadoAlumno` (case/
+ * acento-insensitivo) con `dniAlumno` como segundo criterio de desempate
+ * estable — sin este segundo criterio, dos alumnos con el mismo apellido y
+ * nombre normalizado podrían cambiar de orden entre páginas.
+ */
+export async function listarAlumnos(query: ListarAlumnosQuery) {
+  const { pagina, por_pagina: porPagina } = query;
+
+  const total = await prisma.alumno.count();
+  const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
+
+  const alumnos = await prisma.alumno.findMany({
+    orderBy: [
+      { apellidoNormalizadoAlumno: "asc" },
+      { nombreNormalizadoAlumno: "asc" },
+      { dniAlumno: "asc" },
+    ],
+    skip: (paginaActual - 1) * porPagina,
+    take: porPagina,
+  });
+
+  return {
+    items: alumnos.map((alumno) => ({
+      id: alumno.idAlumno,
+      apellido: alumno.apellidoAlumno,
+      nombre: alumno.nombreAlumno,
+      dni: alumno.dniAlumno,
+      telefono: alumno.telefonoAlumno,
+      email: alumno.emailAlumno,
+      is_active: alumno.activoAlumno,
+    })),
+    paginacion: {
+      total,
+      pagina_actual: paginaActual,
+      total_paginas: Math.ceil(total / porPagina),
+      por_pagina: porPagina,
+    },
+  };
+}
+
+/**
+ * Detalle completo del alumno (HU-B-04, spec_modulo_B.md §2.4): identidad +
+ * contacto + forma de pago preferida (nombre resuelto vía `include`, no
+ * solo el id) + estado + fecha de alta. Separada de `obtenerFichaAlumno()`
+ * (HU-B-02) a propósito — esa función alimenta el formulario de contacto y
+ * no necesita forma de pago ni fecha de alta (Nota de alcance, HU-B-04 §1
+ * punto 6).
+ */
+export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlumno> {
+  const alumno = await prisma.alumno.findUnique({
+    where: { idAlumno: alumnoId },
+    include: { formaPagoPreferida: { select: { nombreFormaPago: true } } },
+  });
+
+  if (!alumno) {
+    throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
+  }
+
+  return {
+    id: alumno.idAlumno,
+    nombre: alumno.nombreAlumno,
+    apellido: alumno.apellidoAlumno,
+    dni: alumno.dniAlumno,
+    is_active: alumno.activoAlumno,
+    telefono: alumno.telefonoAlumno,
+    email: alumno.emailAlumno,
+    forma_pago_preferida: alumno.formaPagoPreferida?.nombreFormaPago ?? null,
+    created_at: alumno.createdAtAlumno.toISOString(),
+  };
 }
