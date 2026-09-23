@@ -13,6 +13,7 @@ const tx = {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    profesor: { findMany: vi.fn() },
     profesorMateria: { findMany: vi.fn() },
     $transaction: vi.fn((callback: (cliente: typeof tx) => unknown) => callback(tx)),
   },
@@ -24,7 +25,7 @@ vi.mock("@/server/materias/materia.service", () => ({
 
 const { prisma } = await import("@/lib/prisma");
 const { bloquearMateriasParaAsociar } = await import("@/server/materias/materia.service");
-const { asociarMateriasAProfesor, obtenerMateriasDelProfesor } = await import("@/server/profesores/profesor.service");
+const { asociarMateriasAProfesor, obtenerMateriasDelProfesor, listarProfesoresActivosPorMateria } = await import("@/server/profesores/profesor.service");
 
 const PROFESOR = "ckprofesor000000000000001";
 const USUARIO = "ckusuario0000000000000001";
@@ -46,6 +47,20 @@ beforeEach(() => {
   tx.profesor.updateMany.mockResolvedValue({ count: 1 });
   tx.profesorMateria.findMany.mockResolvedValue([]);
   tx.profesorMateria.createMany.mockResolvedValue({ count: 0 });
+});
+
+describe("HU-C-04 opciones de profesores", () => {
+  it("filtra activos asociados a la materia y devuelve solo opciones", async () => {
+    vi.mocked(prisma.profesor.findMany).mockResolvedValue([{ idProfesor: PROFESOR, nombreProfesor: "Ana", apellidoProfesor: "Gómez" }] as never);
+    await expect(listarProfesoresActivosPorMateria(FISICA.id)).resolves.toEqual([{ id: PROFESOR, nombre: "Ana", apellido: "Gómez" }]);
+    expect(prisma.profesor.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { activoProfesor: true, materias: { some: { materiaId: FISICA.id } } },
+    }));
+  });
+  it("devuelve vacío para materia sin profesores activos", async () => {
+    vi.mocked(prisma.profesor.findMany).mockResolvedValue([]);
+    await expect(listarProfesoresActivosPorMateria(FISICA.id)).resolves.toEqual([]);
+  });
 });
 
 describe("obtenerMateriasDelProfesor", () => {

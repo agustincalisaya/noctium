@@ -16,6 +16,13 @@ function horaLocal(fecha: Date) {
   return { fecha: `${valor("year")}-${valor("month")}-${valor("day")}`, hora: `${valor("hour")}:${valor("minute")}` };
 }
 
+export function turnoSigueVigente(fecha: Date, horaInicio: Date): boolean {
+  const ahora = horaLocal(new Date());
+  const diaTurno = fecha.toISOString().slice(0, 10);
+  const horaTurno = horaInicio.toISOString().slice(11, 16);
+  return diaTurno > ahora.fecha || (diaTurno === ahora.fecha && horaTurno > ahora.hora);
+}
+
 export async function parametrosConfiguracionTurno() {
   const claves = ["duracion_turno_estandar_minutos", "granularidad_turno_minutos", "dias_operativos", "horario_operativo_desde", "horario_operativo_hasta", "anticipacion_maxima_dias"];
   const filas = await prisma.parametroSistema.findMany({ where: { clave: { in: claves } } });

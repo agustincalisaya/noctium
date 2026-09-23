@@ -4,8 +4,10 @@ import type { RolUsuario } from "@prisma/client";
 import { ServiceError } from "@/server/shared/service-error";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service";
-import { validarConfiguracionTurno } from "./turno.validaciones";
-import type { ConfigurarTurnoInput } from "./turno.schema";
+import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
+import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
+import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
+import type { AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -19,6 +21,15 @@ function hora(date: Date) { return date.toISOString().slice(11, 16); }
 function nombre(apellido: string, primero: string) { return `${apellido}, ${primero}`; }
 
 function horaFecha(horaInicio: string) { return new Date(`1970-01-01T${horaInicio}:00.000Z`); }
+
+function intervaloTurno(turno: { horaInicioTurno: Date; duracionMinutosTurno: number }) {
+  const inicio = turno.horaInicioTurno.getUTCHours() * 60 + turno.horaInicioTurno.getUTCMinutes();
+  return { inicio, fin: inicio + turno.duracionMinutosTurno };
+}
+
+function horaDeMinutos(total: number) {
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
 
 async function emitirEventoTurno(tipoEvento: string, turnoId: string, usuarioId: string, payloadEvento: Record<string, unknown>) {
   await prisma.eventoTurno.create({ data: { tipoEvento, turnoId, usuarioId, payloadEvento: JSON.parse(JSON.stringify(payloadEvento)) } });
@@ -56,6 +67,65 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
   ].filter((campo): campo is string => campo !== null);
   await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, profesor_desasignado: profesorDesasignado, usuario_id: usuarioId });
   return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, materia_id: input.materia_id, estado: "PENDIENTE" as const, profesor_desasignado: profesorDesasignado };
+}
+
+/** HU-C-04: la asignación sustituye todos los vínculos anteriores del turno. */
+export async function asignarParticipantesTurno(turnoId: string, input: AsignarParticipantesTurnoInput, usuarioId: string) {
+  const resultado = await prisma.$transaction(async (tx) => {
+    const turno = await tx.turno.findUnique({
+      where: { idTurno: turnoId },
+      select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, updatedAtTurno: true },
+    });
+    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+    if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_AGENDADO", "Un turno agendado no admite cambios de participantes");
+    if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó. Corregí su configuración antes de continuar");
+
+    if (!(await verificarAlumnoActivo(input.alumno_id, tx))) {
+      throw new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno no existe o no está activo");
+    }
+    const profesores = await listarProfesoresActivosPorMateria(turno.materiaId, tx);
+    if (profesores.length === 0) throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
+    if (!profesores.some(({ id }) => id === input.profesor_id)) {
+      throw new ServiceError("PROFESOR_NO_APTO", "El profesor no está activo o no dicta esta materia");
+    }
+
+    const intervalo = intervaloTurno(turno);
+    if (!(await estaDentroDeHorarioAtencion(input.profesor_id, turno.fechaTurno, horaDeMinutos(intervalo.inicio), horaDeMinutos(intervalo.fin), tx))) {
+      throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", "El turno está fuera del horario de atención del profesor");
+    }
+
+    const agendados = await tx.turno.findMany({
+      where: {
+        idTurno: { not: turnoId }, fechaTurno: turno.fechaTurno, estadoTurno: "AGENDADO",
+        OR: [{ profesorId: input.profesor_id }, { alumnos: { some: { alumnoId: input.alumno_id } } }],
+      },
+      select: { profesorId: true, horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: input.alumno_id }, select: { alumnoId: true } } },
+    });
+    const conflictoProfesor = agendados.find((otro) => otro.profesorId === input.profesor_id && intervalosSeSuperponen(intervalo, intervaloTurno(otro)));
+    if (conflictoProfesor) {
+      const conflicto = intervaloTurno(conflictoProfesor);
+      throw new ServiceError("PROFESOR_NO_DISPONIBLE", `El profesor ya tiene un turno agendado de ${horaDeMinutos(conflicto.inicio)} a ${horaDeMinutos(conflicto.fin)}`);
+    }
+    if (agendados.some((otro) => otro.alumnos.length > 0 && intervalosSeSuperponen(intervalo, intervaloTurno(otro)))) {
+      throw new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario");
+    }
+
+    // La actualización condicionada serializa reemplazos del mismo turno y
+    // detecta una configuración/asignación concurrente antes de tocar vínculos.
+    const actualizado = await tx.turno.updateMany({
+      where: { idTurno: turnoId, estadoTurno: "PENDIENTE", updatedAtTurno: turno.updatedAtTurno },
+      data: { profesorId: input.profesor_id, modificadoPorUsuarioId: usuarioId },
+    });
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    await tx.turnoAlumno.deleteMany({ where: { turnoId } });
+    await tx.turnoAlumno.create({ data: { turnoId, alumnoId: input.alumno_id } });
+    return { id: turnoId, alumno_id: input.alumno_id, profesor_id: input.profesor_id, estado: "PENDIENTE" as const };
+  });
+  await emitirEventoTurno("turno:participantes_asignados", turnoId, usuarioId, {
+    turno_id: turnoId, alumno_id: input.alumno_id, profesor_id: input.profesor_id, usuario_id: usuarioId,
+  });
+  // HU-C-15 debe volver a comprobar profesor y alumno al pasar a AGENDADO.
+  return resultado;
 }
 
 type TurnoConRelaciones = NonNullable<Awaited<ReturnType<typeof prisma.turno.findFirst<{ include: typeof turnoInclude }>>>>;
