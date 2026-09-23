@@ -13,3 +13,9 @@ export const ConfigurarTurnoSchema = z.object({
 });
 
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
+
+export const AsignarParticipantesTurnoSchema = z.object({
+  alumno_id: z.cuid(),
+  profesor_id: z.cuid(),
+});
+export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantesTurnoSchema>;

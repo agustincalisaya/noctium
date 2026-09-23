@@ -366,8 +366,9 @@ export async function asociarMateriasAProfesor(
 export async function profesorActivoDictaMateria(
   profesorId: string,
   materiaId: string,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<boolean> {
-  const profesor = await prisma.profesor.findFirst({
+  const profesor = await db.profesor.findFirst({
     where: {
       idProfesor: profesorId,
       activoProfesor: true,
@@ -383,6 +384,16 @@ export async function profesorActivoDictaMateria(
   });
 
   return profesor !== null;
+}
+
+/** Opciones activas para HU-C-04; no expone la tabla intermedia al módulo C. */
+export async function listarProfesoresActivosPorMateria(materiaId: string, db: Prisma.TransactionClient = prisma) {
+  const profesores = await db.profesor.findMany({
+    where: { activoProfesor: true, materias: { some: { materiaId } } },
+    orderBy: [{ apellidoProfesor: "asc" }, { nombreProfesor: "asc" }, { idProfesor: "asc" }],
+    select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true },
+  });
+  return profesores.map((profesor) => ({ id: profesor.idProfesor, nombre: profesor.nombreProfesor, apellido: profesor.apellidoProfesor }));
 }
 
 // ------------------------------------------------------------

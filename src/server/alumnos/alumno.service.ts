@@ -105,6 +105,30 @@ export async function obtenerFichaAlumno(alumnoId: string): Promise<FichaAlumno 
   };
 }
 
+/** Consulta acotada para el autocompletado de HU-C-04. */
+export async function buscarAlumnosActivos(query: string) {
+  const termino = normalizarTexto(query.trim());
+  if (termino.length < 2) return [];
+  const alumnos = await prisma.alumno.findMany({
+    where: {
+      activoAlumno: true,
+      OR: [
+        { nombreNormalizadoAlumno: { contains: termino } },
+        { apellidoNormalizadoAlumno: { contains: termino } },
+        { dniAlumno: { contains: query.trim() } },
+      ],
+    },
+    orderBy: [{ apellidoNormalizadoAlumno: "asc" }, { nombreNormalizadoAlumno: "asc" }, { idAlumno: "asc" }],
+    take: 10,
+    select: { idAlumno: true, nombreAlumno: true, apellidoAlumno: true, dniAlumno: true },
+  });
+  return alumnos.map((alumno) => ({ id: alumno.idAlumno, nombre: alumno.nombreAlumno, apellido: alumno.apellidoAlumno, dni: alumno.dniAlumno }));
+}
+
+export async function verificarAlumnoActivo(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  return (await db.alumno.count({ where: { idAlumno: alumnoId, activoAlumno: true } })) > 0;
+}
+
 /**
  * Registro/actualización del contacto del alumno (HU-B-02,
  * `spec_modulo_B.md` §2.2). `input` ya llegó validado y normalizado por
