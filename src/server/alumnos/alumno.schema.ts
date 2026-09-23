@@ -52,3 +52,13 @@ export type IdentidadAlumnoInput = z.infer<ReturnType<typeof crearIdentidadAlumn
  */
 export const ContactoAlumnoSchema = ContactoSchema;
 export type ContactoAlumnoInput = ContactoInput;
+
+/**
+ * Listado de alumnos (HU-B-04, spec_modulo_B.md §2.4) — mismo contrato que
+ * `ListarMateriasQuerySchema` de Materias (HU-L-02).
+ */
+export const ListarAlumnosQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+});
+export type ListarAlumnosQuery = z.infer<typeof ListarAlumnosQuerySchema>;
