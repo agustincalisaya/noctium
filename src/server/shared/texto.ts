@@ -4,6 +4,6 @@
  * entidad (Regla N.° 3 de `docs/RULES.md`: reutilizar una utilidad pura
  * entre módulos no es acoplamiento de dominio).
  */
-export function normalizarTexto(valor: string): string {
+export function normalizarTextoNombre(valor: string): string {
   return valor.trim().replace(/\s+/g, " ");
 }

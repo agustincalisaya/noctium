@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Genero } from "@prisma/client";
 import { fechaCalendarioValidaSchema, fechaUTCHaceAnios } from "@/server/shared/fecha";
-import { normalizarTexto } from "@/server/shared/texto";
+import { normalizarTextoNombre } from "@/server/shared/texto";
 
 const NOMBRE_REGEX = /^[\p{L}\s'-]+$/u;
 
@@ -14,7 +14,7 @@ const GENERO_VALORES = ["MASCULINO", "FEMENINO", "OTRO", "PREFIERO_NO_INDICARLO"
 function nombreSchema(etiqueta: string) {
   return z
     .string()
-    .transform(normalizarTexto)
+    .transform(normalizarTextoNombre)
     .pipe(
       z
         .string()

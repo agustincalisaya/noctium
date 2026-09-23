@@ -54,7 +54,7 @@ Un relevamiento previo del repo (`develop`, limpio) encontró seis puntos donde 
 
 Implementación frontend + backend conforme a `spec_modulo_D.md` §2.1, con las correcciones de §1 de esta task. Incluye:
 - Schema Zod (`src/server/profesores/profesor.schema.ts` → `IdentidadProfesorSchema`).
-- Utilidades compartidas nuevas (`src/server/shared/fecha.ts` → `fechaCalendarioValidaSchema`; `src/server/shared/texto.ts` → `normalizarTexto()`).
+- Utilidades compartidas nuevas (`src/server/shared/fecha.ts` → `fechaCalendarioValidaSchema`; `src/server/shared/texto.ts` → `normalizarTextoNombre()`).
 - Capa de servicios (`src/server/profesores/profesor.service.ts`, hoy stub → `crearProfesor()`).
 - Route Handler (`POST /app/api/profesores/route.ts`, hoy stub `501` → implementado; `GET` se deja fuera de alcance, es HU-D-05).
 - Server Action equivalente (`app/(dashboard)/profesores/actions.ts` → `crearProfesor()`).
@@ -79,7 +79,7 @@ import { z } from "zod";
 import { Genero } from "@prisma/client";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha";
-import { normalizarTexto } from "@/server/shared/texto";
+import { normalizarTextoNombre } from "@/server/shared/texto";
 
 const NOMBRE_REGEX = /^[\p{L}\s'-]+$/u;
 
@@ -90,7 +90,7 @@ const nombreSchema = (etiqueta: string) =>
     .min(2, `${etiqueta} debe tener al menos 2 caracteres`)
     .max(50, `${etiqueta} no puede superar los 50 caracteres`)
     .regex(NOMBRE_REGEX, `${etiqueta} solo admite letras, espacios, acentos, apóstrofes y guiones`)
-    .transform(normalizarTexto);
+    .transform(normalizarTextoNombre);
 
 // dni_longitud_min/max se resuelven en el Server Action / Route Handler
 // (async, vía ParametroSistema) y se inyectan acá — Zod no soporta refine
@@ -119,7 +119,9 @@ export type IdentidadProfesorInput = z.infer<ReturnType<typeof construirIdentida
 **Utilidades nuevas a crear (§1, punto 6):**
 
 - **`src/server/shared/fecha.ts` → `fechaCalendarioValidaSchema`:** `z.string()` (formato `YYYY-MM-DD`, el que produce un `<input type="date">`) parseado en forma **estricta** (ej. `date-fns` `parse` + `isValid`, o validación manual de componentes año/mes/día) que **rechaza** una fecha de calendario inexistente (`31/02`, `30/02`) en lugar de que `z.coerce.date()` la "corrija" reinterpretándola como el día siguiente válido. Devuelve un `Date`. Sin acoplamiento a "profesor" — reutilizable tal cual por HU-B-01 (Alumno).
-- **`src/server/shared/texto.ts` → `normalizarTexto(valor: string): string`:** colapsa espacios múltiples internos a uno solo (`replace(/\s+/g, " ")`) sobre un valor ya `trim()`eado por el schema que la invoca. Mismo criterio de aceptación 2 de esta HU y de `spec_modulo_B.md` §2.1 — utilidad pura sin estado, reutilizable por cualquier módulo (Regla N.° 3 de `docs/RULES.md`: esto no es acoplamiento de dominio).
+- **`src/server/shared/texto.ts` → `normalizarTextoNombre(valor: string): string`:** colapsa espacios múltiples internos a uno solo (`replace(/\s+/g, " ")`) sobre un valor ya `trim()`eado por el schema que la invoca. Mismo criterio de aceptación 2 de esta HU y de `spec_modulo_B.md` §2.1 — utilidad pura sin estado, reutilizable por cualquier módulo (Regla N.° 3 de `docs/RULES.md`: esto no es acoplamiento de dominio).
+  - **Nota — por qué se llama `normalizarTextoNombre` y no `normalizarTexto`:** al mergear `develop` apareció otra función `normalizarTexto` en `src/lib/normalizar-texto.ts` (creada para HU-L-01/Materias) con un comportamiento distinto e incompatible: aquella genera una **clave de comparación** insensible a acentos y mayúsculas para detectar duplicados; esta **limpia el valor que se guarda** en la base sin tocar mayúsculas ni acentos. Mismo nombre, comportamientos no intercambiables, y ningún error de compilación que lo marque si alguien confunde el import. Se renombró la de esta HU a `normalizarTextoNombre` para evitar la colisión; la de Materias quedó sin tocar (no es código de esta HU).
+- **Nota — `fechaCalendarioValidaSchema` duplicado (menor severidad que el caso anterior):** al mergear `develop` también apareció `src/server/shared/fecha.schema.ts` (traído para Alumno/HU-B-01) con su propia `fechaCalendarioValidaSchema`, además de la de esta HU en `src/server/shared/fecha.ts`. Son **funcionalmente idénticas**: se verificaron con `tsx` en 17 casos (fechas válidas, bisiestos y no bisiestos, 31/02, 31/04, mes 13/00, día 00/32, año < 100, formatos inválidos) y aceptan o rechazan exactamente los mismos valores. Ambas usan el mismo criterio UTC (`Date.UTC` y `getUTC*`), devuelven el mismo `Date` a medianoche UTC y rechazan igual las fechas inexistentes. Difieren solo en los mensajes de error (acá, "Ingresá una fecha válida" en ambos casos; en Alumno, "La fecha debe tener el formato AAAA-MM-DD" y "La fecha ingresada no existe en el calendario"). Además, la de Alumno exporta el tipo `FechaCalendarioValida` y la de Profesor no. A diferencia de `normalizarTexto`, **no hay riesgo de comportamiento** si se usa una por la otra. Se deja sin unificar por ahora: es una decisión de equipo, no algo para resolver unilateralmente en esta HU. **Punto de agenda para el próximo daily**, junto con qué hacer con las dos `normalizarTexto`.
 
 **DECISIÓN RESUELTA — formato del input de fecha:** `<input type="date">` nativo (valor `YYYY-MM-DD`, coincide con lo que espera `fechaCalendarioValidaSchema`), sin date picker de librería — no hay ninguno instalado en el proyecto (`package.json` no tiene `react-day-picker` ni similar). Se fija el atributo `max` al día de hoy (`new Date().toISOString().slice(0, 10)`, calculado en el Server Component y pasado como prop al formulario, no recalculado en el cliente) para bloquear fechas futuras como primera barrera de UX. **Esto no reemplaza la validación estricta del servidor:** el atributo `max` de un `<input type="date">` es una restricción del widget del navegador (algunos navegadores/OS igual permiten tipear o pegar un valor fuera de rango), y no tiene forma de rechazar una fecha de calendario inexistente — ambas cosas las sigue validando `fechaCalendarioValidaSchema` en el schema Zod, tanto en el `safeParse` de cliente (mismo schema importado) como, de forma no negociable, en el servidor.
 
@@ -248,9 +250,9 @@ El array usa `as const satisfies Genero[]`, así que TypeScript sí verifica en 
 ## 7. Checklist de Definition of Done
 
 - [x] Relevamiento previo (sección 0) confirmado antes de implementar.
-- [x] `<input type="date">` nativo con `max` fijado a la fecha de hoy menos 18 años (`fechaMaximaNacimiento`, ver §8.1; originalmente era la fecha de hoy) en el campo Fecha de nacimiento; `fechaCalendarioValidaSchema` sigue siendo la validación determinante en el servidor (el `max` del input es solo primera barrera de UX, no la reemplaza). Verificado en navegador (caso 3).
+- [x] `<input type="date">` nativo con `max` fijado a la fecha de hoy menos 18 años (`fechaMaximaNacimiento`, ver §8.1; originalmente era la fecha de hoy) en el campo Fecha de nacimiento; `fechaCalendarioValidaSchema` sigue siendo la validación determinante en el servidor (el `max` del input es solo primera barrera de UX, no la reemplaza). El caso 3 del navegador verificó el `max` con el valor original (fecha de hoy), no con el valor final. **Pendiente de verificación manual en navegador** del `max` = `fechaMaximaNacimiento` (hoy menos 18 años), mismo criterio que §8.1.
 - [x] `verificarDniDisponible()` implementada como Server Action separada (`app/(dashboard)/profesores/actions.ts`), gateada por `verificarPermiso("profesores:crear")`, disparada en `onBlur` del campo DNI, sin bloquear el submit. Verificado en navegador (caso 2, 2 requests reales confirmadas por red).
-- [x] `fechaCalendarioValidaSchema` y `normalizarTexto()` creadas en `src/server/shared/` sin acoplamiento a "profesor", listas para que HU-B-01 las reutilice.
+- [x] `fechaCalendarioValidaSchema` y `normalizarTextoNombre()` creadas en `src/server/shared/` sin acoplamiento a "profesor", listas para que HU-B-01 las reutilice.
 - [x] Fila `profesores:crear` agregada al bloque `RolPermiso` de `prisma/seed.ts`, exclusiva de `GERENTE`. Verificado corriendo el seed real contra la base y con una consulta SQL directa.
 - [x] Service, Route Handler y Server Action implementados, sin lógica de negocio fuera de `profesor.service.ts`. `POST /app/api/profesores/route.ts` implementado como wrapper delgado sobre el mismo servicio, mismo patrón que `ping/route.ts` y `logout/route.ts`.
 - [x] Endpoints responden con el shape estándar `{ data, error }` y status codes semánticos (`201`, `400`, `401`, `403`, `409`). Verificado con requests `curl` reales contra los seis casos (caso 5).
