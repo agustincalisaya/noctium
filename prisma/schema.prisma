@@ -192,6 +192,11 @@ model Alumno {
   // Datos de identidad (HU-B-01)
   nombreAlumno   String
   apellidoAlumno String
+  // Orden case/acento-insensitivo del listado (HU-B-04, spec_modulo_B.md §2.4).
+  // No @unique (a diferencia de nombreNormalizadaMateria): apellido/nombre no
+  // son únicos entre alumnos.
+  nombreNormalizadoAlumno   String
+  apellidoNormalizadoAlumno String
   dniAlumno      String @unique
   fechaNacimientoAlumno DateTime @db.Date
   generoAlumno   Genero?
@@ -339,6 +344,10 @@ model ProfesorMateria {
 model Aula {
   idAula       String @id @default(cuid())
   nombreAula   String @unique // nombre o número de aula
+  // Comparación de unicidad case/acento-insensitiva (HU-K-01 criterio 2:
+  // "Aula 1" == "aula 1"), vía normalizarTexto() — el @unique de nombreAula
+  // de arriba compara texto crudo, no alcanza para eso.
+  nombreNormalizadaAula String @unique
   capacidadAula Int
   activaAula   Boolean @default(true)
 

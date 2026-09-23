@@ -14,10 +14,13 @@ import { cn } from "@/lib/utils";
 export function Pagination({
   paginaActual,
   totalPaginas,
+  total,
   buildHref,
 }: {
   paginaActual: number;
   totalPaginas: number;
+  /** Cantidad total de registros (opcional) — se muestra junto a "Página X de Y" cuando se provee. */
+  total?: number;
   buildHref: (pagina: number) => string;
 }) {
   if (totalPaginas <= 1) return null;
@@ -29,6 +32,7 @@ export function Pagination({
     <nav className="flex items-center justify-between gap-4 pt-2" aria-label="Paginación">
       <span className="text-sm text-muted-foreground">
         Página {paginaActual} de {totalPaginas}
+        {total !== undefined && ` · ${total} en total`}
       </span>
       <div className="flex items-center gap-2">
         <PaginationLink href={hayAnterior ? buildHref(paginaActual - 1) : null} aria-label="Página anterior">
