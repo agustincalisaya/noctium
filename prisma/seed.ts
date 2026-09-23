@@ -727,6 +727,11 @@ async function main() {
       accionPermiso: "turnos:crear",
     },
   });
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_participantes" } },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_participantes" },
+  });
   // materias:leer (HU-L-02, spec_modulo_L.md §2.2): todo rol que necesite
   // consultar el catálogo al operar otro módulo — Gerente, Mesa de Entrada,
   // Profesor. Alumno queda afuera en este sprint (sin HU que lo requiera
