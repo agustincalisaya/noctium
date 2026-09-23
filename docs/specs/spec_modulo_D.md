@@ -29,6 +29,7 @@ Implementación estándar del proyecto: Route Handler / Server Action delgados q
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
+- Los identificadores de `Profesor`, `Materia` y `HorarioProfesor` son CUID según `schema.prisma`; `"cuid"` en los ejemplos es un marcador ilustrativo. El parámetro `[id]` refiere a `Profesor`.
 - Toda ruta requiere `withPermission("profesores:<accion>")` (Regla N.° 10).
 
 ---
@@ -66,7 +67,7 @@ export type IdentidadProfesorInput = z.infer<typeof IdentidadProfesorSchema>;
 
 **Respuesta `201 Created`:**
 ```json
-{ "data": { "id": "uuid", "nombre": "Ana", "apellido": "Gómez", "dni": "28456789", "is_active": true }, "error": null }
+{ "data": { "id": "cuid", "nombre": "Ana", "apellido": "Gómez", "dni": "28456789", "is_active": true }, "error": null }
 ```
 
 **Respuesta `409 Conflict`:**
@@ -101,7 +102,7 @@ export type ContactoProfesorInput = z.infer<typeof ContactoProfesorSchema>;
 
 **Respuesta `200 OK`:**
 ```json
-{ "data": { "id": "uuid", "telefono": "+5493874445566", "email": "ana.gomez@mail.com" }, "error": null }
+{ "data": { "id": "cuid", "telefono": "+5493874445566", "email": "ana.gomez@mail.com" }, "error": null }
 ```
 
 ---
@@ -114,7 +115,7 @@ export type ContactoProfesorInput = z.infer<typeof ContactoProfesorSchema>;
 
 ```typescript
 export const AsociarMateriasProfesorSchema = z.object({
-  materia_ids: z.array(z.string().uuid()).min(1, "Seleccioná al menos una materia"),
+  materia_ids: z.array(z.string().cuid()).min(1, "Seleccioná al menos una materia"),
 });
 export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfesorSchema>;
 ```
@@ -130,14 +131,14 @@ export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfeso
 
 **Respuesta `201 Created`:**
 ```json
-{ "data": { "profesor_id": "uuid", "materias_asociadas": ["uuid1", "uuid2"] }, "error": null }
+{ "data": { "profesor_id": "cuid", "materias_asociadas": ["cuid-materia-1", "cuid-materia-2"] }, "error": null }
 ```
 
 **Respuesta `409 Conflict` (materia inactiva en el lote):**
 ```json
 {
   "data": null,
-  "error": { "code": "MATERIA_INACTIVA", "message": "La materia 'Física' ya no está activa", "materia_ids_invalidas": ["uuid2"] }
+  "error": { "code": "MATERIA_INACTIVA", "message": "La materia 'Física' ya no está activa", "materia_ids_invalidas": ["cuid-materia-2"] }
 }
 ```
 
@@ -179,7 +180,7 @@ export type RegistrarHorarioProfesorInput = z.infer<typeof RegistrarHorarioProfe
 
 **Respuesta `201 Created`:**
 ```json
-{ "data": { "id": "uuid", "dia_semana": "LUNES", "hora_inicio": "10:00", "hora_fin": "12:00" }, "error": null }
+{ "data": { "id": "cuid", "dia_semana": "LUNES", "hora_inicio": "10:00", "hora_fin": "12:00" }, "error": null }
 ```
 
 **Respuesta `409 Conflict` (superposición):**
@@ -216,10 +217,10 @@ export const ListarProfesoresQuerySchema = z.object({
 ```json
 {
   "data": {
-    "id": "uuid",
+    "id": "cuid",
     "apellido": "Gómez", "nombre": "Ana", "dni": "28456789", "is_active": true,
     "contacto": { "telefono": "+5493874445566", "email": "ana.gomez@mail.com" },
-    "materias": [{ "id": "uuid", "nombre": "Matemática", "codigo": "MAT101" }],
+    "materias": [{ "id": "cuid", "nombre": "Matemática", "codigo": "MAT101" }],
     "horarios": { "LUNES": [{ "hora_inicio": "10:00", "hora_fin": "12:00" }], "MARTES": [] }
   },
   "error": null

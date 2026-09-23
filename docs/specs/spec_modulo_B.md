@@ -35,6 +35,7 @@ Un `Alumno` puede crearse con cuenta simultánea (si Mesa de Entrada lo registra
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
+- Los identificadores de `Alumno` y `FormaPago` son CUID según `schema.prisma`; `"cuid"` en los ejemplos es un marcador ilustrativo. El `solicitud_id` de HU-B-08 no corresponde a esas entidades ni está modelado en el esquema vigente: conserva su contrato UUID independiente.
 - Toda ruta protegida requiere `withPermission("alumnos:<accion>")` (Regla N.° 10); el autorregistro (2.6) es la única superficie **pública** (sin sesión) de este módulo.
 - Los schemas de identidad y contacto de 2.1/2.2 son reutilizados sin duplicación por el autorregistro (2.6) y por la modificación (2.5) — se componen, no se reescriben.
 
@@ -76,7 +77,7 @@ export type IdentidadAlumnoInput = z.infer<typeof IdentidadAlumnoSchema>;
 
 **Respuesta `201 Created`:**
 ```json
-{ "data": { "id": "uuid", "nombre": "Ana", "apellido": "Pérez", "dni": "30123456", "is_active": true }, "error": null }
+{ "data": { "id": "cuid", "nombre": "Ana", "apellido": "Pérez", "dni": "30123456", "is_active": true }, "error": null }
 ```
 
 **Respuesta `409 Conflict`:**
@@ -111,7 +112,7 @@ export type ContactoAlumnoInput = z.infer<typeof ContactoAlumnoSchema>;
 
 **Respuesta `200 OK`:**
 ```json
-{ "data": { "id": "uuid", "telefono": "+5493871234567", "email": "ana.perez@mail.com" }, "error": null }
+{ "data": { "id": "cuid", "telefono": "+5493871234567", "email": "ana.perez@mail.com" }, "error": null }
 ```
 
 **Respuesta `409 Conflict`:**
@@ -129,7 +130,7 @@ export type ContactoAlumnoInput = z.infer<typeof ContactoAlumnoSchema>;
 
 ```typescript
 export const FormaPagoPreferidaSchema = z.object({
-  forma_pago_id: z.string().uuid().nullable(), // null = "Sin preferencia"
+  forma_pago_id: z.string().cuid().nullable(), // null = "Sin preferencia"
 });
 export type FormaPagoPreferidaInput = z.infer<typeof FormaPagoPreferidaSchema>;
 ```
@@ -144,7 +145,7 @@ export type FormaPagoPreferidaInput = z.infer<typeof FormaPagoPreferidaSchema>;
 
 **Respuesta `200 OK`:**
 ```json
-{ "data": { "id": "uuid", "forma_pago_preferida_id": "uuid" }, "error": null }
+{ "data": { "id": "cuid", "forma_pago_preferida_id": "cuid" }, "error": null }
 ```
 
 ---
@@ -171,7 +172,7 @@ export const ListarAlumnosQuerySchema = z.object({
 ```json
 {
   "data": {
-    "items": [{ "id": "uuid", "apellido": "Pérez", "nombre": "Ana", "dni": "30123456", "telefono": "+5493871234567", "email": "—", "is_active": true }],
+    "items": [{ "id": "cuid", "apellido": "Pérez", "nombre": "Ana", "dni": "30123456", "telefono": "+5493871234567", "email": "—", "is_active": true }],
     "paginacion": { "total": 48, "pagina_actual": 1, "total_paginas": 3, "por_pagina": 20 }
   },
   "error": null
@@ -192,7 +193,7 @@ export const ListarAlumnosQuerySchema = z.object({
 export const ModificarAlumnoSchema = IdentidadAlumnoSchema.partial()
   .merge(ContactoAlumnoSchema.partial())
   .extend({
-    forma_pago_id: z.string().uuid().nullable().optional(),
+    forma_pago_id: z.string().cuid().nullable().optional(),
     version: z.number().int().nonnegative(), // control de concurrencia optimista — obligatorio, no opcional
   })
   .strict();
@@ -220,7 +221,7 @@ export type ModificarAlumnoInput = z.infer<typeof ModificarAlumnoSchema>;
 
 **Respuesta `200 OK`:**
 ```json
-{ "data": { "id": "uuid", "campos_modificados": ["telefono", "forma_pago_id"], "version": 4 }, "error": null }
+{ "data": { "id": "cuid", "campos_modificados": ["telefono", "forma_pago_id"], "version": 4 }, "error": null }
 ```
 
 **Respuesta `409 Conflict` (edición concurrente):**

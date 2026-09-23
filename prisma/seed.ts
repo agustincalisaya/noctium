@@ -680,21 +680,45 @@ async function main() {
       create: { rolPermiso: rol, accionPermiso: "turnos:leer" },
     });
   }
+
+  // turnos:crear (HU-C-03): exclusivo de Mesa de Entrada.
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: {
+        rolPermiso: "MESA_ENTRADA",
+        accionPermiso: "turnos:crear",
+      },
+    },
+    update: {},
+    create: {
+      rolPermiso: "MESA_ENTRADA",
+      accionPermiso: "turnos:crear",
+    },
+  });
   // materias:leer (HU-L-02, spec_modulo_L.md §2.2): todo rol que necesite
   // consultar el catálogo al operar otro módulo — Gerente, Mesa de Entrada,
   // Profesor. Alumno queda afuera en este sprint (sin HU que lo requiera
   // todavía), mismo criterio que turnos:leer arriba.
-  for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
+for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
     await prisma.rolPermiso.upsert({
-      where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "materias:leer" } },
+      where: {
+        rolPermiso_accionPermiso: {
+          rolPermiso: rol,
+          accionPermiso: "materias:leer",
+        },
+      },
       update: {},
-      create: { rolPermiso: rol, accionPermiso: "materias:leer" },
+      create: {
+        rolPermiso: rol,
+        accionPermiso: "materias:leer",
+      },
     });
   }
+
+
   console.log(
     `✓ ${ROLES.length + 10} permisos RBAC creados`,
   );
-
   // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
   await prisma.rolPermiso.upsert({
     where: {
