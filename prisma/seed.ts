@@ -41,6 +41,7 @@ import {
   type Genero,
   type RolUsuario,
 } from "@prisma/client";
+import { normalizarTexto } from "../src/lib/normalizar-texto";
 
 const prisma = new PrismaClient();
 
@@ -508,12 +509,18 @@ async function main() {
   for (const m of MATERIAS) {
     const mat = await prisma.materia.upsert({
       where: { nombreMateria: m.nombre },
-      update: { codigoMateria: m.codigo, activaMateria: m.activa, creadoPorUsuarioId: gerenteId },
+      update: {
+        codigoMateria: m.codigo,
+        activaMateria: m.activa,
+        creadoPorUsuarioId: gerenteId,
+        nombreNormalizadaMateria: normalizarTexto(m.nombre),
+      },
       create: {
         nombreMateria: m.nombre,
         codigoMateria: m.codigo,
         activaMateria: m.activa,
         creadoPorUsuarioId: gerenteId,
+        nombreNormalizadaMateria: normalizarTexto(m.nombre),
       },
     });
     materiaIds.set(m.nombre, mat.idMateria);
@@ -608,9 +615,12 @@ async function main() {
   console.log(`✓ ${Object.keys(PARAMETROS).length} parámetros del sistema creados`);
 
   // 10) RolPermiso (HU-A-02) ------------------------------------
-  // Matriz RBAC: se puebla incremental por módulo. Por ahora la única
-  // acción real es el ping de renovación de sesión, habilitado para los 4
-  // roles (docs/specs/spec_modulo_A.md, nota de sincronización HU-A-02).
+  // Matriz RBAC: se puebla incremental por módulo. El ping de renovación de
+  // sesión está habilitado para los 4 roles (docs/specs/spec_modulo_A.md,
+  // nota de sincronización HU-A-02). "materias:crear" es la primera acción
+  // real de un módulo de negocio (HU-L-01) — exclusiva de Gerente
+  // (spec_modulo_L.md §2.1). "alumnos:crear" (HU-B-01) es exclusiva de Mesa
+  // de Entrada (spec_modulo_B.md §2.1).
   const ROLES: RolUsuario[] = ["MESA_ENTRADA", "PROFESOR", "GERENTE", "ALUMNO"];
   for (const rol of ROLES) {
     await prisma.rolPermiso.upsert({
@@ -619,7 +629,19 @@ async function main() {
       create: { rolPermiso: rol, accionPermiso: "sesion:ping" },
     });
   }
-  console.log(`✓ ${ROLES.length} permisos RBAC creados (sesion:ping para los 4 roles)`);
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "materias:crear" } },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "materias:crear" },
+  });
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" } },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" },
+  });
+  console.log(
+    `✓ ${ROLES.length + 2} permisos RBAC creados (sesion:ping para los 4 roles, materias:crear para Gerente, alumnos:crear para Mesa de Entrada)`,
+  );
 
   // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
   await prisma.rolPermiso.upsert({

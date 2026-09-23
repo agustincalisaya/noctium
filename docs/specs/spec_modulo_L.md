@@ -161,4 +161,6 @@ Conforme a `docs/RULES.md` Regla N.° 2: el evento se emite después de que el `
 | Evento | Disparado por | Payload mínimo |
 |---|---|---|
 | `materia:creada` | Alta de materia (2.1) | `materia_id, nombre, codigo, usuario_id` |
+
+**Nota de sincronización (HU-L-01, resuelta):** no existe event bus ni `AuditLog` en este sprint (mismo gap documentado en `spec_modulo_A.md`). A diferencia de los eventos de sesión, acá no se escribe a ninguna tabla de log separada — `EventoSeguridad` está tipado específicamente para eventos de seguridad, no es un log genérico de dominio, y crear una tabla de auditoría de negocio nueva está fuera del alcance de esta HU. La trazabilidad que pide el criterio 4 de HU-L-01 ("se registran fecha de alta y usuario") queda satisfecha por las columnas `createdAtMateria`/`creadoPorUsuarioId` que la propia fila de `Materia` ya persiste — no hace falta un evento/log aparte para eso.
 ```
