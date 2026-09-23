@@ -2,10 +2,12 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/server/shared/service-error";
+import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
 import type {
   ContactoProfesorInput,
   IdentidadProfesorInput,
 } from "@/server/profesores/profesor.schema";
+import type { MateriaDeProfesor } from "@/types/profesor.types";
 
 
 
@@ -193,6 +195,123 @@ export async function actualizarContactoProfesor(
   });
 }
 
+/**
+ * Materias asociadas al profesor (HU-D-03), para la ficha y el formulario de
+ * asociación; HU-D-05 la reutiliza para el detalle. Devuelve TODAS las
+ * asociadas, también las de materias que después se dieron de baja, con su
+ * estado en `activa` — ocultarlas haría que la ficha no refleje lo que está
+ * en `profesor_materia` (HU-D-03 §1 punto 12). Lectura sobre la tabla propia
+ * del módulo D, vía la relación a `Materia` que ya usan HU-L-02 y el seed.
+ */
+export async function obtenerMateriasDelProfesor(profesorId: string): Promise<MateriaDeProfesor[]> {
+  const asociaciones = await prisma.profesorMateria.findMany({
+    where: { profesorId },
+    select: {
+      materia: {
+        select: { idMateria: true, nombreMateria: true, codigoMateria: true, activaMateria: true },
+      },
+    },
+    orderBy: { materia: { nombreMateria: "asc" } },
+  });
+
+  return asociaciones.map(({ materia }) => ({
+    id: materia.idMateria,
+    nombre: materia.nombreMateria,
+    codigo: materia.codigoMateria,
+    activa: materia.activaMateria,
+  }));
+}
+
+/**
+ * Asociación de materias al profesor (HU-D-03, `spec_modulo_D.md` §2.3 y
+ * §3.3). `materiaIds` ya llegó validado y sin repetidos por
+ * `AsociarMateriasProfesorSchema`; `usuarioId` es la sesión ya autorizada
+ * con `profesores:editar` (este servicio no chequea permisos).
+ *
+ * Todo-o-nada en una única `$transaction`, en el orden de la spec:
+ * 1. Profesor activo: condición y mutación en un solo `updateMany`
+ *    (Regla N.° 7) — la fila queda bloqueada hasta el commit, y de paso
+ *    registra quién modificó al profesor (Regla N.° 2, opción a).
+ * 2. Duplicados: si alguna ya está asociada, se rechaza el lote.
+ * 3. Materias: `bloquearMateriasParaAsociar()` (servicio público del
+ *    módulo L, Regla N.° 3) las bloquea con FOR SHARE; si alguna no existe
+ *    o dejó de estar activa, se aborta sin guardar ninguna (criterio 4).
+ * 4. INSERT de todo el lote, sin `skipDuplicates`: un duplicado nunca se
+ *    ignora en silencio. El catch de P2002 cubre dos confirmaciones
+ *    simultáneas que pasaron el paso 2 a la vez.
+ *
+ * No emite eventos: la trazabilidad es `createdAtProfesorMateria` +
+ * `creadoPorUsuarioId` de cada fila (HU-D-03 §1 punto 3).
+ */
+export async function asociarMateriasAProfesor(
+  profesorId: string,
+  materiaIds: string[],
+  usuarioId: string,
+): Promise<{ id: string; nombre: string; codigo: string | null }[]> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const { count } = await tx.profesor.updateMany({
+        where: { idProfesor: profesorId, activoProfesor: true },
+        // updatedAtProfesor lo actualiza Prisma (@updatedAt).
+        data: { modificadoPorUsuarioId: usuarioId },
+      });
+      if (count === 0) {
+        const existe = await tx.profesor.findUnique({
+          where: { idProfesor: profesorId },
+          select: { idProfesor: true },
+        });
+        throw existe
+          ? new ServiceError("PROFESOR_INACTIVO", "El profesor no está activo")
+          : new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
+      }
+
+      const yaAsociadas = await tx.profesorMateria.findMany({
+        where: { profesorId, materiaId: { in: materiaIds } },
+        select: { materia: { select: { idMateria: true, nombreMateria: true } } },
+      });
+      if (yaAsociadas.length > 0) {
+        throw new ServiceError("MATERIA_YA_ASOCIADA", "Alguna materia ya está asociada al profesor", {
+          materias: yaAsociadas.map(({ materia }) => ({
+            id: materia.idMateria,
+            nombre: materia.nombreMateria,
+          })),
+        });
+      }
+
+      const materias = await bloquearMateriasParaAsociar(materiaIds, tx);
+      if (materias.length !== materiaIds.length) {
+        throw new ServiceError("MATERIA_NO_ENCONTRADA", "Alguna materia no existe");
+      }
+      const inactivas = materias.filter((materia) => !materia.activa);
+      if (inactivas.length > 0) {
+        throw new ServiceError("MATERIA_INACTIVA", "Alguna materia dejó de estar activa", {
+          materias: inactivas.map(({ id, nombre }) => ({ id, nombre })),
+        });
+      }
+
+      await tx.profesorMateria.createMany({
+        data: materiaIds.map((materiaId) => ({
+          profesorId,
+          materiaId,
+          creadoPorUsuarioId: usuarioId,
+        })),
+      });
+
+      return materias
+        .map(({ id, nombre, codigo }) => ({ id, nombre, codigo }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    });
+  } catch (error) {
+    // La única restricción única de profesor_materia es la PK compuesta, así
+    // que cualquier P2002 de esta transacción es una asociación duplicada.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new ServiceError("MATERIA_YA_ASOCIADA", "Alguna materia ya está asociada al profesor", {
+        materias: [],
+      });
+    }
+    throw error;
+  }
+}
 
 /**
  * Consulta pública para revalidar una asignación

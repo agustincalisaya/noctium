@@ -31,6 +31,39 @@ export async function verificarMateriaActiva(id: string) {
 }
 
 /**
+ * Consulta pública (Regla N.° 3) para HU-D-03: el módulo D la usa para
+ * revalidar, dentro de su propia transacción, que las materias a asociar
+ * existan y sigan activas. Bloquea las filas con `FOR SHARE` sobre el `tx`
+ * del llamador, así `activaMateria` no puede cambiar hasta su commit
+ * (Regla N.° 7) — el chequeo "todas activas" sigue valiendo al momento del
+ * INSERT. Devuelve solo las que existen; no lanza errores, decidir qué
+ * hacer con las faltantes o inactivas es regla de negocio del llamador.
+ *
+ * `$queryRaw` con template tag: `ids` viaja como parámetro, nunca
+ * concatenado en el SQL.
+ */
+export async function bloquearMateriasParaAsociar(
+  ids: string[],
+  tx: Prisma.TransactionClient,
+): Promise<{ id: string; nombre: string; codigo: string | null; activa: boolean }[]> {
+  const filas = await tx.$queryRaw<
+    { idMateria: string; nombreMateria: string; codigoMateria: string | null; activaMateria: boolean }[]
+  >`
+    SELECT "idMateria", "nombreMateria", "codigoMateria", "activaMateria"
+    FROM "materias"
+    WHERE "idMateria" = ANY(${ids})
+    FOR SHARE
+  `;
+
+  return filas.map((fila) => ({
+    id: fila.idMateria,
+    nombre: fila.nombreMateria,
+    codigo: fila.codigoMateria,
+    activa: fila.activaMateria,
+  }));
+}
+
+/**
  * Alta de materia (spec_modulo_L.md §2.1). Orden no negociable, dentro de
  * una única transacción: normalizar → verificar unicidad de nombre →
  * verificar unicidad de código → insertar. La verificación aplicativa no es

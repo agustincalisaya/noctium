@@ -330,6 +330,12 @@ model ProfesorMateria {
   profesorId String
   materiaId  String
 
+  // Auditoría (Regla 2, opción a) — HU-D-03. Escalar sin relación, igual que
+  // Profesor/Materia. Nullable: las filas del seed y las preexistentes no
+  // tienen autor.
+  createdAtProfesorMateria DateTime @default(now())
+  creadoPorUsuarioId       String?
+
   profesor Profesor @relation(fields: [profesorId], references: [idProfesor], onDelete: Cascade)
   materia  Materia  @relation(fields: [materiaId], references: [idMateria], onDelete: Cascade)
 
