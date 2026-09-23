@@ -13,3 +13,9 @@ export const CrearAulaSchema = z.object({
     .positive("La capacidad debe ser mayor a cero"),
 });
 export type CrearAulaInput = z.infer<typeof CrearAulaSchema>;
+
+export const ListarAulasQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+});
+export type ListarAulasQuery = z.infer<typeof ListarAulasQuerySchema>;

@@ -108,7 +108,7 @@ Comportamiento exigido:
 **Método:** `GET`
 **Permiso de acceso:** `withPermission("aulas:leer")`
 
-**Punto abierto — a qué roles se asigna `aulas:leer` (relevar antes de implementar):** `spec_modulo_K.md` no lo acota explícitamente (a diferencia de `spec_modulo_L.md` §2.2, que sí nombra Gerente/Mesa de Entrada/Profesor para `materias:leer`). Quien asigna un aula a un turno es HU-C-15 (Mesa de Entrada, probablemente, dado que es quien gestiona turnos), así que ese rol necesita poder consultarlas — pero eso todavía no está confirmado porque HU-C-15 no forma parte de las HU asignadas a esta persona. **Se propone sembrar `aulas:leer` para Gerente y Mesa de Entrada** (mismo criterio que Materias, salvo Profesor, que no gestiona aulas), a confirmar con el equipo antes de dar la task por resuelta.
+**Roles asignados a `aulas:leer` — DECISIÓN RESUELTA:** exclusivo del rol Gerente, conforme al backlog oficial (`HU-Sprint-1.md`, columna de rol de HU-K-02). No se siembra para Mesa de Entrada ni Profesor en este sprint. Si HU-C-15 (asignación de aula a turno, fuera del alcance de esta persona) necesita consultar aulas, es responsabilidad de esa HU gestionar su propio acceso — no se anticipa acá.
 
 ### 4.4. Server Action
 

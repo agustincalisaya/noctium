@@ -1,3 +1,4 @@
+
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/server/shared/service-error";
@@ -5,6 +6,9 @@ import type {
   ContactoProfesorInput,
   IdentidadProfesorInput,
 } from "@/server/profesores/profesor.schema";
+
+
+
 
 /**
  * Alta de identidad de profesor (HU-D-01, `spec_modulo_D.md` §2.1 punto 3).
@@ -188,3 +192,29 @@ export async function actualizarContactoProfesor(
     };
   });
 }
+
+
+/**
+ * Consulta pública para revalidar una asignación
+ * dependiente del turno.
+ */
+export async function profesorActivoDictaMateria(
+  profesorId: string,
+  materiaId: string,
+): Promise<boolean> {
+  const profesor = await prisma.profesor.findFirst({
+    where: {
+      idProfesor: profesorId,
+      activoProfesor: true,
+      materias: {
+        some: {
+          materiaId,
+        },
+      },
+    },
+    select: {
+      idProfesor: true,
+    },
+  });
+
+  return profesor !== null;}
