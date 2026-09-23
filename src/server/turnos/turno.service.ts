@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import type { RolUsuario } from "@prisma/client";
+import { ServiceError } from "@/server/shared/service-error";
+import { verificarMateriaActiva } from "@/server/materias/materia.service";
+import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service";
+import { validarConfiguracionTurno } from "./turno.validaciones";
+import type { ConfigurarTurnoInput } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -12,6 +17,46 @@ const turnoInclude = {
 function fecha(date: Date) { return date.toISOString().slice(0, 10); }
 function hora(date: Date) { return date.toISOString().slice(11, 16); }
 function nombre(apellido: string, primero: string) { return `${apellido}, ${primero}`; }
+
+function horaFecha(horaInicio: string) { return new Date(`1970-01-01T${horaInicio}:00.000Z`); }
+
+async function emitirEventoTurno(tipoEvento: string, turnoId: string, usuarioId: string, payloadEvento: Record<string, unknown>) {
+  await prisma.eventoTurno.create({ data: { tipoEvento, turnoId, usuarioId, payloadEvento: JSON.parse(JSON.stringify(payloadEvento)) } });
+}
+
+async function prepararConfiguracion(input: ConfigurarTurnoInput) {
+  const [materia, validacion] = await Promise.all([verificarMateriaActiva(input.materia_id), validarConfiguracionTurno(input)]);
+  if (!materia) throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
+  return { validacion, data: { fechaTurno: input.fecha, horaInicioTurno: horaFecha(input.hora_inicio), duracionMinutosTurno: validacion.duracion_minutos, materiaId: input.materia_id } };
+}
+
+export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: string) {
+  const { data, validacion } = await prepararConfiguracion(input);
+  const turno = await prisma.turno.create({ data: { ...data, estadoTurno: "PENDIENTE", profesorId: null, aulaId: null, creadoPorUsuarioId: usuarioId } });
+  await emitirEventoTurno("turno:configurado", turno.idTurno, usuarioId, { turno_id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, materia_id: input.materia_id, usuario_id: usuarioId });
+  return { id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, estado: turno.estadoTurno };
+}
+
+export async function modificarConfiguracionTurno(id: string, input: ConfigurarTurnoInput, usuarioId: string) {
+  const { data, validacion } = await prepararConfiguracion(input);
+  const actual = await prisma.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, materiaId: true, profesorId: true, updatedAtTurno: true } });
+  if (!actual) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+  if (actual.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_AGENDADO", "Un turno agendado no admite cambios de configuración");
+  const profesorDesasignado = Boolean(actual.profesorId && actual.materiaId !== input.materia_id && !(await profesorActivoDictaMateria(actual.profesorId, input.materia_id)));
+  // Estado y versión de la fila se comprueban en la misma sentencia que la mutación.
+  const actualizado = await prisma.turno.updateMany({
+    where: { idTurno: id, estadoTurno: "PENDIENTE", updatedAtTurno: actual.updatedAtTurno, materiaId: actual.materiaId, profesorId: actual.profesorId },
+    data: { ...data, modificadoPorUsuarioId: usuarioId, ...(profesorDesasignado ? { profesorId: null } : {}) },
+  });
+  if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+  const camposModificados = [
+    actual.fechaTurno.getTime() !== input.fecha.getTime() ? "fecha" : null,
+    hora(actual.horaInicioTurno) !== input.hora_inicio ? "hora_inicio" : null,
+    actual.materiaId !== input.materia_id ? "materia_id" : null,
+  ].filter((campo): campo is string => campo !== null);
+  await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, profesor_desasignado: profesorDesasignado, usuario_id: usuarioId });
+  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, materia_id: input.materia_id, estado: "PENDIENTE" as const, profesor_desasignado: profesorDesasignado };
+}
 
 type TurnoConRelaciones = NonNullable<Awaited<ReturnType<typeof prisma.turno.findFirst<{ include: typeof turnoInclude }>>>>;
 
@@ -42,6 +87,7 @@ function presentar(turno: TurnoConRelaciones) {
     creado_en: turno.createdAtTurno.toISOString(),
     actualizado_en: turno.updatedAtTurno.toISOString(),
     creado_por_id: turno.creadoPorUsuarioId,
+    modificado_por_id: turno.modificadoPorUsuarioId,
   };
 }
 
@@ -76,8 +122,9 @@ export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUs
     include: turnoInclude,
   });
   if (!turno) return null;
-  const responsable = turno.creadoPorUsuarioId
-    ? await prisma.usuario.findUnique({ where: { idUsuario: turno.creadoPorUsuarioId }, select: { emailUsuario: true } })
-    : null;
-  return { ...presentar(turno), creado_por: responsable?.emailUsuario ?? turno.creadoPorUsuarioId ?? "Sin registrar" };
+  const [responsable, modificador] = await Promise.all([
+    turno.creadoPorUsuarioId ? prisma.usuario.findUnique({ where: { idUsuario: turno.creadoPorUsuarioId }, select: { emailUsuario: true } }) : null,
+    turno.modificadoPorUsuarioId ? prisma.usuario.findUnique({ where: { idUsuario: turno.modificadoPorUsuarioId }, select: { emailUsuario: true } }) : null,
+  ]);
+  return { ...presentar(turno), creado_por: responsable?.emailUsuario ?? turno.creadoPorUsuarioId ?? "Sin registrar", modificado_por: modificador?.emailUsuario ?? turno.modificadoPorUsuarioId ?? "Sin registrar" };
 }

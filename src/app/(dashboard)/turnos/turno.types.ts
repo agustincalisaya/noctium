@@ -5,9 +5,10 @@ export type Turno = {
   materia: string; materia_id: string; materia_codigo: string | null;
   aula: string; aula_id: string | null; aula_capacidad: number | null;
   estado: "PENDIENTE" | "AGENDADO"; creado_en: string; actualizado_en: string; creado_por_id: string | null;
+  modificado_por_id: string | null;
 };
 
-export type TurnoDetalle = Turno & { creado_por: string };
+export type TurnoDetalle = Turno & { creado_por: string; modificado_por: string };
 export type TurnosData = { items: Turno[]; paginacion: { total: number; pagina_actual: number; total_paginas: number; por_pagina: number } };
 
 export function urlContinuar(turno: Turno, retorno: string) {

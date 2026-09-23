@@ -42,6 +42,7 @@ PENDIENTE ──(asignar aula, con alumno+profesor+materia+fecha/hora ya válido
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
+- Los identificadores persistidos de `Turno`, `Materia`, `Alumno`, `Profesor` y `Aula` son CUID según `schema.prisma`. Esto incluye los campos `id`/`*_id`, los payloads de eventos y el parámetro `[id]` de las rutas; `"cuid"` en los ejemplos JSON es un marcador ilustrativo.
 - Toda ruta requiere `withPermission("turnos:<accion>")` (Regla N.° 10): `turnos:crear` (configurar y modificar configuración), `turnos:asignar_participantes`, `turnos:asignar_aula`, `turnos:leer` — todas exclusivas de Mesa de Entrada salvo `turnos:leer`, disponible también para Gerente y Profesor (este último, acotado a sus propios turnos — ver `spec_modulo_J.md`).
 - **Guard de vigencia (reutilizado por 2.2 y 2.3, no reimplementado por separado):** toda operación sobre un turno `PENDIENTE` revalida que `fecha + hora_inicio` siga siendo un momento futuro. Si ya pasó: `409 TURNO_VENCIDO`, exige corregir la configuración (2.1) antes de continuar.
 
@@ -59,7 +60,7 @@ PENDIENTE ──(asignar aula, con alumno+profesor+materia+fecha/hora ya válido
 export const ConfigurarTurnoSchema = z.object({
   fecha: fechaCalendarioValidaSchema, // utilidad compartida, spec_modulo_B.md §2.1
   hora_inicio: horaSchema,            // utilidad compartida, spec_modulo_D.md §2.4 (formato 24h + granularidad)
-  materia_id: z.string().uuid(),
+  materia_id: z.string().trim().min(1, "Seleccioná una materia"), // CUID; el servicio verifica existencia y actividad
 });
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 ```
@@ -77,13 +78,13 @@ export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
 **Respuesta `201 Created` (alta):**
 ```json
-{ "data": { "id": "uuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "11:00", "estado": "PENDIENTE" }, "error": null }
+{ "data": { "id": "cuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "11:00", "estado": "PENDIENTE" }, "error": null }
 ```
 
 **Respuesta `200 OK` (modificación con desasignación dependiente):**
 ```json
 {
-  "data": { "id": "uuid", "materia_id": "uuid-nueva", "profesor_desasignado": true },
+  "data": { "id": "cuid", "materia_id": "cuid", "profesor_desasignado": true },
   "error": null
 }
 ```
@@ -98,8 +99,8 @@ export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
 ```typescript
 export const AsignarParticipantesTurnoSchema = z.object({
-  alumno_id: z.string().uuid(),
-  profesor_id: z.string().uuid(),
+  alumno_id: z.string().cuid(),
+  profesor_id: z.string().cuid(),
 });
 export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantesTurnoSchema>;
 ```
@@ -119,7 +120,7 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
 
 **Respuesta `200 OK`:**
 ```json
-{ "data": { "id": "uuid", "alumno_id": "uuid", "profesor_id": "uuid", "estado": "PENDIENTE" }, "error": null }
+{ "data": { "id": "cuid", "alumno_id": "cuid", "profesor_id": "cuid", "estado": "PENDIENTE" }, "error": null }
 ```
 
 **Respuesta `409 Conflict` (profesor no disponible):**
@@ -150,7 +151,7 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
 
 ```typescript
 export const AsignarAulaTurnoSchema = z.object({
-  aula_id: z.string().uuid(),
+  aula_id: z.string().cuid(),
 });
 export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 ```
@@ -170,12 +171,12 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 **Respuesta `200 OK` (aula asignada, turno agendado):**
 ```json
-{ "data": { "id": "uuid", "aula_id": "uuid", "estado": "AGENDADO" }, "error": null }
+{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "AGENDADO" }, "error": null }
 ```
 
 **Respuesta `200 OK` (aula asignada, turno sigue pendiente — falta profesor/alumno):**
 ```json
-{ "data": { "id": "uuid", "aula_id": "uuid", "estado": "PENDIENTE" }, "error": null }
+{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "PENDIENTE" }, "error": null }
 ```
 
 **Respuesta `409 Conflict` (aula no disponible):**
@@ -209,9 +210,9 @@ export const ListarTurnosQuerySchema = z.object({
 {
   "data": {
     "items": [
-      { "id": "uuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "11:00",
+      { "id": "cuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "11:00",
         "alumno": "Pérez, Ana", "profesor": "Gómez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "AGENDADO" },
-      { "id": "uuid", "fecha": "2026-04-11", "hora_inicio": "14:00", "hora_fin": "15:00",
+      { "id": "cuid", "fecha": "2026-04-11", "hora_inicio": "14:00", "hora_fin": "15:00",
         "alumno": "Sin asignar", "profesor": "Sin asignar", "materia": "Física", "aula": "Sin asignar", "estado": "PENDIENTE" }
     ],
     "paginacion": { "total": 15, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 20 }
