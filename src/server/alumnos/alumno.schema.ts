@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
+import { ContactoSchema, type ContactoInput } from "@/server/shared/contacto.schema";
 
 const REGEX_NOMBRE = /^[\p{L}\s'-]+$/u;
 
@@ -42,3 +43,12 @@ export function crearIdentidadAlumnoSchema(dniLongitudMin: number, dniLongitudMa
   });
 }
 export type IdentidadAlumnoInput = z.infer<ReturnType<typeof crearIdentidadAlumnoSchema>>;
+
+/**
+ * Contacto del alumno (HU-B-02): mismas reglas que el contacto de Profesor
+ * (HU-D-02), así que se reutiliza el schema compartido en vez de
+ * duplicarlo — utilidad de validación transversal, no acoplamiento de
+ * dominio (spec_modulo_B.md §2.2, "mismo requisito en spec_modulo_D.md §2.2").
+ */
+export const ContactoAlumnoSchema = ContactoSchema;
+export type ContactoAlumnoInput = ContactoInput;
