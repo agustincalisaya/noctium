@@ -3,13 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
 import type { DetalleAlumno, FichaAlumno } from "@/types/alumno.types";
-import type { ContactoAlumnoInput, IdentidadAlumnoInput, ListarAlumnosQuery } from "./alumno.schema";
+import type {
+  ContactoAlumnoInput,
+  FormaPagoPreferidaInput,
+  IdentidadAlumnoInput,
+  ListarAlumnosQuery,
+} from "./alumno.schema";
 
 const MENSAJES = {
   DNI_DUPLICADO_ACTIVA: "Ya existe un alumno registrado con ese DNI",
   DNI_DUPLICADO_INACTIVA: "Ya existe un alumno registrado con ese DNI (ficha inactiva)",
   EMAIL_YA_ASOCIADO: "Ese email ya está asociado a una cuenta existente",
   ALUMNO_NO_ENCONTRADO: "El alumno ya no existe",
+  FORMA_PAGO_NO_DISPONIBLE: "La forma de pago seleccionada ya no está disponible",
 } as const;
 
 /**
@@ -259,6 +265,78 @@ export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlu
     telefono: alumno.telefonoAlumno,
     email: alumno.emailAlumno,
     forma_pago_preferida: alumno.formaPagoPreferida?.nombreFormaPago ?? null,
+    // HU-B-03: id crudo, para precargar el <select> por id (el nombre no
+    // sirve para eso — y una preferencia que quedó inactiva desde que se
+    // guardó de todas formas necesita su id real, no solo el texto).
+    forma_pago_preferida_id: alumno.formaPagoPreferidaId,
     created_at: alumno.createdAtAlumno.toISOString(),
   };
+}
+
+/**
+ * Catálogo de formas de pago activas (HU-B-03, spec_modulo_B.md §2.3),
+ * para poblar el `<select>` de la ficha — solo `id`/`nombre`, sin exponer
+ * ningún otro campo del catálogo (ej. `activaFormaPago`, ya implícito en el
+ * filtro).
+ */
+export async function listarFormasPagoActivas() {
+  const formasPago = await prisma.formaPago.findMany({
+    where: { activaFormaPago: true },
+    orderBy: { nombreFormaPago: "asc" },
+    select: { idFormaPago: true, nombreFormaPago: true },
+  });
+
+  return formasPago.map((fp) => ({ id: fp.idFormaPago, nombre: fp.nombreFormaPago }));
+}
+
+/**
+ * Asociar/quitar la forma de pago preferida del alumno (HU-B-03,
+ * spec_modulo_B.md §2.3). Si `forma_pago_id` no es `null`, la existencia y
+ * el estado activo de la `FormaPago` se revalidan dentro de la misma
+ * transacción que el `UPDATE` de `Alumno` — "en el momento de confirmar",
+ * no basta con que estuviera activa cuando se abrió el formulario (criterio
+ * 6). No es el patrón de `updateMany` atómico de la Regla N.° 7 de
+ * `docs/RULES.md`: el chequeo es sobre `FormaPago` y la mutación sobre
+ * `Alumno` (filas distintas, no condición+mutación sobre la misma fila) —
+ * mismo criterio ya usado en la verificación de email de
+ * `actualizarContactoAlumno()`.
+ *
+ * Sin evento de dominio: mismo precedente que el resto del módulo (ver
+ * Nota de alcance, HU-B-03 §1) — ninguna otra función de este service emite
+ * `alumno:*` todavía pese a que `spec_modulo_B.md §4` los documenta.
+ */
+export async function actualizarFormaPagoPreferida(
+  alumnoId: string,
+  input: FormaPagoPreferidaInput,
+): Promise<{ id: string; forma_pago_preferida_id: string | null }> {
+  return prisma.$transaction(async (tx) => {
+    // Mismo chequeo previo que actualizarContactoAlumno(): sin esto, un
+    // alumnoId inexistente propaga un P2025 sin traducir (500 genérico) en
+    // vez de un 404 consistente con el resto del módulo.
+    const existente = await tx.alumno.findUnique({
+      where: { idAlumno: alumnoId },
+      select: { idAlumno: true },
+    });
+    if (!existente) {
+      throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
+    }
+
+    if (input.forma_pago_id !== null) {
+      const formaPago = await tx.formaPago.findUnique({
+        where: { idFormaPago: input.forma_pago_id },
+        select: { activaFormaPago: true },
+      });
+      if (!formaPago || !formaPago.activaFormaPago) {
+        throw new ServiceError("FORMA_PAGO_NO_DISPONIBLE", MENSAJES.FORMA_PAGO_NO_DISPONIBLE);
+      }
+    }
+
+    const alumno = await tx.alumno.update({
+      where: { idAlumno: alumnoId },
+      data: { formaPagoPreferidaId: input.forma_pago_id },
+      select: { idAlumno: true, formaPagoPreferidaId: true },
+    });
+
+    return { id: alumno.idAlumno, forma_pago_preferida_id: alumno.formaPagoPreferidaId };
+  });
 }

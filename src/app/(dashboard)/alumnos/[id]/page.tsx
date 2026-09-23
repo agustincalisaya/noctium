@@ -81,7 +81,12 @@ export default async function AlumnoDetallePage({
         email={alumno.email}
         puedeEditar={puedeEditar}
       />
-      <FichaAltaPago fechaAlta={alumno.created_at} formaPagoPreferida={alumno.forma_pago_preferida} />
+      <FichaAltaPago
+        alumnoId={alumno.id}
+        fechaAlta={alumno.created_at}
+        formaPagoPreferida={alumno.forma_pago_preferida}
+        puedeEditar={puedeEditar}
+      />
     </div>
   );
 }

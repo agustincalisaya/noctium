@@ -62,3 +62,18 @@ export const ListarAlumnosQuerySchema = z.object({
   por_pagina: z.coerce.number().int().positive().max(20).default(20),
 });
 export type ListarAlumnosQuery = z.infer<typeof ListarAlumnosQuerySchema>;
+
+/**
+ * Forma de pago preferida (HU-B-03, spec_modulo_B.md §2.3). `null` =
+ * "Sin preferencia" — la conversión `"" -> null` del `<select>` HTML ocurre
+ * en la capa delgada (action/route), antes de este `safeParse()`.
+ *
+ * `forma_pago_id` es `z.string().min(1)`, NO `.uuid()` como dice la spec
+ * literal: los ids reales de `FormaPago` no son UUID (ver
+ * `docs/tasks/Sprint 1/HU-B-03.md` sección 8 para el detalle completo de
+ * esta desviación documentada).
+ */
+export const FormaPagoPreferidaSchema = z.object({
+  forma_pago_id: z.string().min(1).nullable(),
+});
+export type FormaPagoPreferidaInput = z.infer<typeof FormaPagoPreferidaSchema>;

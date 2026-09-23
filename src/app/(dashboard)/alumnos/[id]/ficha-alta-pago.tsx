@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { FichaDatos, FichaSeccion } from "./ficha-seccion";
 
 function formatearFecha(iso: string): string {
@@ -10,20 +12,36 @@ function formatearFecha(iso: string): string {
 }
 
 /**
- * Sección "Fecha de alta y forma de pago" de la ficha (HU-B-04 criterio 3).
- * Solo muestra la forma de pago preferida ya existente — asociarla/
- * cambiarla es HU-B-03, fuera de alcance acá (sin `accion` de edición, a
- * diferencia de `FichaContacto`).
+ * Sección "Fecha de alta y forma de pago" de la ficha (HU-B-04 criterio 3,
+ * HU-B-03 agrega el link de edición). `puedeEditar` oculta el acceso al
+ * formulario para roles sin `alumnos:editar` — el servidor igual lo
+ * rechaza si se invoca directamente, mismo criterio que `FichaContacto`.
  */
 export function FichaAltaPago({
+  alumnoId,
   fechaAlta,
   formaPagoPreferida,
+  puedeEditar,
 }: {
+  alumnoId: string;
   fechaAlta: string;
   formaPagoPreferida: string | null;
+  puedeEditar: boolean;
 }) {
   return (
-    <FichaSeccion titulo="Fecha de alta y forma de pago">
+    <FichaSeccion
+      titulo="Fecha de alta y forma de pago"
+      accion={
+        puedeEditar && (
+          <Link
+            href={`/alumnos/${alumnoId}/forma-pago`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Editar forma de pago
+          </Link>
+        )
+      }
+    >
       <FichaDatos
         datos={[
           ["Fecha de alta", formatearFecha(fechaAlta)],
