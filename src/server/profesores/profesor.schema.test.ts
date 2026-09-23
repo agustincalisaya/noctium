@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AsociarMateriasProfesorSchema, ProfesorIdSchema } from "./profesor.schema";
+import { AsociarMateriasProfesorSchema, ProfesorIdSchema } from "@/server/profesores/profesor.schema";
 
 // Código escrito, no ejecutado — sin test runner instalado (HU-D-01 §6).
 

@@ -412,6 +412,8 @@ Mismo criterio que HU-D-01 §6: sintaxis Vitest, **escritos pero no ejecutables*
   - una inactiva en un lote de tres → `MATERIA_INACTIVA` con esa sola en detalles y `createMany` **no** invocado;
   - `P2002` forzado → `MATERIA_YA_ASOCIADA`.
 
+**Estado:** escrito, no ejecutado — sin test runner. Archivos: `src/server/profesores/profesor.schema.test.ts`, `src/server/profesores/profesor.service.test.ts` y `src/lib/filtrar-materias.test.ts`, todos con imports por alias `@/` (Regla 11). Quedan fuera de `tsc` por el `exclude` de `tsconfig.json`.
+
 ### Nivel 2 — Postman
 `POST /api/profesores/{id}/materias`:
 
@@ -427,6 +429,23 @@ Mismo criterio que HU-D-01 §6: sintaxis Vitest, **escritos pero no ejecutables*
 | Profesor Molina, Héctor (inactivo en el seed) | `409 PROFESOR_INACTIVO` |
 | Profesor inexistente | `404` |
 
+**Evidencia (2026-09-23, `npm run dev` local, curl en lugar de Postman).** Login por curl con el flujo Credentials de Auth.js (`GET /api/auth/csrf` → `POST /api/auth/callback/credentials`, `302` + cookie `authjs.session-token` HS256), con `gerente@noctium.local` y `mesa.entrada@noctium.local` del seed. Ids del seed: Giménez `cmue40ygt001guxmws6tchigk`, Molina `cmue40yhk001ouxmwcdpp2lgc`.
+
+| Caso | Request | Status | Cuerpo |
+|---|---|---|---|
+| Éxito (Gerente) | Giménez + Química, Inglés Técnico | `201` ✅ | `{"data":{"profesorId":"cmue40ygt001guxmws6tchigk","materiasAsociadas":["cmue40yib001uuxmw2k22wgxi","cmue40yi7001tuxmwcyvih9pr"]},"error":null}` |
+| Sin sesión | Giménez + Bases de Datos | `401` ✅ | `{"data":null,"error":{"code":"SESION_INVALIDA","message":"Tu sesión expiró. Iniciá sesión nuevamente"}}` |
+| Mesa de Entrada | Giménez + Bases de Datos | `403` ✅ | `{"data":null,"error":{"code":"SIN_PERMISO","message":"No tenés permisos para acceder a esta sección"}}` |
+| `materiaIds: []` | Giménez | `400` ✅ | `{"data":null,"error":{"code":"VALIDACION","message":"Datos inválidos","campos":{"materiaIds":["Seleccioná al menos una materia nueva"]}}}` |
+| id de profesor no-cuid | `/api/profesores/no-es-un-cuid/materias` | `400` ✅ | `{"data":null,"error":{"code":"VALIDACION","message":"Datos inválidos","campos":{"id":["Invalid cuid"]}}}` |
+| id de materia no-cuid | `materiaIds: ["123"]` | `400` ✅ | `{"data":null,"error":{"code":"VALIDACION","message":"Datos inválidos","campos":{"materiaIds":["Materia inválida"]}}}` |
+| Ya asociada | Giménez + Matemática | `409` ✅ | `{"data":null,"error":{"code":"MATERIA_YA_ASOCIADA","message":"Alguna de las materias ya está asociada al profesor","materiaIdsInvalidas":["cmue40yhq001puxmwn4t1mo8l"]}}` |
+| Historia de la Ciencia + Bases de Datos | Giménez | `409` ✅ | `{"data":null,"error":{"code":"MATERIA_INACTIVA","message":"La materia 'Historia de la Ciencia' ya no está activa","materiaIdsInvalidas":["cmue40yif001vuxmwtq8t1ml3"]}}` |
+| Profesor inactivo | Molina + Matemática | `409` ✅ | `{"data":null,"error":{"code":"PROFESOR_INACTIVO","message":"Solo pueden asociarse materias a profesores activos"}}` |
+| Profesor inexistente | `cjld2cjxh0000qzrmn831i7rn` (cuid válido) | `404` ✅ | `{"data":null,"error":{"code":"PROFESOR_NO_ENCONTRADO","message":"El profesor no existe"}}` |
+
+Smoke test SSR con la misma sesión de Gerente: `/profesores/{Giménez}` y `/profesores/{Giménez}/materias` → `200`, con "Asociar materias", las nuevas asociadas y el formulario; `/profesores/{Molina}` y `/profesores/{Molina}/materias` → `200`, con "Solo pueden asociarse materias a profesores activos" y sin formulario. No reemplaza la verificación en navegador.
+
 ### Nivel 3 — BD / TablePlus
 - Filas nuevas en `profesor_materia` con `createdAtProfesorMateria` real y `creadoPorUsuarioId` igual al Gerente.
 - `profesores.modificadoPorUsuarioId` y `updatedAtProfesor` actualizados.
@@ -439,6 +458,23 @@ Mismo criterio que HU-D-01 §6: sintaxis Vitest, **escritos pero no ejecutables*
   5. Restaurar el dato.
 - `INSERT` manual duplicado → rechazado por la PK compuesta.
 
+**Evidencia SQL (2026-09-23, `psql` vía `docker exec noctium_db`, después de los casos de Nivel 2):**
+
+- Migración `profesor_materia_auditoria`: `npx prisma migrate status` → "Database schema is up to date!" (22 migraciones). `\d profesor_materia` muestra `createdAtProfesorMateria timestamp(3) NOT NULL DEFAULT CURRENT_TIMESTAMP` y `creadoPorUsuarioId text NULL`. Las 9 filas previas quedaron con `createdAt` de la migración y `creadoPorUsuarioId = NULL`.
+- Filas nuevas con auditoría ✅:
+  ```
+   nombreMateria  |    creadoPorUsuarioId     |     emailUsuario      | createdAtProfesorMateria
+   Física         |                           |                       | 2026-09-23 16:11:05.365
+   Inglés Técnico | cmue40yaw0000uxmwu87p8c2y | gerente@noctium.local | 2026-09-23 16:59:07.878
+   Matemática     |                           |                       | 2026-09-23 16:11:05.365
+   Química        | cmue40yaw0000uxmwu87p8c2y | gerente@noctium.local | 2026-09-23 16:59:07.878
+  ```
+- Profesor modificado ✅: Giménez `modificadoPorUsuarioId = cmue40yaw0000uxmwu87p8c2y` (Gerente), `updatedAtProfesor = 16:59:07.869` (antes `NULL` / `16:53:58.766`). Los casos `MATERIA_YA_ASOCIADA` y `MATERIA_INACTIVA`, que corrieron después, también ejecutan el `updateMany` y no movieron ese `updatedAtProfesor`: se revirtieron con la transacción.
+- Todo-o-nada ✅: tras `MATERIA_INACTIVA`, `SELECT count(*) … WHERE profesorId = Giménez AND materiaId IN (Bases de Datos, Historia de la Ciencia)` → `0`. Total de filas: `11` (9 + las 2 del caso de éxito).
+- `INSERT` manual duplicado ✅ (Giménez + Matemática, dentro de `BEGIN … ROLLBACK`): `ERROR: duplicate key value violates unique constraint "profesor_materia_pkey"`.
+- Limpieza: se borraron solo las 2 filas creadas en la prueba y se restauraron `modificadoPorUsuarioId = NULL` y `updatedAtProfesor` de Giménez. La base quedó con 9 filas, ninguna con autor. Ninguna materia cambió de estado.
+- **Pendiente:** el criterio 4 end-to-end (pasos 1-5 de arriba) requiere navegador.
+
 **Evidencia:** Postman + SQL, y capturas de la pantalla en sus estados: vacío con filtro, con asociadas marcadas, cargando, error de materia inactiva, éxito, y ficha de profesor inactivo.
 
 ---
@@ -446,18 +482,19 @@ Mismo criterio que HU-D-01 §6: sintaxis Vitest, **escritos pero no ejecutables*
 ## 7. Checklist de Definition of Done
 
 - [ ] Relevamiento (§0) confirmado antes de implementar.
-- [ ] Migración `profesor_materia_auditoria` aplicada sin romper filas existentes; seed corre limpio.
-- [ ] `bloquearMateriasParaAsociar()` agregada al módulo L, parametrizada, sin cambios en funciones existentes. **OK de Cali** antes del merge.
-- [ ] `ServiceError` extendido de forma retrocompatible (`tsc --noEmit` limpio).
-- [ ] Toda la lógica en `profesor.service.ts`; action y route handler delgados (Regla 4), en las ubicaciones de la Regla 11 e importados por alias.
-- [ ] Condición y mutación del profesor en un `updateMany`; materias bloqueadas con `FOR SHARE` dentro de la misma transacción (Regla 7).
-- [ ] Todo-o-nada verificado: ningún error deja asociaciones parciales.
-- [ ] Sin `skipDuplicates` en la HU; `P2002` traducido.
-- [ ] `profesorActivoDictaMateria()` sin cambios (contrato con HU-C-04).
+- [x] Migración `profesor_materia_auditoria` aplicada sin romper filas existentes; seed corre limpio. *(`migrate status` al día y filas previas intactas, ver §6 Nivel 3. El seed no se re-ejecutó en esta verificación. Los `updatedAtProfesor` del seed (16:53) son posteriores a la migración (16:11), así que ya había corrido sobre el schema migrado.)*
+- [x] `bloquearMateriasParaAsociar()` agregada al módulo L, parametrizada (`$queryRaw` con template tag), sin cambios en funciones existentes (el diff de `452e3f7` sobre `materia.service.ts` no elimina ni modifica líneas).
+- [ ] **OK de Cali** sobre `bloquearMateriasParaAsociar()` antes del merge.
+- [x] `ServiceError` extendido de forma retrocompatible (`tsc --noEmit` limpio).
+- [x] Toda la lógica en `profesor.service.ts`; action y route handler delgados (Regla 4), en las ubicaciones de la Regla 11 e importados por alias (incluidos los tests).
+- [x] Condición y mutación del profesor en un `updateMany`; materias bloqueadas con `FOR SHARE` dentro de la misma transacción (Regla 7).
+- [x] Todo-o-nada verificado: ningún error deja asociaciones parciales (§6 Nivel 3, caso `MATERIA_INACTIVA`).
+- [x] Sin `skipDuplicates` en la HU; `P2002` traducido.
+- [x] `profesorActivoDictaMateria()` sin cambios (contrato con HU-C-04).
 - [ ] Criterios 1 a 6 verificados en navegador como Gerente.
-- [ ] Solo tokens de `DESIGN.md`.
-- [ ] Ningún `DELETE` físico (Regla 1).
-- [ ] `spec_modulo_D.md` y `spec_modulo_L.md` revisadas de forma aditiva, con changelog y notas de sincronización.
-- [ ] Tests de los 3 niveles documentados; Nivel 1 marcado como "escrito, no ejecutado — sin test runner".
-- [ ] `npm run lint` y `npm run build` sin errores.
+- [x] Solo tokens de `DESIGN.md` (sin hex ni colores default de Tailwind en `ficha-materias.tsx`, `materias/page.tsx` ni `asociar-materias-form.tsx`).
+- [x] Ningún `DELETE` físico (Regla 1). *(Los únicos `DELETE` fueron la limpieza manual de datos de prueba en la BD local, fuera del código.)*
+- [x] `spec_modulo_D.md` y `spec_modulo_L.md` revisadas de forma aditiva, con changelog y notas de sincronización.
+- [x] Tests de los 3 niveles documentados; Nivel 1 marcado como "escrito, no ejecutado — sin test runner".
+- [x] `npm run lint` y `npm run build` sin errores. *(Lint: 0 errores y 1 warning preexistente, ajeno a la HU: `Clock3` sin usar en `src/app/(dashboard)/home/page.tsx`.)*
 - [ ] PR acotado a HU-D-03, desde `feature/HU-D-03-asociar-materias`.

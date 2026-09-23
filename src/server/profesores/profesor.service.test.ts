@@ -24,7 +24,7 @@ vi.mock("@/server/materias/materia.service", () => ({
 
 const { prisma } = await import("@/lib/prisma");
 const { bloquearMateriasParaAsociar } = await import("@/server/materias/materia.service");
-const { asociarMateriasAProfesor, obtenerMateriasDelProfesor } = await import("./profesor.service");
+const { asociarMateriasAProfesor, obtenerMateriasDelProfesor } = await import("@/server/profesores/profesor.service");
 
 const PROFESOR = "ckprofesor000000000000001";
 const USUARIO = "ckusuario0000000000000001";
