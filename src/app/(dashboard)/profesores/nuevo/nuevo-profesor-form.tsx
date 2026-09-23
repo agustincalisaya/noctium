@@ -3,21 +3,21 @@
 import { useEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { flattenError } from "zod";
 import { Loader2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
+import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
 import { construirIdentidadProfesorSchema } from "@/server/profesores/profesor.schema";
 import { crearProfesor, verificarDniDisponible } from "../actions";
 import { ESTADO_INICIAL_NUEVO_PROFESOR, type EstadoNuevoProfesor } from "../profesor.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 const MENSAJE_DNI_DUPLICADO = "Ya existe un profesor registrado con ese DNI";
-const MENSAJE_CONFIRMACION_CANCELAR = "Hay datos sin guardar. ¿Salir de todas formas?";
 
 // Sin acoplamiento a @prisma/client como valor (ver nota de deuda técnica
 // en docs/tasks/Sprint 1/HU-D-01.md, junto a §4.5) — mismos 4 valores de
@@ -100,18 +100,21 @@ export function NuevoProfesorForm({
     e.preventDefault();
     if (pendiente) return; // evita envíos duplicados (doble clic / Enter repetido)
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const parsed = schema.safeParse(leerValores(formData));
 
     if (!parsed.success) {
       const campos = flattenError(parsed.error).fieldErrors;
-      setErroresCliente({
+      const errores = {
         nombre: campos.nombre?.[0],
         apellido: campos.apellido?.[0],
         dni: campos.dni?.[0],
         fechaNacimiento: campos.fechaNacimiento?.[0],
         genero: campos.genero?.[0],
-      });
+      };
+      setErroresCliente(errores);
+      enfocarPrimerCampoInvalido(form, errores);
       return; // sin alta parcial: no se envía nada al servidor
     }
     setErroresCliente({});
@@ -122,6 +125,8 @@ export function NuevoProfesorForm({
       setEstado(resultado);
       if (resultado.status === "exito") {
         setDirty(false);
+      } else if (resultado.status === "error_validacion") {
+        enfocarPrimerCampoInvalido(form, resultado.errores);
       }
     } catch {
       setEstado({ status: "error_comunicacion" });
@@ -173,9 +178,15 @@ export function NuevoProfesorForm({
     return (
       <div className="space-y-4" role="status">
         <p className="text-sm font-medium">Profesor registrado correctamente</p>
-        <div className="flex gap-3">
-          <Link href={`/profesores/${estado.profesorId}`} className={buttonVariants({ variant: "default" })}>
-            Continuar con contacto/materias/horario
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/profesores/${estado.profesorId}/contacto`}
+            className={buttonVariants({ variant: "default" })}
+          >
+            Cargar datos de contacto
+          </Link>
+          <Link href={`/profesores/${estado.profesorId}`} className={buttonVariants({ variant: "outline" })}>
+            Ver ficha del profesor
           </Link>
           <Link href="/profesores" className={buttonVariants({ variant: "outline" })}>
             Volver al listado
@@ -296,31 +307,14 @@ export function NuevoProfesorForm({
         </Button>
       </div>
 
-      <AlertDialog.Root open={confirmandoCancelar} onOpenChange={setConfirmandoCancelar}>
-        <AlertDialog.Portal>
-          <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
-          <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg bg-background p-6 shadow-lg">
-            <AlertDialog.Title className="font-semibold">Cambios sin guardar</AlertDialog.Title>
-            <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
-              {MENSAJE_CONFIRMACION_CANCELAR}
-            </AlertDialog.Description>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setConfirmandoCancelar(false)}>
-                Seguir editando
-              </Button>
-              <Button
-                onClick={() => {
-                  setConfirmandoCancelar(false);
-                  setDirty(false);
-                  router.push("/profesores");
-                }}
-              >
-                Salir sin guardar
-              </Button>
-            </div>
-          </AlertDialog.Popup>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+      <ConfirmarDescarteDialog
+        abierto={confirmandoCancelar}
+        onAbiertoChange={setConfirmandoCancelar}
+        onConfirmar={() => {
+          setDirty(false);
+          router.push("/profesores");
+        }}
+      />
     </form>
   );
 }

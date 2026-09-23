@@ -6,15 +6,25 @@ import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
-import { construirIdentidadProfesorSchema } from "@/server/profesores/profesor.schema";
-import { crearProfesor as crearProfesorEnServicio } from "@/server/profesores/profesor.service";
-import type { EstadoNuevoProfesor } from "./profesor.types";
+import {
+  construirIdentidadProfesorSchema,
+  ContactoProfesorSchema,
+} from "@/server/profesores/profesor.schema";
+import {
+  actualizarContactoProfesor as actualizarContactoProfesorEnServicio,
+  crearProfesor as crearProfesorEnServicio,
+} from "@/server/profesores/profesor.service";
+import type { EstadoContactoProfesor, EstadoNuevoProfesor } from "./profesor.types";
 
 // Traducción código de servicio -> texto exacto para el usuario (HU-D-01,
-// criterio de aceptación 3). Vive acá, no en el servicio, mismo criterio
-// que app/(auth)/login/actions.ts: no acoplar la capa de negocio al copy de UI.
+// criterio de aceptación 3; HU-D-02 criterio 4). Vive acá, no en el servicio,
+// mismo criterio que app/(auth)/login/actions.ts: no acoplar la capa de
+// negocio al copy de UI.
 const MENSAJES_POR_CODIGO: Record<string, string> = {
   DNI_DUPLICADO: "Ya existe un profesor registrado con ese DNI",
+  // Genérico a propósito: nunca revela a quién pertenece la otra cuenta.
+  EMAIL_YA_ASOCIADO: "Ese email ya está asociado a otra cuenta",
+  PROFESOR_NO_ENCONTRADO: "El profesor ya no existe",
 };
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
@@ -139,4 +149,59 @@ export async function verificarDniDisponible(
     return { disponible: true };
   }
   return { disponible: false, inactivo: !existente.activoProfesor };
+}
+
+/**
+ * Registro/actualización del contacto del profesor (HU-D-02,
+ * `spec_modulo_D.md` §2.2). Mismo esquema que `crearProfesor()`: permiso
+ * primero (el rechazo por rol vale aunque la action se invoque directamente,
+ * sin pasar por la página), después `ContactoProfesorSchema` — el mismo que
+ * usa el formulario —, después el servicio, y todo error traducido a un
+ * mensaje de usuario sin detalles técnicos.
+ */
+export async function actualizarContactoProfesor(
+  profesorId: string,
+  formData: FormData,
+): Promise<EstadoContactoProfesor> {
+  try {
+    const { id: usuarioModificadorId } = await verificarPermiso("profesores:editar");
+
+    if (typeof profesorId !== "string" || profesorId === "") {
+      return { status: "error", mensaje: MENSAJES_POR_CODIGO.PROFESOR_NO_ENCONTRADO! };
+    }
+
+    const parsed = ContactoProfesorSchema.safeParse({
+      telefono: formData.get("telefono"),
+      email: formData.get("email"),
+    });
+    if (!parsed.success) {
+      return { status: "error_validacion", errores: flattenError(parsed.error).fieldErrors };
+    }
+
+    const contacto = await actualizarContactoProfesorEnServicio(
+      profesorId,
+      parsed.data,
+      usuarioModificadorId,
+    );
+    revalidatePath("/profesores");
+    revalidatePath(`/profesores/${profesorId}`);
+
+    return { status: "exito", telefono: contacto.telefono, email: contacto.email };
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      // Se pinta junto al campo email, igual que un error de formato (c6).
+      if (error.code === "EMAIL_YA_ASOCIADO") {
+        return {
+          status: "error_validacion",
+          errores: { email: [MENSAJES_POR_CODIGO.EMAIL_YA_ASOCIADO!] },
+        };
+      }
+      const mensaje = MENSAJES_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
+      return { status: "error", mensaje };
+    }
+    if (error instanceof PermisoError) {
+      return { status: "error", mensaje: error.message };
+    }
+    return { status: "error_comunicacion" };
+  }
 }
