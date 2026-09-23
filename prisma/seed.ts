@@ -646,8 +646,13 @@ async function main() {
       create: { rolPermiso: rol, accionPermiso: "turnos:leer" },
     });
   }
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:crear" } },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:crear" },
+  });
   console.log(
-    `✓ ${ROLES.length + 5} permisos RBAC creados`,
+    `✓ ${ROLES.length + 6} permisos RBAC creados`,
   );
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);

@@ -10,6 +10,22 @@ const MENSAJES = {
   CODIGO_DUPLICADO: "Ya existe una materia registrada con ese código",
 } as const;
 
+/** Consultas públicas para los flujos que seleccionan una materia. */
+export async function listarMateriasActivas() {
+  return prisma.materia.findMany({
+    where: { activaMateria: true },
+    select: { idMateria: true, nombreMateria: true, codigoMateria: true },
+    orderBy: [{ nombreMateria: "asc" }, { idMateria: "asc" }],
+  });
+}
+
+export async function verificarMateriaActiva(id: string) {
+  return prisma.materia.findFirst({
+    where: { idMateria: id, activaMateria: true },
+    select: { idMateria: true },
+  });
+}
+
 /**
  * Alta de materia (spec_modulo_L.md §2.1). Orden no negociable, dentro de
  * una única transacción: normalizar → verificar unicidad de nombre →

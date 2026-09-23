@@ -371,6 +371,7 @@ model Turno {
 
   // Auditoría (escalar sin relación, ver encabezado)
   creadoPorUsuarioId String?
+  modificadoPorUsuarioId String?
 
   createdAtTurno DateTime @default(now())
   updatedAtTurno DateTime @updatedAt
@@ -395,6 +396,19 @@ model TurnoAlumno {
 
   @@id([turnoId, alumnoId])
   @@map("turno_alumno")
+}
+
+// Eventos de configuración del turno: escritura posterior al commit de negocio.
+model EventoTurno {
+  idEvento       String   @id @default(cuid())
+  tipoEvento     String
+  turnoId        String
+  usuarioId      String
+  payloadEvento  Json
+  creadoEnEvento DateTime @default(now())
+
+  @@index([turnoId, creadoEnEvento])
+  @@map("eventos_turno")
 }
 
 // ------------------------------------------------------------
