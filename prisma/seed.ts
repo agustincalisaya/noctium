@@ -681,6 +681,19 @@ async function main() {
   });
   console.log(`✓ 1 permiso RBAC creado (profesores:editar para GERENTE)`);
 
+  // alumnos:editar (HU-B-02, contacto): exclusivo de Mesa de Entrada, mismo
+  // criterio que alumnos:crear (HU-B-01). La migración
+  // <timestamp>_alumnos_editar_permiso también lo inserta, para bases que
+  // no corran el seed (mismo patrón que profesores:editar arriba).
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
+    },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (alumnos:editar para MESA_ENTRADA)`);
+
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }
 
