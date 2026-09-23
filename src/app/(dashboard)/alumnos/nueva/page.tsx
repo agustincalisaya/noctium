@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { GraduationCap } from "lucide-react";
 import { auth } from "@/auth";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { AlumnoForm } from "./alumno-form";
@@ -21,7 +22,10 @@ export default async function NuevoAlumnoPage() {
   return (
     <main className="mx-auto max-w-lg space-y-6 p-6">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Nuevo alumno</h1>
+        <h1 className="flex items-center text-xl font-semibold">
+          <GraduationCap className="mr-2 size-5" aria-hidden />
+          Nuevo alumno
+        </h1>
         <p className="text-sm text-muted-foreground">
           Registrá los datos de identidad del alumno.
         </p>
