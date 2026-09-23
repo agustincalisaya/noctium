@@ -27,7 +27,6 @@ interface SidebarSeccionConfig {
  *   (`/calendario/materia`, HU-J-02) no tienen page.tsx todavía.
  * - Alumnos: falta "Nuevo alumno" (`/alumnos/nuevo`) — HU-B-01.
  * - Profesores: falta "Nuevo profesor" (`/profesores/nuevo`) — HU-D-01.
- * - Aulas: falta "Nueva aula" (`/aulas/nueva`) — HU-K-01.
  */
 const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
   MESA_ENTRADA: [
@@ -64,7 +63,10 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     {
       label: "Aulas",
       icon: DoorOpen,
-      items: [{ label: "Listado", href: "/aulas", icon: DoorOpen }],
+      items: [
+        { label: "Listado", href: "/aulas", icon: DoorOpen },
+        { label: "Nueva aula", href: "/aulas/nueva", icon: DoorOpen },
+      ],
     },
   ],
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
