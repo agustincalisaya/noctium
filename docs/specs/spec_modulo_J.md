@@ -32,6 +32,7 @@ El Módulo J es **exclusivamente de lectura**: no crea, modifica ni transiciona 
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
+- Los identificadores de `Profesor`, `Materia` y `Turno`, incluidos `[profesorId]`, `[materiaId]` y `turno_id`, son CUID según `schema.prisma`; `"cuid"` en los ejemplos es un marcador ilustrativo.
 - Toda ruta requiere `withPermission("calendario:leer")` (Regla N.° 10) — disponible para Mesa de Entrada, Gerente y Profesor, con el alcance acotado por rol que describe cada sección.
 - Ambas vistas abren, por defecto, en la semana actual; el rango se expresa siempre como `[lunes, sábado]` del `DIAS_OPERATIVOS` vigente (mismo parámetro de `spec_modulo_D.md`/`spec_modulo_C.md`).
 
@@ -62,10 +63,10 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
 ```json
 {
   "data": {
-    "profesor": { "id": "uuid", "nombre_completo": "Gómez, Ana" },
+    "profesor": { "id": "cuid", "nombre_completo": "Gómez, Ana" },
     "rango": { "desde": "2026-04-06", "hasta": "2026-04-11" },
     "eventos": [
-      { "turno_id": "uuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
+      { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
         "alumno": "Pérez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "AGENDADO" }
     ]
   },
@@ -105,12 +106,12 @@ export type ConsultarCalendarioMateriaQuery = z.infer<typeof ConsultarCalendario
 ```json
 {
   "data": {
-    "materia": { "id": "uuid", "nombre": "Matemática", "codigo": "MAT101" },
+    "materia": { "id": "cuid", "nombre": "Matemática", "codigo": "MAT101" },
     "rango": { "desde": "2026-04-06", "hasta": "2026-04-11" },
     "eventos": [
-      { "turno_id": "uuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
+      { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
         "profesor": "Gómez, Ana", "alumno": "Pérez, Ana", "aula": "Aula 2", "estado": "AGENDADO" },
-      { "turno_id": "uuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
+      { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
         "profesor": "López, Juan", "alumno": "Ruiz, Marcos", "aula": "Aula 5", "estado": "AGENDADO" }
     ]
   },

@@ -27,6 +27,7 @@ Implementación estándar del proyecto: Route Handler / Server Action delgados q
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
+- Los identificadores de `Aula`, incluido el parámetro `[id]`, son CUID según `schema.prisma`; `"cuid"` en los ejemplos es un marcador ilustrativo.
 - Toda ruta requiere `withPermission("aulas:<accion>")` (Regla N.° 10).
 
 ---
@@ -62,7 +63,7 @@ export type CrearAulaInput = z.infer<typeof CrearAulaSchema>;
 
 **Respuesta `201 Created`:**
 ```json
-{ "data": { "id": "uuid", "nombre": "Aula 3", "capacidad": 25, "is_active": true }, "error": null }
+{ "data": { "id": "cuid", "nombre": "Aula 3", "capacidad": 25, "is_active": true }, "error": null }
 ```
 
 **Respuesta `409 Conflict`:**
@@ -105,8 +106,8 @@ Con la collation aplicada a nivel de columna, el `orderBy: { nombre: "asc" }` ha
 {
   "data": {
     "items": [
-      { "id": "uuid", "nombre": "Aula 2", "capacidad": 30, "is_active": true },
-      { "id": "uuid", "nombre": "Aula 10", "capacidad": 20, "is_active": true }
+      { "id": "cuid", "nombre": "Aula 2", "capacidad": 30, "is_active": true },
+      { "id": "cuid", "nombre": "Aula 10", "capacidad": 20, "is_active": true }
     ],
     "paginacion": { "total": 8, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 20 }
   },

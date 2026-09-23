@@ -27,6 +27,7 @@ Implementación estándar del proyecto: Route Handler / Server Action delgados q
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
+- Los identificadores de `Materia` y `Profesor`, incluido el parámetro `[id]` de Materia, son CUID según `schema.prisma`; `"cuid"` en los ejemplos es un marcador ilustrativo.
 - Toda ruta requiere sesión y permiso granular vía `withPermission("materias:<accion>")` (Regla N.° 10, middleware definido en `spec_modulo_A.md` §2.2).
 
 ---
@@ -65,7 +66,7 @@ export type CrearMateriaInput = z.infer<typeof CrearMateriaSchema>;
 **Respuesta `201 Created`:**
 ```json
 {
-  "data": { "id": "uuid", "nombre": "Matemática", "codigo": "MAT101", "is_active": true },
+  "data": { "id": "cuid", "nombre": "Matemática", "codigo": "MAT101", "is_active": true },
   "error": null
 }
 ```
@@ -109,7 +110,7 @@ export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;
 {
   "data": {
     "items": [
-      { "id": "uuid", "nombre": "Matemática", "codigo": "MAT101", "profesores_count": 2, "is_active": true }
+      { "id": "cuid", "nombre": "Matemática", "codigo": "MAT101", "profesores_count": 2, "is_active": true }
     ],
     "paginacion": { "total": 12, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 20 }
   },
@@ -126,12 +127,12 @@ export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;
 ```json
 {
   "data": {
-    "id": "uuid",
+    "id": "cuid",
     "nombre": "Matemática",
     "codigo": "MAT101",
     "is_active": true,
     "created_at": "2026-03-02T14:00:00.000Z",
-    "profesores": [{ "id": "uuid", "nombre_completo": "Pérez, Ana" }]
+    "profesores": [{ "id": "cuid", "nombre_completo": "Pérez, Ana" }]
   },
   "error": null
 }
