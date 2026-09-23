@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { NextAuthRequest } from "next-auth";
 import { auth, decodificarToken } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -114,6 +115,37 @@ export async function verificarPermiso(
   await verificarNoRevocado(jti);
   await verificarRolPermiso(session.user.rol, accion);
   return { id: session.user.id, rol: session.user.rol };
+}
+
+/**
+ * Variante de `verificarPermiso()` para Server Components (páginas): en vez
+ * de lanzar `PermisoError`, redirige — sin sesión válida a `/login`, sin
+ * permiso a `/sin-permiso` (403, "No tenés permisos..."). Cualquier otro
+ * error se propaga al `error.tsx` del segmento.
+ */
+export async function exigirPermiso(accion: string): Promise<{ id: string; rol: RolUsuario }> {
+  try {
+    return await verificarPermiso(accion);
+  } catch (error) {
+    if (error instanceof PermisoError) {
+      redirect(error.code === "SESION_INVALIDA" ? "/login" : "/sin-permiso");
+    }
+    throw error;
+  }
+}
+
+/**
+ * `true` si la sesión actual tiene `accion`. Para decidir qué accesos mostrar
+ * en una página ya autorizada; la acción real vuelve a verificar su permiso.
+ */
+export async function tienePermiso(accion: string): Promise<boolean> {
+  try {
+    await verificarPermiso(accion);
+    return true;
+  } catch (error) {
+    if (error instanceof PermisoError) return false;
+    throw error;
+  }
 }
 
 /**

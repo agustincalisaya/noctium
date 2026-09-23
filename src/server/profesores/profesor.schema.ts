@@ -140,3 +140,15 @@ export function construirRegistrarHorarioSchema(parametros: ParametrosHorarioOpe
     });
 }
 export type RegistrarHorarioInput = z.infer<ReturnType<typeof construirRegistrarHorarioSchema>>;
+
+/**
+ * Query del listado (HU-D-05, `spec_modulo_D.md` §2.5): mismo límite de 20
+ * por página que el resto de los listados del proyecto
+ * (`ListarAlumnosQuerySchema`, `ListarMateriasQuerySchema`,
+ * `ListarAulasQuerySchema`).
+ */
+export const ListarProfesoresQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+});
+export type ListarProfesoresQuery = z.infer<typeof ListarProfesoresQuerySchema>;

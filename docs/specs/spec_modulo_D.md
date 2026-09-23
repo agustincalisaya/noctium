@@ -327,6 +327,18 @@ export const ListarProfesoresQuerySchema = z.object({
 }
 ```
 
+**Nota de sincronización (HU-D-05, resuelta):**
+- **Rutas reales (Regla N.° 11):**
+  - Servicios `listarProfesores(query)`, `obtenerDetalleProfesor(id)` y `listarOpcionesProfesoresActivos()` en `src/server/profesores/profesor.service.ts`.
+  - Schema `ListarProfesoresQuerySchema` en `src/server/profesores/profesor.schema.ts`.
+  - Helpers puros en `src/lib/profesor-listado.ts` (`resumirMaterias`, `clavesOrdenProfesor`) y en `src/lib/horario-atencion.ts` (`agruparHorariosPorDia`, `formatearIntervalos`).
+  - UI: `/profesores?pagina=N` y `/profesores/[id]?pagina=N`. Route Handlers `GET /api/profesores` y `GET /api/profesores/[id]`.
+- **Orden:** columnas `apellidoNormalizadoProfesor` / `nombreNormalizadoProfesor` (con `normalizarTexto()`, igual que Alumno en HU-B-04), más `dniProfesor` como desempate. Migración `20260923200000_profesor_nombre_normalizado_y_leer_permiso`, que también completa las filas existentes.
+- **Permiso:** `profesores:leer`, exclusivo de Gerente (migración + seed). El detalle muestra los accesos de edición de HU-D-02/03/04 solo con `profesores:editar`.
+- **camelCase**, igual que HU-D-03/04. El detalle devuelve `{ ..., contacto: { telefono, email }, horarios: { LUNES: [{ horaInicio, horaFin }] } }`. Solo aparecen los días que tienen horarios.
+- **Materias:** se ordenan por nombre normalizado. El listado muestra las 2 primeras y un contador (`"Física, Matemática +2"`); el detalle, todas.
+- **Contrato para HU-J-01:** `listarOpcionesProfesoresActivos(): Promise<{ id: string; nombreParaMostrar: string }[]>`. Devuelve los activos con el mismo orden que el listado; `nombreParaMostrar` es `"Apellido, Nombre"`.
+
 ---
 
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
