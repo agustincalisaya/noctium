@@ -42,6 +42,7 @@ import {
   type RolUsuario,
 } from "@prisma/client";
 import { normalizarTexto } from "../src/lib/normalizar-texto";
+import { ContactoSchema } from "../src/server/shared/contacto.schema";
 
 const prisma = new PrismaClient();
 
@@ -325,7 +326,12 @@ function validarDatos(): void {
         errores.push(`Horario fuera de rango en ${p.apellido}`);
       }
     }
-    if (!p.telefono && !p.email) errores.push(`${p.apellido}: sin ningún contacto`);
+    // Mismas reglas que el formulario de contacto (HU-D-02): al menos uno,
+    // teléfono de 8-15 dígitos, email válido.
+    const contacto = ContactoSchema.safeParse({ telefono: p.telefono, email: p.email });
+    if (!contacto.success) {
+      errores.push(`${p.apellido}: contacto inválido (${contacto.error.issues.map((i) => i.message).join(", ")})`);
+    }
   }
 
   // Cada materia activa debe tener al menos un profesor ACTIVO que la dicte.
@@ -482,14 +488,17 @@ async function main() {
   const profesorIds: string[] = [];
   for (let i = 0; i < PROFESORES.length; i++) {
     const p = PROFESORES[i];
+    // Se guarda normalizado, igual que lo guarda HU-D-02 ("+54 11 5560-0001"
+    // -> "+541155600001"); validarDatos() ya garantizó que parsea.
+    const contacto = ContactoSchema.parse({ telefono: p.telefono, email: p.email });
     const data = {
       nombreProfesor: p.nombre,
       apellidoProfesor: p.apellido,
       dniProfesor: p.dni,
       fechaNacimientoProfesor: new Date(Date.UTC(p.nacimiento[0], p.nacimiento[1] - 1, p.nacimiento[2])),
       generoProfesor: p.genero,
-      telefonoProfesor: p.telefono,
-      emailProfesor: p.email,
+      telefonoProfesor: contacto.telefono ?? null,
+      emailProfesor: contacto.email ?? null,
       direccionProfesor: p.direccion,
       activoProfesor: p.activo,
       usuarioId: usuarioProfesorIds.get(i) ?? null,
@@ -659,6 +668,18 @@ async function main() {
     create: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
   });
   console.log(`✓ 1 permiso RBAC creado (profesores:crear para GERENTE)`);
+
+  // profesores:editar (HU-D-02, contacto; también lo usan HU-D-03/04):
+  // exclusivo de Gerente. La migración 20260923015526_profesor_contacto_modificado_por
+  // también lo inserta, para bases que no corran el seed.
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
+    },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (profesores:editar para GERENTE)`);
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }

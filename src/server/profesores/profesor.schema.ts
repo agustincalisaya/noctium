@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Genero } from "@prisma/client";
 import { fechaCalendarioValidaSchema, fechaUTCHaceAnios } from "@/server/shared/fecha";
 import { normalizarTextoNombre } from "@/server/shared/texto";
+import { ContactoSchema, type ContactoInput } from "@/server/shared/contacto.schema";
 
 const NOMBRE_REGEX = /^[\p{L}\s'-]+$/u;
 
@@ -78,3 +79,11 @@ export function construirIdentidadProfesorSchema(
 export type IdentidadProfesorInput = z.infer<
   ReturnType<typeof construirIdentidadProfesorSchema>
 >;
+
+/**
+ * Contacto del profesor (HU-D-02): mismas reglas que el contacto de Alumno
+ * (HU-B-02), así que se reutiliza el schema compartido en vez de duplicarlo
+ * — utilidad de validación transversal, no acoplamiento de dominio.
+ */
+export const ContactoProfesorSchema = ContactoSchema;
+export type ContactoProfesorInput = ContactoInput;
