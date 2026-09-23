@@ -621,6 +621,16 @@ async function main() {
   }
   console.log(`✓ ${ROLES.length} permisos RBAC creados (sesion:ping para los 4 roles)`);
 
+  // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
+    },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (profesores:crear para GERENTE)`);
+
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }
 
