@@ -1,52 +1,52 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
-import {
-  obtenerFichaProfesor,
-  obtenerHorariosDelProfesor,
-  obtenerMateriasDelProfesor,
-} from "@/server/profesores/profesor.service";
+import { notFound } from "next/navigation";
+import { exigirPermiso, tienePermiso } from "@/server/shared/with-permission";
+import { obtenerDetalleProfesor } from "@/server/profesores/profesor.service";
 import { FichaEncabezado } from "./ficha-encabezado";
+import { FichaIdentidad } from "./ficha-identidad";
 import { FichaContacto } from "./ficha-contacto";
 import { FichaMaterias } from "./ficha-materias";
 import { FichaHorarios } from "./ficha-horarios";
 
 /**
- * Ficha del profesor. Hoy muestra identidad resumida + contacto (HU-D-02),
- * materias asociadas (HU-D-03) y el resumen semanal del horario de atención
- * (HU-D-04); HU-D-05 agrega lo suyo con el mismo `FichaSeccion`.
+ * Detalle del profesor en modo consulta (HU-D-05 criterio 3): identidad,
+ * estado y fecha de alta, contacto (HU-D-02), todas las materias asociadas
+ * (HU-D-03) y el horario de atención agrupado por día (HU-D-04).
  *
- * Permiso: `profesores:leer` todavía no existe en `RolPermiso` (lo agrega
- * HU-D-05, que es la dueña del detalle); mientras tanto la ficha exige
- * `profesores:editar`, el único permiso que hoy tiene sentido sobre una
- * ficha existente. Cuando exista `profesores:leer`, cambiar el chequeo de
- * acá y derivar `puedeEditar` de un segundo `verificarPermiso`.
+ * Permiso: `profesores:leer` gatea el acceso. Los accesos a editar contacto,
+ * asociar materias y registrar horario son de HU-D-02/03/04 y solo se
+ * muestran con `profesores:editar` (cada acción lo vuelve a verificar).
+ *
+ * `?pagina=` es la página del listado desde la que se abrió: "Volver al
+ * listado" vuelve a esa misma página.
  */
-export default async function ProfesorDetallePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ProfesorDetallePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ pagina?: string }>;
+}) {
+  await exigirPermiso("profesores:leer");
+  const puedeEditar = await tienePermiso("profesores:editar");
 
-  try {
-    await verificarPermiso("profesores:editar");
-  } catch (error) {
-    if (error instanceof PermisoError) {
-      redirect("/profesores");
-    }
-    throw error;
-  }
+  const [{ id }, { pagina }] = await Promise.all([params, searchParams]);
 
-  const profesor = await obtenerFichaProfesor(id);
+  const profesor = await obtenerDetalleProfesor(id);
   if (!profesor) {
     notFound();
   }
-  const [materias, horarios] = await Promise.all([
-    obtenerMateriasDelProfesor(profesor.id),
-    obtenerHorariosDelProfesor(profesor.id),
-  ]);
+
+  const paginaListado = Number(pagina);
+  const hrefListado =
+    Number.isSafeInteger(paginaListado) && paginaListado > 1
+      ? `/profesores?pagina=${paginaListado}`
+      : "/profesores";
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl space-y-5 p-6">
       <Link
-        href="/profesores"
+        href={hrefListado}
         className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Volver al listado
@@ -57,23 +57,24 @@ export default async function ProfesorDetallePage({ params }: { params: Promise<
         dni={profesor.dni}
         activo={profesor.activo}
       />
+      <FichaIdentidad profesor={profesor} />
       <FichaContacto
         profesorId={profesor.id}
         telefono={profesor.telefono}
         email={profesor.email}
-        puedeEditar
+        puedeEditar={puedeEditar}
       />
       <FichaMaterias
         profesorId={profesor.id}
         activo={profesor.activo}
-        materias={materias}
-        puedeEditar
+        materias={profesor.materias}
+        puedeEditar={puedeEditar}
       />
       <FichaHorarios
         profesorId={profesor.id}
         activo={profesor.activo}
-        horarios={horarios}
-        puedeEditar
+        horarios={profesor.horarios}
+        puedeEditar={puedeEditar}
       />
     </div>
   );

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  agruparHorariosPorDia,
   diaSemanaDeFecha,
+  formatearIntervalos,
   generarHoras,
   horaAMinutos,
   intervaloContenido,
@@ -149,5 +151,46 @@ describe("helpers de UI", () => {
     expect(mensajeSuperposicion("LUNES", "10:00", "12:00")).toBe(
       "El intervalo se superpone con Lunes 10:00–12:00",
     );
+  });
+});
+
+describe("agruparHorariosPorDia / formatearIntervalos (HU-D-05 criterio 3)", () => {
+  const h = (id: string, diaSemana: "LUNES" | "MIERCOLES" | "VIERNES", horaInicio: string, horaFin: string) => ({
+    id,
+    diaSemana,
+    horaInicio,
+    horaFin,
+  });
+
+  it("agrupa por día en el orden de la semana y ordena cada día por hora de inicio", () => {
+    const grupos = agruparHorariosPorDia([
+      h("1", "VIERNES", "14:00", "16:00"),
+      h("2", "LUNES", "14:00", "16:00"),
+      h("3", "MIERCOLES", "09:00", "10:30"),
+      h("4", "LUNES", "08:00", "10:00"),
+      h("5", "LUNES", "11:00", "12:00"),
+    ]);
+
+    expect(grupos.map(({ etiqueta, intervalos }) => `${etiqueta}: ${formatearIntervalos(intervalos)}`)).toEqual([
+      "Lunes: 08:00–10:00, 11:00–12:00, 14:00–16:00",
+      "Miércoles: 09:00–10:30",
+      "Viernes: 14:00–16:00",
+    ]);
+  });
+
+  it("omite los días sin intervalos y no combina contiguos", () => {
+    const grupos = agruparHorariosPorDia([h("1", "LUNES", "12:00", "14:00"), h("2", "LUNES", "10:00", "12:00")]);
+    expect(grupos).toHaveLength(1);
+    expect(formatearIntervalos(grupos[0]!.intervalos)).toBe("10:00–12:00, 12:00–14:00");
+  });
+
+  it("sin horarios devuelve una lista vacía", () => {
+    expect(agruparHorariosPorDia([])).toEqual([]);
+  });
+
+  it("no modifica el arreglo recibido", () => {
+    const horarios = [h("1", "LUNES", "14:00", "16:00"), h("2", "LUNES", "08:00", "10:00")];
+    agruparHorariosPorDia(horarios);
+    expect(horarios.map(({ id }) => id)).toEqual(["1", "2"]);
   });
 });

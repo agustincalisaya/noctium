@@ -19,7 +19,12 @@
 // verificable (c5).
 //
 // Ejemplos INACTIVOS (para probar filtros de listados): alumno 17,
-// profesor 5, materia "Historia de la Ciencia" y "Aula 12".
+// profesores 5 y "Sosa", materia "Historia de la Ciencia" y "Aula 12".
+//
+// Listado de profesores (HU-D-05): 22 profesores (2 páginas de 20), con
+// apellidos con tilde y en minúscula/mayúscula (orden case/acento-insensitivo),
+// "Avila/Ávila, Pedro" y dos "Pérez, Juan" (desempate por DNI), uno sin
+// contacto, uno sin materias, uno con 4 materias y 3 intervalos el mismo día.
 //
 // Es idempotente: se puede correr N veces sin duplicar datos.
 //  - Usuarios / alumnos / profesores / materias / aulas / formas de pago /
@@ -42,6 +47,7 @@ import {
   type RolUsuario,
 } from "@prisma/client";
 import { normalizarTexto } from "../src/lib/normalizar-texto";
+import { clavesOrdenProfesor } from "../src/lib/profesor-listado";
 import { ContactoSchema } from "../src/server/shared/contacto.schema";
 import {
   DIAS_SEMANA,
@@ -231,6 +237,258 @@ const PROFESORES: {
       { dia: 3, desde: "08:00", hasta: "12:00" },
     ],
   },
+  // --- Listado de profesores (HU-D-05): fichas sin cuenta ---
+  {
+    nombre: "Lucía",
+    apellido: "Álvarez", // con tilde inicial: va entre las "A", no al final
+    dni: "32200001",
+    nacimiento: [1984, 2, 14],
+    genero: "FEMENINO",
+    telefono: "+54 11 5560-0101",
+    email: "lucia.alvarez@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Física"],
+    horarios: [{ dia: 1, desde: "10:00", hasta: "12:00" }],
+  },
+  {
+    // "Ávila, Pedro" y "Avila, Pedro": misma clave normalizada, desempata el
+    // DNI (32200004 primero).
+    nombre: "Pedro",
+    apellido: "Ávila",
+    dni: "32200009",
+    nacimiento: [1980, 6, 1],
+    genero: "MASCULINO",
+    telefono: null,
+    email: "pedro.avila.2@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Matemática"],
+    horarios: [],
+  },
+  {
+    nombre: "Pedro",
+    apellido: "Avila",
+    dni: "32200004",
+    nacimiento: [1978, 9, 10],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0104",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Física"],
+    horarios: [],
+  },
+  {
+    nombre: "Diego",
+    apellido: "benítez", // minúscula: va entre las "B", no después de la "Z"
+    dni: "32200010",
+    nacimiento: [1990, 4, 22],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0110",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Química"],
+    horarios: [{ dia: 3, desde: "08:00", hasta: "10:00" }],
+  },
+  {
+    // 4 materias ("Física, Matemática +2") y 3 intervalos el lunes, cargados
+    // desordenados: el detalle los muestra por hora de inicio.
+    nombre: "Julián",
+    apellido: "Castro",
+    dni: "32200011",
+    nacimiento: [1986, 12, 5],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0111",
+    email: "julian.castro@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Matemática", "Física", "Química", "Programación I"],
+    horarios: [
+      { dia: 0, desde: "15:00", hasta: "17:00" },
+      { dia: 0, desde: "08:00", hasta: "10:00" },
+      { dia: 0, desde: "11:00", hasta: "12:00" },
+      { dia: 2, desde: "09:00", hasta: "10:30" },
+    ],
+  },
+  {
+    nombre: "Tomás",
+    apellido: "de la Fuente",
+    dni: "32200012",
+    nacimiento: [1983, 3, 30],
+    genero: "MASCULINO",
+    telefono: null,
+    email: "tomas.delafuente@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Bases de Datos"],
+    horarios: [],
+  },
+  {
+    // Dos "Pérez, Juan" idénticos: desempata el DNI (33300001 primero).
+    nombre: "Juan",
+    apellido: "Pérez",
+    dni: "33300002",
+    nacimiento: [1975, 8, 8],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0302",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Programación I"],
+    horarios: [],
+  },
+  {
+    nombre: "Juan",
+    apellido: "Pérez",
+    dni: "33300001",
+    nacimiento: [1981, 1, 19],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0301",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Bases de Datos"],
+    horarios: [],
+  },
+  {
+    // Ficha sin contacto (HU-D-01 sin HU-D-02): el listado muestra "—".
+    nombre: "Rocío",
+    apellido: "Ibarra",
+    dni: "32200013",
+    nacimiento: [1992, 10, 11],
+    genero: "FEMENINO",
+    telefono: null,
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Inglés Técnico"],
+    horarios: [],
+  },
+  {
+    // Sin materias asociadas: el listado muestra "—".
+    nombre: "Emilia",
+    apellido: "Quiroga",
+    dni: "32200014",
+    nacimiento: [1989, 7, 7],
+    genero: "FEMENINO",
+    telefono: "+54 11 5560-0114",
+    email: "emilia.quiroga@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: [],
+    horarios: [],
+  },
+  {
+    nombre: "Andrea",
+    apellido: "Núñez",
+    dni: "32200015",
+    nacimiento: [1987, 5, 25],
+    genero: "FEMENINO",
+    telefono: "+54 11 5560-0115",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Matemática", "Química"],
+    horarios: [{ dia: 4, desde: "10:00", hasta: "12:00" }],
+  },
+  {
+    nombre: "Ramiro",
+    apellido: "Sosa",
+    dni: "32200016",
+    nacimiento: [1968, 11, 3],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0116",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: false, // inactivo
+    materias: ["Bases de Datos"],
+    horarios: [],
+  },
+  {
+    // Valores largos: el listado los recorta, el detalle los muestra completos.
+    nombre: "María José",
+    apellido: "Fernández de la Torre y Villanueva",
+    dni: "32200017",
+    nacimiento: [1982, 2, 28],
+    genero: "FEMENINO",
+    telefono: "+54 11 5560-0117",
+    email: "mariajose.fernandezdelatorreyvillanueva@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Inglés Técnico", "Programación I", "Bases de Datos"],
+    horarios: [],
+  },
+  {
+    nombre: "Esteban",
+    apellido: "Luna",
+    dni: "32200018",
+    nacimiento: [1991, 9, 15],
+    genero: null,
+    telefono: "+54 11 5560-0118",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Física"],
+    horarios: [],
+  },
+  {
+    nombre: "Gabriela",
+    apellido: "OLMEDO", // mayúsculas: ordena igual que "Olmedo"
+    dni: "32200019",
+    nacimiento: [1985, 6, 18],
+    genero: "FEMENINO",
+    telefono: null,
+    email: "gabriela.olmedo@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Química"],
+    horarios: [],
+  },
+  {
+    nombre: "Hernán",
+    apellido: "Toledo",
+    dni: "32200020",
+    nacimiento: [1979, 12, 12],
+    genero: "MASCULINO",
+    telefono: "+54 11 5560-0120",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Matemática"],
+    horarios: [],
+  },
+  {
+    nombre: "Paula",
+    apellido: "Ybáñez",
+    dni: "32200021",
+    nacimiento: [1993, 3, 3],
+    genero: "FEMENINO",
+    telefono: "+54 11 5560-0121",
+    email: null,
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Inglés Técnico"],
+    horarios: [],
+  },
 ];
 
 type AlumnoSeed = {
@@ -358,7 +616,9 @@ function validarDatos(): void {
       }
     });
     // Mismas reglas que el formulario de contacto (HU-D-02): al menos uno,
-    // teléfono de 8-15 dígitos, email válido.
+    // teléfono de 8-15 dígitos, email válido. Una ficha sin ningún contacto es
+    // válida: HU-D-01 no lo pide y HU-D-02 todavía no se cargó (HU-D-05).
+    if (p.telefono === null && p.email === null) continue;
     const contacto = ContactoSchema.safeParse({ telefono: p.telefono, email: p.email });
     if (!contacto.success) {
       errores.push(`${p.apellido}: contacto inválido (${contacto.error.issues.map((i) => i.message).join(", ")})`);
@@ -525,11 +785,17 @@ async function main() {
   for (let i = 0; i < PROFESORES.length; i++) {
     const p = PROFESORES[i];
     // Se guarda normalizado, igual que lo guarda HU-D-02 ("+54 11 5560-0001"
-    // -> "+541155600001"); validarDatos() ya garantizó que parsea.
-    const contacto = ContactoSchema.parse({ telefono: p.telefono, email: p.email });
+    // -> "+541155600001"); validarDatos() ya garantizó que parsea. Sin ningún
+    // contacto (ficha de HU-D-01 sin HU-D-02) no hay nada que normalizar.
+    const contacto =
+      p.telefono === null && p.email === null
+        ? {}
+        : ContactoSchema.parse({ telefono: p.telefono, email: p.email });
     const data = {
       nombreProfesor: p.nombre,
       apellidoProfesor: p.apellido,
+      // Orden case/acento-insensitivo del listado (HU-D-05).
+      ...clavesOrdenProfesor(p),
       dniProfesor: p.dni,
       fechaNacimientoProfesor: new Date(Date.UTC(p.nacimiento[0], p.nacimiento[1] - 1, p.nacimiento[2])),
       generoProfesor: p.genero,
@@ -800,6 +1066,19 @@ for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
     create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:leer" },
   });
   console.log(`✓ 1 permiso RBAC creado (alumnos:leer para MESA_ENTRADA)`);
+
+  // profesores:leer (HU-D-05, listado y detalle): exclusivo de Gerente, mismo
+  // rol que profesores:crear/editar y que /profesores en rutas-por-rol.ts. La
+  // migración 20260923200000_profesor_nombre_normalizado_y_leer_permiso
+  // también lo inserta, para bases que no corran el seed.
+  await prisma.rolPermiso.upsert({
+    where: {
+      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:leer" },
+    },
+    update: {},
+    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:leer" },
+  });
+  console.log(`✓ 1 permiso RBAC creado (profesores:leer para GERENTE)`);
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }

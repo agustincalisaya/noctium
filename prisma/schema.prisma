@@ -259,6 +259,11 @@ model Profesor {
   // Datos de identidad (HU-D-01)
   nombreProfesor   String
   apellidoProfesor String
+  // Orden case/acento-insensitivo del listado (HU-D-05, spec_modulo_D.md
+  // §2.5), mismo criterio que nombreNormalizadoAlumno/apellidoNormalizadoAlumno
+  // (HU-B-04): se guardan con normalizarTexto() al dar de alta.
+  nombreNormalizadoProfesor   String
+  apellidoNormalizadoProfesor String
   dniProfesor      String @unique
   fechaNacimientoProfesor DateTime @db.Date
   generoProfesor   Genero?
@@ -280,6 +285,8 @@ model Profesor {
   horarios HorarioProfesor[] // HU-D-04: horario de atención
   turnos   Turno[]
 
+  // Orden del listado (HU-D-05): apellido, nombre, DNI.
+  @@index([apellidoNormalizadoProfesor, nombreNormalizadoProfesor, dniProfesor], map: "profesores_orden_listado_idx")
   @@map("profesores")
 }
 

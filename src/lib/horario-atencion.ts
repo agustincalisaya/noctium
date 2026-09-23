@@ -164,3 +164,27 @@ export function validarIntervaloHorario(
 export function mensajeSuperposicion(diaSemana: DiaSemanaValor, horaInicio: string, horaFin: string): string {
   return `El intervalo se superpone con ${ETIQUETA_DIA[diaSemana]} ${horaInicio}–${horaFin}`;
 }
+
+/**
+ * Agrupa intervalos por día (HU-D-04 c6, HU-D-05 criterio 3): días en el
+ * orden de la semana, solo los que tienen al menos un intervalo, y cada día
+ * ordenado por hora de inicio. Las horas "HH:mm" con cero a la izquierda
+ * ordenan bien como texto. No combina contiguos: se muestran tal como están
+ * registrados.
+ */
+export function agruparHorariosPorDia<T extends { diaSemana: DiaSemanaValor; horaInicio: string }>(
+  horarios: readonly T[],
+): { dia: DiaSemanaValor; etiqueta: string; intervalos: T[] }[] {
+  return DIAS_SEMANA.map((dia) => ({
+    dia,
+    etiqueta: ETIQUETA_DIA[dia],
+    intervalos: horarios
+      .filter((horario) => horario.diaSemana === dia)
+      .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)),
+  })).filter(({ intervalos }) => intervalos.length > 0);
+}
+
+/** Intervalos de un día en texto: "10:00–12:00, 14:00–16:00" (24 h). */
+export function formatearIntervalos(intervalos: readonly { horaInicio: string; horaFin: string }[]): string {
+  return intervalos.map(({ horaInicio, horaFin }) => `${horaInicio}–${horaFin}`).join(", ");
+}
