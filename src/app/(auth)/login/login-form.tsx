@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CredencialesLoginSchema } from "@/server/sesion/sesion.schema";
-import { iniciarSesion } from "./actions";
-import { ESTADO_INICIAL, type EstadoLogin } from "./login.types";
+import { iniciarSesion } from "@/server/sesion/actions";
+import { ESTADO_INICIAL, type EstadoLogin } from "@/types/sesion.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 

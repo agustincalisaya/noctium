@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CrearMateriaSchema } from "@/server/materias/materia.schema";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
-import { crearMateria } from "../actions";
-import { ESTADO_INICIAL, type EstadoMateria } from "../materia.types";
+import { crearMateria } from "@/server/materias/actions";
+import { ESTADO_INICIAL, type EstadoMateria } from "@/types/materia.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
