@@ -261,20 +261,17 @@ Total: 24 HU · 45 puntos.
 
 ## HU-C-15 — Asignar aula al turno
 **Módulo:** Gestionar turnos · **Prioridad:** 12 · **SP:** 2
-**Como** personal de mesa de entrada **necesito** asignar un aula disponible a un turno, **para** reservar el espacio físico donde se realizará la clase.
-**Justificación de secuencia:** Depende de HU-C-04 y HU-K-01. Completa el registro: el turno pasa a Agendado.
+**Como** personal de mesa de entrada **necesito** asignar un aula disponible a un turno, **para** completar su configuración y reservar el espacio físico al confirmarlo.
+**Justificación de secuencia:** Depende de HU-C-04 y HU-K-01. Al confirmar, el turno pasa de Pendiente a Disponible o Completo según la cantidad de alumnos inscriptos y su cupo máximo.
 
 **Criterios de aceptación:**
-1. Muestra aulas activas con Nombre/número y Capacidad. Si no hay aulas activas: "No hay aulas activas registradas" y el turno sigue Pendiente.
-2. Al seleccionar un aula, se comprueba que no posea otro turno agendado superpuesto (contiguos no se consideran superpuestos).
-3. La disponibilidad se revalida al confirmar (evita doble reserva simultánea).
-4. Si el aula deja de estar disponible, se informa el conflicto, el turno permanece sin cambios; se puede elegir otra sin perder los demás datos.
-5. Si el turno ya posee materia, fecha, hora, alumno y profesor válidos, asignar el aula cambia el estado de Pendiente a Agendado.
-   - Al agendar, se revalida en una única operación la disponibilidad de profesor, alumno y aula (los pendientes no reservan recursos).
-   - Si algún recurso dejó de estar disponible o la fecha/hora ya pasaron, no se agenda, se informa qué corregir.
-   - Al agendar correctamente: "Turno agendado correctamente".
-6. Un turno agendado aparece inmediatamente en los listados y calendarios correspondientes.
-7. Mientras el turno esté Pendiente, cambiar el aula reemplaza la asignación anterior sin alterar los demás datos.
+1. Muestra aulas activas con Nombre/número y Capacidad; solo ofrece las que tienen capacidad mayor o igual al cupo máximo del turno. Si no hay aulas activas: "No hay aulas activas registradas" y el turno sigue Pendiente. Si el aula seleccionada no alcanza el cupo: "La capacidad del aula es menor que el cupo máximo del turno".
+2. El aula no debe tener otro turno Disponible o Completo superpuesto en el mismo horario; los turnos contiguos están permitidos.
+3. Mientras el turno siga Pendiente, se puede guardar o reemplazar el aula sin reservarla ni alterar profesor, alumnos u otros datos. Si todavía falta profesor o no hay alumnos, permanece Pendiente; al guardar se informa "Aula asignada correctamente".
+4. Cuando el turno tiene materia, fecha y hora futuras, profesor válido y al menos un alumno válido sin exceder el cupo máximo, asignar el aula lo confirma. En una única operación atómica se revalidan aula activa, capacidad y disponibilidad de aula, profesor y **todos** los alumnos; al confirmar quedan reservados esos recursos. Los turnos Pendiente no reservan recursos.
+5. Si el aula o cualquier otro recurso deja de estar disponible, o la fecha/hora ya pasó, se informa la causa y la operación se revierte por completo: el turno conserva sus datos y estado, sin reservas parciales. Se puede elegir otra aula sin perder la selección ni los demás datos del formulario.
+6. Al confirmar, el turno pasa a Disponible si quedan lugares o a Completo si los alumnos inscriptos alcanzan el cupo máximo. Se muestra exactamente "Turno confirmado correctamente".
+7. El turno confirmado aparece actualizado en HU-C-01 y en los calendarios correspondientes.
 
 ---
 
