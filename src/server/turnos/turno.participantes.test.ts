@@ -82,9 +82,11 @@ describe("HU-C-04 asignar participantes", () => {
       expect(tx.turnoAlumno.create).toHaveBeenCalledWith({ data: { turnoId: TURNO, alumnoId: alumno_id } });
     }
   });
-  it("rechaza turno agendado, vencido y modificación concurrente", async () => {
-    tx.turno.findUnique.mockResolvedValueOnce({ ...turno, estadoTurno: "AGENDADO" });
-    await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_YA_AGENDADO" });
+  it("rechaza turno disponible o completo, vencido y modificación concurrente", async () => {
+    for (const estadoTurno of ["DISPONIBLE", "COMPLETO"]) {
+      tx.turno.findUnique.mockResolvedValueOnce({ ...turno, estadoTurno });
+      await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_YA_DISPONIBLE" });
+    }
     vigente.mockReturnValueOnce(false);
     await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_VENCIDO" });
     tx.turno.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -106,17 +108,17 @@ describe("HU-C-04 asignar participantes", () => {
     await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_FUERA_DE_HORARIO", message: "El turno está fuera del horario de atención del profesor" });
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
   });
-  it("rechaza un turno AGENDADO superpuesto del profesor con horario concreto", async () => {
+  it("rechaza un turno DISPONIBLE/COMPLETO superpuesto del profesor con horario concreto", async () => {
     tx.turno.findMany.mockResolvedValueOnce([agendado("10:00", 60, P, false)]);
     await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_NO_DISPONIBLE", message: "El profesor ya tiene un turno agendado de 10:00 a 11:00" });
     expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
   });
-  it("permite un turno contiguo y consulta exclusivamente AGENDADO, excluyendo el propio", async () => {
+  it("permite un turno contiguo y consulta exclusivamente DISPONIBLE/COMPLETO, excluyendo el propio", async () => {
     tx.turno.findMany.mockResolvedValueOnce([agendado("11:00", 60, P, true)]);
     await expect(ejecutar()).resolves.toMatchObject({ estado: "PENDIENTE" });
-    expect(tx.turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ idTurno: { not: TURNO }, estadoTurno: "AGENDADO" }) }));
+    expect(tx.turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ idTurno: { not: TURNO }, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } }) }));
   });
-  it("rechaza un turno AGENDADO superpuesto del alumno", async () => {
+  it("rechaza un turno DISPONIBLE/COMPLETO superpuesto del alumno", async () => {
     tx.turno.findMany.mockResolvedValueOnce([agendado("10:30", 60, null, true)]);
     await expect(ejecutar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario" });
     expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();

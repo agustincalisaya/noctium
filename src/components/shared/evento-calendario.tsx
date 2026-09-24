@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import type { EventoCalendario as Evento } from "@/types/calendario.types";
 
 const ETIQUETA_ESTADO: Record<Evento["estado"], string> = {
-  AGENDADO: "Agendado",
+  DISPONIBLE: "Disponible",
+  COMPLETO: "Completo",
 };
 
 /**

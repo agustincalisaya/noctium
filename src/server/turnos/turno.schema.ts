@@ -10,6 +10,12 @@ export const ConfigurarTurnoSchema = z.object({
   fecha: fechaCalendarioValidaSchema,
   hora_inicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Ingresá una hora válida (HH:MM)"),
   materia_id: z.string().trim().min(1, "Seleccioná una materia"),
+  cupo_maximo: z
+    .number({ error: "Ingresá el cupo máximo" })
+    .int("El cupo máximo debe ser un número entero mayor que cero")
+    .positive("El cupo máximo debe ser un número entero mayor que cero")
+    // Tope de la columna INTEGER de Postgres: evita un 500 por desborde.
+    .max(2_147_483_647, "El cupo máximo no puede superar 2147483647"),
 });
 
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
