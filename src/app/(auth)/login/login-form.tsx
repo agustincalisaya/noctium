@@ -13,7 +13,7 @@ import { ESTADO_INICIAL, type EstadoLogin } from "@/types/sesion.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
-export function LoginForm() {
+export function LoginForm({ emailInicial }: { emailInicial?: string } = {}) {
   // No se usa useActionState/<form action>: cuando el fetch que invoca el
   // Server Action falla en el transporte (sin red, sin respuesta), ese
   // mecanismo no lo representa como estado — se escapa como una excepción no
@@ -24,7 +24,9 @@ export function LoginForm() {
   const [pendiente, setPendiente] = useState(false);
   const [erroresCliente, setErroresCliente] = useState<{ email?: string; password?: string }>({});
   const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [email, setEmail] = useState("");
+  // HU-B-08: precarga tras crear la cuenta por autorregistro (?email= en
+  // login/page.tsx) — único cambio de este componente para esa HU.
+  const [email, setEmail] = useState(emailInicial ?? "");
   const [intentoId, setIntentoId] = useState(0);
   const emailRef = useRef<HTMLInputElement>(null);
 

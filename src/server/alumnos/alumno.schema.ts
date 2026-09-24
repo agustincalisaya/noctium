@@ -7,6 +7,7 @@ import {
   telefonoContactoSchema,
   type ContactoInput,
 } from "@/server/shared/contacto.schema";
+import { politicaPasswordSchema } from "@/server/shared/password.schema";
 
 const REGEX_NOMBRE = /^[\p{L}\s'-]+$/u;
 const GENERO_VALUES = ["MASCULINO", "FEMENINO", "OTRO", "PREFIERO_NO_INDICARLO"] as const;
@@ -128,3 +129,87 @@ export function construirModificarAlumnoSchema(dniLongitudMin: number, dniLongit
     .strict();
 }
 export type ModificarAlumnoInput = z.infer<ReturnType<typeof construirModificarAlumnoSchema>>;
+
+/**
+ * Autorregistro del alumno (HU-B-08, `spec_modulo_B.md` §2.6). Factory por
+ * el mismo motivo que `crearIdentidadAlumnoSchema`/`construirModificarAlumnoSchema`
+ * — acá con DOS parámetros externos a resolver antes de armar el schema
+ * (`dniLongitudMin`/`Max` de siempre, más `passwordLongitudMinima` para
+ * `politicaPasswordSchema()`). El contrato literal de la task (§4.1) muestra
+ * `AutorregistroAlumnoSchema` como `export const` fijo — no puede serlo:
+ * necesita los tres valores resueltos en runtime desde `ParametroSistema`,
+ * igual que ya pasa con el DNI en el resto de este archivo.
+ *
+ * Desvío técnico (mismo que ya documentado en HU-B-06 para
+ * `construirModificarAlumnoSchema`): NO se usa
+ * `ContactoAlumnoSchema.pick({ telefono: true })` como dice el contrato
+ * literal — `ContactoAlumnoSchema` tiene un `.superRefine()` propio (la
+ * regla "al menos uno"), y en Zod v4 `.pick()` sobre un objeto con `checks`
+ * también lanza en runtime: `.pick() cannot be used on object schemas
+ * containing refinements` (`node_modules/zod/v4/core/util.js:412-418`,
+ * mismo mecanismo que ya rompía `.partial()`). En su lugar, `telefono` se
+ * agrega directo con `campoOpcional(telefonoContactoSchema)` — el mismo
+ * campo, sin pasar por el schema compuesto.
+ *
+ * `email` NO reutiliza `emailContactoSchema` (que lo trata como opcional
+ * vía `campoOpcional`): acá es obligatorio, por eso se define suelto con la
+ * regla exacta de la spec.
+ *
+ * `acepta_terminos`: el contrato literal usa `z.literal(true, { errorMap:
+ * () => ({...}) })`, sintaxis de Zod v3. En Zod v4 el segundo parámetro de
+ * `z.literal()` acepta un string directo como mensaje de error
+ * (`node_modules/zod/v4/classic/schemas.d.ts:628`) — se usa esa forma.
+ */
+export function construirAutorregistroAlumnoSchema(
+  dniLongitudMin: number,
+  dniLongitudMax: number,
+  passwordLongitudMinima: number,
+) {
+  return crearIdentidadAlumnoSchema(dniLongitudMin, dniLongitudMax)
+    .extend({
+      telefono: campoOpcional(telefonoContactoSchema),
+      email: z.string().trim().toLowerCase().email("Ingresá un email válido").max(254),
+      password: politicaPasswordSchema(passwordLongitudMinima),
+      confirmacion_password: z.string(),
+      acepta_terminos: z.literal(true, "Debés aceptar los términos de uso y tratamiento de datos"),
+    })
+    .strict()
+    .refine((d) => d.password === d.confirmacion_password, {
+      message: "Las contraseñas no coinciden",
+      path: ["confirmacion_password"],
+    })
+    .refine((d) => !d.password.toLowerCase().includes(d.email.split("@")[0].toLowerCase()), {
+      message: "La contraseña no puede contener tu email",
+      path: ["password"],
+    })
+    .refine((d) => !d.password.includes(d.dni), {
+      message: "La contraseña no puede contener tu DNI",
+      path: ["password"],
+    });
+}
+export type AutorregistroAlumnoInput = z.infer<ReturnType<typeof construirAutorregistroAlumnoSchema>>;
+
+/**
+ * Verificación del código de autorregistro (HU-B-08, rama b). `solicitud_id`
+ * es `z.string().cuid()`, no `.uuid()` como decía la spec literal — mismo
+ * desvío ya documentado para `forma_pago_id` (HU-B-03) y para los ids del
+ * resto del schema real (`@default(cuid())`, nunca `@default(uuid())`).
+ */
+export const VerificarCodigoAutorregistroSchema = z.object({
+  solicitud_id: z.string().cuid(),
+  codigo: z.string().length(6).regex(/^\d{6}$/),
+});
+export type VerificarCodigoAutorregistroInput = z.infer<typeof VerificarCodigoAutorregistroSchema>;
+
+/**
+ * Reenvío de código (HU-B-08 §4.4) — mismo `solicitud_id` que
+ * `VerificarCodigoAutorregistroSchema`, sin el código (todavía no hay uno
+ * nuevo). `.pick()` es seguro acá: a diferencia de `ContactoAlumnoSchema`,
+ * `VerificarCodigoAutorregistroSchema` es un objeto plano sin
+ * `.superRefine()`/`.refine()` propio, así que no dispara el bug de Zod v4
+ * ya documentado arriba.
+ */
+export const ReenviarCodigoAutorregistroSchema = VerificarCodigoAutorregistroSchema.pick({
+  solicitud_id: true,
+});
+export type ReenviarCodigoAutorregistroInput = z.infer<typeof ReenviarCodigoAutorregistroSchema>;
