@@ -1,4 +1,17 @@
-import { CalendarClock, CalendarDays, Users, GraduationCap, BookOpen, DoorOpen, type LucideIcon } from "lucide-react";
+import { 
+  CalendarClock, 
+  CalendarDays, 
+  Users, 
+  GraduationCap, 
+  BookOpen, 
+  DoorOpen,
+  ListOrdered,
+  CalendarSearch,
+  Contact,
+  Library,
+  BadgeCheck,
+  type LucideIcon 
+} from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
 import { SidebarNav, type SidebarNavSection } from "./SidebarNav";
@@ -32,47 +45,47 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     {
       label: "Turnos",
       icon: CalendarClock,
-      items: [{ label: "Listado", href: "/turnos", icon: CalendarClock }],
+      items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
     },
     {
       label: "Calendario",
       icon: CalendarDays,
-      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarDays }],
+      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch }],
     },
     {
       label: "Alumnos",
       icon: Users,
-      items: [{ label: "Listado", href: "/alumnos", icon: Users }],
+      items: [{ label: "Listado", href: "/alumnos", icon: Contact }],
     },
     {
       label: "Materias",
       icon: BookOpen,
-      items: [{ label: "Listado", href: "/materias", icon: BookOpen }],
+      items: [{ label: "Listado", href: "/materias", icon: Library }],
     },
     {
       label: "Profesores",
       icon: GraduationCap,
-      items: [{ label: "Listado", href: "/profesores", icon: GraduationCap }],
+      items: [{ label: "Listado", href: "/profesores", icon: BadgeCheck }],
     },
   ],
   GERENTE: [
     {
       label: "Calendario",
       icon: CalendarDays,
-      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarDays }],
+      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch }],
     },
     {
       label: "Materias",
       icon: BookOpen,
       items: [
-        { label: "Listado", href: "/materias", icon: BookOpen },
+        { label: "Listado", href: "/materias", icon: Library },
       ],
     },
     {
       label: "Aulas",
       icon: DoorOpen,
       items: [
-        { label: "Listado", href: "/aulas", icon: DoorOpen },
+        { label: "Listado", href: "/aulas", icon: ListOrdered },
       ],
     },
   ],
@@ -82,7 +95,7 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     {
       label: "Calendario",
       icon: CalendarDays,
-      items: [{ label: "Mi agenda", href: "/calendario/profesor", icon: CalendarDays }],
+      items: [{ label: "Mi agenda", href: "/calendario/profesor", icon: CalendarSearch }],
     },
   ],
   ALUMNO: [],
