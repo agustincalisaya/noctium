@@ -73,3 +73,34 @@ export type DetalleAlumno = {
 export type ResultadoModificarAlumno =
   | { data: { id: string; campos_modificados: string[]; version: number }; error: null }
   | { data: null; error: { code: string; message: string; detalles?: unknown } };
+
+/**
+ * Resultado de `iniciarAutorregistro()` (HU-B-08, spec_modulo_B.md §2.6).
+ * Las 3 ramas con respuesta directa (a, c-vía-error, d) — la rama (b)
+ * devuelve `VERIFICACION_REQUERIDA`. Rama (c) no tiene variante propia acá:
+ * se resuelve como el mismo `ServiceError CUENTA_YA_EXISTE` que el paso 2,
+ * no como un resultado exitoso distinto (no distinguible desde el cliente).
+ */
+export type ResultadoAutorregistro =
+  | { via: "DIRECTO"; email: string }
+  | { via: "VERIFICACION_REQUERIDA"; solicitud_id: string; email_enmascarado: string }
+  | { via: "DERIVADO_MESA_ENTRADA" };
+
+/**
+ * Resultado de `confirmarCodigoAutorregistro()` (HU-B-08, rama b exitosa).
+ * `email`: el alumno recién probó que controla esa casilla al confirmar el
+ * código correcto — devolverlo en texto plano acá es seguro (a diferencia
+ * de la respuesta de `iniciarAutorregistro()`, que lo enmascara porque
+ * todavía no hubo ninguna verificación). Lo usa el cliente para precargar
+ * `/login?email=` igual que la rama directa.
+ */
+export type ResultadoConfirmacionAutorregistro = {
+  alumno_id: string;
+  usuario_id: string;
+  email: string;
+};
+
+/** Resultado de `reenviarCodigoAutorregistro()` (HU-B-08). */
+export type ResultadoReenvioCodigo = {
+  email_enmascarado: string;
+};

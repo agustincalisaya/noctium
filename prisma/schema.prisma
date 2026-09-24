@@ -80,6 +80,13 @@ enum TipoEventoSeguridad {
   REGISTRO_CUENTA
   VERIFICACION_CODIGO_EXITOSA
   VERIFICACION_CODIGO_FALLIDA
+  // HU-B-08: agregados al confirmar el mecanismo real de eventos de este
+  // repo (EventoSeguridad, no un event bus) — REGISTRO_CUENTA y los dos
+  // VERIFICACION_CODIGO_* ya existían reservados, sin uso, desde antes de
+  // esta HU. Extensión aditiva, autorizada como parte del alcance mínimo de
+  // Módulo A para esta HU — no se toca nada más de ese módulo.
+  CODIGO_VERIFICACION_GENERADO
+  AUTORREGISTRO_DERIVADO_MESA_ENTRADA
 }
 
 // ------------------------------------------------------------
@@ -224,18 +231,24 @@ model Alumno {
   createdAtAlumno DateTime @default(now())
   updatedAtAlumno DateTime @updatedAt
 
-  usuario             Usuario?             @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
-  formaPagoPreferida  FormaPago?           @relation(fields: [formaPagoPreferidaId], references: [idFormaPago])
-  turnos              TurnoAlumno[]
-  codigosVerificacion CodigoVerificacion[]
+  usuario                  Usuario?                 @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
+  formaPagoPreferida       FormaPago?               @relation(fields: [formaPagoPreferidaId], references: [idFormaPago])
+  turnos                   TurnoAlumno[]
+  codigosVerificacion      CodigoVerificacion[]
+  solicitudesAutorregistro SolicitudAutorregistro[]
 
   @@map("alumnos")
 }
 
 // Código de verificación del autorregistro sobre una ficha existente
-// sin cuenta (HU-B-08 c4). Solo se guarda el HMAC-SHA256 del código.
-// invalidadoEn: marca de un solo uso / invalidado por un código nuevo; las
-// filas se conservan para contar reenvíos por hora y la espera entre reenvíos.
+// sin cuenta (HU-B-08 c4). Solo se guarda el HMAC-SHA256 del código. Fila
+// única por SolicitudAutorregistro (1:1) — el reenvío SOBRESCRIBE
+// codigoHash/expiraEn de esta misma fila (resetea intentos a 0), nunca crea
+// una fila nueva; invalidadoEn marca el consumo de un solo uso (confirmado,
+// o reemplazado por una solicitud nueva del mismo alumno). Por eso esta
+// tabla, sola, NO alcanza para contar reenvíos por hora ni la espera entre
+// ellos (perdería el historial en cada sobrescritura) — eso lo resuelve
+// ReenvioCodigo, una fila append-only por cada reenvío real.
 model CodigoVerificacion {
   idCodigo    String    @id @default(cuid())
   alumnoId    String
@@ -245,9 +258,68 @@ model CodigoVerificacion {
   invalidadoEn DateTime?
   creadoEn    DateTime  @default(now())
 
-  alumno Alumno @relation(fields: [alumnoId], references: [idAlumno], onDelete: Cascade)
+  alumno                 Alumno                  @relation(fields: [alumnoId], references: [idAlumno], onDelete: Cascade)
+  solicitudAutorregistro SolicitudAutorregistro?
+  reenvios               ReenvioCodigo[]
 
   @@map("codigos_verificacion")
+}
+
+// Historial append-only de reenvíos de código (HU-B-08 §4.4) — una fila por
+// cada reenvío real. Separada de CodigoVerificacion a propósito (Adriel,
+// 2026-09-24): esa tabla sobrescribe sus campos en cada reenvío, así que no
+// puede sostener un conteo de ventana rodante ("máximo N por hora"). Mismo
+// patrón ya usado en el repo para rate limiting (IntentoLoginFallido,
+// IntentoRegistro): tabla de log dedicada, se cuenta con `count()` sobre
+// creadoEn en la ventana de tiempo que corresponda.
+model ReenvioCodigo {
+  idReenvio String   @id @default(cuid())
+  codigoId  String
+  creadoEn  DateTime @default(now())
+
+  codigo CodigoVerificacion @relation(fields: [codigoId], references: [idCodigo], onDelete: Cascade)
+
+  @@index([codigoId, creadoEn])
+  @@map("reenvios_codigo")
+}
+
+// Solicitud de autorregistro pendiente de confirmación (HU-B-08, rama b:
+// ficha existente sin cuenta vinculada). Guarda el password_hash ya
+// calculado hasta que el alumno confirma el código — modelo nuevo, separado
+// a propósito de CodigoVerificacion (Adriel, 2026-09-24): esa tabla queda
+// genérica y reutilizable para otros flujos de OTP futuros (ej. recuperación
+// de contraseña) que no necesitan cargar un password pendiente.
+//
+// confirmadaEn (DateTime?, no un enum de estado): mismo patrón ya usado en
+// el resto del schema para marcar un hecho consumado de una sola vez
+// (terminosAceptadosEn, invalidadoEn) — "pendiente" es confirmadaEn null,
+// "confirmada" es confirmadaEn seteada. "Vencida"/"sin intentos" no se
+// duplica acá: se deriva enteramente de expiraEn/intentos/invalidadoEn de
+// su CodigoVerificacion asociado (relación 1:1), sin otro campo de estado.
+// El reenvío de código sobrescribe codigoHash/expiraEn de esa misma fila
+// (spec_modulo_B.md §2.6, "el viejo deja de ser válido de inmediato") — no
+// crea una CodigoVerificacion nueva, así que la relación 1:1 se mantiene
+// estable durante toda la vida de la solicitud.
+model SolicitudAutorregistro {
+  idSolicitud  String    @id @default(cuid())
+  alumnoId     String
+  passwordHash String
+  // Email de contacto vigente AL MOMENTO de generar el código (no el
+  // tipeado en el formulario — mismo criterio que el resto del flujo).
+  // Congelado acá a propósito: si Alumno.emailAlumno cambia entre que se
+  // generó el código y que se confirma (HU-B-06 lo permite mientras
+  // usuarioId siga null), la cuenta debe crearse con el email al que
+  // efectivamente se mandó y confirmó el código, no con uno distinto leído
+  // fresco en el momento de confirmar.
+  emailDestino String
+  codigoId     String    @unique
+  confirmadaEn DateTime?
+  creadaEn     DateTime  @default(now())
+
+  alumno Alumno             @relation(fields: [alumnoId], references: [idAlumno], onDelete: Cascade)
+  codigo CodigoVerificacion @relation(fields: [codigoId], references: [idCodigo], onDelete: Cascade)
+
+  @@map("solicitudes_autorregistro")
 }
 
 // ------------------------------------------------------------

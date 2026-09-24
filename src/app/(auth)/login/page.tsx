@@ -5,7 +5,7 @@ import { LoginForm } from "./login-form";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ motivo?: string }>;
+  searchParams: Promise<{ motivo?: string; email?: string }>;
 }) {
   // Criterio 7: sesión ya válida -> redirect directo, sin mostrar el formulario.
   const session = await auth();
@@ -15,7 +15,10 @@ export default async function LoginPage({
 
   // HU-A-02 criterio 5: fetchAutenticado() redirige con ?motivo=expirada
   // HU-A-03 criterio 4: el logout redirige con ?motivo=cerrada tras cerrar sesión con éxito.
-  const { motivo } = await searchParams;
+  // HU-B-08 criterio 5/6: el autorregistro redirige acá con ?email= para
+  // precargar el campo tras crear la cuenta — acotado a leer el query param
+  // y pasarlo como valor inicial, sin ningún otro cambio en este archivo.
+  const { motivo, email } = await searchParams;
   const mensaje =
     motivo === "expirada"
       ? { texto: "Tu sesión expiró. Iniciá sesión nuevamente", variante: "aviso" as const }
@@ -62,7 +65,7 @@ export default async function LoginPage({
           )}
 
           {/* Tu componente LoginForm */}
-          <LoginForm />
+          <LoginForm emailInicial={email} />
         </div>
 
         {/* Footer legal */}
