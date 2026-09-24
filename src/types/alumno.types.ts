@@ -1,3 +1,5 @@
+import type { Genero } from "@prisma/client";
+
 /** Ficha del alumno (HU-B-02): identidad resumida + contacto actual, para la ficha y para precargar el formulario de contacto. */
 export type FichaAlumno = {
   id: string;
@@ -49,6 +51,9 @@ export type DetalleAlumno = {
   nombre: string;
   apellido: string;
   dni: string;
+  /** Fecha de nacimiento en formato `YYYY-MM-DD` (HU-B-06) — precarga el `<input type="date">` del formulario de edición. */
+  fecha_nacimiento: string;
+  genero: Genero | null;
   is_active: boolean;
   telefono: string | null;
   email: string | null;
@@ -56,4 +61,15 @@ export type DetalleAlumno = {
   /** Id de la `FormaPago` preferida actual (HU-B-03) — para precargar el `<select>` por id, no por nombre. */
   forma_pago_preferida_id: string | null;
   created_at: string;
+  /** Condición de concurrencia optimista (HU-B-06, RULES.md Regla N.° 7) — viaja oculta en el formulario de edición y vuelve en el payload de `modificarAlumno()`. */
+  version: number;
 };
+
+/**
+ * Resultado de `modificarAlumno()` (HU-B-06): mismo shape genérico
+ * `{ data, error }` (Regla N.° 5) que `ResultadoContactoAlumno` — esta
+ * Server Action tampoco está ligada a `useActionState`.
+ */
+export type ResultadoModificarAlumno =
+  | { data: { id: string; campos_modificados: string[]; version: number }; error: null }
+  | { data: null; error: { code: string; message: string; detalles?: unknown } };

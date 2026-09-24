@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
-import { crearAlumno } from "../actions";
+import { crearAlumno } from "@/server/alumnos/actions";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 

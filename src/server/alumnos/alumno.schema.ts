@@ -1,8 +1,15 @@
 import { z } from "zod";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
-import { ContactoSchema, type ContactoInput } from "@/server/shared/contacto.schema";
+import {
+  ContactoSchema,
+  campoOpcional,
+  emailContactoSchema,
+  telefonoContactoSchema,
+  type ContactoInput,
+} from "@/server/shared/contacto.schema";
 
 const REGEX_NOMBRE = /^[\p{L}\s'-]+$/u;
+const GENERO_VALUES = ["MASCULINO", "FEMENINO", "OTRO", "PREFIERO_NO_INDICARLO"] as const;
 
 /**
  * Factory en vez de `const` fijo: la longitud del DNI no es un valor
@@ -39,7 +46,7 @@ export function crearIdentidadAlumnoSchema(dniLongitudMin: number, dniLongitudMa
       (d) => d <= new Date(),
       "La fecha de nacimiento no puede ser futura",
     ),
-    genero: z.enum(["MASCULINO", "FEMENINO", "OTRO", "PREFIERO_NO_INDICARLO"]).optional(),
+    genero: z.enum(GENERO_VALUES).optional(),
   });
 }
 export type IdentidadAlumnoInput = z.infer<ReturnType<typeof crearIdentidadAlumnoSchema>>;
@@ -77,3 +84,47 @@ export const FormaPagoPreferidaSchema = z.object({
   forma_pago_id: z.string().min(1).nullable(),
 });
 export type FormaPagoPreferidaInput = z.infer<typeof FormaPagoPreferidaSchema>;
+
+/**
+ * Modificación de datos del alumno (HU-B-06, `spec_modulo_B.md` §2.5).
+ * Factory por el mismo motivo que `crearIdentidadAlumnoSchema` (rango de
+ * DNI configurable).
+ *
+ * Desvío respecto al contrato literal de la task/spec: NO se usa
+ * `.merge(ContactoAlumnoSchema.partial())` — ver el docstring de
+ * `campoOpcional()` en `contacto.schema.ts` para el porqué (Zod v4 lanza en
+ * runtime `.partial()` sobre un objeto con `.superRefine()` propio). En su
+ * lugar, `telefono`/`email` se agregan explícitamente con el mismo helper
+ * que usa `ContactoSchema` internamente, sin la regla "al menos uno" (no
+ * aplica a una edición parcial: se puede cambiar solo el DNI, por ejemplo,
+ * sin tocar el contacto).
+ *
+ * `forma_pago_id`: mismo criterio que `FormaPagoPreferidaSchema` de arriba
+ * (`z.string().min(1)`, no `.uuid()` — HU-B-03 §8).
+ *
+ * `genero`: se sobreescribe como `.nullable().optional()` (a diferencia del
+ * `.optional()` de `crearIdentidadAlumnoSchema`) para poder distinguir "no
+ * vino en el payload" (`undefined`, no se toca) de "vino explícitamente para
+ * volver a 'sin especificar'" (`null`, se persiste como tal) — mismo
+ * criterio de fondo que `telefono`/`email` arriba, pero con `null` explícito
+ * en vez de `campoOpcional()` porque un `<select>` HTML sí puede mandar un
+ * valor que la capa delgada convierte a `null` (igual que `forma_pago_id`),
+ * mientras que `campoOpcional()` está pensado para inputs de texto vacíos.
+ *
+ * `version`: obligatorio, no opcional — es la condición de concurrencia
+ * optimista (RULES.md Regla N.° 7), siempre necesaria para poder aplicar el
+ * `updateMany`.
+ */
+export function construirModificarAlumnoSchema(dniLongitudMin: number, dniLongitudMax: number) {
+  return crearIdentidadAlumnoSchema(dniLongitudMin, dniLongitudMax)
+    .partial()
+    .extend({
+      genero: z.enum(GENERO_VALUES).nullable().optional(),
+      telefono: campoOpcional(telefonoContactoSchema),
+      email: campoOpcional(emailContactoSchema),
+      forma_pago_id: z.string().min(1).nullable().optional(),
+      version: z.number().int().nonnegative(),
+    })
+    .strict();
+}
+export type ModificarAlumnoInput = z.infer<ReturnType<typeof construirModificarAlumnoSchema>>;
