@@ -9,8 +9,10 @@ import { FichaAltaPago } from "./ficha-alta-pago";
 
 /**
  * Ficha del alumno. Muestra identidad, contacto (HU-B-02), fecha de alta y
- * forma de pago preferida (HU-B-04); HU-B-06 agrega edición de identidad
- * con el mismo `FichaSeccion`.
+ * forma de pago preferida (HU-B-04); HU-B-06 agrega el link "Modificar
+ * datos" hacia el formulario único `/alumnos/[id]/editar` (no un
+ * `FichaSeccion` más, ver Nota de alcance de la task: un formulario único
+ * evita que dos ediciones parciales compitan por el mismo `version`).
  *
  * Permiso: `alumnos:leer` (HU-B-04) gatea el acceso a la ficha; `puedeEditar`
  * se deriva de un segundo `verificarPermiso("alumnos:editar")`, tal como
@@ -70,10 +72,12 @@ export default async function AlumnoDetallePage({
         Volver al listado
       </Link>
       <FichaEncabezado
+        alumnoId={alumno.id}
         nombre={alumno.nombre}
         apellido={alumno.apellido}
         dni={alumno.dni}
         activo={alumno.is_active}
+        puedeEditar={puedeEditar}
       />
       <FichaContacto
         alumnoId={alumno.id}

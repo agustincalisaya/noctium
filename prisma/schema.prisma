@@ -217,6 +217,10 @@ model Alumno {
   creadoPorUsuarioId     String?
   modificadoPorUsuarioId String?
 
+  // Concurrencia optimista (HU-B-06, RULES.md Regla N.° 7): condición del
+  // updateMany en modificarAlumno(), incrementada en cada edición exitosa.
+  version Int @default(0)
+
   createdAtAlumno DateTime @default(now())
   updatedAtAlumno DateTime @updatedAt
 

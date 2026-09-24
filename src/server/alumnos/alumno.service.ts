@@ -8,6 +8,7 @@ import type {
   FormaPagoPreferidaInput,
   IdentidadAlumnoInput,
   ListarAlumnosQuery,
+  ModificarAlumnoInput,
 } from "./alumno.schema";
 
 const MENSAJES = {
@@ -16,6 +17,9 @@ const MENSAJES = {
   EMAIL_YA_ASOCIADO: "Ese email ya está asociado a una cuenta existente",
   ALUMNO_NO_ENCONTRADO: "El alumno ya no existe",
   FORMA_PAGO_NO_DISPONIBLE: "La forma de pago seleccionada ya no está disponible",
+  CONFLICTO_EDICION_CONCURRENTE: "La ficha fue modificada por otro usuario. Recargá para ver los datos actuales",
+  EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE:
+    "No se puede modificar el email de un alumno con cuenta vinculada. Esta función está pendiente de una actualización del sistema.",
 } as const;
 
 /**
@@ -127,6 +131,23 @@ export async function buscarAlumnosActivos(query: string) {
 
 export async function verificarAlumnoActivo(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
   return (await db.alumno.count({ where: { idAlumno: alumnoId, activoAlumno: true } })) > 0;
+}
+
+/**
+ * Existencia + estado activo de una `FormaPago` (HU-B-03 criterio 6),
+ * extraído de `actualizarFormaPagoPreferida()` para que `modificarAlumno()`
+ * (HU-B-06) aplique la misma regla de negocio sin duplicarla. Se llama
+ * únicamente cuando `forma_pago_id` no es `null` — "sin preferencia" nunca
+ * necesita esta verificación.
+ */
+async function verificarFormaPagoActiva(tx: Prisma.TransactionClient, formaPagoId: string): Promise<void> {
+  const formaPago = await tx.formaPago.findUnique({
+    where: { idFormaPago: formaPagoId },
+    select: { activaFormaPago: true },
+  });
+  if (!formaPago || !formaPago.activaFormaPago) {
+    throw new ServiceError("FORMA_PAGO_NO_DISPONIBLE", MENSAJES.FORMA_PAGO_NO_DISPONIBLE);
+  }
 }
 
 /**
@@ -269,6 +290,10 @@ export async function listarAlumnos(query: ListarAlumnosQuery) {
  * (HU-B-02) a propósito — esa función alimenta el formulario de contacto y
  * no necesita forma de pago ni fecha de alta (Nota de alcance, HU-B-04 §1
  * punto 6).
+ *
+ * `genero`, `fecha_nacimiento` y `version` (HU-B-06): se agregan para
+ * precargar el formulario único de edición — `version` además es la
+ * condición de concurrencia optimista que ese formulario manda de vuelta.
  */
 export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlumno> {
   const alumno = await prisma.alumno.findUnique({
@@ -285,6 +310,8 @@ export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlu
     nombre: alumno.nombreAlumno,
     apellido: alumno.apellidoAlumno,
     dni: alumno.dniAlumno,
+    fecha_nacimiento: alumno.fechaNacimientoAlumno.toISOString().slice(0, 10),
+    genero: alumno.generoAlumno,
     is_active: alumno.activoAlumno,
     telefono: alumno.telefonoAlumno,
     email: alumno.emailAlumno,
@@ -294,6 +321,7 @@ export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlu
     // guardó de todas formas necesita su id real, no solo el texto).
     forma_pago_preferida_id: alumno.formaPagoPreferidaId,
     created_at: alumno.createdAtAlumno.toISOString(),
+    version: alumno.version,
   };
 }
 
@@ -346,13 +374,7 @@ export async function actualizarFormaPagoPreferida(
     }
 
     if (input.forma_pago_id !== null) {
-      const formaPago = await tx.formaPago.findUnique({
-        where: { idFormaPago: input.forma_pago_id },
-        select: { activaFormaPago: true },
-      });
-      if (!formaPago || !formaPago.activaFormaPago) {
-        throw new ServiceError("FORMA_PAGO_NO_DISPONIBLE", MENSAJES.FORMA_PAGO_NO_DISPONIBLE);
-      }
+      await verificarFormaPagoActiva(tx, input.forma_pago_id);
     }
 
     const alumno = await tx.alumno.update({
@@ -363,4 +385,182 @@ export async function actualizarFormaPagoPreferida(
 
     return { id: alumno.idAlumno, forma_pago_preferida_id: alumno.formaPagoPreferidaId };
   });
+}
+
+/**
+ * "Provisto" para cada campo editable de `modificarAlumno()` — mismo
+ * criterio `camposProvistos` que `actualizarContactoAlumno()` (HU-B-02),
+ * extendido a todos los campos del formulario único (HU-B-06 §4.2 punto 6):
+ * distingue "la clave no vino en el payload" (no se toca la columna) de
+ * "vino provista" (se escribe, incluso si el valor colapsó a `null`/
+ * `undefined` — es como el usuario vuelve género a "sin especificar").
+ */
+export type CamposProvistosModificarAlumno = {
+  nombre: boolean;
+  apellido: boolean;
+  dni: boolean;
+  fecha_nacimiento: boolean;
+  genero: boolean;
+  telefono: boolean;
+  email: boolean;
+  forma_pago_id: boolean;
+};
+
+/**
+ * Modificación de datos del alumno (HU-B-06, `spec_modulo_B.md` §2.5,
+ * ajustado por el bloqueante de §0/§1 de `docs/tasks/Sprint 1/HU-B-06.md`).
+ *
+ * Orden de verificación (§4.2 de la task):
+ * 1. Existencia de la ficha — para poder distinguir "no existe" de
+ *    "edición concurrente" en el `updateMany` final (mismo razonamiento que
+ *    la Regla N.° 7: `count === 0` no implica que la fila no exista).
+ * 2. DNI: unicidad excluyendo la propia ficha, contra activas e inactivas
+ *    (Regla N.° 3.4 de la spec) — doble validación aplicativa + `P2002`,
+ *    mismo patrón que `crearAlumno()`. Se reutiliza el código
+ *    `DNI_DUPLICADO` de HU-B-01 en vez de introducir uno nuevo
+ *    (`DNI_YA_REGISTRADO`) para la misma regla de negocio — unificado a
+ *    pedido explícito (ver sección 8 de la task).
+ * 3. Email: unicidad contra `Usuario.email` (lectura, mismo patrón que
+ *    `actualizarContactoAlumno()`). Si la ficha tiene cuenta vinculada
+ *    (`usuarioId` no nulo) y el email efectivamente cambia, se rechaza el
+ *    request ENTERO con `EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE` — bloqueante
+ *    confirmado: `actualizarEmailCuenta()` no existe en Módulo A, así que no
+ *    hay forma de propagar el cambio a `Usuario.email` sin un `UPDATE`
+ *    directo sobre esa tabla (prohibido por la Regla N.° 3). Se decidió
+ *    rechazo atómico (nada se guarda, ni siquiera el resto de los campos
+ *    del payload) en vez de guardar `Alumno.emailAlumno` desincronizado de
+ *    `Usuario.email` — mismo criterio de "todo o nada" que ya aplican los
+ *    otros tres 409 de este mismo endpoint (`DNI_DUPLICADO`,
+ *    `EMAIL_YA_ASOCIADO`, `FORMA_PAGO_NO_DISPONIBLE`), sin introducir un
+ *    caso especial de guardado parcial que rompería el contrato `{data,
+ *    error}` mutuamente excluyente (Regla N.° 5). Decisión confirmada por
+ *    Adriel — ver sección 8 de la task para el detalle completo.
+ * 4. Forma de pago: mismo helper `verificarFormaPagoActiva()` que
+ *    `actualizarFormaPagoPreferida()`.
+ * 5. Concurrencia optimista (Regla N.° 7): condición y mutación en una sola
+ *    sentencia (`updateMany` con `version` en el `where`, `increment` en el
+ *    `data`) — `count === 0` es `CONFLICTO_EDICION_CONCURRENTE`.
+ *
+ * Sin evento de dominio (mismo precedente que el resto del módulo, Nota de
+ * alcance HU-B-06 §1).
+ */
+export async function modificarAlumno(
+  alumnoId: string,
+  input: ModificarAlumnoInput,
+  camposProvistos: CamposProvistosModificarAlumno,
+  usuarioModificadorId: string,
+): Promise<{ id: string; campos_modificados: string[]; version: number }> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existente = await tx.alumno.findUnique({
+        where: { idAlumno: alumnoId },
+        select: { idAlumno: true, usuarioId: true },
+      });
+      if (!existente) {
+        throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
+      }
+
+      if (camposProvistos.dni && input.dni !== undefined) {
+        const otroConDni = await tx.alumno.findFirst({
+          where: { dniAlumno: input.dni, NOT: { idAlumno: alumnoId } },
+          select: { activoAlumno: true },
+        });
+        if (otroConDni) {
+          throw new ServiceError(
+            "DNI_DUPLICADO",
+            otroConDni.activoAlumno ? MENSAJES.DNI_DUPLICADO_ACTIVA : MENSAJES.DNI_DUPLICADO_INACTIVA,
+          );
+        }
+      }
+
+      if (camposProvistos.email && input.email !== undefined) {
+        const otraCuenta = await tx.usuario.findFirst({
+          where: {
+            emailUsuario: { equals: input.email, mode: "insensitive" },
+            ...(existente.usuarioId ? { NOT: { idUsuario: existente.usuarioId } } : {}),
+          },
+          select: { idUsuario: true },
+        });
+        if (otraCuenta) {
+          throw new ServiceError("EMAIL_YA_ASOCIADO", MENSAJES.EMAIL_YA_ASOCIADO);
+        }
+
+        if (existente.usuarioId) {
+          throw new ServiceError(
+            "EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE",
+            MENSAJES.EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE,
+          );
+        }
+      }
+
+      if (camposProvistos.forma_pago_id && input.forma_pago_id !== null && input.forma_pago_id !== undefined) {
+        await verificarFormaPagoActiva(tx, input.forma_pago_id);
+      }
+
+      const campos_modificados: string[] = [];
+      // Unchecked, no la "checked": formaPagoPreferidaId es un escalar FK
+      // que solo aparece en la variante Unchecked del updateMany (la
+      // checked solo expone la relación formaPagoPreferida, no su id).
+      const data: Prisma.AlumnoUncheckedUpdateManyInput = {
+        modificadoPorUsuarioId: usuarioModificadorId,
+      };
+
+      if (camposProvistos.nombre && input.nombre !== undefined) {
+        data.nombreAlumno = input.nombre;
+        data.nombreNormalizadoAlumno = normalizarTexto(input.nombre);
+        campos_modificados.push("nombre");
+      }
+      if (camposProvistos.apellido && input.apellido !== undefined) {
+        data.apellidoAlumno = input.apellido;
+        data.apellidoNormalizadoAlumno = normalizarTexto(input.apellido);
+        campos_modificados.push("apellido");
+      }
+      if (camposProvistos.dni && input.dni !== undefined) {
+        data.dniAlumno = input.dni;
+        campos_modificados.push("dni");
+      }
+      if (camposProvistos.fecha_nacimiento && input.fecha_nacimiento !== undefined) {
+        data.fechaNacimientoAlumno = input.fecha_nacimiento;
+        campos_modificados.push("fecha_nacimiento");
+      }
+      if (camposProvistos.genero) {
+        data.generoAlumno = input.genero ?? null;
+        campos_modificados.push("genero");
+      }
+      if (camposProvistos.telefono) {
+        data.telefonoAlumno = input.telefono ?? null;
+        campos_modificados.push("telefono");
+      }
+      if (camposProvistos.email) {
+        data.emailAlumno = input.email ?? null;
+        campos_modificados.push("email");
+      }
+      if (camposProvistos.forma_pago_id) {
+        data.formaPagoPreferidaId = input.forma_pago_id ?? null;
+        campos_modificados.push("forma_pago_id");
+      }
+
+      const resultado = await tx.alumno.updateMany({
+        where: { idAlumno: alumnoId, version: input.version },
+        data: { ...data, version: { increment: 1 } },
+      });
+
+      if (resultado.count === 0) {
+        throw new ServiceError("CONFLICTO_EDICION_CONCURRENTE", MENSAJES.CONFLICTO_EDICION_CONCURRENTE);
+      }
+
+      return { id: alumnoId, campos_modificados, version: input.version + 1 };
+    });
+  } catch (error) {
+    if (error instanceof ServiceError) throw error;
+
+    // Defensa en profundidad (Regla N.° 3.4): si dos requests concurrentes
+    // pasan ambos la verificación aplicativa de DNI antes de que cualquiera
+    // haga el UPDATE, el constraint único de la base es la garantía real.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new ServiceError("DNI_DUPLICADO", MENSAJES.DNI_DUPLICADO_ACTIVA);
+    }
+
+    throw error;
+  }
 }

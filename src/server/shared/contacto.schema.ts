@@ -44,8 +44,16 @@ export const emailContactoSchema = z
 /**
  * Un campo vacío, con solo espacios o ausente del `FormData` (`null`) se
  * trata como "no provisto" — nunca como un valor inválido.
+ *
+ * Exportado (HU-B-06): `construirModificarAlumnoSchema()` lo reutiliza para
+ * `telefono`/`email` sin pasar por `ContactoSchema.partial()` — en Zod v4,
+ * `.partial()` sobre un objeto con `.superRefine()` propio (como
+ * `ContactoSchema`, la regla "al menos uno") lanza en runtime
+ * (`node_modules/zod/v4/core/util.js`, `.partial() cannot be used on object
+ * schemas containing refinements`). Esa regla de "al menos uno" tampoco
+ * aplica a una edición parcial, así que no hace falta preservarla.
  */
-function campoOpcional<T extends z.ZodType>(schema: T) {
+export function campoOpcional<T extends z.ZodType>(schema: T) {
   return z.preprocess(
     (valor) => (valor == null || (typeof valor === "string" && valor.trim() === "") ? undefined : valor),
     schema.optional(),
