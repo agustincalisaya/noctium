@@ -3,7 +3,9 @@ export type EstadoNuevoProfesor =
   | { status: "error_validacion"; errores: Record<string, string[] | undefined> }
   | { status: "error"; mensaje: string }
   | { status: "error_comunicacion" }
-  | { status: "exito"; profesorId: string; nombre: string; apellido: string };
+  // conContacto: si el alta guardó teléfono o email (decide si se ofrece
+  // "Cargar datos de contacto" en la pantalla de éxito).
+  | { status: "exito"; profesorId: string; nombre: string; apellido: string; conContacto: boolean };
 
 export const ESTADO_INICIAL_NUEVO_PROFESOR: EstadoNuevoProfesor = { status: "idle" };
 

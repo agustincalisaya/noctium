@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
-import { construirIdentidadProfesorSchema } from "@/server/profesores/profesor.schema";
+import { construirAltaProfesorSchema } from "@/server/profesores/profesor.schema";
 import { crearProfesor, verificarDniDisponible } from "../actions";
 import { ESTADO_INICIAL_NUEVO_PROFESOR, type EstadoNuevoProfesor } from "../profesor.types";
 
@@ -68,8 +68,10 @@ export function NuevoProfesorForm({
   const router = useRouter();
   const { dirty, setDirty } = useDirtyState();
 
+  // Identidad (HU-D-01) + contacto opcional con las reglas de HU-D-02: el
+  // mismo schema que vuelve a aplicar la Server Action en el servidor.
   const schema = useMemo(
-    () => construirIdentidadProfesorSchema(dniLongitudMin, dniLongitudMax),
+    () => construirAltaProfesorSchema(dniLongitudMin, dniLongitudMax),
     [dniLongitudMin, dniLongitudMax],
   );
 
@@ -93,6 +95,8 @@ export function NuevoProfesorForm({
         typeof generoIngresado === "string" && generoIngresado !== ""
           ? generoIngresado
           : undefined,
+      telefono: formData.get("telefono"),
+      email: formData.get("email"),
     };
   }
 
@@ -112,6 +116,8 @@ export function NuevoProfesorForm({
         dni: campos.dni?.[0],
         fechaNacimiento: campos.fechaNacimiento?.[0],
         genero: campos.genero?.[0],
+        telefono: campos.telefono?.[0],
+        email: campos.email?.[0],
       };
       setErroresCliente(errores);
       enfocarPrimerCampoInvalido(form, errores);
@@ -167,6 +173,10 @@ export function NuevoProfesorForm({
     erroresCliente.fechaNacimiento ??
     (estado.status === "error_validacion" ? estado.errores.fechaNacimiento?.[0] : undefined);
   const errorGenero = erroresCliente.genero ?? (estado.status === "error_validacion" ? estado.errores.genero?.[0] : undefined);
+  const errorTelefono =
+    erroresCliente.telefono ?? (estado.status === "error_validacion" ? estado.errores.telefono?.[0] : undefined);
+  // Incluye EMAIL_YA_ASOCIADO, que la action devuelve como error de este campo.
+  const errorEmail = erroresCliente.email ?? (estado.status === "error_validacion" ? estado.errores.email?.[0] : undefined);
   const mensajeError =
     estado.status === "error"
       ? estado.mensaje
@@ -174,23 +184,36 @@ export function NuevoProfesorForm({
         ? MENSAJE_ERROR_COMUNICACION
         : undefined;
 
+  // Éxito (HU-D-01 c4, "ofrece continuar con contacto, materias y horarios"):
+  // horario como única acción primaria, con el profesor preseleccionado por
+  // ?profesorId= (la página de HU-D-04 lo valida en el servidor contra los
+  // profesores activos). "Cargar datos de contacto" solo si el alta no
+  // guardó ningún dato de contacto.
   if (estado.status === "exito") {
     return (
       <div className="space-y-4" role="status">
         <p className="text-sm font-medium">Profesor registrado correctamente</p>
         <div className="flex flex-wrap gap-3">
           <Link
-            href={`/profesores/${estado.profesorId}/contacto`}
-            className={buttonVariants({ variant: "default" })}
-          >
-            Cargar datos de contacto
-          </Link>
-          <Link
             href={`/profesores/horarios/nuevo?profesorId=${estado.profesorId}`}
-            className={buttonVariants({ variant: "outline" })}
+            className={buttonVariants({ variant: "default" })}
           >
             Registrar horario de atención
           </Link>
+          <Link
+            href={`/profesores/${estado.profesorId}/materias`}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Asociar materias
+          </Link>
+          {!estado.conContacto && (
+            <Link
+              href={`/profesores/${estado.profesorId}/contacto`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Cargar datos de contacto
+            </Link>
+          )}
           <Link href={`/profesores/${estado.profesorId}`} className={buttonVariants({ variant: "outline" })}>
             Ver ficha del profesor
           </Link>
@@ -296,6 +319,42 @@ export function NuevoProfesorForm({
           </p>
         )}
       </div>
+
+      {/* Contacto opcional (ajuste HU-D-01/HU-D-02): vacío = alta solo de
+          identidad; si se completa, mismas reglas que la pantalla de contacto. */}
+      <fieldset className="space-y-4 pt-2">
+        <legend className="text-lg font-semibold">Datos de contacto</legend>
+        <p className="text-sm text-muted-foreground">
+          Opcional. Podés cargarlos ahora o más tarde desde la ficha.
+        </p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="telefono">Teléfono</Label>
+          <Input
+            id="telefono"
+            name="telefono"
+            type="tel"
+            autoComplete="off"
+            placeholder="Ej.: (0387) 15-412-3456"
+            aria-invalid={!!errorTelefono}
+          />
+          {errorTelefono && (
+            <p className="text-sm text-destructive" role="alert">
+              {errorTelefono}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" autoComplete="off" aria-invalid={!!errorEmail} />
+          {errorEmail && (
+            <p className="text-sm text-destructive" role="alert">
+              {errorEmail}
+            </p>
+          )}
+        </div>
+      </fieldset>
 
       {mensajeError && (
         <p className="text-sm text-destructive" role="alert">

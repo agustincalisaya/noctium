@@ -15,8 +15,8 @@ import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
 import { clavesOrdenProfesor, formatearApellidoNombre } from "@/lib/profesor-listado";
 import type {
+  AltaProfesorInput,
   ContactoProfesorInput,
-  IdentidadProfesorInput,
   ListarProfesoresQuery,
 } from "@/server/profesores/profesor.schema";
 import type {
@@ -57,8 +57,9 @@ const ORDEN_MATERIAS_DEL_PROFESOR = {
 } satisfies Prisma.ProfesorMateriaOrderByWithRelationInput;
 
 /**
- * Alta de identidad de profesor (HU-D-01, `spec_modulo_D.md` §2.1 punto 3).
- * `input` ya llegó validado por `construirIdentidadProfesorSchema().safeParse()`
+ * Alta de profesor (HU-D-01, `spec_modulo_D.md` §2.1 punto 3), con contacto
+ * opcional (ajuste HU-D-01/HU-D-02, nota de sincronización de §2.1).
+ * `input` ya llegó validado por `construirAltaProfesorSchema().safeParse()`
  * en la capa delgada (Server Action / Route Handler) — este servicio no
  * vuelve a parsear con Zod ni verifica sesión/permiso (Regla N.° 4 de
  * `docs/RULES.md`: la capa de servicios es dueña de la lógica de negocio,
@@ -69,57 +70,79 @@ const ORDEN_MATERIAS_DEL_PROFESOR = {
  * ya lo hizo (mismo criterio que `verificarCredenciales()` en
  * `src/server/sesion/autenticacion.service.ts`, que tampoco autoriza nada).
  *
- * No hay `prisma.$transaction` multi-tabla: es una única sentencia `INSERT`
- * sobre `Profesor`, ya atómica por sí misma. El `findFirst` previo reduce la
- * ventana de una alta duplicada simultánea (dos gerentes registrando el
- * mismo DNI a la vez); el catch de `P2002` es la red de seguridad final que
- * la cierra del todo — mismo patrón de doble defensa documentado para
- * `verificarDniDisponible()` en la task, y el mismo que usa
- * `spec_modulo_B.md` §3.4 para Alumno.
+ * Todo corre en una única `$transaction`: unicidad de DNI, unicidad del
+ * email de contacto frente a cuentas (HU-D-02 c4, si vino email) e `INSERT`
+ * con identidad y contacto juntos. Cualquier rechazo deja la base sin
+ * cambios. El `findFirst` de DNI reduce la ventana de una alta duplicada
+ * simultánea; el catch de `P2002` la cierra del todo — mismo patrón de doble
+ * defensa documentado para `verificarDniDisponible()` en la task, y el mismo
+ * que usa `spec_modulo_B.md` §3.4 para Alumno.
  */
 export async function crearProfesor(
-  input: IdentidadProfesorInput,
+  input: AltaProfesorInput,
   usuarioRegistranteId: string,
-): Promise<{ id: string; nombre: string; apellido: string; dni: string; activo: boolean }> {
-  // Verificación de unicidad de DNI contra TODOS los profesores, activos e
-  // inactivos (criterio de aceptación 3 de HU-D-01) — sin filtro por
-  // activoProfesor, a diferencia de una consulta que solo mirara altas.
-  const existente = await prisma.profesor.findFirst({
-    where: { dniProfesor: input.dni },
-    select: { idProfesor: true },
-  });
-  if (existente) {
-    throw new ServiceError("DNI_DUPLICADO", "Ya existe un profesor registrado con ese DNI");
-  }
-
+): Promise<{
+  id: string;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  activo: boolean;
+  telefono: string | null;
+  email: string | null;
+}> {
   try {
-    const profesor = await prisma.profesor.create({
-      data: {
-        nombreProfesor: input.nombre,
-        apellidoProfesor: input.apellido,
-        dniProfesor: input.dni,
-        fechaNacimientoProfesor: input.fechaNacimiento,
-        generoProfesor: input.genero ?? null,
-        // Claves del orden del listado (HU-D-05).
-        ...clavesOrdenProfesor(input),
-        // Criterio de aceptación 4 (ficha activa) y 5 (sin cuenta de
-        // acceso — las cuentas se administran de manera independiente).
-        activoProfesor: true,
-        usuarioId: null,
-        creadoPorUsuarioId: usuarioRegistranteId,
-      },
-    });
+    return await prisma.$transaction(async (tx) => {
+      // Verificación de unicidad de DNI contra TODOS los profesores, activos
+      // e inactivos (criterio de aceptación 3 de HU-D-01) — sin filtro por
+      // activoProfesor, a diferencia de una consulta que solo mirara altas.
+      const existente = await tx.profesor.findFirst({
+        where: { dniProfesor: input.dni },
+        select: { idProfesor: true },
+      });
+      if (existente) {
+        throw new ServiceError("DNI_DUPLICADO", "Ya existe un profesor registrado con ese DNI");
+      }
 
-    return {
-      id: profesor.idProfesor,
-      nombre: profesor.nombreProfesor,
-      apellido: profesor.apellidoProfesor,
-      dni: profesor.dniProfesor,
-      activo: profesor.activoProfesor,
-    };
+      // El profesor recién creado nunca tiene cuenta (HU-D-01 c5): cualquier
+      // cuenta con ese email bloquea el alta.
+      if (input.email) {
+        await verificarEmailNoAsociadoAOtraCuenta(tx, input.email, null);
+      }
+
+      const profesor = await tx.profesor.create({
+        data: {
+          nombreProfesor: input.nombre,
+          apellidoProfesor: input.apellido,
+          dniProfesor: input.dni,
+          fechaNacimientoProfesor: input.fechaNacimiento,
+          generoProfesor: input.genero ?? null,
+          // Claves del orden del listado (HU-D-05).
+          ...clavesOrdenProfesor(input),
+          // Contacto opcional, ya normalizado por el schema. Cargarlo en el
+          // alta no es una modificación: modificadoPorUsuarioId queda null.
+          telefonoProfesor: input.telefono ?? null,
+          emailProfesor: input.email ?? null,
+          // Criterio de aceptación 4 (ficha activa) y 5 (sin cuenta de
+          // acceso — las cuentas se administran de manera independiente).
+          activoProfesor: true,
+          usuarioId: null,
+          creadoPorUsuarioId: usuarioRegistranteId,
+        },
+      });
+
+      return {
+        id: profesor.idProfesor,
+        nombre: profesor.nombreProfesor,
+        apellido: profesor.apellidoProfesor,
+        dni: profesor.dniProfesor,
+        activo: profesor.activoProfesor,
+        telefono: profesor.telefonoProfesor,
+        email: profesor.emailProfesor,
+      };
+    });
   } catch (error) {
     // Defensa final ante un alta duplicada simultánea en la ventana entre el
-    // findFirst de arriba y este INSERT (dos requests concurrentes con el
+    // findFirst de arriba y el INSERT (dos requests concurrentes con el
     // mismo DNI). Se filtra por el nombre de la columna en el constraint
     // para no traducir a DNI_DUPLICADO un P2002 de otro campo único de
     // Profesor (ej. usuarioId) que no tiene nada que ver con esta HU.
@@ -132,6 +155,31 @@ export async function crearProfesor(
       throw new ServiceError("DNI_DUPLICADO", "Ya existe un profesor registrado con ese DNI");
     }
     throw error;
+  }
+}
+
+/**
+ * HU-D-02 criterio 4: el email de contacto no puede pertenecer a OTRA
+ * cuenta. La cuenta propia del profesor (si tiene) queda excluida; sin
+ * cuenta vinculada, cualquier coincidencia bloquea. Comparación
+ * case-insensitive porque emailUsuario no garantiza estar guardado en
+ * minúsculas. La usan el alta (`crearProfesor`) y la edición del contacto
+ * (`actualizarContactoProfesor`), dentro de sus transacciones.
+ */
+async function verificarEmailNoAsociadoAOtraCuenta(
+  tx: Prisma.TransactionClient,
+  email: string,
+  usuarioIdPropio: string | null,
+): Promise<void> {
+  const otraCuenta = await tx.usuario.findFirst({
+    where: {
+      emailUsuario: { equals: email, mode: "insensitive" },
+      ...(usuarioIdPropio ? { NOT: { idUsuario: usuarioIdPropio } } : {}),
+    },
+    select: { idUsuario: true },
+  });
+  if (otraCuenta) {
+    throw new ServiceError("EMAIL_YA_ASOCIADO", "El email pertenece a otra cuenta");
   }
 }
 
@@ -206,20 +254,7 @@ export async function actualizarContactoProfesor(
     }
 
     if (input.email) {
-      // Criterio 4: el email no puede pertenecer a OTRA cuenta. La cuenta
-      // propia del profesor (si tiene) queda excluida; sin cuenta vinculada,
-      // cualquier coincidencia bloquea. Comparación case-insensitive porque
-      // emailUsuario no garantiza estar guardado en minúsculas.
-      const otraCuenta = await tx.usuario.findFirst({
-        where: {
-          emailUsuario: { equals: input.email, mode: "insensitive" },
-          ...(profesor.usuarioId ? { NOT: { idUsuario: profesor.usuarioId } } : {}),
-        },
-        select: { idUsuario: true },
-      });
-      if (otraCuenta) {
-        throw new ServiceError("EMAIL_YA_ASOCIADO", "El email pertenece a otra cuenta");
-      }
+      await verificarEmailNoAsociadoAOtraCuenta(tx, input.email, profesor.usuarioId);
     }
 
     const actualizado = await tx.profesor.update({
