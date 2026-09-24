@@ -16,9 +16,9 @@
 
 ## 1. Visión General
 
-El Módulo J es **exclusivamente de lectura**: no crea, modifica ni transiciona ningún dato. Ofrece dos vistas semanales de solo consulta sobre los turnos ya `AGENDADO` que gestiona `spec_modulo_C.md` — por profesor (HU-J-01) y por materia (HU-J-02). No expone ningún endpoint de escritura, y por eso no tiene sección de Reglas de Negocio orientadas a mutación ni eventos de dominio propios (sección 4).
+El Módulo J es **exclusivamente de lectura**: no crea, modifica ni transiciona ningún dato. Ofrece dos vistas semanales de solo consulta sobre los turnos ya confirmados (`DISPONIBLE` o `COMPLETO`) que gestiona `spec_modulo_C.md` — por profesor (HU-J-01) y por materia (HU-J-02). No expone ningún endpoint de escritura, y por eso no tiene sección de Reglas de Negocio orientadas a mutación ni eventos de dominio propios (sección 4).
 
-**Regla central, compartida con `spec_modulo_C.md` §3.2:** un turno `PENDIENTE` no reserva recursos y, en consecuencia, **nunca aparece en ningún calendario** — ambas vistas de este módulo filtran exclusivamente `estado: "AGENDADO"`.
+**Regla central, compartida con `spec_modulo_C.md` §3.2:** un turno `PENDIENTE` no reserva recursos y, en consecuencia, **nunca aparece en ningún calendario** — ambas vistas de este módulo filtran exclusivamente turnos confirmados, `estado ∈ {"DISPONIBLE", "COMPLETO"}` (`spec_modulo_C.md` Revisión 2: `PENDIENTE → DISPONIBLE ⇄ COMPLETO`). Esto incluye a un turno `PENDIENTE` que ya tenga profesor, alumnos o aula cargados: mientras no se confirme (HU-C-15), no aparece. En esta spec, "turno agendado" (lenguaje de las HU) equivale a turno confirmado.
 
 **Aislamiento de dominio (Regla N.° 3):** este módulo no consulta la tabla `Turno` directamente. Consume los servicios públicos de `spec_modulo_C.md`:
 - `listarTurnosAgendadosPorProfesor(profesorId, semanaInicio, semanaFin)`
@@ -55,8 +55,8 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
    - Rol `PROFESOR`: el servidor **ignora cualquier `profesorId` que no sea el propio** y siempre resuelve la agenda a partir de `Profesor.usuario_id === session.sub` (nunca confía en el parámetro de la URL para decidir de quién es la agenda). Si el `profesorId` de la ruta no coincide con el propio: `403 SIN_PERMISO`, sin revelar si ese otro profesor existe o tiene turnos — el mismo principio de neutralidad de `spec_modulo_A.md` §3.2, aplicado acá a nivel de autorización de datos.
    - Rol `MESA_ENTRADA` o `GERENTE`: usan el `profesorId` de la ruta libremente; debe corresponder a un profesor activo (`404 PROFESOR_NO_ENCONTRADO` en caso contrario).
 2. Calcular `semana_inicio`/`semana_fin` (si no viene `semana_inicio`, se usa el lunes de la semana actual del servidor).
-3. Invocar `listarTurnosAgendadosPorProfesor(profesorId, semanaInicio, semanaFin)` — filtra `estado: "AGENDADO"` exclusivamente (regla central, sección 1).
-4. Cada evento del resultado incluye: `hora_inicio`, `hora_fin`, `alumno` (`"Apellido, Nombre"`), `materia`, `aula`, `estado` (siempre `"AGENDADO"` en este listado, se incluye igual para que la UI lo muestre con texto/ícono, no solo color). No hay diferencias de campos mostrados entre los roles autorizados en este sprint — la frase "según permisos del rol" del criterio de aceptación se refiere al acceso mismo (paso 1), no a una vista con campos distintos por rol.
+3. Invocar `listarTurnosAgendadosPorProfesor(profesorId, semanaInicio, semanaFin)` — filtra exclusivamente turnos confirmados, `estado ∈ {"DISPONIBLE", "COMPLETO"}`, en la query (regla central, sección 1). Un `PENDIENTE` con profesor, alumnos o aula ya cargados no se incluye.
+4. Cada evento del resultado incluye: `hora_inicio`, `hora_fin`, `alumno` (`"Apellido, Nombre"`), `materia`, `aula`, `estado` (`"DISPONIBLE" | "COMPLETO"`, para que la UI lo muestre con texto e ícono, no solo color). Un turno `DISPONIBLE` puede quedar sin alumnos (`spec_modulo_C.md` §2.5, Decisión B); en ese caso `alumno` es `"—"`. No hay diferencias de campos mostrados entre los roles autorizados en este sprint — la frase "según permisos del rol" del criterio de aceptación se refiere al acceso mismo (paso 1), no a una vista con campos distintos por rol.
 5. Si no hay turnos en el rango: se devuelve `eventos: []` — el mensaje "Agenda sin turnos" es responsabilidad de la UI ante una lista vacía, no un código de error.
 
 **Respuesta `200 OK`:**
@@ -67,7 +67,9 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
     "rango": { "desde": "2026-04-06", "hasta": "2026-04-11" },
     "eventos": [
       { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
-        "alumno": "Pérez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "AGENDADO" }
+        "alumno": "Pérez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "DISPONIBLE" },
+      { "turno_id": "cuid", "fecha": "2026-04-08", "hora_inicio": "14:00", "hora_fin": "16:00",
+        "alumno": "Ruiz, Marcos", "materia": "Física", "aula": "Aula 5", "estado": "COMPLETO" }
     ]
   },
   "error": null
@@ -83,7 +85,8 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
 - **Rango por días operativos:** la semana se calcula de lunes a domingo en `America/Argentina/Buenos_Aires` y el rango va del primer al último día de `dias_operativos` (no un `[lunes, sábado]` fijo). Con la configuración actual del seed (`LUNES`–`VIERNES`) el rango es lunes–viernes; con `LUNES`–`SABADO` coincidiría exactamente con lo escrito arriba. `semana_inicio` puede ser cualquier día: se normaliza al lunes de su semana.
 - **Profesor sin ficha vinculada** a su cuenta: `403 SIN_PERMISO` (no tiene agenda propia).
 - **Turnos grupales:** `alumno` se mantiene como string; si el turno tiene más de un alumno se unen como `"Apellido, Nombre; Apellido, Nombre"`.
-- **Lectura de turnos:** `listarTurnosAgendadosPorProfesor()` todavía no existe en el módulo C. Por decisión de equipo, HU-J-01 no modifica `turno.service.ts`: la consulta de solo lectura vive en `src/server/calendario/calendario.service.ts` (`listarTurnosAgendadosDeProfesor`, rango `[desde, hasta)`, filtro `AGENDADO` en la query), con un `TODO` para reemplazarla por el servicio público del módulo C (excepción temporal a §3.4).
+- **Lectura de turnos:** `listarTurnosAgendadosPorProfesor()` todavía no existe en el módulo C. Por decisión de equipo, HU-J-01 no modifica `turno.service.ts`: la consulta de solo lectura vive en `src/server/calendario/calendario.service.ts` (`listarTurnosAgendadosDeProfesor`, rango `[desde, hasta)`, filtro `estadoTurno IN ("DISPONIBLE", "COMPLETO")` en la query), con un `TODO(Regla N.° 3)` para reemplazarla por el servicio público del módulo C (excepción temporal a §3.4). Revalidado el 24/09/2026 contra el flujo de HU-C-03/C-04/C-15: el módulo C sigue sin exponerlo.
+- **Estados (sincronizado 24/09/2026):** el valor `AGENDADO` de la Revisión 1 de `spec_modulo_C.md` se reemplazó por `DISPONIBLE` y `COMPLETO`. El calendario muestra ambos (etiquetas "Disponible" / "Completo", con íconos distintos) y excluye `PENDIENTE` en cualquier grado de configuración.
 - **Profesor efectivo:** se resuelve con los servicios públicos del módulo D `obtenerOpcionProfesorDeUsuario()` (rol Profesor) y `obtenerOpcionProfesorActivo()` (Mesa/Gerente).
 
 ---
@@ -103,9 +106,9 @@ export type ConsultarCalendarioMateriaQuery = z.infer<typeof ConsultarCalendario
 **Comportamiento esperado:**
 1. Verificar `materiaId` activa (`verificarMateriaActiva()`, Módulo L). Si no: `404 MATERIA_NO_ENCONTRADA`.
 2. **Alcance según rol** (mismo principio de resolución server-side que 2.1, nunca vía parámetro de cliente):
-   - `MESA_ENTRADA` / `GERENTE`: ven **todos** los turnos agendados de la materia en la semana, de cualquier profesor.
-   - `PROFESOR`: ven únicamente los turnos agendados de la materia donde **él mismo** es el profesor asignado — se invoca `listarTurnosAgendadosPorMateria(materiaId, semanaInicio, semanaFin, profesorId: session.sub)`, nunca sin ese filtro.
-3. Cada evento incluye: `hora_inicio`, `hora_fin`, `profesor` (`"Apellido, Nombre"`), `alumno`, `aula`, `estado`.
+   - `MESA_ENTRADA` / `GERENTE`: ven **todos** los turnos confirmados (`DISPONIBLE` o `COMPLETO`) de la materia en la semana, de cualquier profesor.
+   - `PROFESOR`: ven únicamente los turnos confirmados de la materia donde **él mismo** es el profesor asignado — se invoca `listarTurnosAgendadosPorMateria(materiaId, semanaInicio, semanaFin, profesorId: session.sub)`, nunca sin ese filtro.
+3. Cada evento incluye: `hora_inicio`, `hora_fin`, `profesor` (`"Apellido, Nombre"`), `alumno`, `aula`, `estado` (`"DISPONIBLE" | "COMPLETO"`). Igual que en 2.1, un `PENDIENTE` con profesor, alumnos o aula ya cargados no se incluye.
 4. **Sin deduplicación ni ocultamiento:** si varios turnos coinciden en el mismo horario con distintos profesores (visible solo para Mesa de Entrada/Gerente, ya que un Profesor solo ve los suyos), el backend devuelve **todos** los eventos tal cual — la disposición "uno junto al otro" en pantalla es responsabilidad exclusiva de la UI, el contrato de datos no oculta ni combina eventos superpuestos.
 5. La `materiaId` seleccionada se conserva del lado del cliente al navegar entre semanas y al volver del detalle de un evento (comportamiento de UI, no de este contrato — el backend no tiene estado de navegación).
 
@@ -117,9 +120,9 @@ export type ConsultarCalendarioMateriaQuery = z.infer<typeof ConsultarCalendario
     "rango": { "desde": "2026-04-06", "hasta": "2026-04-11" },
     "eventos": [
       { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
-        "profesor": "Gómez, Ana", "alumno": "Pérez, Ana", "aula": "Aula 2", "estado": "AGENDADO" },
+        "profesor": "Gómez, Ana", "alumno": "Pérez, Ana", "aula": "Aula 2", "estado": "DISPONIBLE" },
       { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
-        "profesor": "López, Juan", "alumno": "Ruiz, Marcos", "aula": "Aula 5", "estado": "AGENDADO" }
+        "profesor": "López, Juan", "alumno": "Ruiz, Marcos", "aula": "Aula 5", "estado": "COMPLETO" }
     ]
   },
   "error": null
@@ -132,8 +135,8 @@ export type ConsultarCalendarioMateriaQuery = z.infer<typeof ConsultarCalendario
 
 Este módulo no tiene capa de servicios de escritura — sus "reglas de negocio" son, en rigor, reglas de **alcance y autorización de lectura**, resueltas en `lib/services/calendario/calendario.service.ts` (capa delgada que orquesta las llamadas a los servicios públicos de `spec_modulo_C.md`, conforme a la Regla N.° 4 de `docs/RULES.md`).
 
-### 3.1. Solo turnos `AGENDADO`
-Ninguna consulta de este módulo puede, bajo ningún parámetro o combinación de filtros, devolver un turno `PENDIENTE` — es la misma regla central de `spec_modulo_C.md` §3.2, vista desde el lado de lectura.
+### 3.1. Solo turnos confirmados (`DISPONIBLE` o `COMPLETO`)
+Ninguna consulta de este módulo puede, bajo ningún parámetro o combinación de filtros, devolver un turno `PENDIENTE` — es la misma regla central de `spec_modulo_C.md` §3.2, vista desde el lado de lectura. Esto vale aunque el `PENDIENTE` ya tenga profesor, alumnos o aula cargados (HU-C-04 y HU-C-15 permiten cargarlos antes de confirmar). El filtro es una lista positiva de estados confirmados aplicada en la query del servidor, nunca en la UI: si el módulo C agrega estados nuevos, no aparecen en el calendario hasta que esta spec lo decida.
 
 ### 3.2. El alcance de un Profesor se resuelve siempre en el servidor
 Un usuario con rol `PROFESOR` nunca puede obtener datos de una agenda ajena (2.1) ni de turnos de otros profesores dentro de una materia (2.2) manipulando un parámetro de la solicitud — el `profesorId` efectivo sale siempre de `session.sub` vía `spec_modulo_A.md`, nunca de la URL o el body cuando el rol es `PROFESOR`. La UI oculta el selector de profesor para este rol, pero eso no reemplaza esta verificación server-side (mismo principio general de `spec_modulo_A.md` §2.2).

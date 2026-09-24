@@ -99,6 +99,35 @@ describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
     expect(evento!.estado).toBe("COMPLETO");
   });
 
+  it("no incluye un PENDIENTE aunque ya tenga profesor, alumnos y aula asignados", async () => {
+    // Flujo HU-C-04/HU-C-15: el profesor se asigna con el turno todavía
+    // PENDIENTE. El mock aplica el `where` recibido, como lo haría la base.
+    const filas = [
+      { ...filaTurno({ id: "ckpendiente", estado: "PENDIENTE" }), profesorId: "ckprofesor" },
+      { ...filaTurno({ id: "ckconfirmado", estado: "DISPONIBLE" }), profesorId: "ckprofesor" },
+    ];
+    vi.mocked(prisma.turno.findMany).mockImplementation((async (args: {
+      where: { profesorId: string; estadoTurno: { in: string[] } };
+    }) =>
+      filas.filter(
+        (fila) => fila.profesorId === args.where.profesorId && args.where.estadoTurno.in.includes(fila.estadoTurno),
+      )) as never);
+
+    const eventos = await listarTurnosAgendadosDeProfesor("ckprofesor", new Date(), new Date());
+
+    const args = vi.mocked(prisma.turno.findMany).mock.calls[0]![0]!;
+    expect(args.where?.estadoTurno).toEqual({ in: ["DISPONIBLE", "COMPLETO"] });
+    expect(eventos.map(({ turno_id }) => turno_id)).toEqual(["ckconfirmado"]);
+  });
+
+  it("muestra un DISPONIBLE sin alumnos (se quitaron todos) con '—' en Alumno", async () => {
+    vi.mocked(prisma.turno.findMany).mockResolvedValue([filaTurno({ alumnos: [], estado: "DISPONIBLE" })] as never);
+
+    const [evento] = await listarTurnosAgendadosDeProfesor("ckprofesor", new Date(), new Date());
+
+    expect(evento).toMatchObject({ alumno: "—", aula: "Aula 2", estado: "DISPONIBLE" });
+  });
+
   it("une los alumnos de un turno grupal con '; ' y usa '—' si falta alumno o aula", async () => {
     vi.mocked(prisma.turno.findMany).mockResolvedValue([
       filaTurno({ alumnos: [["Pérez", "Ana"], ["Ruiz", "Marcos"]] }),
