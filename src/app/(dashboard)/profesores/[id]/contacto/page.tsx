@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { obtenerFichaProfesor } from "@/server/profesores/profesor.service";
@@ -33,12 +33,12 @@ export default async function ContactoProfesorPage({
 
   return (
     <div className="mx-auto max-w-xl space-y-5 p-6">
-      <Link
+      <LinkProtegido
         href={`/profesores/${profesor.id}`}
         className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Volver a la ficha
-      </Link>
+      </LinkProtegido>
       <div>
         <h1 className="text-2xl font-semibold">Datos de contacto</h1>
         <p className="text-sm text-muted-foreground">

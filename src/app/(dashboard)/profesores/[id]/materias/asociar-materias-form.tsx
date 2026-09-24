@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useRouter } from "next/navigation";
 import { flattenError } from "zod";
 import { Loader2 } from "lucide-react";
@@ -139,12 +139,12 @@ export function AsociarMateriasForm({
       {estado.status === "exito" && (
         <div role="status" className="space-y-1 rounded-md bg-success p-3 text-sm text-success-foreground">
           <p className="font-medium">{MENSAJE_EXITO}</p>
-          <Link
+          <LinkProtegido
             href={rutaFicha}
             className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Volver a la ficha
-          </Link>
+          </LinkProtegido>
         </div>
       )}
 

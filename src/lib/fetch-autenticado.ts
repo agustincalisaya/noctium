@@ -1,3 +1,5 @@
+import { permitirSalidaSinConfirmar } from "@/lib/salida-sin-confirmar";
+
 /**
  * Wrapper mínimo de fetch para llamadas del cliente a rutas protegidas por
  * withPermission(). Si el server rechaza por sesión inválida (401), redirige
@@ -13,6 +15,8 @@ export async function fetchAutenticado(
     // Navegación dura intencional: esta función no es un componente (no hay
     // useRouter disponible) y el objetivo es descartar todo estado de
     // cliente ante una sesión inválida, no una transición optimista.
+    // Salida forzada por el sistema: sin diálogo de cambios sin guardar.
+    permitirSalidaSinConfirmar();
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login?motivo=expirada";
   }
