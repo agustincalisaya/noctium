@@ -26,12 +26,14 @@ import type { OpcionProfesor } from "@/types/profesor.types";
 /**
  * Turnos `DISPONIBLE` o `COMPLETO` de un profesor con fecha en [desde, hasta).
  *
- * TODO(HU-C-04/HU-C-15): `spec_modulo_J.md` §3.4 pide leer los turnos vía un
- * servicio público del módulo C (`listarTurnosAgendadosPorProfesor`), que
- * todavía no existe. Por decisión de equipo no se modifica
- * `turno.service.ts` en esta HU: la consulta vive acá, de solo lectura,
- * hasta que el módulo C exponga la suya. Reemplazar entonces el cuerpo por
- * esa llamada, sin cambiar la firma ni la forma del dato.
+ * TODO(Regla N.° 3): deuda técnica explícita. `spec_modulo_J.md` §3.4 pide
+ * leer los turnos vía un servicio público del módulo C
+ * (`listarTurnosAgendadosPorProfesor`), pero HU-C-04 y HU-C-15 se cerraron
+ * sin que el módulo C lo expusiera. Hasta entonces, esta consulta de solo
+ * lectura sobre `turnos` es una excepción consciente a la Regla N.° 3
+ * (HU-J-01.md §1 punto 7 y su nota de sincronización). Cuando el módulo C
+ * lo exponga, reemplazar el cuerpo por esa llamada, sin cambiar la firma ni
+ * la forma del dato.
  *
  * El filtro de estado va en la query (HU-J-01 c4): un turno `PENDIENTE`
  * nunca sale de acá (`spec_modulo_J.md` §3.1).
