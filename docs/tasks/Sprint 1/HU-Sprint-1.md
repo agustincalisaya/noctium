@@ -201,7 +201,7 @@ Total: 24 HU · 45 puntos.
 ## HU-K-01 — Registrar aula
 **Módulo:** Gestionar aulas · **Prioridad:** 9 · **SP:** 1
 **Como** gerente **necesito** registrar un aula con su identificación y capacidad, **para** asignar un espacio físico a los turnos.
-**Justificación de secuencia:** Base habilitante: sin aulas un turno no puede pasar de Pendiente a Agendado (HU-C-15). Depende de HU-A-01.
+**Justificación de secuencia:** Base habilitante: sin aulas un turno no puede pasar de Pendiente a Disponible o Completo (HU-C-15). Depende de HU-A-01.
 
 **Criterios de aceptación:**
 1. "Nueva aula" solicita Nombre o número y Capacidad (obligatorios). Solo el gerente puede registrar aulas.

@@ -55,6 +55,8 @@ export function AulaTurno({ id, retorno }: { id: string; retorno: string }) {
 
   useEffect(() => { const timer = window.setTimeout(() => void cargar(), 0); return () => window.clearTimeout(timer); }, [cargar]);
   const sinGuardar = Boolean(turno && !resultado && aulaId !== aulaIdOriginal);
+  // Misma condición que asignarAulaTurno: sin profesor o sin alumnos el turno sigue Pendiente.
+  const confirmaAlGuardar = Boolean(turno?.profesor_id && turno.alumnos.length > 0);
   useEffect(() => { setDirty(sinGuardar); }, [sinGuardar, setDirty]);
   useEffect(() => () => setDirty(false), [setDirty]);
 
@@ -101,10 +103,10 @@ export function AulaTurno({ id, retorno }: { id: string; retorno: string }) {
             : aulas.length === 0 ? <div className="space-y-2"><p role="status">No hay aulas con capacidad suficiente para el cupo máximo del turno</p><Button type="button" variant="outline" onClick={() => void cargar()}>Reintentar</Button></div>
               : <select id="aula" name="aula_id" required value={aulaId} onChange={(event) => { setAulaId(event.target.value); setError(""); setAviso(""); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná un aula</option>{aulas.map((aula) => <option key={aula.id} value={aula.id}>{aula.nombre} · Capacidad {aula.capacidad}</option>)}</select>}
         </div>
-        <p className="text-sm text-muted-foreground">Si todavía faltan datos del turno, el aula quedará asignada y el turno seguirá Pendiente.</p>
+        {!confirmaAlGuardar && <p className="text-sm text-muted-foreground">Si todavía faltan datos del turno, el aula quedará asignada y el turno seguirá Pendiente.</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {aviso && <p role="status" className="rounded-md bg-success p-3 text-sm text-success-foreground">{aviso}</p>}
-        <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!aulaId || guardando}>{guardando ? "Guardando…" : "Guardar aula y confirmar turno"}</Button><Link className={buttonVariants({ variant: "outline" })} href={detalle} prefetch={false}>Cancelar</Link></div>
+        <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!aulaId || guardando}>{guardando ? "Guardando…" : confirmaAlGuardar ? "Guardar aula y confirmar turno" : "Guardar aula"}</Button><Link className={buttonVariants({ variant: "outline" })} href={detalle} prefetch={false}>Cancelar</Link></div>
       </form>}
   </main>;
 }

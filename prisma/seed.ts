@@ -1006,6 +1006,14 @@ async function main() {
     update: {},
     create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_participantes" },
   });
+  // turnos:asignar_aula (HU-C-15): exclusivo de Mesa de Entrada. También lo
+  // inserta la migración 20260924150000 (ya aplicada, no se edita) — mismo
+  // criterio que turnos:asignar_participantes (HU-C-04).
+  await prisma.rolPermiso.upsert({
+    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_aula" } },
+    update: {},
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_aula" },
+  });
   // materias:leer (HU-L-02, spec_modulo_L.md §2.2): todo rol que necesite
   // consultar el catálogo al operar otro módulo — Gerente, Mesa de Entrada,
   // Profesor. Alumno queda afuera en este sprint (sin HU que lo requiera

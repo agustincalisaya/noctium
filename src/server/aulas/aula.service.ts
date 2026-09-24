@@ -25,6 +25,16 @@ export async function verificarAulaActiva(id: string, db: Prisma.TransactionClie
   });
 }
 
+/** Contrato para HU-C-15: distingue "no hay aulas activas" sin que Turno consulte la tabla de Aula (Regla N.° 3). */
+export async function hayAulasActivas(db: Prisma.TransactionClient = prisma) {
+  return (await db.aula.count({ where: { activaAula: true } })) > 0;
+}
+
+/** Contrato para HU-C-15: existencia del aula sin importar su estado, para separar inexistente de inactiva. */
+export async function existeAula(id: string, db: Prisma.TransactionClient = prisma) {
+  return (await db.aula.count({ where: { idAula: id } })) > 0;
+}
+
 /**
  * Alta de aula (spec_modulo_K.md §2.1). Orden no negociable, dentro de una
  * única transacción: normalizar → verificar unicidad contra el universo

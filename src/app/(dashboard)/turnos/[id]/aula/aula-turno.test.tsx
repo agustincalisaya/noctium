@@ -36,6 +36,8 @@ const seleccionar = (id: string) => act(async () => {
 });
 const guardar = () => act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
 const patch = () => fetch.mock.calls.filter(([url, init]) => url.endsWith("/aula") && init?.method === "PATCH");
+const boton = () => container.querySelector('button[type="submit"]')!.textContent;
+const AYUDA_PENDIENTE = "Si todavía faltan datos del turno, el aula quedará asignada y el turno seguirá Pendiente.";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -53,6 +55,15 @@ describe("HU-C-15 interfaz de aula", () => {
     ]);
     expect(container.querySelector(`a[href="${retorno}"]`)?.textContent).toBe("Volver al listado");
     expect(fetch.mock.calls.some(([url, init]) => url.includes("/opciones?turno_id=turno-1") && init?.cache === "no-store")).toBe(true);
+    expect(boton()).toBe("Guardar aula y confirmar turno");
+    expect(container.textContent).not.toContain(AYUDA_PENDIENTE);
+  });
+
+  it("sin alumnos el botón solo guarda el aula", async () => {
+    fetch.mockImplementation(async (url: string) => url.includes("/opciones?") ? respuesta(aulas) : respuesta(turno({ alumnos: [], alumnos_inscriptos: "0/3" })));
+    await montar();
+    expect(boton()).toBe("Guardar aula");
+    expect(container.textContent).toContain(AYUDA_PENDIENTE);
   });
 
   it("informa exactamente cuando no hay aulas activas y deshabilita el guardado", async () => {
@@ -94,6 +105,8 @@ describe("HU-C-15 interfaz de aula", () => {
       : url.includes("/opciones?") ? respuesta(aulas) : respuesta(turno({ aula_id: "aula-1", aula: "Aula 1", aula_capacidad: 5, profesor_id: null, profesor: "Sin asignar" })));
     await montar();
     expect((container.querySelector("#aula") as HTMLSelectElement).value).toBe("aula-1");
+    expect(boton()).toBe("Guardar aula");
+    expect(container.textContent).toContain(AYUDA_PENDIENTE);
     await seleccionar("aula-2"); await guardar();
     expect(container.textContent).toContain("Aula asignada correctamente");
     expect(container.querySelector("form")).not.toBeNull();
