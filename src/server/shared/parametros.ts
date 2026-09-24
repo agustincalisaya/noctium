@@ -25,6 +25,19 @@ export async function getParametroNumerico(
   return Number.isFinite(valor) ? valor : valorPorDefecto;
 }
 
+/**
+ * Lee un parámetro de texto de `ParametroSistema` (HU-B-08:
+ * `terminos_version_vigente`, no numérico). Mismo criterio que
+ * `getParametroNumerico`: si la clave no está sembrada, usa `valorPorDefecto`.
+ */
+export async function getParametroTexto(
+  clave: string,
+  valorPorDefecto: string,
+): Promise<string> {
+  const parametro = await prisma.parametroSistema.findUnique({ where: { clave } });
+  return parametro?.valor ?? valorPorDefecto;
+}
+
 // Claves de ParametroSistema del horario operativo del centro (sembradas en
 // prisma/seed.ts). Son las mismas que lee Turnos en
 // src/server/turnos/turno.validaciones.ts, con los mismos valores por defecto.
