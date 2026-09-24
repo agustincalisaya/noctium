@@ -21,7 +21,14 @@ export const ConfigurarTurnoSchema = z.object({
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
 export const AsignarParticipantesTurnoSchema = z.object({
-  alumno_id: z.cuid(),
+  alumno_ids: z.array(z.cuid())
+    .min(1, "Agregá al menos un alumno")
+    .refine((ids) => new Set(ids).size === ids.length, "El mismo alumno no puede agregarse dos veces"),
   profesor_id: z.cuid(),
 });
 export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantesTurnoSchema>;
+
+export const AgregarAlumnoTurnoSchema = z.object({
+  alumno_id: z.cuid(),
+});
+export type AgregarAlumnoTurnoInput = z.infer<typeof AgregarAlumnoTurnoSchema>;

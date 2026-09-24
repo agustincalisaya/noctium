@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { obtenerDetalleAlumno, listarFormasPagoActivas } from "@/server/alumnos/alumno.service";
@@ -49,12 +49,12 @@ export default async function EditarAlumnoPage({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-xl space-y-5 p-6">
-      <Link
+      <LinkProtegido
         href={`/alumnos/${alumno.id}`}
         className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Volver a la ficha
-      </Link>
+      </LinkProtegido>
       <div>
         <h1 className="text-2xl font-semibold">Modificar datos del alumno</h1>
         <p className="text-sm text-muted-foreground">

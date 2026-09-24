@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { permitirSalidaSinConfirmar } from "@/lib/salida-sin-confirmar";
 
 /**
  * `Cache-Control: no-store` no alcanza para evitar que una pantalla
@@ -18,6 +19,7 @@ export function ProtegerCacheNavegador() {
   useEffect(() => {
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted) {
+        permitirSalidaSinConfirmar();
         window.location.reload();
       }
     }

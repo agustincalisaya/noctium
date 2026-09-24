@@ -1,27 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useCallback, useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
+import { BuscadorAlumnos, etiquetaAlumno } from "../../buscador-alumnos";
 import type { Turno } from "../../turno.types";
 
-type Alumno = { id: string; nombre: string; apellido: string; dni: string };
 type Profesor = { id: string; nombre: string; apellido: string };
-const etiquetaAlumno = (alumno: Alumno) => `${alumno.apellido}, ${alumno.nombre} · DNI ${alumno.dni}`;
+/** Mismo formato que `Turno.alumnos`: `nombre` ya es "Apellido, Nombre". */
+type AlumnoAgregado = Turno["alumnos"][number];
+
+const mismosIds = (a: string[], b: string[]) => a.length === b.length && a.every((id) => b.includes(id));
 
 export function ParticipantesTurno({ id, retorno }: { id: string; retorno: string }) {
+  const { setDirty } = useDirtyState();
   const [turno, setTurno] = useState<Turno | null>(null);
   const [profesores, setProfesores] = useState<Profesor[]>([]);
-  const [alumno, setAlumno] = useState<Alumno | null>(null);
+  const [alumnos, setAlumnos] = useState<AlumnoAgregado[]>([]);
   const [profesorId, setProfesorId] = useState("");
-  const [query, setQuery] = useState("");
-  const [resultados, setResultados] = useState<Alumno[]>([]);
-  const [buscando, setBuscando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
+  const [errorAlumno, setErrorAlumno] = useState<{ id: string; mensaje: string } | null>(null);
   const [exito, setExito] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -34,65 +37,68 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
       const opcionesRespuesta = await fetchAutenticado(`/api/turnos/participantes/profesores?materiaId=${encodeURIComponent(actual.materia_id)}`, { cache: "no-store" });
       const opciones = await opcionesRespuesta.json().catch(() => null);
       if (!opcionesRespuesta.ok || !opciones?.data) throw new Error(opciones?.error?.message ?? "No se pudieron cargar los profesores");
-      setTurno(actual); setProfesores(opciones.data);
+      setTurno(actual); setProfesores(opciones.data); setAlumnos(actual.alumnos);
       setProfesorId((opciones.data as Profesor[]).some((profesor) => profesor.id === actual.profesor_id) ? actual.profesor_id! : "");
-      const asignado = actual.alumnos[0];
-      setAlumno(asignado ? { id: asignado.id, nombre: asignado.nombre.split(", ").slice(1).join(", "), apellido: asignado.nombre.split(", ")[0], dni: asignado.dni } : null);
-      setQuery(""); setResultados([]);
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar el turno"); }
     finally { setCargando(false); }
   }, [id]);
 
   useEffect(() => { const timer = window.setTimeout(() => void cargar(), 0); return () => window.clearTimeout(timer); }, [cargar]);
-  useEffect(() => {
-    if (query.trim().length < 2 || alumno) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      setBuscando(true);
-      try {
-        const respuesta = await fetchAutenticado(`/api/turnos/participantes/alumnos?q=${encodeURIComponent(query.trim())}`, { signal: controller.signal, cache: "no-store" });
-        const valor = await respuesta.json().catch(() => null);
-        if (!respuesta.ok) throw new Error(valor?.error?.message ?? "No se pudo buscar alumnos");
-        setResultados(valor.data ?? []);
-      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "No se pudo buscar alumnos"); }
-      finally { if (!controller.signal.aborted) setBuscando(false); }
-    }, 250);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [query, alumno]);
 
-  const cambiarBusqueda = (valor: string) => { setQuery(valor); setAlumno(null); setResultados([]); setError(""); };
+  // Cambios sin guardar (HU-A-03 c2): se descartan al confirmar o al salir (Cancelar, c10).
+  const sinGuardar = Boolean(turno && !exito && (profesorId !== (turno.profesor_id ?? "") || !mismosIds(alumnos.map(({ id: alumnoId }) => alumnoId), turno.alumnos.map(({ id: alumnoId }) => alumnoId))));
+  useEffect(() => { setDirty(sinGuardar); }, [sinGuardar, setDirty]);
+  useEffect(() => () => setDirty(false), [setDirty]);
+
+  const cupo = turno?.cupo_maximo ?? 0;
+  const cupoAlcanzado = alumnos.length >= cupo;
+  const limpiarErrores = () => { setError(""); setErrorAlumno(null); };
+  const agregar = (alumno: AlumnoAgregado) => { if (!cupoAlcanzado) { setAlumnos((anteriores) => [...anteriores, alumno]); limpiarErrores(); } };
+  const quitar = (alumnoId: string) => { setAlumnos((anteriores) => anteriores.filter(({ id: otro }) => otro !== alumnoId)); limpiarErrores(); };
+
   const guardar = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!alumno || !profesorId || guardando) return;
-    setGuardando(true); setError("");
+    if (alumnos.length === 0 || !profesorId || guardando) return;
+    setGuardando(true); limpiarErrores();
     try {
       const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(id)}/participantes`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ alumno_id: alumno.id, profesor_id: profesorId }), cache: "no-store",
+        body: JSON.stringify({ alumno_ids: alumnos.map(({ id: alumnoId }) => alumnoId), profesor_id: profesorId }), cache: "no-store",
       });
       const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok) throw new Error(valor?.error?.message ?? "No se pudieron asignar los participantes");
+      if (!respuesta.ok) {
+        const mensaje = valor?.error?.message ?? "No se pudieron asignar los participantes";
+        const alumnoId = valor?.error?.detalles?.alumno_id;
+        if (typeof alumnoId === "string" && alumnos.some(({ id: otro }) => otro === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
+        else setError(mensaje);
+        return;
+      }
       setExito(true);
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudieron asignar los participantes"); }
+    } catch { setError("No se pudieron asignar los participantes. Intentá nuevamente."); }
     finally { setGuardando(false); }
   };
 
-  return <main className="mx-auto w-full max-w-2xl space-y-5 p-6">
-    <Link className="text-primary underline" href={retorno} prefetch={false}>Volver al listado</Link>
-    <h1 className="text-2xl font-semibold">Asignar alumno y profesor</h1>
-    {cargando ? <p role="status">Cargando turno</p> : exito ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">Alumno y profesor asignados correctamente</p><Link className="underline" href={`/turnos/${encodeURIComponent(id)}/aula?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Continuar con aula</Link></div> : !turno ? <div role="alert"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de participantes.</p> : <form onSubmit={(event) => void guardar(event)} className="space-y-5 rounded-md border border-border bg-card p-5">
+  return <main className="mx-auto w-full min-w-0 max-w-2xl space-y-5 p-6">
+    <LinkProtegido className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</LinkProtegido>
+    <h1 className="text-2xl font-semibold">Asignar profesor y alumnos</h1>
+    {cargando ? <p role="status">Cargando turno</p> : exito ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">Profesor y alumnos asignados correctamente</p><div className="flex flex-wrap gap-4"><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/aula?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Continuar con aula</Link><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Ver detalle</Link></div></div> : !turno ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de participantes. Los alumnos se agregan o quitan desde el detalle del turno.</p> : <form onSubmit={(event) => void guardar(event)} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
       <p>{turno.fecha} · {turno.hora_inicio}–{turno.hora_fin} · {turno.materia}</p>
-      <div className="space-y-2"><label htmlFor="alumno-busqueda" className="text-sm font-medium">Alumno *</label>
-        {alumno && <p>Seleccionado: {etiquetaAlumno(alumno)} <Button type="button" variant="outline" onClick={() => { setAlumno(null); setQuery(""); }}>Cambiar</Button></p>}
-        {!alumno && <><Input id="alumno-busqueda" value={query} onChange={(event) => cambiarBusqueda(event.target.value)} placeholder="Nombre, apellido o DNI (mínimo 2 caracteres)" autoComplete="off" />
-          {query.trim().length >= 2 && <div role="status">{buscando ? "Buscando…" : resultados.length === 0 ? "No se encontraron alumnos activos" : `${resultados.length} resultados`}</div>}
-          {resultados.length > 0 && <ul className="space-y-1" aria-label="Resultados de alumnos">{resultados.map((opcion) => <li key={opcion.id}><Button type="button" variant="outline" className="h-auto w-full justify-start text-left" onClick={() => { setAlumno(opcion); setQuery(""); setResultados([]); }}>{etiquetaAlumno(opcion)}</Button></li>)}</ul>}</>}
-      </div>
       <div className="space-y-2"><label htmlFor="profesor" className="text-sm font-medium">Profesor *</label>
-        {profesores.length === 0 ? <p role="status">No hay profesores activos asociados a esta materia</p> : <select id="profesor" value={profesorId} onChange={(event) => { setProfesorId(event.target.value); setError(""); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Seleccioná un profesor</option>{profesores.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>}
+        {profesores.length === 0 ? <p role="status">No hay profesores activos asociados a esta materia</p> : <select id="profesor" value={profesorId} onChange={(event) => { setProfesorId(event.target.value); limpiarErrores(); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná un profesor</option>{profesores.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>}
       </div>
+      <fieldset className="space-y-2"><legend className="text-sm font-medium">Alumnos * <span className="font-normal text-muted-foreground">({alumnos.length}/{cupo})</span></legend>
+        {alumnos.length === 0 ? <p className="text-sm text-muted-foreground">Todavía no agregaste alumnos.</p> : <ul className="space-y-2" aria-label="Alumnos agregados">{alumnos.map((alumno) => {
+          const conflicto = errorAlumno?.id === alumno.id ? errorAlumno.mensaje : "";
+          return <li key={alumno.id} className={`space-y-1 rounded-md border p-2 ${conflicto ? "border-destructive" : "border-border"}`}>
+            <div className="flex items-center justify-between gap-3"><span className="min-w-0 break-words text-sm">{alumno.nombre} · DNI {alumno.dni}</span><Button type="button" variant="outline" size="sm" onClick={() => quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>Quitar</Button></div>
+            {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
+          </li>;
+        })}</ul>}
+        <label htmlFor="alumno-busqueda" className="sr-only">Buscar alumno</label>
+        <BuscadorAlumnos id="alumno-busqueda" excluir={alumnos.map(({ id: alumnoId }) => alumnoId)} deshabilitado={cupoAlcanzado} avisoDeshabilitado="El turno alcanzó su cupo máximo" onSeleccionar={(alumno) => agregar({ id: alumno.id, nombre: etiquetaAlumno(alumno), dni: alumno.dni })} />
+      </fieldset>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex gap-3"><Button type="submit" disabled={!alumno || !profesorId || guardando}>{guardando ? "Guardando…" : "Confirmar participantes"}</Button><Link className={buttonVariants({ variant: "outline" })} href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Cancelar</Link></div>
+      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={alumnos.length === 0 || !profesorId || guardando}>{guardando ? "Guardando…" : "Confirmar participantes"}</Button><Link className={buttonVariants({ variant: "outline" })} href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Cancelar</Link></div>
     </form>}
   </main>;
 }

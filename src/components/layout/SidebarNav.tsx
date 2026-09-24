@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useSyncExternalStore, type ReactNode } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Collapsible } from "@base-ui/react/collapsible";
 import { Menu, X, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "../ui/Logo";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 
 export interface SidebarNavItem {
   label: string;
@@ -179,7 +179,7 @@ export function SidebarNav({ secciones }: { secciones: SidebarNavSection[] }) {
           menuMobileAbierto ? "translate-x-0" : "-translate-x-full",
         )}
       >
-          <Link
+          <LinkProtegido
             href="/home"
             className="flex items-center gap-2 border-b border-sidebar-border px-4 py-4"
           >
@@ -196,7 +196,7 @@ export function SidebarNav({ secciones }: { secciones: SidebarNavSection[] }) {
                 </span>
               </span>
             )}
-          </Link>
+          </LinkProtegido>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3">
           {secciones.map((seccion) => {
@@ -278,7 +278,7 @@ function ItemLink({
   onNavigate: () => void;
 }) {
   return (
-    <Link
+    <LinkProtegido
       href={item.href}
       onClick={onNavigate}
       aria-current={activo ? "page" : undefined}
@@ -293,6 +293,6 @@ function ItemLink({
     >
       {item.icon}
       {!soloIcono && <span className="truncate">{item.label}</span>}
-    </Link>
+    </LinkProtegido>
   );
 }

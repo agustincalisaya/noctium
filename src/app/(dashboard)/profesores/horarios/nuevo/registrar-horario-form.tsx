@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useRouter } from "next/navigation";
 import { flattenError } from "zod";
 import { Loader2 } from "lucide-react";
@@ -229,12 +229,12 @@ export function RegistrarHorarioForm({
           <p>
             {ETIQUETA_DIA[estado.horario.diaSemana]} {estado.horario.horaInicio}–{estado.horario.horaFin}
           </p>
-          <Link
+          <LinkProtegido
             href={`/profesores/${valores.profesorId}`}
             className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Volver a la ficha
-          </Link>
+          </LinkProtegido>
         </div>
       )}
 

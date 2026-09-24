@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
-import type { RolUsuario } from "@prisma/client";
+import type { EstadoTurno, Prisma, RolUsuario } from "@prisma/client";
 import { ServiceError } from "@/server/shared/service-error";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service";
 import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
-import type { AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
+import type { AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -74,19 +74,55 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
   return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, materia_id: input.materia_id, cupo_maximo: input.cupo_maximo, estado: "PENDIENTE" as const, profesor_desasignado: profesorDesasignado };
 }
 
-/** HU-C-04: la asignación sustituye todos los vínculos anteriores del turno. */
+const ESTADOS_AGENDADOS: EstadoTurno[] = ["DISPONIBLE", "COMPLETO"];
+
+/**
+ * Primer alumno de `alumnoIds` (en ese orden) con otro turno DISPONIBLE o
+ * COMPLETO superpuesto al intervalo. Los turnos PENDIENTE no reservan
+ * recursos (spec_modulo_C.md §3.2); los contiguos no se superponen (§3.3).
+ */
+async function alumnoConTurnoSuperpuesto(
+  tx: Prisma.TransactionClient,
+  turnoId: string,
+  fechaTurno: Date,
+  intervalo: { inicio: number; fin: number },
+  alumnoIds: string[],
+) {
+  const otros = await tx.turno.findMany({
+    where: { idTurno: { not: turnoId }, fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: alumnoIds } } } },
+    select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: alumnoIds } }, select: { alumnoId: true } } },
+  });
+  const ocupados = new Set(otros.filter((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro))).flatMap((otro) => otro.alumnos.map(({ alumnoId }) => alumnoId)));
+  return alumnoIds.find((alumnoId) => ocupados.has(alumnoId)) ?? null;
+}
+
+// `detalles.alumno_id` identifica el recurso no disponible (HU-C-04 c8) sin
+// que el servicio consulte datos del Módulo B (Regla N.° 3).
+function alumnoInactivo(alumnoId: string) {
+  return new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno no existe o no está activo", { alumno_id: alumnoId });
+}
+
+function alumnoOcupado(alumnoId: string) {
+  return new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario", { alumno_id: alumnoId });
+}
+
+/**
+ * HU-C-04 §2.2: carga o reemplazo del profesor y del conjunto completo de
+ * alumnos mientras el turno está PENDIENTE (sustituye todos los vínculos).
+ */
 export async function asignarParticipantesTurno(turnoId: string, input: AsignarParticipantesTurnoInput, usuarioId: string) {
   const resultado = await prisma.$transaction(async (tx) => {
     const turno = await tx.turno.findUnique({
       where: { idTurno: turnoId },
-      select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, updatedAtTurno: true },
+      select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, cupoMaximoTurno: true, updatedAtTurno: true },
     });
     if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
     if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de participantes");
     if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó. Corregí su configuración antes de continuar");
+    if (input.alumno_ids.length > turno.cupoMaximoTurno) throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
 
-    if (!(await verificarAlumnoActivo(input.alumno_id, tx))) {
-      throw new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno no existe o no está activo");
+    for (const alumnoId of input.alumno_ids) {
+      if (!(await verificarAlumnoActivo(alumnoId, tx))) throw alumnoInactivo(alumnoId);
     }
     const profesores = await listarProfesoresActivosPorMateria(turno.materiaId, tx);
     if (profesores.length === 0) throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
@@ -98,22 +134,17 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
     if (!(await estaDentroDeHorarioAtencion(input.profesor_id, turno.fechaTurno, horaDeMinutos(intervalo.inicio), horaDeMinutos(intervalo.fin), tx))) {
       throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", "El turno está fuera del horario de atención del profesor");
     }
-
-    const agendados = await tx.turno.findMany({
-      where: {
-        idTurno: { not: turnoId }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] },
-        OR: [{ profesorId: input.profesor_id }, { alumnos: { some: { alumnoId: input.alumno_id } } }],
-      },
-      select: { profesorId: true, horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: input.alumno_id }, select: { alumnoId: true } } },
+    const turnosDelProfesor = await tx.turno.findMany({
+      where: { idTurno: { not: turnoId }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, profesorId: input.profesor_id },
+      select: { horaInicioTurno: true, duracionMinutosTurno: true },
     });
-    const conflictoProfesor = agendados.find((otro) => otro.profesorId === input.profesor_id && intervalosSeSuperponen(intervalo, intervaloTurno(otro)));
+    const conflictoProfesor = turnosDelProfesor.find((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro)));
     if (conflictoProfesor) {
       const conflicto = intervaloTurno(conflictoProfesor);
       throw new ServiceError("PROFESOR_NO_DISPONIBLE", `El profesor ya tiene un turno agendado de ${horaDeMinutos(conflicto.inicio)} a ${horaDeMinutos(conflicto.fin)}`);
     }
-    if (agendados.some((otro) => otro.alumnos.length > 0 && intervalosSeSuperponen(intervalo, intervaloTurno(otro)))) {
-      throw new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario");
-    }
+    const ocupado = await alumnoConTurnoSuperpuesto(tx, turnoId, turno.fechaTurno, intervalo, input.alumno_ids);
+    if (ocupado) throw alumnoOcupado(ocupado);
 
     // La actualización condicionada serializa reemplazos del mismo turno y
     // detecta una configuración/asignación concurrente antes de tocar vínculos.
@@ -123,14 +154,78 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
     });
     if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
     await tx.turnoAlumno.deleteMany({ where: { turnoId } });
-    await tx.turnoAlumno.create({ data: { turnoId, alumnoId: input.alumno_id } });
-    return { id: turnoId, alumno_id: input.alumno_id, profesor_id: input.profesor_id, estado: "PENDIENTE" as const };
+    await tx.turnoAlumno.createMany({ data: input.alumno_ids.map((alumnoId) => ({ turnoId, alumnoId })) });
+    return { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: input.profesor_id, cupo_maximo: turno.cupoMaximoTurno, estado: "PENDIENTE" as const };
   });
   await emitirEventoTurno("turno:participantes_asignados", turnoId, usuarioId, {
-    turno_id: turnoId, alumno_id: input.alumno_id, profesor_id: input.profesor_id, usuario_id: usuarioId,
+    turno_id: turnoId, alumno_ids: input.alumno_ids, profesor_id: input.profesor_id, usuario_id: usuarioId,
   });
-  // HU-C-15 debe volver a comprobar profesor y alumno al pasar a DISPONIBLE/COMPLETO.
+  // HU-C-15 debe volver a comprobar profesor y alumnos al pasar a DISPONIBLE/COMPLETO.
   return resultado;
+}
+
+/**
+ * Bloquea la fila del turno hasta el fin de la transacción (spec_modulo_C.md
+ * §3.7): serializa altas/bajas concurrentes del mismo turno antes de contar
+ * inscriptos. Aplica además el guard de vigencia (extensión de HU-C-04).
+ */
+async function bloquearTurno(tx: Prisma.TransactionClient, turnoId: string) {
+  const [fila] = await tx.$queryRaw<{ idTurno: string; cupoMaximoTurno: number; estadoTurno: EstadoTurno }[]>`
+    SELECT "idTurno", "cupoMaximoTurno", "estadoTurno" FROM turnos WHERE "idTurno" = ${turnoId} FOR UPDATE`;
+  if (!fila) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+  if (fila.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", "El turno está pendiente: los alumnos se cargan desde la asignación de participantes");
+  const horario = await tx.turno.findUniqueOrThrow({ where: { idTurno: turnoId }, select: { fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true } });
+  if (!turnoSigueVigente(horario.fechaTurno, horario.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó");
+  return { ...fila, ...horario };
+}
+
+/** HU-C-04 §2.5: alta individual de un alumno en un turno DISPONIBLE. */
+export async function agregarAlumnoTurno(turnoId: string, input: AgregarAlumnoTurnoInput, usuarioId: string) {
+  const resultado = await prisma.$transaction(async (tx) => {
+    const turno = await bloquearTurno(tx, turnoId);
+    if (turno.estadoTurno === "COMPLETO") throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
+    if (!(await verificarAlumnoActivo(input.alumno_id, tx))) throw alumnoInactivo(input.alumno_id);
+    if (await tx.turnoAlumno.findUnique({ where: { turnoId_alumnoId: { turnoId, alumnoId: input.alumno_id } } })) {
+      throw new ServiceError("ALUMNO_YA_ASIGNADO", "El mismo alumno no puede agregarse dos veces al mismo turno", { alumno_id: input.alumno_id });
+    }
+    if (await alumnoConTurnoSuperpuesto(tx, turnoId, turno.fechaTurno, intervaloTurno(turno), [input.alumno_id])) throw alumnoOcupado(input.alumno_id);
+
+    // Con la fila bloqueada, el conteo no puede quedar desactualizado.
+    const inscriptos = await tx.turnoAlumno.count({ where: { turnoId } });
+    if (inscriptos >= turno.cupoMaximoTurno) throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
+    await tx.turnoAlumno.create({ data: { turnoId, alumnoId: input.alumno_id } });
+    const completado = inscriptos + 1 >= turno.cupoMaximoTurno
+      && (await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "DISPONIBLE" }, data: { estadoTurno: "COMPLETO", modificadoPorUsuarioId: usuarioId } })).count > 0;
+    const alumnoIds = completado ? (await tx.turnoAlumno.findMany({ where: { turnoId }, select: { alumnoId: true } })).map(({ alumnoId }) => alumnoId) : [];
+    return { completado, alumnoIds, cupo: turno.cupoMaximoTurno, inscriptos: inscriptos + 1 };
+  });
+  await emitirEventoTurno("turno:alumno_agregado", turnoId, usuarioId, { turno_id: turnoId, alumno_id: input.alumno_id, usuario_id: usuarioId });
+  if (resultado.completado) {
+    await emitirEventoTurno("turno:completado", turnoId, usuarioId, { turno_id: turnoId, alumno_ids: resultado.alumnoIds, cupo_maximo: resultado.cupo, usuario_id: usuarioId });
+  }
+  return { id: turnoId, alumno_id: input.alumno_id, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const };
+}
+
+/**
+ * HU-C-04 §2.5: baja individual en un turno DISPONIBLE o COMPLETO. Borra
+ * solo el vínculo TurnoAlumno (no es entidad de dominio: la Regla N.° 1 no
+ * aplica). Puede dejar el turno DISPONIBLE en 0/N inscriptos.
+ */
+export async function quitarAlumnoTurno(turnoId: string, alumnoId: string, usuarioId: string) {
+  const resultado = await prisma.$transaction(async (tx) => {
+    const turno = await bloquearTurno(tx, turnoId);
+    const borrado = await tx.turnoAlumno.deleteMany({ where: { turnoId, alumnoId } });
+    if (borrado.count === 0) throw new ServiceError("ALUMNO_NO_ASIGNADO", "El alumno no está inscripto en este turno", { alumno_id: alumnoId });
+    const liberado = turno.estadoTurno === "COMPLETO"
+      && (await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "COMPLETO" }, data: { estadoTurno: "DISPONIBLE", modificadoPorUsuarioId: usuarioId } })).count > 0;
+    const inscriptos = await tx.turnoAlumno.count({ where: { turnoId } });
+    return { liberado, cupo: turno.cupoMaximoTurno, inscriptos, estado: liberado ? "DISPONIBLE" : turno.estadoTurno };
+  });
+  await emitirEventoTurno("turno:alumno_quitado", turnoId, usuarioId, { turno_id: turnoId, alumno_id: alumnoId, usuario_id: usuarioId });
+  if (resultado.liberado) {
+    await emitirEventoTurno("turno:disponible_nuevamente", turnoId, usuarioId, { turno_id: turnoId, alumno_id_liberado: alumnoId, usuario_id: usuarioId });
+  }
+  return { id: turnoId, alumno_id: alumnoId, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.estado };
 }
 
 type TurnoConRelaciones = NonNullable<Awaited<ReturnType<typeof prisma.turno.findFirst<{ include: typeof turnoInclude }>>>>;
@@ -138,7 +233,6 @@ type TurnoConRelaciones = NonNullable<Awaited<ReturnType<typeof prisma.turno.fin
 function presentar(turno: TurnoConRelaciones) {
   const fin = new Date(turno.horaInicioTurno.getTime() + turno.duracionMinutosTurno * 60_000);
   const alumnos = turno.alumnos.map(({ alumno }) => ({ id: alumno.idAlumno, nombre: nombre(alumno.apellidoAlumno, alumno.nombreAlumno), dni: alumno.dniAlumno }));
-  const alumno = alumnos[0];
   return {
     id: turno.idTurno,
     fecha: fecha(turno.fechaTurno),
@@ -148,8 +242,6 @@ function presentar(turno: TurnoConRelaciones) {
     cupo_maximo: turno.cupoMaximoTurno,
     alumno: alumnos.length ? alumnos.map(({ nombre }) => nombre).join("; ") : "Sin asignar",
     alumnos,
-    alumno_id: alumno?.id ?? null,
-    alumno_dni: alumno?.dni ?? null,
     profesor: turno.profesor ? nombre(turno.profesor.apellidoProfesor, turno.profesor.nombreProfesor) : "Sin asignar",
     profesor_id: turno.profesorId,
     profesor_dni: turno.profesor?.dniProfesor ?? null,

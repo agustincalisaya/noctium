@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useCallback, useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,7 +175,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   };
 
   return <main className="mx-auto w-full min-w-0 max-w-2xl space-y-5 p-6">
-    <Link href={retorno} prefetch={false} className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Volver al listado</Link>
+    <LinkProtegido href={retorno} prefetch={false} className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Volver al listado</LinkProtegido>
     <h1 className="text-2xl font-semibold">{id ? "Modificar configuración del turno" : "Configurar turno"}</h1>
     {cargando ? <p role="status">Cargando configuración</p> : errorCarga ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{errorCarga}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : resultado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">{id ? "Configuración actualizada" : "Turno configurado"}</p><p>{resultado.fecha} · {resultado.hora_inicio}–{resultado.hora_fin} · Cupo máximo: {resultado.cupo_maximo} · Pendiente</p>{resultado.profesor_desasignado && <p>El profesor dejó de corresponder a la materia y fue desasignado. Debe reasignarse.</p>}<div className="flex flex-wrap gap-4"><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</Link><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(resultado.id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Ver detalle</Link>{!id && <Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(resultado.id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Continuar con alumno y profesor</Link>}</div></div> : turno && turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de configuración.</p> : materias.length === 0 ? <p role="status">No hay materias activas para configurar turnos</p> : <form noValidate onSubmit={(event) => void guardar(event)} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
       <p className="text-sm text-muted-foreground">Horario operativo: {parametros?.apertura}–{parametros?.cierre}. Duración: {parametros?.duracion_minutos} minutos. Anticipación máxima: {parametros?.anticipacion_maxima_dias} días.</p>
