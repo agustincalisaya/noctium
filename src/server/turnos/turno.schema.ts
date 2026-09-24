@@ -32,3 +32,6 @@ export const AgregarAlumnoTurnoSchema = z.object({
   alumno_id: z.cuid(),
 });
 export type AgregarAlumnoTurnoInput = z.infer<typeof AgregarAlumnoTurnoSchema>;
+
+export const AsignarAulaTurnoSchema = z.object({ aula_id: z.cuid() });
+export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;

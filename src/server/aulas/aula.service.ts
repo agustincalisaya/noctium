@@ -8,6 +8,23 @@ const MENSAJES = {
   NOMBRE_DUPLICADO: "Ya existe un aula registrada con ese nombre",
 } as const;
 
+/** Contrato acotado para HU-C-15; no concede el permiso general aulas:leer. */
+export async function listarAulasActivasParaTurno(cupoMaximo: number) {
+  const aulas = await prisma.aula.findMany({
+    where: { activaAula: true, capacidadAula: { gte: cupoMaximo } },
+    select: { idAula: true, nombreAula: true, capacidadAula: true },
+    orderBy: [{ nombreAula: "asc" }, { idAula: "asc" }],
+  });
+  return aulas.map((aula) => ({ id: aula.idAula, nombre: aula.nombreAula, capacidad: aula.capacidadAula }));
+}
+
+export async function verificarAulaActiva(id: string, db: Prisma.TransactionClient = prisma) {
+  return db.aula.findFirst({
+    where: { idAula: id, activaAula: true },
+    select: { idAula: true, capacidadAula: true },
+  });
+}
+
 /**
  * Alta de aula (spec_modulo_K.md §2.1). Orden no negociable, dentro de una
  * única transacción: normalizar → verificar unicidad contra el universo
