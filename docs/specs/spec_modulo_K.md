@@ -4,7 +4,7 @@
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (patrón de unicidad case-insensitiva, como referencia de diseño) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (patrón de unicidad case-insensitiva, como referencia de diseño) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
 
 **HU contractualizadas en esta revisión:** HU-K-01 (Registrar aula), HU-K-02 (Listar aulas) — Sprint 1.
 
@@ -17,9 +17,9 @@
 
 ## 1. Visión General
 
-El Módulo K gestiona el catálogo de aulas — el espacio físico que `spec_modulo_C.md` (HU-C-15) asigna a un turno para que pase de `Pendiente` a `Agendado`. Solo el rol Gerente puede dar de alta aulas en este sprint.
+El Módulo K gestiona el catálogo de aulas — el espacio físico que `spec_modulo_C.md` (HU-C-15) asigna a un turno para que pase de `Pendiente` a `Disponible` o `Completo`. Solo el rol Gerente puede dar de alta aulas en este sprint.
 
-Implementación estándar del proyecto: Route Handler / Server Action delgados que delegan en `lib/services/aulas/aula.service.ts` (Regla N.° 4 de `docs/RULES.md`).
+Implementación estándar del proyecto: Route Handler / Server Action delgados que delegan en `src/server/aulas/aula.service.ts` (Regla N.° 4 de `docs/RULES.md`).
 
 ---
 
@@ -35,11 +35,11 @@ Implementación estándar del proyecto: Route Handler / Server Action delgados q
 ### 2.1. Alta de Aula (HU-K-01)
 
 **Ruta:** `POST /app/api/aulas/route.ts`
-**Server Action equivalente:** `crearAula()` en `app/(dashboard)/aulas/actions.ts`
+**Server Action equivalente:** `crearAula()` en `src/server/aulas/actions.ts`
 **Permiso requerido:** `aulas:crear` (exclusivo del rol Gerente)
 
 ```typescript
-// lib/schemas/aulas.schema.ts
+// src/server/aulas/aula.schema.ts
 export const CrearAulaSchema = z.object({
   nombre: z.string()
     .trim()
@@ -53,8 +53,8 @@ export const CrearAulaSchema = z.object({
 export type CrearAulaInput = z.infer<typeof CrearAulaSchema>;
 ```
 
-**Comportamiento esperado (`lib/services/aulas/aula.service.ts` → `crearAula`):**
-1. Calcular `nombre_normalizado = normalizarTexto(nombre)` (misma utilidad compartida `lib/utils/normalizar-texto.ts` de `spec_modulo_L.md` §2.1 — cubre el requisito de comparación case-insensitive del criterio de aceptación, y de paso también acentos, aunque no se esperan en nombres de aula; reutilizar la utilidad existente es preferible a escribir una comparación más limitada solo para este módulo).
+**Comportamiento esperado (`src/server/aulas/aula.service.ts` → `crearAula`):**
+1. Calcular `nombre_normalizado = normalizarTexto(nombre)` (misma utilidad compartida `src/lib/normalizar-texto.ts` de `spec_modulo_L.md` §2.1 — cubre el requisito de comparación case-insensitive del criterio de aceptación, y de paso también acentos, aunque no se esperan en nombres de aula; reutilizar la utilidad existente es preferible a escribir una comparación más limitada solo para este módulo).
 2. Verificar unicidad aplicativa de `nombre_normalizado` contra **todas** las aulas, activas e inactivas. Si existe: `409 NOMBRE_DUPLICADO`.
 3. Revalidación inmediatamente antes del `INSERT` + defensa de constraint único (`P2002`) — mismo patrón que `spec_modulo_L.md` §3.2.
 4. Insertar con `is_active: true`, fecha de alta y usuario registrante.
@@ -119,9 +119,24 @@ Con la collation aplicada a nivel de columna, el `orderBy: { nombre: "asc" }` ha
 
 ---
 
+### 2.3. Servicios públicos para otros módulos (Regla N.° 3)
+
+Funciones de `src/server/aulas/aula.service.ts` que otros módulos invocan en lugar de consultar la tabla `aulas` directamente. No son endpoints ni requieren un permiso `aulas:*`: el control de acceso lo hace la ruta del módulo que las consume (hoy, `turnos:asignar_aula` en `spec_modulo_C.md` §2.3). El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador para ejecutarse dentro de su `prisma.$transaction`.
+
+| Función | Devuelve | Uso actual |
+|---|---|---|
+| `verificarAulaActiva(id, db?)` | `{ idAula, capacidadAula }` si el aula existe y está activa; `null` en cualquier otro caso | HU-C-15: aula elegida al asignar |
+| `listarAulasActivasParaTurno(cupoMaximo)` | `{ id, nombre, capacidad }[]` de las aulas activas con `capacidad >= cupoMaximo`, en el orden natural de la columna (§3.2) | HU-C-15: opciones de aula (`GET /api/turnos/aula/opciones`) |
+| `hayAulasActivas(db?)` | `boolean`: si existe al menos un aula activa | HU-C-15: distinguir "No hay aulas activas registradas" |
+| `existeAula(id, db?)` | `boolean`: si el aula existe, activa o inactiva | HU-C-15: separar aula inexistente de aula inactiva |
+
+Ninguna de estas funciones evalúa disponibilidad por horario (§3.3): esa validación sigue siendo exclusiva del Módulo C. El criterio de capacidad de `listarAulasActivasParaTurno` lo define `spec_modulo_C.md` §2.3; este módulo solo lo aplica como filtro de consulta.
+
+---
+
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
-Toda la lógica reside en `lib/services/aulas/aula.service.ts`, conforme a la Regla N.° 4 de `docs/RULES.md`.
+Toda la lógica reside en `src/server/aulas/aula.service.ts`, conforme a la Regla N.° 4 de `docs/RULES.md`.
 
 ### 3.1. Unicidad case-insensitiva contra el universo completo (activas + inactivas)
 Mismo patrón que `spec_modulo_L.md` §3.1: un aula inactiva sigue "ocupando" su nombre. Doble validación (aplicativa + constraint `P2002`).

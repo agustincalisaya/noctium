@@ -12,7 +12,7 @@ export const PATCH = withPermission("turnos:asignar_aula", async (req, ctx) => {
     return NextResponse.json({ data: await asignarAulaTurno(id, parsed.data, req.auth!.user.id), error: null });
   } catch (error) {
     if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message, ...(error.detalles ? { detalles: error.detalles } : {}) } },
-      { status: error.code === "TURNO_NO_ENCONTRADO" || error.code === "SIN_AULAS_ACTIVAS" ? 404 : 409 });
+      { status: error.code === "TURNO_NO_ENCONTRADO" || error.code === "SIN_AULAS_ACTIVAS" || error.code === "AULA_NO_ENCONTRADA" ? 404 : 409 });
     throw error;
   }
 });

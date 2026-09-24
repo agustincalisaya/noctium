@@ -1,10 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { verificarAulaActiva, listarAulasActivasParaTurno } from "@/server/aulas/aula.service";
+import { verificarAulaActiva, listarAulasActivasParaTurno, hayAulasActivas, existeAula } from "@/server/aulas/aula.service";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { estaDentroDeHorarioAtencion, profesorActivoDictaMateria, intervalosSeSuperponen } from "@/server/profesores/profesor.service";
 import { ServiceError } from "@/server/shared/service-error";
+import { emitirEventoTurno } from "./turno.service";
 import { turnoSigueVigente } from "./turno.validaciones";
 import { alumnoEnConflicto, esConflictoDeReserva, recursoEnConflicto } from "./turno.reserva-error";
 import type { AsignarAulaTurnoInput } from "./turno.schema";
@@ -59,7 +60,7 @@ export async function listarOpcionesAulaTurno(turnoId: string) {
   const turno = await prisma.turno.findUnique({ where: { idTurno: turnoId }, select: { estadoTurno: true, cupoMaximoTurno: true } });
   if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
   if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "El turno ya está confirmado");
-  if ((await prisma.aula.count({ where: { activaAula: true } })) === 0) throw new ServiceError("SIN_AULAS_ACTIVAS", "No hay aulas activas registradas");
+  if (!(await hayAulasActivas())) throw new ServiceError("SIN_AULAS_ACTIVAS", "No hay aulas activas registradas");
   return listarAulasActivasParaTurno(turno.cupoMaximoTurno);
 }
 
@@ -87,8 +88,9 @@ export async function asignarAulaTurno(turnoId: string, input: AsignarAulaTurnoI
       if (!(await verificarMateriaActiva(turno.materiaId, tx))) throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
       const aula = await verificarAulaActiva(input.aula_id, tx);
       if (!aula) {
-        if ((await tx.aula.count({ where: { activaAula: true } })) === 0) throw new ServiceError("SIN_AULAS_ACTIVAS", "No hay aulas activas registradas");
-        throw new ServiceError("AULA_NO_DISPONIBLE", "El aula no existe o no está activa");
+        if (!(await hayAulasActivas(tx))) throw new ServiceError("SIN_AULAS_ACTIVAS", "No hay aulas activas registradas");
+        if (await existeAula(input.aula_id, tx)) throw new ServiceError("AULA_INACTIVA", "El aula seleccionada no está activa");
+        throw new ServiceError("AULA_NO_ENCONTRADA", "No se encontró el aula");
       }
       if (aula.capacidadAula < turno.cupoMaximoTurno) throw new ServiceError("AULA_CAPACIDAD_INSUFICIENTE", "La capacidad del aula es menor que el cupo máximo del turno");
       if (turno.alumnos.length > turno.cupoMaximoTurno) throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
@@ -111,9 +113,12 @@ export async function asignarAulaTurno(turnoId: string, input: AsignarAulaTurnoI
       return { id: turnoId, aula_id: input.aula_id, estado, mensaje: confirmar ? "Turno confirmado correctamente" : "Aula asignada correctamente", alumno_ids: alumnoIds, cupo: turno.cupoMaximoTurno };
     }, { timeout: 15_000 });
 
-    await prisma.eventoTurno.create({ data: { tipoEvento: "turno:aula_asignada", turnoId, usuarioId, payloadEvento: { turno_id: turnoId, aula_id: input.aula_id, usuario_id: usuarioId } } });
-    if (resultado.estado !== "PENDIENTE") await prisma.eventoTurno.create({ data: { tipoEvento: resultado.estado === "COMPLETO" ? "turno:completado" : "turno:disponibilizado", turnoId, usuarioId,
-      payloadEvento: { turno_id: turnoId, alumno_ids: resultado.alumno_ids, cupo_maximo: resultado.cupo, aula_id: input.aula_id, usuario_id: usuarioId } } });
+    await emitirEventoTurno("turno:aula_asignada", turnoId, usuarioId, { turno_id: turnoId, aula_id: input.aula_id, usuario_id: usuarioId });
+    if (resultado.estado !== "PENDIENTE") {
+      await emitirEventoTurno(resultado.estado === "COMPLETO" ? "turno:completado" : "turno:disponibilizado", turnoId, usuarioId, {
+        turno_id: turnoId, alumno_ids: resultado.alumno_ids, cupo_maximo: resultado.cupo, aula_id: input.aula_id, usuario_id: usuarioId,
+      });
+    }
     return { id: resultado.id, aula_id: resultado.aula_id, estado: resultado.estado, mensaje: resultado.mensaje };
   } catch (error) {
     if (esConflictoDeReserva(error)) {

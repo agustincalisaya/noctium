@@ -110,7 +110,7 @@ describe("HU-C-01 interfaz", () => {
       creado_en: "2026-09-24T12:00:00.000Z", actualizado_en: "2026-09-24T12:00:00.000Z",
       creado_por: "mesa@example.com", modificado_por: "mesa@example.com",
     }));
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} />));
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} puedeAsignarAula={false} />));
     await esperar();
     expect(container.textContent).toContain("Pérez, Juan");
     expect(container.textContent).toContain("Disponible");
@@ -121,5 +121,21 @@ describe("HU-C-01 interfaz", () => {
     expect(estado?.className).toContain("bg-success");
     expect(container.querySelector("a")?.getAttribute("href")).toBe("/turnos?pagina=2&orden=fecha_hora_asc");
     expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1", { cache: "no-store" });
+  });
+
+  it("en un turno pendiente ofrece asignar aula solo con el permiso", async () => {
+    fetch.mockResolvedValue(respuesta({
+      ...item("PENDIENTE", { id: "turno-1" }), duracion_minutos: 60, cupo_maximo: 5,
+      creado_en: "2026-09-24T12:00:00.000Z", actualizado_en: "2026-09-24T12:00:00.000Z",
+      creado_por: "mesa@example.com", modificado_por: "mesa@example.com",
+    }));
+    const linkAula = () => container.querySelector('a[href*="/aula"]');
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} puedeAsignarAula />));
+    await esperar();
+    expect(linkAula()?.getAttribute("href")).toBe("/turnos/turno-1/aula?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc");
+    expect(linkAula()?.textContent).toBe("Asignar o cambiar aula");
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} puedeAsignarAula={false} />));
+    await esperar();
+    expect(linkAula()).toBeNull();
   });
 });
