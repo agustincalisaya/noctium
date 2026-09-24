@@ -7,6 +7,8 @@
 **Schema:** sin migración. `Turno` (`fechaTurno`, `horaInicioTurno`, `duracionMinutosTurno`, `estadoTurno`, `materiaId`, `profesorId`, `aulaId`), `TurnoAlumno` y `Profesor.usuarioId` (vínculo cuenta ↔ profesor) ya tienen todo lo necesario. La hora de fin se calcula (`horaInicio + duracionMinutos`), no se guarda.
 **Estructura de carpetas:** conforme a la Regla N.° 11 de `RULES.md` (tipos en `src/types/calendario.types.ts`, schema en `src/server/calendario/calendario.schema.ts`, service en `src/server/calendario/calendario.service.ts`).
 
+> **Nota de sincronización (25/09/2026, remediación de HU-C-15):** las menciones a `AGENDADO` en este documento reflejan el estado del proyecto al implementar esta HU y se conservan como registro histórico. Desde HU-C-03 el enum `EstadoTurno` es `PENDIENTE | DISPONIBLE | COMPLETO`, y `listarTurnosAgendadosDeProfesor()` ya filtra por `estadoTurno IN ("DISPONIBLE", "COMPLETO")` (migrado en HU-C-03). HU-C-04 y HU-C-15 se cerraron sin que el Módulo C expusiera `listarTurnosAgendadosPorProfesor()`, así que la excepción temporal de §1 punto 7 sigue vigente: el TODO de `calendario.service.ts` se reescribió como deuda técnica explícita, `TODO(Regla N.° 3)`.
+
 ---
 
 ## 0. Relevamiento previo a implementación (Claude Code)
@@ -413,8 +415,8 @@ Verificado sobre el HTML renderizado por el servidor (`curl` con sesión de cada
 ## 8. Pendientes y notas
 
 - **`/turnos/[id]` debe aceptar `volver` del calendario (criterio 6):** hoy `turnos/[id]/page.tsx` solo respeta `volver` si empieza con `/turnos?`; si no, el link "Volver al listado" lleva a `/turnos`. Hace falta que acepte también rutas internas que empiecen con `/calendario` (idealmente cualquier ruta interna que empiece con `/`, sin `//`, para no abrir un open redirect) y que el texto del link no diga "listado" en ese caso. **A coordinar con el dueño de turnos (Emir).** Del lado del calendario no hay nada más que hacer: los eventos ya mandan `?volver=%2Fcalendario%2Fprofesor%3FprofesorId%3D…%26semana%3D…`.
-- **Servicio público de turnos (Regla 3 / `spec_modulo_J.md` §3.4):** cuando el módulo C exponga `listarTurnosAgendadosPorProfesor()` (o equivalente), reemplazar el cuerpo de `listarTurnosAgendadosDeProfesor()` por esa llamada (ver `TODO(HU-C-04/HU-C-15)` en `calendario.service.ts`). La forma de dato que consume la UI no cambia.
-- **Integración con HU-C-04 / HU-C-15:** hoy la agenda se prueba con los turnos `AGENDADO` del seed. Al cierre del sprint, validar con turnos que pasan a `AGENDADO` por el flujo real (asignación de profesor y aula) que aparecen en la agenda, y que los que quedan `PENDIENTE` no.
+- **Servicio público de turnos (Regla 3 / `spec_modulo_J.md` §3.4):** cuando el módulo C exponga `listarTurnosAgendadosPorProfesor()` (o equivalente), reemplazar el cuerpo de `listarTurnosAgendadosDeProfesor()` por esa llamada (ver `TODO(Regla N.° 3)` en `calendario.service.ts`; HU-C-04 y HU-C-15 cerraron sin exponerlo). La forma de dato que consume la UI no cambia.
+- **Integración con HU-C-04 / HU-C-15:** hoy la agenda se prueba con los turnos `DISPONIBLE`/`COMPLETO` del seed. Al cierre del sprint, validar con turnos que pasan a `DISPONIBLE`/`COMPLETO` por el flujo real (asignación de aula en HU-C-15) que aparecen en la agenda, y que los que quedan `PENDIENTE` no.
 - **Turnos grupales:** ningún turno del seed tiene más de un alumno; la unión con "; " está cubierta solo por test unitario.
 - **Revisión visual pendiente:** la grilla se verificó por HTML y estilos calculados, no en un navegador. Falta mirar en pantalla la grilla, el indicador de carga y el error con Reintentar.
 - **Test runner:** mismo estado que HU-D-01 §6 y HU-D-05 §6 (sin runner instalado; se corren con `npx -y vitest@3 run`).
