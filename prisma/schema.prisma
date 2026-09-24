@@ -62,9 +62,11 @@ enum DiaSemana {
   DOMINGO
 }
 
+// spec_modulo_C.md Revisión 2: PENDIENTE → {DISPONIBLE ⇄ COMPLETO}.
 enum EstadoTurno {
   PENDIENTE
-  AGENDADO
+  DISPONIBLE
+  COMPLETO
 }
 
 // Eventos de seguridad a auditar (RNF-SEG-09): HU-A-01 c3/c5, HU-A-03 c3 y HU-B-08 c9.
@@ -467,6 +469,8 @@ model Turno {
   // centro). Se guarda en el turno para que cambiar el parámetro no altere
   // los turnos ya creados.
   duracionMinutosTurno Int
+  // Cantidad máxima de alumnos inscriptos (HU-C-03 c1, entero > 0).
+  cupoMaximoTurno Int
   estadoTurno   EstadoTurno   @default(PENDIENTE)
 
   materiaId  String
@@ -488,9 +492,8 @@ model Turno {
   @@map("turnos")
 }
 
-// Tabla intermedia N:M Turno <-> Alumno, conservada para una etapa futura.
-// En Sprint 1, HU-C-04 reemplaza todos los vínculos del turno y crea uno solo.
-// No hay UNIQUE(turnoId): HU-C-15 debe revalidar disponibilidad al agendar.
+// Tabla intermedia N:M Turno <-> Alumno: un turno grupal tiene uno o varios
+// alumnos, hasta Turno.cupoMaximoTurno (spec_modulo_C.md Revisión 2).
 model TurnoAlumno {
   turnoId  String
   alumnoId String

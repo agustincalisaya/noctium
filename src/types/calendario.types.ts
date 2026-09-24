@@ -1,7 +1,7 @@
 import type { DiaDeSemana, ParametrosGrilla } from "@/lib/calendario-semana";
 
 /**
- * Turno `AGENDADO` tal como lo muestra la agenda (HU-J-01,
+ * Turno `DISPONIBLE` o `COMPLETO` tal como lo muestra la agenda (HU-J-01,
  * `spec_modulo_J.md` §2.1). `alumno` es "Apellido, Nombre"; si el turno
  * tuviera más de un alumno, se unen con "; ".
  */
@@ -16,7 +16,7 @@ export type EventoCalendario = {
   alumno: string;
   materia: string;
   aula: string;
-  estado: "AGENDADO";
+  estado: "DISPONIBLE" | "COMPLETO";
 };
 
 export type RangoSemana = { desde: string; hasta: string };

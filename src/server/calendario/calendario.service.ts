@@ -24,7 +24,7 @@ import type { OpcionProfesor } from "@/types/profesor.types";
  */
 
 /**
- * Turnos `AGENDADO` de un profesor con fecha en [desde, hasta).
+ * Turnos `DISPONIBLE` o `COMPLETO` de un profesor con fecha en [desde, hasta).
  *
  * TODO(HU-C-04/HU-C-15): `spec_modulo_J.md` §3.4 pide leer los turnos vía un
  * servicio público del módulo C (`listarTurnosAgendadosPorProfesor`), que
@@ -44,11 +44,12 @@ export async function listarTurnosAgendadosDeProfesor(
   const turnos = await prisma.turno.findMany({
     where: {
       profesorId,
-      estadoTurno: "AGENDADO",
+      estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] },
       fechaTurno: { gte: desde, lt: hasta },
     },
     select: {
       idTurno: true,
+      estadoTurno: true,
       fechaTurno: true,
       horaInicioTurno: true,
       duracionMinutosTurno: true,
@@ -81,7 +82,7 @@ export async function listarTurnosAgendadosDeProfesor(
       alumno: alumnos.length > 0 ? alumnos.join("; ") : VALOR_AUSENTE,
       materia: turno.materia.nombreMateria,
       aula: turno.aula?.nombreAula ?? VALOR_AUSENTE,
-      estado: "AGENDADO",
+      estado: turno.estadoTurno === "COMPLETO" ? "COMPLETO" : "DISPONIBLE",
     };
   });
 }

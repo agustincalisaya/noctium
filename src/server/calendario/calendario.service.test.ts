@@ -34,9 +34,11 @@ function filaTurno({
   duracion = 60,
   alumnos = [["Pérez", "Ana"]],
   aula = "Aula 2" as string | null,
+  estado = "DISPONIBLE",
 } = {}) {
   return {
     idTurno: id,
+    estadoTurno: estado,
     fechaTurno: new Date(`${fecha}T00:00:00.000Z`),
     horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`),
     duracionMinutosTurno: duracion,
@@ -58,7 +60,7 @@ beforeEach(() => {
 });
 
 describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
-  it("filtra AGENDADO en la query, por profesor y rango [desde, hasta)", async () => {
+  it("filtra DISPONIBLE y COMPLETO en la query, por profesor y rango [desde, hasta)", async () => {
     const desde = new Date("2026-09-21T00:00:00.000Z");
     const hasta = new Date("2026-09-26T00:00:00.000Z");
 
@@ -67,7 +69,7 @@ describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
     const args = vi.mocked(prisma.turno.findMany).mock.calls[0]![0]!;
     expect(args.where).toEqual({
       profesorId: "ckprofesor",
-      estadoTurno: "AGENDADO",
+      estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] },
       fechaTurno: { gte: desde, lt: hasta },
     });
   });
@@ -85,8 +87,16 @@ describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
       alumno: "Pérez, Ana",
       materia: "Matemática",
       aula: "Aula 2",
-      estado: "AGENDADO",
+      estado: "DISPONIBLE",
     });
+  });
+
+  it("expone COMPLETO cuando el turno alcanzó su cupo", async () => {
+    vi.mocked(prisma.turno.findMany).mockResolvedValue([filaTurno({ estado: "COMPLETO" })] as never);
+
+    const [evento] = await listarTurnosAgendadosDeProfesor("ckprofesor", new Date(), new Date());
+
+    expect(evento!.estado).toBe("COMPLETO");
   });
 
   it("une los alumnos de un turno grupal con '; ' y usa '—' si falta alumno o aula", async () => {

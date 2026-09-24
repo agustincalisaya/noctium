@@ -43,6 +43,7 @@ import bcrypt from "bcryptjs";
 import {
   PrismaClient,
   type DiaSemana,
+  type EstadoTurno,
   type Genero,
   type RolUsuario,
 } from "@prisma/client";
@@ -573,23 +574,26 @@ type TurnoSeed = {
   profesor: number | null; // índice en PROFESORES
   aula: string | null;
   alumno: number | null; // índice en ALUMNOS
+  // Cupo máximo (HU-C-03). Con un alumno inscripto, cupo 1 deja el turno
+  // COMPLETO y cupo 3 lo deja DISPONIBLE.
+  cupo: number;
 };
 
 const TURNOS: TurnoSeed[] = [
   // --- Semana en curso ---
-  { id: "seed-turno-01", semana: 0, dia: 0, hora: 8, duracion: 1, materia: "Matemática", profesor: 0, aula: "Aula 1", alumno: 0 },
-  { id: "seed-turno-02", semana: 0, dia: 0, hora: 10, duracion: 2, materia: "Programación I", profesor: 1, aula: "Aula 2", alumno: 1 },
-  { id: "seed-turno-03", semana: 0, dia: 0, hora: 16, duracion: 2, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 2 },
-  { id: "seed-turno-04", semana: 0, dia: 1, hora: 14, duracion: 3, materia: "Bases de Datos", profesor: 1, aula: "Aula 10", alumno: 3 },
-  { id: "seed-turno-05", semana: 0, dia: 2, hora: 9, duracion: 2, materia: "Física", profesor: 0, aula: "Aula 2", alumno: 4 },
-  { id: "seed-turno-06", semana: 0, dia: 3, hora: 15, duracion: 2, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 5 },
+  { id: "seed-turno-01", semana: 0, dia: 0, hora: 8, duracion: 1, materia: "Matemática", profesor: 0, aula: "Aula 1", alumno: 0, cupo: 1 },
+  { id: "seed-turno-02", semana: 0, dia: 0, hora: 10, duracion: 2, materia: "Programación I", profesor: 1, aula: "Aula 2", alumno: 1, cupo: 3 },
+  { id: "seed-turno-03", semana: 0, dia: 0, hora: 16, duracion: 2, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 2, cupo: 3 },
+  { id: "seed-turno-04", semana: 0, dia: 1, hora: 14, duracion: 3, materia: "Bases de Datos", profesor: 1, aula: "Aula 10", alumno: 3, cupo: 1 },
+  { id: "seed-turno-05", semana: 0, dia: 2, hora: 9, duracion: 2, materia: "Física", profesor: 0, aula: "Aula 2", alumno: 4, cupo: 3 },
+  { id: "seed-turno-06", semana: 0, dia: 3, hora: 15, duracion: 2, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 5, cupo: 3 },
   // --- Semana siguiente ---
-  { id: "seed-turno-07", semana: 1, dia: 0, hora: 12, duracion: 2, materia: "Bases de Datos", profesor: 1, aula: "Aula 11", alumno: 6 },
-  { id: "seed-turno-08", semana: 1, dia: 1, hora: 8, duracion: 3, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 7 },
-  { id: "seed-turno-09", semana: 1, dia: 2, hora: 14, duracion: 1, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 8 },
-  { id: "seed-turno-10", semana: 1, dia: 4, hora: 14, duracion: 2, materia: "Matemática", profesor: 0, aula: "Aula 10", alumno: 9 },
-  // --- PENDIENTE: solo materia + fecha + hora (HU-C-01 "continuar configuración") ---
-  { id: "seed-turno-11", semana: 1, dia: 3, hora: 10, duracion: 2, materia: "Programación I", profesor: null, aula: null, alumno: null },
+  { id: "seed-turno-07", semana: 1, dia: 0, hora: 12, duracion: 2, materia: "Bases de Datos", profesor: 1, aula: "Aula 11", alumno: 6, cupo: 1 },
+  { id: "seed-turno-08", semana: 1, dia: 1, hora: 8, duracion: 3, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 7, cupo: 3 },
+  { id: "seed-turno-09", semana: 1, dia: 2, hora: 14, duracion: 1, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 8, cupo: 1 },
+  { id: "seed-turno-10", semana: 1, dia: 4, hora: 14, duracion: 2, materia: "Matemática", profesor: 0, aula: "Aula 10", alumno: 9, cupo: 3 },
+  // --- PENDIENTE: solo materia + fecha + hora + cupo (HU-C-01 "continuar configuración") ---
+  { id: "seed-turno-11", semana: 1, dia: 3, hora: 10, duracion: 2, materia: "Programación I", profesor: null, aula: null, alumno: null, cupo: 5 },
 ];
 
 // ------------------------------------------------------------
@@ -893,11 +897,14 @@ async function main() {
   // 8) Turnos + TurnoAlumno ------------------------------------
   for (const t of TURNOS) {
     const agendado = t.profesor !== null;
+    const inscriptos = t.alumno !== null ? 1 : 0;
+    const estadoTurno: EstadoTurno = !agendado ? "PENDIENTE" : inscriptos >= t.cupo ? "COMPLETO" : "DISPONIBLE";
     const data = {
       fechaTurno: fechaRelativa(t.semana, t.dia),
       horaInicioTurno: hora(t.hora),
       duracionMinutosTurno: t.duracion * 60,
-      estadoTurno: agendado ? ("AGENDADO" as const) : ("PENDIENTE" as const),
+      cupoMaximoTurno: t.cupo,
+      estadoTurno,
       materiaId: materiaIds.get(t.materia)!,
       profesorId: agendado ? profesorIds[t.profesor!] : null,
       aulaId: t.aula ? aulaIds.get(t.aula)! : null,
@@ -918,7 +925,8 @@ async function main() {
     }
   }
   const agendados = TURNOS.filter((t) => t.profesor !== null).length;
-  console.log(`✓ ${TURNOS.length} turnos creados (${agendados} AGENDADO, ${TURNOS.length - agendados} PENDIENTE)`);
+  const completos = TURNOS.filter((t) => t.profesor !== null && t.alumno !== null && t.cupo <= 1).length;
+  console.log(`✓ ${TURNOS.length} turnos creados (${agendados - completos} DISPONIBLE, ${completos} COMPLETO, ${TURNOS.length - agendados} PENDIENTE)`);
   console.log(`✓ ${agendados} inscripciones alumno-turno creadas`);
 
   // 9) Parámetros del sistema ----------------------------------
@@ -1022,27 +1030,23 @@ for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
   console.log(
     `✓ ${ROLES.length + 10} permisos RBAC creados`,
   );
-  // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
-    },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (profesores:crear para GERENTE)`);
-
-  // profesores:editar (HU-D-02, contacto; también lo usan HU-D-03/04):
-  // exclusivo de Gerente. La migración 20260923015526_profesor_contacto_modificado_por
-  // también lo inserta, para bases que no corran el seed.
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
-    },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (profesores:editar para GERENTE)`);
+  // profesores:crear / profesores:editar (HU-D-01/02/03/04): exclusivos de
+  // Mesa de Entrada. Las migraciones que los insertaron para GERENTE dejan
+  // filas viejas en bases existentes, por eso se borran acá (el upsert con
+  // update: {} no las tocaría).
+  for (const accion of ["profesores:crear", "profesores:editar"] as const) {
+    await prisma.rolPermiso.deleteMany({
+      where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: accion },
+    });
+    await prisma.rolPermiso.upsert({
+      where: {
+        rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: accion },
+      },
+      update: {},
+      create: { rolPermiso: "MESA_ENTRADA", accionPermiso: accion },
+    });
+  }
+  console.log(`✓ 2 permisos RBAC creados (profesores:crear y profesores:editar para MESA_ENTRADA)`);
 
   // alumnos:editar (HU-B-02, contacto): exclusivo de Mesa de Entrada, mismo
   // criterio que alumnos:crear (HU-B-01). La migración
@@ -1072,18 +1076,20 @@ for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
   });
   console.log(`✓ 1 permiso RBAC creado (alumnos:leer para MESA_ENTRADA)`);
 
-  // profesores:leer (HU-D-05, listado y detalle): exclusivo de Gerente, mismo
-  // rol que profesores:crear/editar y que /profesores en rutas-por-rol.ts. La
-  // migración 20260923200000_profesor_nombre_normalizado_y_leer_permiso
-  // también lo inserta, para bases que no corran el seed.
+  // profesores:leer (HU-D-05, listado y detalle): exclusivo de Mesa de Entrada,
+  // mismo rol que profesores:crear/editar. Se borran las filas de otros roles
+  // (p. ej. GERENTE de la migración 20260923200000_profesor_nombre_normalizado_y_leer_permiso).
+  await prisma.rolPermiso.deleteMany({
+    where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: "profesores:leer" },
+  });
   await prisma.rolPermiso.upsert({
     where: {
-      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:leer" },
+      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "profesores:leer" },
     },
     update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:leer" },
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "profesores:leer" },
   });
-  console.log(`✓ 1 permiso RBAC creado (profesores:leer para GERENTE)`);
+  console.log(`✓ 1 permiso RBAC creado (profesores:leer para MESA_ENTRADA)`);
 
   // calendario:leer (HU-J-01, spec_modulo_J.md §2): agenda semanal de solo
   // lectura para Mesa de Entrada, Gerente y Profesor (este último solo ve su
