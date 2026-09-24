@@ -49,6 +49,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       icon: BookOpen,
       items: [{ label: "Listado", href: "/materias", icon: BookOpen }],
     },
+    {
+      label: "Profesores",
+      icon: GraduationCap,
+      items: [{ label: "Listado", href: "/profesores", icon: GraduationCap }],
+    },
   ],
   GERENTE: [
     {
@@ -57,16 +62,10 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarDays }],
     },
     {
-      label: "Profesores",
-      icon: GraduationCap,
-      items: [{ label: "Listado", href: "/profesores", icon: GraduationCap }],
-    },
-    {
       label: "Materias",
       icon: BookOpen,
       items: [
         { label: "Listado", href: "/materias", icon: BookOpen },
-        { label: "Nueva materia", href: "/materias/nueva", icon: BookOpen },
       ],
     },
     {
@@ -74,7 +73,6 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       icon: DoorOpen,
       items: [
         { label: "Listado", href: "/aulas", icon: DoorOpen },
-        { label: "Nueva aula", href: "/aulas/nueva", icon: DoorOpen },
       ],
     },
   ],
@@ -85,11 +83,6 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       label: "Calendario",
       icon: CalendarDays,
       items: [{ label: "Mi agenda", href: "/calendario/profesor", icon: CalendarDays }],
-    },
-    {
-      label: "Materias",
-      icon: BookOpen,
-      items: [{ label: "Listado", href: "/materias", icon: BookOpen }],
     },
   ],
   ALUMNO: [],
