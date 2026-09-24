@@ -1022,27 +1022,23 @@ for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
   console.log(
     `✓ ${ROLES.length + 10} permisos RBAC creados`,
   );
-  // profesores:crear (HU-D-01): exclusivo de Gerente, no de los 4 roles.
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
-    },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:crear" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (profesores:crear para GERENTE)`);
-
-  // profesores:editar (HU-D-02, contacto; también lo usan HU-D-03/04):
-  // exclusivo de Gerente. La migración 20260923015526_profesor_contacto_modificado_por
-  // también lo inserta, para bases que no corran el seed.
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
-    },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:editar" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (profesores:editar para GERENTE)`);
+  // profesores:crear / profesores:editar (HU-D-01/02/03/04): exclusivos de
+  // Mesa de Entrada. Las migraciones que los insertaron para GERENTE dejan
+  // filas viejas en bases existentes, por eso se borran acá (el upsert con
+  // update: {} no las tocaría).
+  for (const accion of ["profesores:crear", "profesores:editar"] as const) {
+    await prisma.rolPermiso.deleteMany({
+      where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: accion },
+    });
+    await prisma.rolPermiso.upsert({
+      where: {
+        rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: accion },
+      },
+      update: {},
+      create: { rolPermiso: "MESA_ENTRADA", accionPermiso: accion },
+    });
+  }
+  console.log(`✓ 2 permisos RBAC creados (profesores:crear y profesores:editar para MESA_ENTRADA)`);
 
   // alumnos:editar (HU-B-02, contacto): exclusivo de Mesa de Entrada, mismo
   // criterio que alumnos:crear (HU-B-01). La migración
@@ -1072,18 +1068,20 @@ for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
   });
   console.log(`✓ 1 permiso RBAC creado (alumnos:leer para MESA_ENTRADA)`);
 
-  // profesores:leer (HU-D-05, listado y detalle): exclusivo de Gerente, mismo
-  // rol que profesores:crear/editar y que /profesores en rutas-por-rol.ts. La
-  // migración 20260923200000_profesor_nombre_normalizado_y_leer_permiso
-  // también lo inserta, para bases que no corran el seed.
+  // profesores:leer (HU-D-05, listado y detalle): exclusivo de Mesa de Entrada,
+  // mismo rol que profesores:crear/editar. Se borran las filas de otros roles
+  // (p. ej. GERENTE de la migración 20260923200000_profesor_nombre_normalizado_y_leer_permiso).
+  await prisma.rolPermiso.deleteMany({
+    where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: "profesores:leer" },
+  });
   await prisma.rolPermiso.upsert({
     where: {
-      rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "profesores:leer" },
+      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "profesores:leer" },
     },
     update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "profesores:leer" },
+    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "profesores:leer" },
   });
-  console.log(`✓ 1 permiso RBAC creado (profesores:leer para GERENTE)`);
+  console.log(`✓ 1 permiso RBAC creado (profesores:leer para MESA_ENTRADA)`);
 
   // calendario:leer (HU-J-01, spec_modulo_J.md §2): agenda semanal de solo
   // lectura para Mesa de Entrada, Gerente y Profesor (este último solo ve su
