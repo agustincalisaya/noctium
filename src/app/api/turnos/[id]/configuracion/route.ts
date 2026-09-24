@@ -11,7 +11,7 @@ export const PATCH = withPermission("turnos:crear", async (req, ctx) => {
   try {
     return NextResponse.json({ data: await modificarConfiguracionTurno(id, parsed.data, req.auth!.user.id), error: null });
   } catch (error) {
-    if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.code === "TURNO_NO_ENCONTRADO" ? 404 : ["TURNO_YA_AGENDADO", "TURNO_MODIFICADO", "MATERIA_NO_DISPONIBLE"].includes(error.code) ? 409 : 422 });
+    if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.code === "TURNO_NO_ENCONTRADO" ? 404 : ["TURNO_YA_DISPONIBLE", "TURNO_MODIFICADO", "MATERIA_NO_DISPONIBLE", "CUPO_MENOR_A_INSCRIPTOS"].includes(error.code) ? 409 : 422 });
     throw error;
   }
 });
