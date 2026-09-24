@@ -23,8 +23,8 @@ export async function listarMateriasActivas() {
   });
 }
 
-export async function verificarMateriaActiva(id: string) {
-  return prisma.materia.findFirst({
+export async function verificarMateriaActiva(id: string, db: Prisma.TransactionClient = prisma) {
+  return db.materia.findFirst({
     where: { idMateria: id, activaMateria: true },
     select: { idMateria: true },
   });

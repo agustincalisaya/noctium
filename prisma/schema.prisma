@@ -488,6 +488,7 @@ model Turno {
   profesor Profesor?     @relation(fields: [profesorId], references: [idProfesor])
   aula     Aula?         @relation(fields: [aulaId], references: [idAula])
   alumnos  TurnoAlumno[]
+  reservas ReservaTurno[]
 
   @@map("turnos")
 }
@@ -503,6 +504,21 @@ model TurnoAlumno {
 
   @@id([turnoId, alumnoId])
   @@map("turno_alumno")
+}
+
+// Proyección técnica mantenida por triggers PostgreSQL para impedir
+// superposiciones entre turnos confirmados. No es una entidad de dominio.
+model ReservaTurno {
+  turnoId String
+  tipoRecurso String
+  recursoId String
+  inicioReserva DateTime @db.Timestamp(6)
+  finReserva DateTime @db.Timestamp(6)
+
+  turno Turno @relation(fields: [turnoId], references: [idTurno], onDelete: Cascade)
+
+  @@id([turnoId, tipoRecurso, recursoId])
+  @@map("reservas_turno")
 }
 
 // Eventos de configuración del turno: escritura posterior al commit de negocio.

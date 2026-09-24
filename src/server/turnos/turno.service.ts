@@ -7,6 +7,7 @@ import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service
 import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
+import { esConflictoDeReserva } from "./turno.reserva-error";
 import type { AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
 
 const turnoInclude = {
@@ -181,7 +182,9 @@ async function bloquearTurno(tx: Prisma.TransactionClient, turnoId: string) {
 
 /** HU-C-04 §2.5: alta individual de un alumno en un turno DISPONIBLE. */
 export async function agregarAlumnoTurno(turnoId: string, input: AgregarAlumnoTurnoInput, usuarioId: string) {
-  const resultado = await prisma.$transaction(async (tx) => {
+  let resultado;
+  try {
+    resultado = await prisma.$transaction(async (tx) => {
     const turno = await bloquearTurno(tx, turnoId);
     if (turno.estadoTurno === "COMPLETO") throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
     if (!(await verificarAlumnoActivo(input.alumno_id, tx))) throw alumnoInactivo(input.alumno_id);
@@ -198,7 +201,11 @@ export async function agregarAlumnoTurno(turnoId: string, input: AgregarAlumnoTu
       && (await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "DISPONIBLE" }, data: { estadoTurno: "COMPLETO", modificadoPorUsuarioId: usuarioId } })).count > 0;
     const alumnoIds = completado ? (await tx.turnoAlumno.findMany({ where: { turnoId }, select: { alumnoId: true } })).map(({ alumnoId }) => alumnoId) : [];
     return { completado, alumnoIds, cupo: turno.cupoMaximoTurno, inscriptos: inscriptos + 1 };
-  });
+    });
+  } catch (error) {
+    if (esConflictoDeReserva(error)) throw alumnoOcupado(input.alumno_id);
+    throw error;
+  }
   await emitirEventoTurno("turno:alumno_agregado", turnoId, usuarioId, { turno_id: turnoId, alumno_id: input.alumno_id, usuario_id: usuarioId });
   if (resultado.completado) {
     await emitirEventoTurno("turno:completado", turnoId, usuarioId, { turno_id: turnoId, alumno_ids: resultado.alumnoIds, cupo_maximo: resultado.cupo, usuario_id: usuarioId });
