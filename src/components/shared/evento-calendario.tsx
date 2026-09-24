@@ -1,11 +1,17 @@
 import Link from "next/link";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, Users, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { EventoCalendario as Evento } from "@/types/calendario.types";
 
 const ETIQUETA_ESTADO: Record<Evento["estado"], string> = {
   DISPONIBLE: "Disponible",
   COMPLETO: "Completo",
+};
+
+// El ícono distingue el estado además del texto (c3), sin depender del color.
+const ICONO_ESTADO: Record<Evento["estado"], LucideIcon> = {
+  DISPONIBLE: CalendarCheck,
+  COMPLETO: Users,
 };
 
 /**
@@ -27,6 +33,7 @@ export function EventoCalendario({
 }) {
   const horario = `${evento.hora_inicio}–${evento.hora_fin}`;
   const estado = ETIQUETA_ESTADO[evento.estado];
+  const IconoEstado = ICONO_ESTADO[evento.estado];
   const descripcion = `${horario} · ${evento.alumno} · ${evento.materia} · ${evento.aula} · ${estado}`;
 
   return (
@@ -41,7 +48,7 @@ export function EventoCalendario({
       <span className="flex items-center justify-between gap-1">
         <span className="font-semibold tabular-nums">{horario}</span>
         <Badge variant="success" className="shrink-0 gap-1 px-1.5 py-0">
-          <CalendarCheck className="size-3" aria-hidden />
+          <IconoEstado className="size-3" aria-hidden />
           {estado}
         </Badge>
       </span>
