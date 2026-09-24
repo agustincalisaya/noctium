@@ -2,7 +2,7 @@
 ## Noctium — Sprint 1 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
-**Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker, extensión `btree_gist` prevista pero aún no migrada — ver nota en 3.4) · Prisma ORM (`prisma-client`) · Zod
+**Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker, extensión `btree_gist` aplicada para las reservas de recursos — ver 3.4) · Prisma ORM (`prisma-client`) · Zod
 **Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 7, 10, 11) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (Materias) · `spec_modulo_B.md` (Alumno) · `spec_modulo_D.md` (Profesor, fórmula de superposición §3.4) · `spec_modulo_K.md` (Aulas) · `schema.prisma` · `docs/tasks/Sprint 1/`
 
 **HU contractualizadas en esta revisión:** HU-C-03 (Configurar turno — **implementada**, ver `docs/tasks/Sprint 1/HU-C-03.md`), HU-C-04 (Asignar profesor y alumnos / gestionar inscripciones), HU-C-15 (Asignar aula), HU-C-01 (Listar turnos) — Sprint 1.
@@ -13,15 +13,15 @@
 - Reemplazo del aula de un turno `DISPONIBLE` o `COMPLETO` (el reemplazo de aula solo aplica mientras el turno es `PENDIENTE`, ver 2.3).
 - Sugerencia automática de franjas disponibles: la fecha/hora se elige manualmente este sprint.
 - Búsqueda avanzada / filtros combinados en el listado (HU-C-01 §7 lo excluye explícitamente).
-- Quitar un alumno individual mientras el turno está `PENDIENTE` — mientras el turno no tiene aula, cualquier cambio en los alumnos se resuelve reemplazando el conjunto completo (2.2), no dando de baja uno solo (la baja individual, 2.5, solo existe a partir de `DISPONIBLE`/`COMPLETO`). Ver **DECISIÓN RESUELTA** al pie de 2.5.
+- Quitar un alumno individual mientras el turno está `PENDIENTE` — aunque ya tenga aula seleccionada, cualquier cambio en los alumnos se resuelve reemplazando el conjunto completo (2.2), no dando de baja uno solo (la baja individual, 2.5, solo existe a partir de `DISPONIBLE`/`COMPLETO`). Ver **DECISIÓN RESUELTA** al pie de 2.5.
 
 ---
 
-## ⚠️ Gap crítico descubierto en relevamiento (HU-C-03, 24/09) — pendiente de resolución en HU-C-15
+## Decisión resuelta en HU-C-15: protección de reservas concurrentes
 
-El relevamiento previo a implementar HU-C-03 confirmó contra la base real que **los *exclusion constraints* de la sección 3.4 nunca se migraron**. Lo único que existe hoy en la base sobre `turnos` es el `CREATE TYPE "EstadoTurno"` — no hay extensión `btree_gist`, no hay ningún `EXCLUDE USING gist`. Esto significa que la "defensa atómica final" que las secciones 3.4 y 3.6 describen como ya vigente **nunca estuvo en producción**, en ningún momento del proyecto (ni siquiera bajo el contrato de 2 estados de la Revisión 1). Hoy la única protección contra condiciones de carrera al agendar es la validación aplicativa (2.2 paso 5, 2.3 pasos 3 y 5), que la propia spec ya califica como "de buena fe, no la garantía atómica final" — pero en los hechos, esa garantía atómica final no existe todavía en ningún lado.
+El relevamiento de HU-C-03 detectó que la protección de motor prevista en la Revisión 1 no se había migrado. HU-C-15 la resolvió con `20260924150000_turnos_reservas_recursos_v2`, aplicada en `noctium_dev`: una tabla de reservas para aula, profesor y cada alumno de los turnos `DISPONIBLE` o `COMPLETO`, protegida por una exclusión GiST. Los disparadores mantienen esas reservas al confirmar un turno y al agregar o quitar alumnos de uno confirmado (HU-C-04). Ver 3.4.
 
-No es bloqueante para HU-C-03 (no toca esta capa) ni se resolvió en esta revisión. **Queda contractualizado como punto obligatorio de relevamiento para HU-C-15**, que es la HU que efectivamente depende de esta defensa para la transición a `DISPONIBLE`/`COMPLETO`. Cuando se resuelva, actualizar esta nota a "DECISIÓN RESUELTA" con el resultado.
+La validación aplicativa informa la causa del conflicto; la restricción de PostgreSQL impide que dos operaciones concurrentes consoliden reservas superpuestas. Un turno `PENDIENTE`, aun con aula seleccionada, no tiene reservas.
 
 ---
 
@@ -31,11 +31,11 @@ No es bloqueante para HU-C-03 (no toca esta capa) ni se resolvió en esta revisi
 |---|---|---|
 | HU-C-03 | Sin campo de cupo; el turno no era grupal | Se agrega `cupoMaximoTurno` (obligatorio, entero > 0, tope `2147483647` — ver nota en 2.1) al formulario y al modelo `Turno`. **Implementada 24/09.** |
 | HU-C-03 / HU-C-01 | Máquina de 2 estados (`PENDIENTE` → `AGENDADO`) | Máquina de 3 estados (`PENDIENTE` → `DISPONIBLE` ⇄ `COMPLETO`), con transición automática Disponible⇄Completo según inscripciones vs. cupo. Enum migrado en base real (`prisma migrate reset --force`, consentimiento del Scrum Master, 24/09) |
-| HU-C-04 | Un turno tenía exactamente un alumno (comentario del schema: "en Sprint 1 se reemplazan todos los vínculos y se crea uno solo") | Turno grupal desde este sprint: uno o varios alumnos (N:M vía `TurnoAlumno`, ya presente en `schema.prisma` pero documentada como transitoria — deja de serlo) |
-| HU-C-04 | `asignarParticipantesTurno()` recibía `alumno_id` único | Pasa a recibir `alumno_ids: string[]` (carga/reemplazo inicial, 2.2); se agrega una operación nueva de alta/baja individual (2.5). **Nota:** HU-C-03 solo ajustó el código de error y el filtro de estado de esta función para que compilara con el enum nuevo — la firma sigue siendo `alumno_id` único hasta que HU-C-04 la reescriba |
-| HU-C-15 | La asignación de aula transicionaba a `AGENDADO` | Transiciona a `DISPONIBLE` o directamente a `COMPLETO` (si los alumnos ya asignados alcanzan el cupo en ese mismo momento) |
+| HU-C-04 | Un turno tenía exactamente un alumno (comentario del schema: "en Sprint 1 se reemplazan todos los vínculos y se crea uno solo") | Turno grupal desde este sprint: de cero a `cupoMaximoTurno` alumnos (N:M vía `TurnoAlumno`; se exige al menos uno para la confirmación en HU-C-15). |
+| HU-C-04 | `asignarParticipantesTurno()` recibía `alumno_id` único | Recibe `alumno_ids: string[]` (carga/reemplazo inicial, 2.2); se agrega una operación de alta/baja individual (2.5). |
+| HU-C-15 | La asignación de aula transicionaba a `AGENDADO` | Permite guardar o reemplazar aula sin reservar recursos mientras el turno siga `PENDIENTE`; al reunir los requisitos, confirma atómicamente como `DISPONIBLE` o `COMPLETO` según ocupación/cupo, con capacidad de aula ≥ `cupoMaximoTurno` y reservas para aula, profesor y todos los alumnos. |
 | HU-C-01 | Columna "Alumno" (nombre de una persona) | Columna "Alumnos inscriptos" como ocupación sobre cupo (`"3/5"`). **Nota:** HU-C-03 adelantó la corrección del texto de estado (antes decía "Agendado" para cualquier turno no pendiente) vía `ETIQUETA_ESTADO_TURNO` en `turno.types.ts`, y agregó `cupo_maximo` al detalle — el resto del listado (`alumnos_inscriptos`, badge) sigue siendo de esta HU |
-| §3.4 (constraints) | `turno_alumno_sin_superposicion` sobre `Turno.alumno_id` + `WHERE (estado = 'AGENDADO')` en las tres constraints — **documentadas como implementadas, pero el relevamiento de HU-C-03 confirmó que nunca se migraron** (ver aviso arriba) | Se redefinen para `WHERE (estado IN ('DISPONIBLE', 'COMPLETO'))`; la de alumno no puede seguir viviendo en `Turno` (ya no hay columna `alumno_id`) — ver nota en 3.4. Migración real: pendiente, a resolver en HU-C-15 |
+| §3.4 (reservas) | Las exclusiones de Revisión 1 se documentaban sobre `Turno`, pero no se habían migrado; el modelo grupal no tiene `alumno_id` en `Turno`. | `20260924150000_turnos_reservas_recursos_v2` aplica una exclusión GiST sobre las reservas de aula, profesor y cada alumno; los disparadores sincronizan también las altas y bajas individuales de HU-C-04. |
 | §3 (nueva 3.7) | No existía | Guarda de concurrencia para el cupo, con dos patrones distintos según el caso (ver 3.7) |
 | Rutas de servicio/actions | Esta spec (Revisión 1) documentaba `lib/services/turnos/turno.service.ts` y `app/(dashboard)/turnos/actions.ts` | **Nota de sincronización:** el código real vive en `src/server/turnos/turno.service.ts`, `turno.schema.ts`, `turno.validaciones.ts` (Regla N.° 11). El relevamiento de HU-C-03 confirmó además que **`src/server/turnos/actions.ts` nunca se creó** — el frontend llama directamente a los Route Handlers (`fetch` a `/api/turnos/...`), sin capa de Server Action intermedia. Se documenta como divergencia aceptada (no se crea un archivo sin uso solo para cumplir la spec) — todo endpoint de esta spec que mencione "Server Action equivalente" debe leerse como aspiracional/no implementado, salvo que una task futura decida agregarlo |
 | — | El formulario de configuración de turno no integraba `DirtyStateContext` (sí lo usan Alumnos, Aulas, Materias, Profesores) | HU-C-03 lo agregó al formulario, alineado con el criterio 9 (Cancelar descarta sin perder los demás valores). Implementado sin confirmación al cancelar, mismo patrón que `aula-form.tsx` |
@@ -65,11 +65,11 @@ DISPONIBLE ──(una inscripción alcanza el cupo máximo, HU-C-04, 2.5)──�
 COMPLETO ──(se libera un lugar, HU-C-04, 2.5)──▶ DISPONIBLE
 ```
 
-No existe ningún camino de vuelta a `PENDIENTE` una vez que el turno tiene aula — esa parte de la máquina de estados sigue sin reversión, igual que en la Revisión 1. Lo que sí es reversible, y automático, es la alternancia `DISPONIBLE ⇄ COMPLETO` según la cantidad de alumnos inscriptos activos comparada contra `cupoMaximoTurno`.
+No existe ningún camino de vuelta a `PENDIENTE` una vez confirmado el turno. Mientras siga `PENDIENTE`, puede tener aula seleccionada y reemplazarla sin reservar recursos. La alternancia `DISPONIBLE ⇄ COMPLETO` es automática según la cantidad de alumnos inscriptos comparada contra `cupoMaximoTurno`.
 
-**Regla central que atraviesa todo el módulo:** *un turno `PENDIENTE` no reserva ningún recurso.* Dos turnos `PENDIENTE` pueden compartir el mismo profesor, alumno o aula en el mismo horario sin que eso sea un conflicto — el conflicto solo existe entre turnos `DISPONIBLE` o `COMPLETO`. Esto se traduce técnicamente en que toda validación de disponibilidad (secciones 2.2, 2.3 y 2.5) consulta exclusivamente turnos con `estadoTurno IN ("DISPONIBLE", "COMPLETO")`. **La defensa de esta regla a nivel de motor de base de datos (sección 3.4) está descripta pero no implementada — ver aviso al inicio del documento; hoy la regla se sostiene únicamente por la validación aplicativa.**
+**Regla central que atraviesa todo el módulo:** *un turno `PENDIENTE` no reserva ningún recurso.* Dos turnos `PENDIENTE` pueden compartir el mismo profesor, alumno o aula en el mismo horario sin que eso sea un conflicto — el conflicto solo existe entre turnos `DISPONIBLE` o `COMPLETO`. Toda validación de disponibilidad (secciones 2.2, 2.3 y 2.5) consulta exclusivamente esos estados; la defensa concurrente en PostgreSQL se describe en 3.4.
 
-**Modelo de referencia** (`model Turno` en `schema.prisma`, migrado y verificado en base real): `idTurno`, `fechaTurno`, `horaInicioTurno`, `duracionMinutosTurno`, `materiaId` (NOT NULL), `profesorId` (nullable), `aulaId` (nullable), **`cupoMaximoTurno` (NOT NULL, entero > 0, tope `2147483647`)**, `estadoTurno` — `PENDIENTE` | `DISPONIBLE` | `COMPLETO`, `createdAtTurno`, `creadoPorUsuarioId`. Un turno tiene **a lo sumo** un profesor (FK simple `profesorId`) y **uno o varios** alumnos, hasta `cupoMaximoTurno`, vía la tabla intermedia `TurnoAlumno` (N:M) — a diferencia de la Revisión 1, esta relación deja de ser transitoria: es el modelo definitivo de Sprint 1 (el comentario del schema sobre "etapa futura" ya fue actualizado en la migración de HU-C-03).
+**Modelo de referencia** (`model Turno` en `schema.prisma`, migrado y verificado en base real): `idTurno`, `fechaTurno`, `horaInicioTurno`, `duracionMinutosTurno`, `materiaId` (NOT NULL), `profesorId` (nullable), `aulaId` (nullable), **`cupoMaximoTurno` (NOT NULL, entero > 0, tope `2147483647`)**, `estadoTurno` — `PENDIENTE` | `DISPONIBLE` | `COMPLETO`, `createdAtTurno`, `creadoPorUsuarioId`. Un turno tiene **a lo sumo** un profesor (FK simple `profesorId`) y de **cero a `cupoMaximoTurno`** alumnos vía `TurnoAlumno` (N:M). Para confirmar se requiere al menos uno; después, HU-C-04 puede quitar incluso al último alumno de un turno `DISPONIBLE`. La relación N:M es el modelo definitivo de Sprint 1.
 
 **Servicios públicos consumidos de otros módulos** (Regla N.° 3 de aislamiento — este módulo nunca hace `SELECT`/`UPDATE` directo sobre tablas de Alumno, Profesor, Materia o Aula):
 - `verificarMateriaActiva(materiaId)` — Módulo L.
@@ -137,7 +137,7 @@ export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
 ### 2.2. Asignar profesor y alumnos al turno — carga inicial (HU-C-04)
 
-Esta operación es el **combo inicial**: carga profesor + el conjunto completo de alumnos de una sola vez, y solo existe mientras el turno está `PENDIENTE`. Para agregar o quitar un alumno de a uno una vez que el turno ya tiene aula, ver **2.5** (nueva).
+Esta operación es el **combo inicial**: carga profesor + el conjunto completo de alumnos de una sola vez, y solo existe mientras el turno está `PENDIENTE`, tenga o no aula seleccionada. Para agregar o quitar un alumno de a uno después de confirmar, ver **2.5**.
 
 **Ruta:** `PATCH /app/api/turnos/[id]/participantes/route.ts`
 **Servicio:** `src/server/turnos/turno.service.ts` → `asignarParticipantesTurno()` — **firma cambia de `(turnoId, { alumno_id, profesor_id })` a `(turnoId, { alumno_ids, profesor_id })`** (esta HU-C-04 completa; HU-C-03 solo tocó el filtro de estado y el código de error de esta función para que compilara con el nuevo enum, sin cambiar la firma — ese cambio sigue pendiente)
@@ -162,7 +162,7 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
    - Profesor: intervalo del turno contenido en su horario de atención (`estaDentroDeHorarioAtencion`), y sin superposición con otro turno `DISPONIBLE`/`COMPLETO` de ese profesor (fórmula de `spec_modulo_D.md` §3.4, ya implementada en `intervalosSeSuperponen`).
    - Cada alumno de `alumno_ids`: no debe tener otro turno `DISPONIBLE`/`COMPLETO` que se superponga con el mismo intervalo (HU-C-04 criterio 4). Si cualquiera falla, se identifica cuál.
    - Si hay conflicto: `409`, identificando el recurso puntual. El turno conserva su estado y valores anteriores.
-6. **Nota sobre el alcance real de esta revalidación:** como un turno `PENDIENTE` no reserva recursos, esta validación es de buena fe contra el estado actual — no hay, hoy, una garantía atómica final de motor que la respalde (ver aviso al inicio del documento); la única protección adicional es el `updateMany` condicionado del paso 7 y, para el caso de alumno individual, el conteo previo de 3.7.
+6. **Alcance de esta revalidación:** como un turno `PENDIENTE` no reserva recursos, la comprobación de disponibilidad se hace contra el estado actual. La reserva definitiva ocurre al confirmar en 2.3, con la protección de PostgreSQL de 3.4. Las altas y bajas individuales posteriores de 2.5 también actualizan las reservas en esa misma base.
 7. `updateMany` del `profesorId` (`where: { idTurno: turnoId, estadoTurno: "PENDIENTE" }`, `count === 0` ⇒ `409 TURNO_MODIFICADO`), luego `deleteMany` de `TurnoAlumno` del turno y `createMany` con el nuevo conjunto de `alumno_ids` (**cambia de `create` de un único registro a `createMany`**). El turno permanece `PENDIENTE`.
 8. Mientras el turno siga `PENDIENTE`, este mismo endpoint permite **reemplazar** el combo completo (profesor y/o el conjunto de alumnos) las veces que haga falta.
 9. Emitir `turno:participantes_asignados` con el arreglo completo de `alumno_ids` en el payload (antes llevaba `alumno_id` singular).
@@ -181,8 +181,11 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
 
 ### 2.3. Asignar aula al turno — transición a Disponible o Completo (HU-C-15)
 
-**Ruta:** `PATCH /app/api/turnos/[id]/aula/route.ts`
+**Rutas:** `GET /api/turnos/aula/opciones?turno_id=<id>` y `PATCH /api/turnos/[id]/aula`
+**Servicio:** `src/server/turnos/turno.aula.service.ts` → `listarOpcionesAulaTurno()` / `asignarAulaTurno()`
 **Permiso requerido:** `turnos:asignar_aula`
+
+La consulta de opciones muestra aulas activas con nombre o número y capacidad; ofrece las que alcanzan `cupoMaximoTurno`. Si no hay ninguna aula activa, responde `404 SIN_AULAS_ACTIVAS` con **"No hay aulas activas registradas"**. Si hay aulas activas pero ninguna alcanza el cupo, la lista de opciones es vacía.
 
 ```typescript
 export const AsignarAulaTurnoSchema = z.object({
@@ -191,30 +194,26 @@ export const AsignarAulaTurnoSchema = z.object({
 export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 ```
 
-**Comportamiento esperado, íntegramente dentro de una única `prisma.$transaction`:**
-1. Leer el `Turno` con conteo de alumnos ya inscriptos; debe existir. Si ya es `DISPONIBLE`/`COMPLETO`: `409 TURNO_YA_DISPONIBLE`. Aplicar el guard de vigencia.
-2. Verificar `aula_id` activa (`verificarAulaActiva()`). Si no hay aulas activas: `404 SIN_AULAS_ACTIVAS`, el turno permanece `PENDIENTE` sin cambios.
-3. **Validación de disponibilidad del aula** (contra turnos `DISPONIBLE`/`COMPLETO` únicamente). Si hay conflicto: `409 AULA_NO_DISPONIBLE`, el turno permanece sin cambios.
-4. Actualizar `aula_id` (`updateMany` con `where: { idTurno, estadoTurno: "PENDIENTE" }`).
-5. **Evaluar la transición:** si el turno ahora tiene `materiaId`, `profesorId`, `aulaId` presentes y **al menos un alumno** inscripto, y sigue vigente:
-   - Revalidar, en esta misma transacción, la disponibilidad de profesor, cada alumno y aula contra turnos `DISPONIBLE`/`COMPLETO`.
-   - Si todo sigue disponible: calcular `nuevoEstado = alumnos.length >= cupoMaximoTurno ? "COMPLETO" : "DISPONIBLE"` y `UPDATE turno SET estadoTurno = nuevoEstado WHERE idTurno = turnoId AND estadoTurno = "PENDIENTE"`.
-   - Si algún recurso dejó de estar disponible: la transacción completa revierte.
-   - Si no se cumplen todas las precondiciones (falta profesor, o cero alumnos): el `aula_id` sí queda guardado, el turno permanece `PENDIENTE`.
-6. **Defensa atómica final (sección 3.4):** en el diseño, el `UPDATE` a `estadoTurno IN ('DISPONIBLE','COMPLETO')` debería estar protegido por *exclusion constraints* de Postgres — **pendiente de migrar, ver aviso al inicio del documento; esta HU debe resolver esa migración antes de considerar cerrado este punto.**
-7. Emitir `turno:aula_asignada` y, si la transición ocurrió, `turno:disponibilizado` o `turno:completado` según `nuevoEstado`, ambos después del `COMMIT`.
-8. **Reemplazo de aula mientras sigue `PENDIENTE`:** si el turno no alcanzó a transicionar, este mismo endpoint permite reemplazar el `aula_id` las veces que haga falta.
+**Comportamiento del `PATCH`, íntegramente dentro de una única `prisma.$transaction`:**
+1. Bloquear el turno y comprobar que exista y siga `PENDIENTE` (`409 TURNO_YA_DISPONIBLE` si ya está confirmado). Revalidar fecha/hora futura y materia activa.
+2. Verificar que el aula exista y esté activa, y que `capacidadAula >= cupoMaximoTurno`. Si no alcanza: `409 AULA_CAPACIDAD_INSUFICIENTE`, **"La capacidad del aula es menor que el cupo máximo del turno"**. Comprobar que la ocupación no exceda el cupo.
+3. Comprobar disponibilidad del aula frente a turnos `DISPONIBLE` o `COMPLETO`. Si hay profesor y al menos un alumno, revalidar profesor activo, asociación con la materia y horario de atención, **todos** los alumnos activos y la disponibilidad de profesor y cada alumno frente a esos turnos. Se permiten intervalos contiguos.
+4. Guardar `aula_id`. Si hay profesor y al menos un alumno, confirmar en el mismo paso como `COMPLETO` cuando `alumnos.length === cupoMaximoTurno`, o `DISPONIBLE` si quedan lugares. PostgreSQL crea las reservas de aula, profesor y todos los alumnos y rechaza superposiciones concurrentes (3.4).
+5. Si falta profesor o no hay alumnos, el aula queda guardada y el turno continúa `PENDIENTE`, **sin reservar recursos**. Este endpoint permite reemplazar el aula mientras persista ese estado.
+6. Si falla cualquier validación o una reserva, revertir la transacción completa, conservar los datos previos e informar la causa específica. Emitir `turno:aula_asignada` y, si hubo transición, `turno:disponibilizado` o `turno:completado` después del `COMMIT`.
 
 **Respuestas `200 OK`:**
 ```json
-{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "COMPLETO" }, "error": null }
+{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "COMPLETO", "mensaje": "Turno confirmado correctamente" }, "error": null }
 ```
 ```json
-{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "DISPONIBLE" }, "error": null }
+{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "DISPONIBLE", "mensaje": "Turno confirmado correctamente" }, "error": null }
 ```
 ```json
-{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "PENDIENTE" }, "error": null }
+{ "data": { "id": "cuid", "aula_id": "cuid", "estado": "PENDIENTE", "mensaje": "Aula asignada correctamente" }, "error": null }
 ```
+
+Después de confirmar, HU-C-01 y los calendarios muestran el turno actualizado. Ante un error, la interfaz conserva la selección y los demás datos del formulario.
 
 ---
 
@@ -301,40 +300,22 @@ Toda la lógica reside en `src/server/turnos/turno.service.ts`, conforme a la Re
 `PENDIENTE → {DISPONIBLE, COMPLETO}` es la única transición de salida de `PENDIENTE`, sin reversión. `DISPONIBLE ⇄ COMPLETO` sí es reversible y automático, gobernado exclusivamente por la comparación entre la cantidad de alumnos inscriptos y `cupoMaximoTurno` (2.5). Ningún endpoint permite fijar `COMPLETO` o `DISPONIBLE` manualmente.
 
 ### 3.2. Un turno `PENDIENTE` nunca reserva recursos
-Toda consulta de disponibilidad (2.2 paso 5, 2.3 pasos 3 y 5, 2.5 paso 4) filtra explícitamente `estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }`. Esta regla también rige fuera del módulo: `src/server/calendario/calendario.service.ts` filtra por el mismo criterio para no mostrar turnos pendientes (migrado en HU-C-03, verificado con curl + test del filtro).
+Toda consulta de disponibilidad (2.2 paso 5, 2.3 paso 3, 2.5 paso 4) filtra explícitamente `estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }`. La selección o el reemplazo de aula de un turno `PENDIENTE` no genera reservas en la tabla de 3.4. Esta regla también rige fuera del módulo: `src/server/calendario/calendario.service.ts` filtra por el mismo criterio para no mostrar turnos pendientes.
 
 ### 3.3. Fórmula de superposición reutilizada, no reimplementada
 Sin cambios respecto a Revisión 1: intervalos semiabiertos (`a1 < b2 AND b1 < a2`), definida en `spec_modulo_D.md` §3.4, ya implementada en `intervalosSeSuperponen()`.
 
-### 3.4. Defensa de concurrencia: *exclusion constraints* de Postgres (extensión `btree_gist`) — DISEÑO PENDIENTE DE MIGRAR
+### 3.4. Defensa de concurrencia: reservas con exclusión GiST de PostgreSQL
 
-```sql
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+La migración `20260924150000_turnos_reservas_recursos_v2` habilita `btree_gist` y crea `reservas_turno`. Cada turno `DISPONIBLE` o `COMPLETO` tiene una reserva para su aula, una para su profesor y una por **cada alumno** inscripto. Cada fila identifica tipo e ID de recurso y el intervalo `[inicio, fin)`; la exclusión GiST impide que un mismo recurso tenga intervalos superpuestos, pero permite turnos contiguos.
 
-ALTER TABLE "turnos" ADD CONSTRAINT turno_profesor_sin_superposicion
-  EXCLUDE USING gist (
-    "profesorId" WITH =,
-    tsrange("fechaTurno" + "horaInicioTurno", "fechaTurno" + "horaInicioTurno" + ("duracionMinutosTurno" || ' minutes')::interval) WITH &&
-  ) WHERE ("estadoTurno" IN ('DISPONIBLE', 'COMPLETO'));
-
-ALTER TABLE "turnos" ADD CONSTRAINT turno_aula_sin_superposicion
-  EXCLUDE USING gist (
-    "aulaId" WITH =,
-    tsrange("fechaTurno" + "horaInicioTurno", "fechaTurno" + "horaInicioTurno" + ("duracionMinutosTurno" || ' minutes')::interval) WITH &&
-  ) WHERE ("estadoTurno" IN ('DISPONIBLE', 'COMPLETO'));
-```
-
-> **Estado real (confirmado en relevamiento de HU-C-03, 24/09):** ninguna de estas constraints existe en la base — ni siquiera la versión de Revisión 1 (`WHERE (estado = 'AGENDADO')`) llegó a migrarse. Esto es una omisión previa a esta revisión, no algo que HU-C-03 rompa. **Relevar y resolver como parte de HU-C-15** (ver aviso al inicio del documento).
->
-> **Nota adicional (cambio de diseño respecto a Revisión 1):** el constraint de superposición por **alumno** (`turno_alumno_sin_superposicion`) ya no puede vivir sobre la tabla `turnos` (un turno ahora tiene varios alumnos, no una columna `alumnoId`). Trasladar la protección a `turno_alumno` requiere desnormalizar `fechaTurno`/`horaInicioTurno`/`duracionMinutosTurno` en esa tabla intermedia (un exclusion constraint no puede hacer join) o resolverlo con un trigger que valide contra `turnos` al insertar — **relevar antes de asumir con el equipo cuál de las dos, junto con la migración pendiente de arriba.**
-
-La cláusula `WHERE ("estadoTurno" IN ('DISPONIBLE', 'COMPLETO'))` es la que garantizaría, a nivel de motor, la regla de negocio 3.2 — una vez migrada.
+Los disparadores de `turnos` reconstruyen las reservas al confirmar o actualizar un turno; los de `turno_alumno` sincronizan las altas y bajas individuales de HU-C-04 sobre turnos confirmados. Los turnos `PENDIENTE` no generan filas en `reservas_turno`, aunque tengan aula, profesor o alumnos asignados. Si dos turnos distintos intentan confirmar simultáneamente con un recurso común, solo una transacción puede consolidar su reserva; la otra se revierte sin reserva parcial. El mismo mecanismo protege las nuevas inscripciones de HU-C-04.
 
 ### 3.5. Guard de vigencia reutilizado
 Sin cambios — ver sección 2, "Convenciones generales".
 
 ### 3.6. Transacción única para "asignar aula + intentar transicionar"
-Sin cambios de fondo respecto a Revisión 1 — HU-C-15 (2.3) sigue resolviéndose en una única `prisma.$transaction`, solo que ahora el resultado de la transición puede ser `DISPONIBLE` o `COMPLETO` en vez de un único valor. Como la defensa de motor de 3.4 todavía no existe, esta transacción es hoy la única barrera real contra una condición de carrera al agendar — motivo adicional para no demorar la resolución de 3.4 en HU-C-15.
+HU-C-15 (2.3) resuelve la selección de aula y, cuando corresponde, la transición a `DISPONIBLE` o `COMPLETO` en una única `prisma.$transaction`. Revalida los datos y la disponibilidad antes de confirmar; la exclusión de 3.4 es la defensa final ante confirmaciones concurrentes y revierte la transacción completa si detecta superposición.
 
 ### 3.7. Guarda de concurrencia para el cupo (NUEVO)
 Dos casos distintos, con soluciones distintas:

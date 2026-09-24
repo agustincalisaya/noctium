@@ -3,7 +3,7 @@ import { flattenError } from "zod";
 import { withPermission } from "@/server/shared/with-permission";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import {
-  construirIdentidadProfesorSchema,
+  construirAltaProfesorSchema,
   ListarProfesoresQuerySchema,
 } from "@/server/profesores/profesor.schema";
 import { crearProfesor, listarProfesores } from "@/server/profesores/profesor.service";
@@ -42,7 +42,9 @@ export const GET = withPermission("profesores:leer", async (req) => {
   }
 });
 
-// Alta de identidad de profesor (HU-D-01, spec_modulo_D.md §2.1). Capa
+// Alta de profesor (HU-D-01, spec_modulo_D.md §2.1), con `telefono` y
+// `email` opcionales (ajuste HU-D-01/HU-D-02, nota de sincronización de
+// §2.1): sin contacto en el body, el alta es solo de identidad, como antes. Capa
 // delgada (Regla N.° 4 de docs/RULES.md): valida el body con Zod, invoca
 // crearProfesor() de profesor.service.ts y traduce el resultado al
 // contrato { data, error } (Regla N.° 5) — ninguna lógica de negocio vive
@@ -76,7 +78,7 @@ export const POST = withPermission("profesores:crear", async (req) => {
     getParametroNumerico("dni_longitud_max", 8),
   ]);
 
-  const parsed = construirIdentidadProfesorSchema(dniLongitudMin, dniLongitudMax).safeParse(body);
+  const parsed = construirAltaProfesorSchema(dniLongitudMin, dniLongitudMax).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -100,6 +102,16 @@ export const POST = withPermission("profesores:crear", async (req) => {
         {
           data: null,
           error: { code: "DNI_DUPLICADO", message: "Ya existe un profesor registrado con ese DNI" },
+        },
+        { status: 409 },
+      );
+    }
+    if (error instanceof ServiceError && error.code === "EMAIL_YA_ASOCIADO") {
+      // Genérico a propósito: nunca revela a quién pertenece la otra cuenta.
+      return NextResponse.json(
+        {
+          data: null,
+          error: { code: "EMAIL_YA_ASOCIADO", message: "Ese email ya está asociado a otra cuenta" },
         },
         { status: 409 },
       );
