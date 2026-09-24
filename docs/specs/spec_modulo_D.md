@@ -13,6 +13,7 @@
 |---|---|---|
 | HU-D-03 | §2.3 contractualizada en snake_case, con rutas `lib/`/`app/` y `@@unique`; §4 declara el evento `profesor:materias_asociadas` | Anotada §2.3 (nota de sincronización) y §4 (el módulo D usa la opción (a) de la Regla N.° 2). Sin renumerar. |
 | HU-D-04 | §2.4 contractualizada en snake_case con días fijos L-S y `GRANULARIDAD_MINUTOS` constante; §4 declara `profesor:horario_registrado` | Anotada §2.4 (nota de sincronización + "Contrato para HU-C-04") y §4. Días, franja y granularidad salen de `ParametroSistema`. Sin renumerar. |
+| HU-D-01 / HU-D-02 (ajuste) | §2.1 alta solo con identidad; §2.2 contacto como paso separado, desde la ficha | Anotada §2.1 (nota de sincronización: contacto opcional en el alta, en la misma transacción, y acciones posteriores al alta) y §2.2 (referencia). Sin renumerar. |
 
 **Fuera de alcance de esta spec (explícito):**
 - Modificación de una ficha de profesor ya registrada.
@@ -81,6 +82,17 @@ export type IdentidadProfesorInput = z.infer<typeof IdentidadProfesorSchema>;
 { "data": null, "error": { "code": "DNI_DUPLICADO", "message": "Ya existe un profesor registrado con ese DNI" } }
 ```
 
+**Nota de sincronización (ajuste HU-D-01/HU-D-02, resuelta — `docs/tasks/Sprint 1/HU-D-01-D-02-alta-con-contacto.md`):**
+- **Contacto opcional en el alta:** "Nuevo profesor" suma la sección "Datos de contacto" (`telefono`, `email`). Si los dos quedan vacíos, el alta es solo de identidad, como antes. Si se completa alguno, se aplican las reglas de §2.2 (teléfono normalizado de 8-15 dígitos, email en minúsculas de hasta 254 caracteres, unicidad frente a cuentas sin revelar a quién pertenece), **salvo** "al menos uno", que sigue siendo exclusiva de §2.2.
+- **Desviación de `HU-Sprint-1.md`:** HU-D-01 c4 y HU-D-02 c1 definen el contacto como un paso separado desde la ficha. §2.2 se mantiene para cargarlo o modificarlo después. Ofrecer contacto, materias y horario al terminar el alta **no** es una desviación: lo pide HU-D-01 c4.
+- **Rutas y nombres reales (Regla N.° 11), camelCase:**
+  - Schema `construirAltaProfesorSchema(dniLongitudMin, dniLongitudMax)` en `src/server/profesores/profesor.schema.ts`: `construirIdentidadProfesorSchema()` extendido con `campoOpcional(telefonoContactoSchema)` y `campoOpcional(emailContactoSchema)` de `src/server/shared/contacto.schema.ts`. Mismo schema en el formulario, la Server Action y el Route Handler.
+  - Servicio `crearProfesor(input, usuarioRegistranteId)` en `src/server/profesores/profesor.service.ts`. La unicidad del email usa `verificarEmailNoAsociadoAOtraCuenta()`, la misma función que `actualizarContactoProfesor()` (§2.2).
+- **Atomicidad:** unicidad de DNI, unicidad del email (solo si vino) e `INSERT` con identidad y contacto en una única `prisma.$transaction`. Cualquier rechazo deja la base sin cambios. El catch de `P2002` sobre `dniProfesor` envuelve la transacción.
+- **Trazabilidad (Regla N.° 2, opción (a)):** `createdAtProfesor` y `creadoPorUsuarioId`, como antes. Cargar contacto en el alta no es una modificación: `modificadoPorUsuarioId` queda en `NULL`.
+- **`POST /api/profesores`:** acepta `telefono` y `email` opcionales. `201` devuelve además `telefono` y `email` (`null` si no se cargaron). Nuevo `409 EMAIL_YA_ASOCIADO` ("Ese email ya está asociado a otra cuenta"). La Server Action `crearProfesor()` lo devuelve como error del campo `email`.
+- **Después del alta:** "Profesor registrado correctamente" y, para el profesor creado: "Registrar horario de atención" (acción principal, a `/profesores/horarios/nuevo?profesorId=<id>`; la página de §2.4 resuelve el id en el servidor contra los profesores activos y, si no corresponde a uno, deja el selector vacío), "Asociar materias" (§2.3), "Cargar datos de contacto" (§2.2, solo si el alta no guardó contacto), "Ver ficha del profesor" y "Volver al listado".
+
 ---
 
 ### 2.2. Registrar datos de contacto (HU-D-02)
@@ -110,6 +122,8 @@ export type ContactoProfesorInput = z.infer<typeof ContactoProfesorSchema>;
 ```json
 { "data": { "id": "cuid", "telefono": "+5493874445566", "email": "ana.gomez@mail.com" }, "error": null }
 ```
+
+**Nota (ajuste HU-D-01/HU-D-02):** el contacto también puede cargarse en el alta (nota de sincronización de §2.1), con las mismas reglas de esta sección salvo "al menos uno". Esta sección sigue siendo la forma de cargarlo o modificarlo después, desde la ficha, sin cambios de comportamiento.
 
 ---
 

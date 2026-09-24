@@ -2,7 +2,13 @@ import { z } from "zod";
 import type { Genero } from "@prisma/client";
 import { fechaCalendarioValidaSchema, fechaUTCHaceAnios } from "@/server/shared/fecha";
 import { normalizarTextoNombre } from "@/server/shared/texto";
-import { ContactoSchema, type ContactoInput } from "@/server/shared/contacto.schema";
+import {
+  campoOpcional,
+  ContactoSchema,
+  emailContactoSchema,
+  telefonoContactoSchema,
+  type ContactoInput,
+} from "@/server/shared/contacto.schema";
 import {
   DIAS_SEMANA,
   HORA_REGEX,
@@ -85,6 +91,23 @@ export function construirIdentidadProfesorSchema(
 export type IdentidadProfesorInput = z.infer<
   ReturnType<typeof construirIdentidadProfesorSchema>
 >;
+
+/**
+ * Alta de profesor con contacto opcional (ajuste HU-D-01/HU-D-02, ver
+ * docs/tasks/Sprint 1/HU-D-01-D-02-alta-con-contacto.md). Identidad con las
+ * reglas de HU-D-01 y contacto con los mismos schemas de HU-D-02, sin la
+ * regla "al menos uno": en el alta, los dos vacíos significan "sin contacto".
+ * No se usa `ContactoSchema.partial()` (Zod v4 lanza sobre un objeto con
+ * refinements, ver `campoOpcional()` en contacto.schema.ts).
+ */
+export function construirAltaProfesorSchema(dniLongitudMin: number, dniLongitudMax: number) {
+  return construirIdentidadProfesorSchema(dniLongitudMin, dniLongitudMax).extend({
+    telefono: campoOpcional(telefonoContactoSchema),
+    email: campoOpcional(emailContactoSchema),
+  });
+}
+
+export type AltaProfesorInput = z.infer<ReturnType<typeof construirAltaProfesorSchema>>;
 
 /**
  * Contacto del profesor (HU-D-02): mismas reglas que el contacto de Alumno

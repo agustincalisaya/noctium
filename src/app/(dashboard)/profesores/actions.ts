@@ -7,6 +7,7 @@ import { getParametroNumerico } from "@/server/shared/parametros";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
 import {
+  construirAltaProfesorSchema,
   construirIdentidadProfesorSchema,
   ContactoProfesorSchema,
 } from "@/server/profesores/profesor.schema";
@@ -38,7 +39,8 @@ async function resolverLongitudDni(): Promise<{ min: number; max: number }> {
 }
 
 /**
- * Alta de identidad de profesor (HU-D-01). Wrapper delgado sobre
+ * Alta de profesor (HU-D-01), con contacto opcional (ajuste HU-D-01/HU-D-02:
+ * si `telefono`/`email` vienen vacíos, el alta es solo de identidad). Wrapper delgado sobre
  * `crearProfesor()` de `profesor.service.ts` (Regla N.° 4 de
  * `docs/RULES.md`): valida sesión/permiso, valida el payload con Zod,
  * invoca el servicio y traduce el resultado al contrato `{ data, error }`
@@ -62,7 +64,7 @@ export async function crearProfesor(
     const { min: dniLongitudMin, max: dniLongitudMax } = await resolverLongitudDni();
 
     const generoIngresado = formData.get("genero");
-    const parsed = construirIdentidadProfesorSchema(dniLongitudMin, dniLongitudMax).safeParse({
+    const parsed = construirAltaProfesorSchema(dniLongitudMin, dniLongitudMax).safeParse({
       nombre: formData.get("nombre"),
       apellido: formData.get("apellido"),
       dni: formData.get("dni"),
@@ -71,6 +73,8 @@ export async function crearProfesor(
         typeof generoIngresado === "string" && generoIngresado !== ""
           ? generoIngresado
           : undefined,
+      telefono: formData.get("telefono"),
+      email: formData.get("email"),
     });
 
     if (!parsed.success) {
@@ -85,6 +89,7 @@ export async function crearProfesor(
       profesorId: profesor.id,
       nombre: profesor.nombre,
       apellido: profesor.apellido,
+      conContacto: profesor.telefono !== null || profesor.email !== null,
     };
   } catch (error) {
     if (error instanceof ServiceError) {
@@ -98,6 +103,13 @@ export async function crearProfesor(
         return {
           status: "error_validacion",
           errores: { dni: [MENSAJES_POR_CODIGO.DNI_DUPLICADO!] },
+        };
+      }
+      // Mismo texto y ubicación que en la pantalla de contacto (HU-D-02 c4/c6).
+      if (error.code === "EMAIL_YA_ASOCIADO") {
+        return {
+          status: "error_validacion",
+          errores: { email: [MENSAJES_POR_CODIGO.EMAIL_YA_ASOCIADO!] },
         };
       }
       const mensaje = MENSAJES_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
