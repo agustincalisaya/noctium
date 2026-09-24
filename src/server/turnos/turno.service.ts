@@ -240,7 +240,7 @@ function presentar(turno: TurnoConRelaciones) {
     hora_fin: hora(fin),
     duracion_minutos: turno.duracionMinutosTurno,
     cupo_maximo: turno.cupoMaximoTurno,
-    alumno: alumnos.length ? alumnos.map(({ nombre }) => nombre).join("; ") : "Sin asignar",
+    alumnos_inscriptos: `${alumnos.length}/${turno.cupoMaximoTurno}`,
     alumnos,
     profesor: turno.profesor ? nombre(turno.profesor.apellidoProfesor, turno.profesor.nombreProfesor) : "Sin asignar",
     profesor_id: turno.profesorId,

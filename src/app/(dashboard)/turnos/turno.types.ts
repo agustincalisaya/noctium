@@ -1,6 +1,6 @@
 export type Turno = {
   id: string; fecha: string; hora_inicio: string; hora_fin: string; duracion_minutos: number; cupo_maximo: number;
-  alumno: string; alumnos: { id: string; nombre: string; dni: string }[];
+  alumnos_inscriptos: string; alumnos: { id: string; nombre: string; dni: string }[];
   profesor: string; profesor_id: string | null; profesor_dni: string | null;
   materia: string; materia_id: string; materia_codigo: string | null;
   aula: string; aula_id: string | null; aula_capacidad: number | null;
