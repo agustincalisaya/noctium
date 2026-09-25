@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FocusEvent, type FormEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { flattenError } from "zod";
 import { Loader2 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
@@ -18,6 +18,7 @@ import { ESTADO_INICIAL_NUEVO_PROFESOR, type EstadoNuevoProfesor } from "../prof
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 const MENSAJE_DNI_DUPLICADO = "Ya existe un profesor registrado con ese DNI";
+const MENSAJE_EXITO = "Profesor registrado correctamente";
 
 // Sin acoplamiento a @prisma/client como valor (ver nota de deuda técnica
 // en docs/tasks/Sprint 1/HU-D-01.md, junto a §4.5) — mismos 4 valores de
@@ -67,6 +68,7 @@ export function NuevoProfesorForm({
   const nombreRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { dirty, setDirty } = useDirtyState();
+  const { notificarExito } = useToast();
 
   // Identidad (HU-D-01) + contacto opcional con las reglas de HU-D-02: el
   // mismo schema que vuelve a aplicar la Server Action en el servidor.
@@ -126,19 +128,25 @@ export function NuevoProfesorForm({
     setErroresCliente({});
     setPendiente(true);
 
+    // Éxito (HU-D-01 c4, wizard de alta): toast y paso 2 (materias) sin
+    // pantalla intermedia. `pendiente` queda en true hasta que la navegación
+    // desmonte el formulario, así no se puede reenviar mientras tanto.
     try {
       const resultado = await crearProfesor(estado, formData);
       setEstado(resultado);
       if (resultado.status === "exito") {
         setDirty(false);
-      } else if (resultado.status === "error_validacion") {
+        notificarExito(MENSAJE_EXITO);
+        router.push(`/profesores/${resultado.profesorId}/materias?alta=1`);
+        return;
+      }
+      if (resultado.status === "error_validacion") {
         enfocarPrimerCampoInvalido(form, resultado.errores);
       }
     } catch {
       setEstado({ status: "error_comunicacion" });
-    } finally {
-      setPendiente(false);
     }
+    setPendiente(false);
   }
 
   async function handleDniBlur(e: FocusEvent<HTMLInputElement>) {
@@ -183,47 +191,6 @@ export function NuevoProfesorForm({
       : estado.status === "error_comunicacion"
         ? MENSAJE_ERROR_COMUNICACION
         : undefined;
-
-  // Éxito (HU-D-01 c4, "ofrece continuar con contacto, materias y horarios"):
-  // horario como única acción primaria, con el profesor preseleccionado por
-  // ?profesorId= (la página de HU-D-04 lo valida en el servidor contra los
-  // profesores activos). "Cargar datos de contacto" solo si el alta no
-  // guardó ningún dato de contacto.
-  if (estado.status === "exito") {
-    return (
-      <div className="space-y-4" role="status">
-        <p className="text-sm font-medium">Profesor registrado correctamente</p>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/profesores/horarios/nuevo?profesorId=${estado.profesorId}`}
-            className={buttonVariants({ variant: "default" })}
-          >
-            Registrar horario de atención
-          </Link>
-          <Link
-            href={`/profesores/${estado.profesorId}/materias`}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Asociar materias
-          </Link>
-          {!estado.conContacto && (
-            <Link
-              href={`/profesores/${estado.profesorId}/contacto`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Cargar datos de contacto
-            </Link>
-          )}
-          <Link href={`/profesores/${estado.profesorId}`} className={buttonVariants({ variant: "outline" })}>
-            Ver ficha del profesor
-          </Link>
-          <Link href="/profesores" className={buttonVariants({ variant: "outline" })}>
-            Volver al listado
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} onChange={() => setDirty(true)} noValidate className="space-y-4">

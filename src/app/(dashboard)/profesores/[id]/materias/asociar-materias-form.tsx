@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useRouter } from "next/navigation";
 import { flattenError } from "zod";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
 import { filtrarMaterias } from "@/lib/filtrar-materias";
@@ -22,6 +24,9 @@ import {
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 const MENSAJE_EXITO = "Materias del profesor actualizadas";
+const MENSAJE_EXITO_ALTA = "Materias asignadas correctamente";
+const CLASE_LINK_SECUNDARIO =
+  "rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Materia del selector: activa del catálogo, o asociada que hoy está inactiva. */
 export type OpcionMateria = MateriaDeProfesor & { asociada: boolean };
@@ -40,13 +45,19 @@ function etiquetaMateria({ nombre, codigo }: { nombre: string; codigo: string | 
  * envían igual. Las ya asociadas se muestran marcadas y deshabilitadas, y
  * nunca viajan (criterio 2). Ante `materias_inactivas` la selección se
  * conserva para destildar y reconfirmar (criterio 4).
+ *
+ * `modoAlta` (paso 2 del wizard de alta): al guardar, toast y avance
+ * automático al paso 3 (horario); "Cancelar" se reemplaza por el link
+ * secundario "Completar esto más tarde", que lleva a la ficha.
  */
 export function AsociarMateriasForm({
   profesorId,
   opciones,
+  modoAlta = false,
 }: {
   profesorId: string;
   opciones: OpcionMateria[];
+  modoAlta?: boolean;
 }) {
   const [estado, setEstado] = useState<EstadoAsociarMaterias>(ESTADO_INICIAL_ASOCIAR_MATERIAS);
   const [pendiente, setPendiente] = useState(false);
@@ -59,6 +70,7 @@ export function AsociarMateriasForm({
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const router = useRouter();
   const { setDirty } = useDirtyState();
+  const { notificarExito } = useToast();
   const rutaFicha = `/profesores/${profesorId}`;
 
   useEffect(() => {
@@ -99,6 +111,13 @@ export function AsociarMateriasForm({
     setPendiente(true);
     try {
       const resultado = await asociarMateriasProfesor(profesorId, formData);
+      if (resultado.status === "exito" && modoAlta) {
+        // `pendiente` queda en true hasta que la navegación desmonte el form.
+        setDirty(false);
+        notificarExito(MENSAJE_EXITO_ALTA);
+        router.push(`/profesores/horarios/nuevo?profesorId=${profesorId}&alta=1`);
+        return;
+      }
       setEstado(resultado);
       if (resultado.status === "exito") {
         setDirty(false);
@@ -111,9 +130,8 @@ export function AsociarMateriasForm({
       }
     } catch {
       setEstado({ status: "error_comunicacion" });
-    } finally {
-      setPendiente(false);
     }
+    setPendiente(false);
   }
 
   function handleCancelar() {
@@ -230,14 +248,23 @@ export function AsociarMateriasForm({
         </p>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pendiente || seleccionadas.size === 0}>
           {pendiente && <Loader2 className="size-4 animate-spin" aria-hidden />}
           Guardar materias
         </Button>
-        <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
-          Cancelar
-        </Button>
+        {modoAlta ? (
+          // Salida explícita del wizard: <Link> simple, sin confirmación de
+          // descarte (a diferencia de LinkProtegido, pensado para salidas
+          // accidentales). Se limpia el dirty flag antes de navegar.
+          <Link href={rutaFicha} onClick={() => setDirty(false)} className={CLASE_LINK_SECUNDARIO}>
+            Completar esto más tarde
+          </Link>
+        ) : (
+          <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
+            Cancelar
+          </Button>
+        )}
       </div>
 
       <ConfirmarDescarteDialog

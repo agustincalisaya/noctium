@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { fechaUTCHaceAnios } from "@/server/shared/fecha";
+import { StepperAltaProfesor } from "@/components/shared/stepper-alta-profesor";
 import { NuevoProfesorForm } from "./nuevo-profesor-form";
 
 /**
@@ -40,7 +41,10 @@ export default async function NuevoProfesorPage() {
 
   return (
     <div className="mx-auto max-w-xl p-6">
-      <h1 className="mb-6 text-2xl font-semibold">Nuevo profesor</h1>
+      <div className="mb-6 space-y-5">
+        <StepperAltaProfesor paso={1} />
+        <h1 className="text-2xl font-semibold">Nuevo profesor</h1>
+      </div>
       <NuevoProfesorForm
         dniLongitudMin={dniLongitudMin}
         dniLongitudMax={dniLongitudMax}

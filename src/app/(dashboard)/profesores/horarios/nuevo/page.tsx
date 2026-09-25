@@ -5,8 +5,10 @@ import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import {
   listarProfesoresActivos,
   obtenerHorariosDelProfesor,
+  obtenerMateriasDelProfesor,
 } from "@/server/profesores/profesor.service";
 import { ResumenSemanalHorarios } from "@/components/shared/resumen-semanal-horarios";
+import { StepperAltaProfesor } from "@/components/shared/stepper-alta-profesor";
 import { RegistrarHorarioForm } from "./registrar-horario-form";
 
 /**
@@ -26,7 +28,7 @@ export default async function RegistrarHorarioPage({
 }: {
   searchParams: Promise<{ [clave: string]: string | string[] | undefined }>;
 }) {
-  const { profesorId: profesorIdParam } = await searchParams;
+  const { profesorId: profesorIdParam, alta } = await searchParams;
 
   try {
     await verificarPermiso("profesores:editar");
@@ -46,24 +48,53 @@ export default async function RegistrarHorarioPage({
     typeof profesorIdParam === "string"
       ? profesores.find((opcion) => opcion.id === profesorIdParam)
       : undefined;
-  const horarios = profesor ? await obtenerHorariosDelProfesor(profesor.id) : [];
+  const [horarios, materias] = profesor
+    ? await Promise.all([obtenerHorariosDelProfesor(profesor.id), obtenerMateriasDelProfesor(profesor.id)])
+    : [[], []];
   const rutaVolver = profesor ? `/profesores/${profesor.id}` : "/profesores";
+  // Paso 3 del wizard de alta (`?alta=1`): solo con un profesor válido; si el
+  // id no corresponde a un activo, la pantalla vuelve a su modo normal.
+  const modoAlta = alta === "1" && !!profesor;
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-xl space-y-5 p-6">
-      <LinkProtegido
-        href={rutaVolver}
-        className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        {profesor ? "Volver a la ficha" : "Volver al listado"}
-      </LinkProtegido>
+      {modoAlta ? (
+        <StepperAltaProfesor paso={3} />
+      ) : (
+        <LinkProtegido
+          href={rutaVolver}
+          className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {profesor ? "Volver a la ficha" : "Volver al listado"}
+        </LinkProtegido>
+      )}
       <div>
         <h1 className="text-2xl font-semibold">Registrar horario de atención</h1>
+        {/* Mismo encabezado que la pantalla de materias (paso 2). */}
+        {modoAlta && profesor && (
+          <p className="text-sm text-muted-foreground">
+            {profesor.apellido}, {profesor.nombre} · DNI {profesor.dni}
+          </p>
+        )}
         <p className="text-sm text-muted-foreground">
           El intervalo se repite todas las semanas, para todas las materias del profesor. Horario
           operativo del centro: {parametros.apertura} a {parametros.cierre}.
         </p>
       </div>
+
+      {/* Advertencia, no bloqueo: el horario es independiente de la materia
+          (§2.4) y el servidor lo acepta sin materias asociadas. */}
+      {profesor && materias.length === 0 && (
+        <p role="status" className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">
+          Este profesor todavía no tiene materias asignadas.{" "}
+          <LinkProtegido
+            href={`/profesores/${profesor.id}/materias${modoAlta ? "?alta=1" : ""}`}
+            className="font-medium underline underline-offset-4"
+          >
+            Asignar materias
+          </LinkProtegido>
+        </p>
+      )}
 
       {profesores.length === 0 ? (
         <p className="text-sm text-muted-foreground">No hay profesores activos</p>
@@ -72,6 +103,8 @@ export default async function RegistrarHorarioPage({
           profesores={profesores}
           profesorIdInicial={profesor?.id ?? ""}
           parametros={parametros}
+          modoAlta={modoAlta}
+          cantidadHorarios={horarios.length}
         />
       )}
 

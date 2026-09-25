@@ -4,6 +4,7 @@ import { getParametroNumerico } from "@/server/shared/parametros";
 import { AvisoExpiracion } from "@/components/sesion/aviso-expiracion";
 import { ProtegerCacheNavegador } from "@/components/sesion/proteger-cache-navegador";
 import { DirtyStateProvider } from "@/components/sesion/dirty-state-context";
+import { ToastProvider } from "@/components/ui/toast";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -32,16 +33,18 @@ export default async function DashboardLayout({
 
   return (
     <DirtyStateProvider>
-      <ProtegerCacheNavegador />
-      <AvisoExpiracion expiresISO={session.expires} avisoAnticipadoMin={avisoAnticipadoMin} />
-      <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Navbar />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
-          <Footer />
+      <ToastProvider>
+        <ProtegerCacheNavegador />
+        <AvisoExpiracion expiresISO={session.expires} avisoAnticipadoMin={avisoAnticipadoMin} />
+        <div className="flex h-screen overflow-hidden bg-background">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Navbar />
+            <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+            <Footer />
+          </div>
         </div>
-      </div>
+      </ToastProvider>
     </DirtyStateProvider>
   );
 }

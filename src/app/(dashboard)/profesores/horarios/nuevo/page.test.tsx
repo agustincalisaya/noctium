@@ -6,9 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // contra los profesores activos; uno inválido, inexistente o inactivo deja
 // el selector vacío. Servicios y permiso mockeados.
 
-const { listarProfesoresActivos, obtenerHorariosDelProfesor } = vi.hoisted(() => ({
+const { listarProfesoresActivos, obtenerHorariosDelProfesor, obtenerMateriasDelProfesor } = vi.hoisted(() => ({
   listarProfesoresActivos: vi.fn(),
   obtenerHorariosDelProfesor: vi.fn(),
+  obtenerMateriasDelProfesor: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
@@ -27,14 +28,21 @@ vi.mock("@/server/shared/parametros", () => ({
     granularidad: 30,
   })),
 }));
-vi.mock("@/server/profesores/profesor.service", () => ({ listarProfesoresActivos, obtenerHorariosDelProfesor }));
+vi.mock("@/components/shared/stepper-alta-profesor", () => ({ StepperAltaProfesor: () => null }));
+vi.mock("@/server/profesores/profesor.service", () => ({
+  listarProfesoresActivos,
+  obtenerHorariosDelProfesor,
+  obtenerMateriasDelProfesor,
+}));
 
 const { default: RegistrarHorarioPage } = await import("./page");
 const { RegistrarHorarioForm } = await import("./registrar-horario-form");
 
 const ACTIVO = { id: "ckprofesor000000000000001", nombre: "Ana", apellido: "Gómez", dni: "28456789" };
 
-function buscarFormulario(nodo: ReactNode): ReactElement<{ profesorIdInicial: string }> | null {
+type PropsFormulario = { profesorIdInicial: string; modoAlta: boolean; cantidadHorarios: number };
+
+function buscarFormulario(nodo: ReactNode): ReactElement<PropsFormulario> | null {
   if (Array.isArray(nodo)) {
     for (const hijo of nodo) {
       const encontrado = buscarFormulario(hijo);
@@ -43,13 +51,17 @@ function buscarFormulario(nodo: ReactNode): ReactElement<{ profesorIdInicial: st
     return null;
   }
   if (!isValidElement<{ children?: ReactNode }>(nodo)) return null;
-  if (nodo.type === RegistrarHorarioForm) return nodo as unknown as ReactElement<{ profesorIdInicial: string }>;
+  if (nodo.type === RegistrarHorarioForm) return nodo as unknown as ReactElement<PropsFormulario>;
   return buscarFormulario(nodo.props.children);
 }
 
-async function profesorIdInicial(searchParams: Record<string, string | string[] | undefined>) {
+async function propsFormulario(searchParams: Record<string, string | string[] | undefined>) {
   const pagina = await RegistrarHorarioPage({ searchParams: Promise.resolve(searchParams) });
-  return buscarFormulario(pagina)?.props.profesorIdInicial;
+  return buscarFormulario(pagina)?.props;
+}
+
+async function profesorIdInicial(searchParams: Record<string, string | string[] | undefined>) {
+  return (await propsFormulario(searchParams))?.profesorIdInicial;
 }
 
 beforeEach(() => {
@@ -57,6 +69,24 @@ beforeEach(() => {
   // Solo profesores activos: un inactivo (ej. Molina) no está en esta lista.
   listarProfesoresActivos.mockResolvedValue([ACTIVO]);
   obtenerHorariosDelProfesor.mockResolvedValue([]);
+  obtenerMateriasDelProfesor.mockResolvedValue([]);
+});
+
+describe("/profesores/horarios/nuevo con ?alta=1 (paso 3 del wizard de alta)", () => {
+  it("profesor activo → modo alta, con la cantidad de intervalos ya cargados", async () => {
+    obtenerHorariosDelProfesor.mockResolvedValue([{ id: "h1" }, { id: "h2" }]);
+    const props = await propsFormulario({ profesorId: ACTIVO.id, alta: "1" });
+    expect(props?.modoAlta).toBe(true);
+    expect(props?.cantidadHorarios).toBe(2);
+  });
+
+  it("profesor inválido → la pantalla vuelve a su modo normal", async () => {
+    expect((await propsFormulario({ profesorId: "abc", alta: "1" }))?.modoAlta).toBe(false);
+  });
+
+  it("sin ?alta=1 → modo normal", async () => {
+    expect((await propsFormulario({ profesorId: ACTIVO.id }))?.modoAlta).toBe(false);
+  });
 });
 
 describe("/profesores/horarios/nuevo con ?profesorId=", () => {

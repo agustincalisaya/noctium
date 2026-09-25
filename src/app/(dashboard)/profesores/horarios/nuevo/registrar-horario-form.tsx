@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useRouter } from "next/navigation";
 import { flattenError } from "zod";
 import { Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
@@ -28,6 +30,8 @@ import {
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 const MENSAJE_EXITO = "Horario registrado correctamente";
+const CLASE_LINK_SECUNDARIO =
+  "rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 // Mismo estilo de <select> nativo que nuevo-profesor-form.tsx (HU-D-01).
 const CLASE_SELECT = cn(
@@ -51,15 +55,26 @@ type Valores = Record<Campo, string>;
  * actualiza `?profesorId=` para que la página muestre su resumen semanal.
  * Tras guardar se limpian solo las horas (profesor y día quedan, para cargar
  * otro intervalo del mismo día) y se refresca el resumen.
+ *
+ * `modoAlta` (paso 3 del wizard de alta): el profesor queda fijo (el
+ * encabezado de la página lo identifica), cada intervalo guardado se avisa
+ * con un toast y se sigue en la pantalla para cargar otro, con día y horas
+ * de vuelta en blanco. "Cancelar" se
+ * reemplaza por "Completar esto más tarde" mientras no haya ningún
+ * intervalo, y por "Finalizar" cuando ya hay al menos uno — ambos a la ficha.
  */
 export function RegistrarHorarioForm({
   profesores,
   profesorIdInicial,
   parametros,
+  modoAlta = false,
+  cantidadHorarios = 0,
 }: {
   profesores: ProfesorActivoOpcion[];
   profesorIdInicial: string;
   parametros: ParametrosHorarioOperativo;
+  modoAlta?: boolean;
+  cantidadHorarios?: number;
 }) {
   const [valores, setValores] = useState<Valores>({
     profesorId: profesorIdInicial,
@@ -73,6 +88,7 @@ export function RegistrarHorarioForm({
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const router = useRouter();
   const { setDirty } = useDirtyState();
+  const { notificarExito } = useToast();
 
   const schema = useMemo(() => construirRegistrarHorarioSchema(parametros), [parametros]);
   const { apertura, cierre, granularidadMinutos } = parametros;
@@ -145,9 +161,20 @@ export function RegistrarHorarioForm({
     setPendiente(true);
     try {
       const resultado = await registrarHorarioProfesor(formData);
-      setEstado(resultado);
+      // En el wizard el éxito se avisa con el toast, no con el banner.
+      setEstado(modoAlta && resultado.status === "exito" ? ESTADO_INICIAL_REGISTRAR_HORARIO : resultado);
       if (resultado.status === "exito") {
-        setValores((previos) => ({ ...previos, horaInicio: "", horaFin: "" }));
+        if (modoAlta) notificarExito(MENSAJE_EXITO);
+        // En el wizard se limpia también el día: todos los campos vuelven a
+        // su valor inicial, `hayDatos` pasa a false y el dirty flag se apaga
+        // (sin esto "Finalizar" pedía confirmar un descarte inexistente).
+        // Fuera del wizard el día queda cargado (HU-D-04 criterio 4).
+        setValores((previos) => ({
+          ...previos,
+          diaSemana: modoAlta ? "" : previos.diaSemana,
+          horaInicio: "",
+          horaFin: "",
+        }));
         router.refresh();
       } else if (resultado.status === "error_validacion") {
         enfocarPrimerCampoInvalido(form, resultado.errores);
@@ -229,24 +256,19 @@ export function RegistrarHorarioForm({
           <p>
             {ETIQUETA_DIA[estado.horario.diaSemana]} {estado.horario.horaInicio}–{estado.horario.horaFin}
           </p>
-          <LinkProtegido
-            href={`/profesores/${valores.profesorId}`}
-            className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Volver a la ficha
-          </LinkProtegido>
         </div>
       )}
 
-      {campoSelect(
-        "profesorId",
-        "Profesor",
-        "Seleccioná un profesor",
-        profesores.map((profesor) => ({
-          value: profesor.id,
-          label: `${profesor.apellido}, ${profesor.nombre} · DNI ${profesor.dni}`,
-        })),
-      )}
+      {!modoAlta &&
+        campoSelect(
+          "profesorId",
+          "Profesor",
+          "Seleccioná un profesor",
+          profesores.map((profesor) => ({
+            value: profesor.id,
+            label: `${profesor.apellido}, ${profesor.nombre} · DNI ${profesor.dni}`,
+          })),
+        )}
       {campoSelect(
         "diaSemana",
         "Día de la semana",
@@ -274,14 +296,26 @@ export function RegistrarHorarioForm({
         </p>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pendiente}>
           {pendiente && <Loader2 className="size-4 animate-spin" aria-hidden />}
           Registrar horario
         </Button>
-        <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
-          Cancelar
-        </Button>
+        {!modoAlta ? (
+          <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
+            Cancelar
+          </Button>
+        ) : cantidadHorarios > 0 ? (
+          <LinkProtegido href={rutaVolver} className={buttonVariants({ variant: "outline" })}>
+            Finalizar
+          </LinkProtegido>
+        ) : (
+          // Salida explícita del wizard: sin confirmación de descarte (ver
+          // AsociarMateriasForm). Se limpia el dirty flag antes de navegar.
+          <Link href={rutaVolver} onClick={() => setDirty(false)} className={CLASE_LINK_SECUNDARIO}>
+            Completar esto más tarde
+          </Link>
+        )}
       </div>
 
       <ConfirmarDescarteDialog
