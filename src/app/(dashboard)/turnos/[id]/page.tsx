@@ -7,6 +7,9 @@ export default async function TurnoDetallePage({ params, searchParams }: { param
     params, searchParams, auth(),
     verificarPermiso("turnos:asignar_participantes").then(() => true, () => false),
   ]);
-  const retorno = volver?.startsWith("/turnos?") ? volver : "/turnos";
+  const retorno =
+    volver && (volver.startsWith("/calendario/") || volver.startsWith("/turnos"))
+      ? volver
+      : "/turnos";
   return <TurnoDetalleVista id={id} retorno={retorno} puedeConfigurar={session?.user?.rol === "MESA_ENTRADA"} puedeGestionarAlumnos={puedeGestionarAlumnos} />;
 }
