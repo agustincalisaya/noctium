@@ -27,7 +27,7 @@ export default async function NuevoAlumnoPage() {
           Nuevo alumno
         </h1>
         <p className="text-sm text-muted-foreground">
-          Registrá los datos de identidad del alumno.
+          Registrá los datos de identidad y, si los tenés, de contacto del alumno.
         </p>
       </div>
       <AlumnoForm dniLongitudMin={dniLongitudMin} dniLongitudMax={dniLongitudMax} />

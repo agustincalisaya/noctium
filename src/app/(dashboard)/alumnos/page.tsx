@@ -12,7 +12,7 @@ import { listarAlumnos } from "@/server/alumnos/alumno.service";
 export default async function AlumnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creada?: string; pagina?: string }>;
+  searchParams: Promise<{ creada?: string; pagina?: string; sin_contacto?: string; motivo?: string }>;
 }) {
   let rol;
   try {
@@ -22,7 +22,7 @@ export default async function AlumnosPage({
     throw error;
   }
 
-  const { creada, pagina } = await searchParams;
+  const { creada, pagina, sin_contacto: sinContacto, motivo } = await searchParams;
   const esMesaDeEntrada = rol === "MESA_ENTRADA";
 
   return (
@@ -30,6 +30,21 @@ export default async function AlumnosPage({
       {creada === "1" && (
         <p className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">
           Alumno registrado correctamente
+        </p>
+      )}
+      {/* Alta con contacto cuyo guardado falló (alumno-form.tsx): el alumno
+          quedó creado, solo falta el contacto. */}
+      {creada === "1" && sinContacto && (
+        <p role="status" className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">
+          {motivo === "email_ya_asociado"
+            ? "Los datos de contacto no se guardaron: el email ya está asociado a otra cuenta."
+            : "Los datos de contacto no se guardaron."}{" "}
+          Podés cargarlos más tarde desde la ficha.{" "}
+          {esMesaDeEntrada && (
+            <Link href={`/alumnos/${encodeURIComponent(sinContacto)}/contacto`} className="font-medium underline underline-offset-4">
+              Cargar datos de contacto
+            </Link>
+          )}
         </p>
       )}
 
