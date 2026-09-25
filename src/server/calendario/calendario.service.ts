@@ -168,6 +168,11 @@ export async function listarTurnosAgendadosDeMateria(
   return turnos.map((turno) => {
     const inscriptos = turno._count.alumnos;
     const cupo = turno.cupoMaximoTurno;
+    // Solo llegan turnos DISPONIBLE/COMPLETO (§3.2), y confirmar exige aula, que
+    // fija el cupo (spec_modulo_C.md Revisión 3, §2.2). Un null acá es una regresión.
+    if (cupo === null) {
+      throw new Error(`Turno ${turno.idTurno} en ${turno.estadoTurno} sin cupo: viola spec_modulo_C.md §2.2`);
+    }
     const { aula, estado, ...base } = eventoBase(turno);
     return {
       ...base,

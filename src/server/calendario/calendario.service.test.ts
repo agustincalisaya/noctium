@@ -262,7 +262,7 @@ function filaTurnoMateria({
   duracion = 60,
   profesor = ["Giménez", "Laura"] as [string, string] | null,
   inscriptos = 3,
-  cupo = 5,
+  cupo = 5 as number | null,
   aula = "Aula 2" as string | null,
   estado = "DISPONIBLE",
 } = {}) {
@@ -351,6 +351,13 @@ describe("listarTurnosAgendadosDeMateria (HU-J-02 criterios 2 y 3)", () => {
 
     expect(vacio).toMatchObject({ alumnos_inscriptos: "0/2", estado: "DISPONIBLE" });
     expect(completo).toMatchObject({ alumnos_inscriptos: "2/2", estado: "COMPLETO", aula: "—", profesor: "—" });
+  });
+
+  it("falla de forma visible si un turno confirmado llega sin cupo (invariante de spec_modulo_C.md §2.2)", async () => {
+    vi.mocked(prisma.turno.findMany).mockResolvedValue([filaTurnoMateria({ id: "cksincupo", cupo: null })] as never);
+
+    await expect(listarTurnosAgendadosDeMateria("ckmatematica", desde, hasta))
+      .rejects.toThrow("Turno cksincupo en DISPONIBLE sin cupo: viola spec_modulo_C.md §2.2");
   });
 
   it("devuelve todos los turnos del mismo horario, ordenados por profesor para carriles estables", async () => {
