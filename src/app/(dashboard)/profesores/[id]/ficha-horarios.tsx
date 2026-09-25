@@ -29,7 +29,7 @@ export function FichaHorarios({
         href={`/profesores/horarios/nuevo?profesorId=${profesorId}`}
         className={buttonVariants({ variant: "outline", size: "sm" })}
       >
-        Registrar horario
+        Editar horario
       </Link>
     ) : (
       <p className="text-sm text-muted-foreground">{MENSAJE_PROFESOR_INACTIVO}</p>

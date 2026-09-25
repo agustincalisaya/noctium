@@ -3,27 +3,26 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Ajuste HU-D-01/HU-D-02: sección "Datos de contacto" del alta y acciones
-// posteriores al alta. La Server Action está mockeada.
+// Ajuste HU-D-01/HU-D-02: sección "Datos de contacto" del alta, y paso 1 del
+// wizard de alta (toast + avance automático a materias, sin pantalla
+// intermedia). La Server Action y el toast están mockeados.
 
-const { crearProfesor, verificarDniDisponible, setDirty } = vi.hoisted(() => ({
+const { crearProfesor, verificarDniDisponible, setDirty, push, notificarExito } = vi.hoisted(() => ({
   crearProfesor: vi.fn(),
   verificarDniDisponible: vi.fn(),
   setDirty: vi.fn(),
+  push: vi.fn(),
+  notificarExito: vi.fn(),
 }));
 vi.mock("../actions", () => ({ crearProfesor, verificarDniDisponible }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 vi.mock("@/components/sesion/dirty-state-context", () => ({ useDirtyState: () => ({ dirty: false, setDirty }) }));
 vi.mock("@/components/shared/confirmar-descarte-dialog", () => ({ ConfirmarDescarteDialog: () => null }));
-vi.mock("next/link", async () => {
-  const React = await import("react");
-  return { default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => React.createElement("a", { href, ...props }, children) };
-});
+vi.mock("@/components/ui/toast", () => ({ useToast: () => ({ notificarExito }) }));
 vi.mock("@/components/ui/button", async () => {
   const React = await import("react");
   return {
     Button: ({ children, variant, size, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string; size?: string }) => React.createElement("button", { ...props, "data-variant": variant, "data-size": size }, children),
-    buttonVariants: ({ variant }: { variant?: string }) => `variant-${variant}`,
   };
 });
 vi.mock("@/components/ui/input", async () => {
@@ -72,14 +71,6 @@ async function enviar() {
   await act(async () => {
     contenedor.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   });
-}
-
-function enlaces() {
-  return Array.from(contenedor.querySelectorAll("a")).map((a) => ({
-    texto: a.textContent,
-    href: a.getAttribute("href"),
-    clase: a.className,
-  }));
 }
 
 describe("Nuevo profesor — datos de contacto", () => {
@@ -135,33 +126,40 @@ describe("Nuevo profesor — datos de contacto", () => {
   });
 });
 
-describe("Nuevo profesor — acciones después del alta", () => {
-  it("sin contacto: horario primario con el profesor preseleccionado, materias, contacto, ficha y listado", async () => {
+describe("Nuevo profesor — paso 1 del wizard de alta", () => {
+  it.each([
+    ["sin contacto", false, IDENTIDAD],
+    ["con contacto", true, { ...IDENTIDAD, telefono: "1234-5678" }],
+  ])("%s: toast de éxito y avance automático a materias (paso 2)", async (_caso, conContacto, valores) => {
+    crearProfesor.mockResolvedValue({ status: "exito", profesorId: PROFESOR, nombre: "Ana", apellido: "Gómez", conContacto });
+    completar(valores);
+    await enviar();
+
+    expect(setDirty).toHaveBeenLastCalledWith(false);
+    expect(notificarExito).toHaveBeenCalledWith("Profesor registrado correctamente");
+    expect(push).toHaveBeenCalledWith(`/profesores/${PROFESOR}/materias?alta=1`);
+  });
+
+  it("sin pantalla intermedia: el formulario sigue montado y deshabilitado hasta que navega", async () => {
     crearProfesor.mockResolvedValue({ status: "exito", profesorId: PROFESOR, nombre: "Ana", apellido: "Gómez", conContacto: false });
     completar(IDENTIDAD);
     await enviar();
 
-    expect(contenedor.querySelector('[role="status"]')?.textContent).toContain("Profesor registrado correctamente");
-    expect(enlaces()).toEqual([
-      { texto: "Registrar horario de atención", href: `/profesores/horarios/nuevo?profesorId=${PROFESOR}`, clase: "variant-default" },
-      { texto: "Asociar materias", href: `/profesores/${PROFESOR}/materias`, clase: "variant-outline" },
-      { texto: "Cargar datos de contacto", href: `/profesores/${PROFESOR}/contacto`, clase: "variant-outline" },
-      { texto: "Ver ficha del profesor", href: `/profesores/${PROFESOR}`, clase: "variant-outline" },
-      { texto: "Volver al listado", href: "/profesores", clase: "variant-outline" },
-    ]);
-    expect(setDirty).toHaveBeenCalledWith(false);
+    expect(contenedor.querySelector("form")).not.toBeNull();
+    expect(contenedor.querySelectorAll("a")).toHaveLength(0);
+    expect(contenedor.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true);
   });
 
-  it("con contacto cargado en el alta: no ofrece \"Cargar datos de contacto\"", async () => {
-    crearProfesor.mockResolvedValue({ status: "exito", profesorId: PROFESOR, nombre: "Ana", apellido: "Gómez", conContacto: true });
-    completar({ ...IDENTIDAD, telefono: "1234-5678" });
+  it("error de validación del servidor: no notifica ni navega", async () => {
+    crearProfesor.mockResolvedValue({
+      status: "error_validacion",
+      errores: { dni: ["Ya existe un profesor registrado con ese DNI"] },
+    });
+    completar(IDENTIDAD);
     await enviar();
 
-    expect(enlaces().map((enlace) => enlace.texto)).toEqual([
-      "Registrar horario de atención",
-      "Asociar materias",
-      "Ver ficha del profesor",
-      "Volver al listado",
-    ]);
+    expect(notificarExito).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(contenedor.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
   });
 });

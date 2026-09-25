@@ -1,5 +1,7 @@
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { notFound, redirect } from "next/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import { StepperAltaProfesor } from "@/components/shared/stepper-alta-profesor";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { listarMateriasActivas } from "@/server/materias/materia.service";
 import {
@@ -23,10 +25,15 @@ const MENSAJE_PROFESOR_INACTIVO = "Solo pueden asociarse materias a profesores a
  */
 export default async function AsociarMateriasPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ alta?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, { alta }] = await Promise.all([params, searchParams]);
+  // Paso 2 del wizard de alta (`?alta=1`, desde /profesores/nuevo): stepper,
+  // "Completar esto más tarde" y, al guardar, avance automático al horario.
+  const modoAlta = alta === "1";
 
   try {
     await verificarPermiso("profesores:editar");
@@ -65,23 +72,41 @@ export default async function AsociarMateriasPage({
       .map((materia) => ({ ...materia, asociada: true })),
   ].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
+  const rutaFicha = `/profesores/${profesor.id}`;
   let contenido;
   if (!profesor.activo) {
     contenido = <p className="text-sm text-muted-foreground">{MENSAJE_PROFESOR_INACTIVO}</p>;
   } else if (materiasActivas.length === 0) {
-    contenido = <p className="text-sm text-muted-foreground">No hay materias activas para asociar</p>;
+    contenido = (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">No hay materias activas para asociar</p>
+        {/* Sin materias para elegir el wizard no se traba: se puede seguir con el horario. */}
+        {modoAlta && (
+          <LinkProtegido
+            href={`/profesores/horarios/nuevo?profesorId=${profesor.id}&alta=1`}
+            className={buttonVariants({ variant: "default" })}
+          >
+            Continuar con el horario
+          </LinkProtegido>
+        )}
+      </div>
+    );
   } else {
-    contenido = <AsociarMateriasForm profesorId={profesor.id} opciones={opciones} />;
+    contenido = <AsociarMateriasForm profesorId={profesor.id} opciones={opciones} modoAlta={modoAlta} />;
   }
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-xl space-y-5 p-6">
-      <LinkProtegido
-        href={`/profesores/${profesor.id}`}
-        className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        Volver a la ficha
-      </LinkProtegido>
+      {modoAlta ? (
+        <StepperAltaProfesor paso={2} />
+      ) : (
+        <LinkProtegido
+          href={rutaFicha}
+          className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Volver a la ficha
+        </LinkProtegido>
+      )}
       <div>
         <h1 className="text-2xl font-semibold">Materias del profesor</h1>
         <p className="text-sm text-muted-foreground">
