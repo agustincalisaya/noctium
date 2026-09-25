@@ -192,6 +192,25 @@ export function asignarCarriles<T extends { hora_inicio: string; hora_fin: strin
  * (HU-J-01 c5 y c6). Sin `profesorId` (rol Profesor) ni `semana` (semana
  * actual), el parámetro se omite.
  */
+export type RutaCalendario = "/calendario/profesor" | "/calendario/materia";
+
+/**
+ * URL de una vista del calendario con sus searchParams (entidad elegida y
+ * semana), en el orden recibido y omitiendo los vacíos. Compartida por la
+ * agenda por profesor (HU-J-01) y por materia (HU-J-02).
+ */
+export function construirUrlCalendario(
+  rutaBase: RutaCalendario,
+  valores: Record<string, string | undefined>,
+): string {
+  const params = new URLSearchParams();
+  for (const [clave, valor] of Object.entries(valores)) {
+    if (valor) params.set(clave, valor);
+  }
+  const query = params.toString();
+  return query ? `${rutaBase}?${query}` : rutaBase;
+}
+
 export function construirUrlCalendarioProfesor({
   profesorId,
   semana,
@@ -199,9 +218,20 @@ export function construirUrlCalendarioProfesor({
   profesorId?: string;
   semana?: string;
 }): string {
-  const params = new URLSearchParams();
-  if (profesorId) params.set("profesorId", profesorId);
-  if (semana) params.set("semana", semana);
-  const query = params.toString();
-  return query ? `/calendario/profesor?${query}` : "/calendario/profesor";
+  return construirUrlCalendario("/calendario/profesor", { profesorId, semana });
+}
+
+export function construirUrlCalendarioMateria({
+  materiaId,
+  semana,
+}: {
+  materiaId?: string;
+  semana?: string;
+}): string {
+  return construirUrlCalendario("/calendario/materia", { materiaId, semana });
+}
+
+/** Materia en el selector y el encabezado (HU-J-02): "Matemática (MAT101)" o solo el nombre. */
+export function etiquetaMateria({ nombre, codigo }: { nombre: string; codigo: string | null }): string {
+  return codigo ? `${nombre} (${codigo})` : nombre;
 }

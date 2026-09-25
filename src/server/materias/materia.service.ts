@@ -31,6 +31,21 @@ export async function verificarMateriaActiva(id: string, db: Prisma.TransactionC
 }
 
 /**
+ * Consulta pública (Regla N.° 3) para HU-J-02: nombre y código de una
+ * materia activa, para el encabezado del calendario por materia. `null` si
+ * no existe o está inactiva.
+ */
+export async function obtenerOpcionMateriaActiva(
+  id: string,
+): Promise<{ id: string; nombre: string; codigo: string | null } | null> {
+  const materia = await prisma.materia.findFirst({
+    where: { idMateria: id, activaMateria: true },
+    select: { idMateria: true, nombreMateria: true, codigoMateria: true },
+  });
+  return materia ? { id: materia.idMateria, nombre: materia.nombreMateria, codigo: materia.codigoMateria } : null;
+}
+
+/**
  * Consulta pública (Regla N.° 3) para HU-D-03: el módulo D la usa para
  * revalidar, dentro de su propia transacción, que las materias a asociar
  * existan y sigan activas. Bloquea las filas con `FOR SHARE` sobre el `tx`

@@ -2,27 +2,26 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  construirUrlCalendarioProfesor,
-  desplazarSemana,
-  formatearRangoSemana,
-} from "@/lib/calendario-semana";
+import { formatearRangoSemana } from "@/lib/calendario-semana";
 import type { RangoSemana } from "@/types/calendario.types";
 
 /**
- * Encabezado de la agenda (HU-J-01 c1 y c5): rango de fechas consultado y
- * navegación Anterior / Hoy / Siguiente. Son links que cambian `?semana=` y
- * conservan `?profesorId=`; "Hoy" vuelve a la semana actual.
+ * Encabezado de una vista semanal del calendario (HU-J-01 c1/c5, HU-J-02
+ * c1/c4): rango de fechas consultado y navegación Anterior / Hoy /
+ * Siguiente. Recibe los links ya armados por la página, que conservan la
+ * entidad elegida (profesor o materia); "Hoy" vuelve a la semana actual.
  */
 export function NavegacionSemana({
-  lunes,
   rango,
-  profesorId,
+  hrefAnterior,
+  hrefHoy,
+  hrefSiguiente,
   esSemanaActual,
 }: {
-  lunes: string;
   rango: RangoSemana;
-  profesorId: string | undefined;
+  hrefAnterior: string;
+  hrefHoy: string;
+  hrefSiguiente: string;
   esSemanaActual: boolean;
 }) {
   const clase = cn(buttonVariants({ variant: "outline", size: "sm" }));
@@ -36,26 +35,14 @@ export function NavegacionSemana({
         {formatearRangoSemana(rango.desde, rango.hasta)}
       </h2>
       <div className="flex items-center gap-2">
-        <Link
-          href={construirUrlCalendarioProfesor({ profesorId, semana: desplazarSemana(lunes, -1) })}
-          className={clase}
-          aria-label="Semana anterior"
-        >
+        <Link href={hrefAnterior} className={clase} aria-label="Semana anterior">
           <ChevronLeft className="size-4" aria-hidden />
           Anterior
         </Link>
-        <Link
-          href={construirUrlCalendarioProfesor({ profesorId })}
-          className={clase}
-          aria-current={esSemanaActual ? "date" : undefined}
-        >
+        <Link href={hrefHoy} className={clase} aria-current={esSemanaActual ? "date" : undefined}>
           Hoy
         </Link>
-        <Link
-          href={construirUrlCalendarioProfesor({ profesorId, semana: desplazarSemana(lunes, 1) })}
-          className={clase}
-          aria-label="Semana siguiente"
-        >
+        <Link href={hrefSiguiente} className={clase} aria-label="Semana siguiente">
           Siguiente
           <ChevronRight className="size-4" aria-hidden />
         </Link>
