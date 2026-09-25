@@ -1,10 +1,13 @@
-import { Suspense, type ReactNode } from "react";
-import { CalendarX, Loader2 } from "lucide-react";
+import { Suspense } from "react";
 import type { RolUsuario } from "@prisma/client";
 import { GrillaSemanal } from "@/components/shared/grilla-semanal";
 import { EventoCalendario } from "@/components/shared/evento-calendario";
+import { NavegacionSemana } from "@/components/shared/navegacion-semana";
+import { SelectorCalendario } from "@/components/shared/selector-calendario";
+import { AvisoCalendario, CalendarioVacio, CargandoCalendario } from "@/components/shared/estado-calendario";
 import {
   construirUrlCalendarioProfesor,
+  desplazarSemana,
   esFechaCalendario,
   hoyEnZonaCentro,
   lunesDeLaSemana,
@@ -15,8 +18,6 @@ import { listarOpcionesProfesoresActivos } from "@/server/profesores/profesor.se
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { ServiceError } from "@/server/shared/service-error";
 import { exigirPermiso } from "@/server/shared/with-permission";
-import { NavegacionSemana } from "./navegacion-semana";
-import { SelectorProfesor } from "./selector-profesor";
 
 /**
  * Agenda semanal por profesor (HU-J-01, `spec_modulo_J.md` §2.1). La
@@ -54,14 +55,27 @@ export default async function AgendaProfesorPage({
     <div className="space-y-4 p-6">
       <h1 className="text-lg font-semibold">{esProfesor ? "Mi agenda" : "Agenda por profesor"}</h1>
 
-      {opciones && <SelectorProfesor opciones={opciones} profesorId={profesorId} semana={lunes} />}
+      {opciones && (
+        <SelectorCalendario
+          id="profesor"
+          etiqueta="Profesor"
+          placeholder="Seleccioná un profesor"
+          sinOpciones="No hay profesores activos"
+          opciones={opciones.map(({ id, nombreParaMostrar }) => ({ id, etiqueta: nombreParaMostrar }))}
+          valor={profesorId}
+          rutaBase="/calendario/profesor"
+          parametro="profesorId"
+          semana={lunes}
+        />
+      )}
 
       {hayAgenda ? (
         <>
           <NavegacionSemana
-            lunes={lunes}
             rango={rango}
-            profesorId={profesorId}
+            hrefAnterior={construirUrlCalendarioProfesor({ profesorId, semana: desplazarSemana(lunes, -1) })}
+            hrefHoy={construirUrlCalendarioProfesor({ profesorId })}
+            hrefSiguiente={construirUrlCalendarioProfesor({ profesorId, semana: desplazarSemana(lunes, 1) })}
             esSemanaActual={lunes === lunesActual}
           />
           {/*
@@ -69,12 +83,12 @@ export default async function AgendaProfesorPage({
            * criterio que HU-D-05). La `key` fuerza el fallback al cambiar de
            * profesor o de semana, así no se ve la agenda anterior mientras carga.
            */}
-          <Suspense key={`${profesorId ?? "propia"}-${lunes}`} fallback={<CargandoAgenda />}>
+          <Suspense key={`${profesorId ?? "propia"}-${lunes}`} fallback={<CargandoCalendario texto="Cargando agenda" />}>
             <AgendaSemanal usuario={usuario} profesorId={profesorId} lunes={lunes} hoy={hoy} />
           </Suspense>
         </>
       ) : (
-        <Aviso>Seleccioná un profesor para ver su agenda</Aviso>
+        <AvisoCalendario>Seleccioná un profesor para ver su agenda</AvisoCalendario>
       )}
     </div>
   );
@@ -82,27 +96,6 @@ export default async function AgendaProfesorPage({
 
 function primerValor(valor: string | string[] | undefined): string | undefined {
   return Array.isArray(valor) ? valor[0] : valor;
-}
-
-function CargandoAgenda() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground"
-    >
-      <Loader2 className="size-4 animate-spin" aria-hidden />
-      Cargando agenda
-    </div>
-  );
-}
-
-function Aviso({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-md border border-border bg-card py-12 text-center">
-      <p className="text-sm text-muted-foreground">{children}</p>
-    </div>
-  );
 }
 
 // Errores de negocio esperables: se informan en la página, no como error
@@ -134,7 +127,7 @@ async function AgendaSemanal({
     });
   } catch (error) {
     if (error instanceof ServiceError && MENSAJES_POR_CODIGO[error.code]) {
-      return <Aviso>{MENSAJES_POR_CODIGO[error.code]}</Aviso>;
+      return <AvisoCalendario>{MENSAJES_POR_CODIGO[error.code]}</AvisoCalendario>;
     }
     throw error;
   }
@@ -149,15 +142,7 @@ async function AgendaSemanal({
         Turnos agendados de <span className="font-medium text-foreground">{calendario.profesor.nombre_completo}</span>
       </p>
 
-      {calendario.eventos.length === 0 && (
-        <div
-          role="status"
-          className="flex items-center justify-center gap-2 rounded-md border border-border bg-card py-4 text-sm text-muted-foreground"
-        >
-          <CalendarX className="size-4" aria-hidden />
-          Agenda sin turnos
-        </div>
-      )}
+      {calendario.eventos.length === 0 && <CalendarioVacio texto="Agenda sin turnos" />}
 
       <GrillaSemanal
         dias={calendario.dias}

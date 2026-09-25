@@ -129,6 +129,14 @@ export type ConsultarCalendarioMateriaQuery = z.infer<typeof ConsultarCalendario
 }
 ```
 
+**Nota de sincronización (HU-J-02, implementación 24/09/2026):**
+- **Ocupación en lugar de `alumno`:** el backlog vigente (criterio 2) reemplaza el nombre del alumno por la ocupación sobre cupo. Cada evento lleva `alumnos_inscriptos` (`"3/5"` = filas de `TurnoAlumno` del turno / `Turno.cupoMaximoTurno`, mismo formato que el módulo C) y los números sueltos `inscriptos` y `cupo`; **no** lleva `alumno` ni nombres de alumnos. La UI lo muestra como "Alumnos: 3/5". Un `DISPONIBLE` sin alumnos es `"0/N"` y sigue en el calendario. Evento real: `{ "turno_id", "fecha", "hora_inicio", "hora_fin", "profesor": "Giménez, Laura", "alumnos_inscriptos": "3/5", "inscriptos": 3, "cupo": 5, "aula": "Aula 2", "estado": "DISPONIBLE" }`.
+- **Profesor efectivo:** el paso 2 dice `profesorId: session.sub`, pero `session.sub` es el id de **Usuario**. El filtro usa el id de la ficha de **Profesor** vinculada a la cuenta (`Profesor.usuarioId`), vía `obtenerOpcionProfesorDeUsuario()` del módulo D, igual que §2.1. Profesor sin ficha → `403 SIN_PERMISO`.
+- **Materias del Profesor (default, a confirmar con el equipo):** el Profesor solo puede consultar materias activas que tiene asociadas (HU-D-03, `obtenerMateriasDelProfesor()` del módulo D). Una materia que no dicta → `403 SIN_PERMISO` en la API, sin revelar si existe; su selector muestra solo esas materias. Mesa de Entrada y Gerente eligen entre todas las materias activas (`listarMateriasActivas()`, módulo L).
+- **Materia activa:** el paso 1 se resuelve con `obtenerOpcionMateriaActiva()` (servicio público nuevo del módulo L, aditivo), que además devuelve nombre y código para el encabezado. Se verifica **después** del alcance del rol: un Profesor que no dicta la materia recibe `403` aunque la materia esté inactiva o no exista.
+- **Rango y lectura de turnos:** mismo criterio que la nota de §2.1 (días operativos en `America/Argentina/Buenos_Aires`; consulta de solo lectura dentro de `src/server/calendario/calendario.service.ts`, `listarTurnosAgendadosDeMateria()`, con `TODO(Regla N.° 3)` hasta que el módulo C exponga `listarTurnosAgendadosPorMateria()`). La ubicación real del servicio es `src/server/calendario/calendario.service.ts` (Regla N.° 11), no `lib/services/calendario/` como dice §3.
+- **Orden:** los eventos salen ordenados por fecha, hora, apellido/nombre del profesor e id, para que los superpuestos queden siempre en el mismo carril de la grilla.
+
 ---
 
 ## 3. Reglas de Negocio Estrictas

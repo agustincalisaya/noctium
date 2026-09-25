@@ -7,6 +7,7 @@ import {
   DoorOpen,
   ListOrdered,
   CalendarSearch,
+  CalendarRange,
   Contact,
   Library,
   BadgeCheck,
@@ -35,8 +36,6 @@ interface SidebarSeccionConfig {
  * se crean páginas nuevas):
  *
  * - Turnos: falta "Nuevo turno" (`/turnos/nuevo`) — HU-C-03.
- * - Calendario: falta "Agenda por materia" (`/calendario/materia`) —
- *   HU-J-02. "Agenda por profesor" (HU-J-01) ya está.
  * - Alumnos: falta "Nuevo alumno" (`/alumnos/nuevo`) — HU-B-01.
  * - Profesores: falta "Nuevo profesor" (`/profesores/nuevo`) — HU-D-01.
  */
@@ -50,7 +49,10 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     {
       label: "Calendario",
       icon: CalendarDays,
-      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch }],
+      items: [
+        { label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch },
+        { label: "Agenda por materia", href: "/calendario/materia", icon: CalendarRange },
+      ],
     },
     {
       label: "Alumnos",
@@ -72,7 +74,10 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     {
       label: "Calendario",
       icon: CalendarDays,
-      items: [{ label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch }],
+      items: [
+        { label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch },
+        { label: "Agenda por materia", href: "/calendario/materia", icon: CalendarRange },
+      ],
     },
     {
       label: "Materias",
@@ -95,7 +100,10 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
     {
       label: "Calendario",
       icon: CalendarDays,
-      items: [{ label: "Mi agenda", href: "/calendario/profesor", icon: CalendarSearch }],
+      items: [
+        { label: "Mi agenda", href: "/calendario/profesor", icon: CalendarSearch },
+        { label: "Mis turnos por materia", href: "/calendario/materia", icon: CalendarRange },
+      ],
     },
   ],
   ALUMNO: [],

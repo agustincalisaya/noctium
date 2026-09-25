@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { ErrorCalendario } from "@/components/shared/error-calendario";
 
 /**
  * Boundary de error de la agenda por profesor (HU-J-01 c7). Nunca muestra el
@@ -14,15 +14,5 @@ export default function ErrorAgendaProfesor({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
-  return (
-    <div
-      role="alert"
-      className="m-6 flex flex-col items-center gap-3 rounded-md border border-border bg-card p-12 text-center"
-    >
-      <p className="text-sm text-destructive">No se pudo cargar la agenda</p>
-      <Button variant="outline" size="sm" onClick={() => retry()}>
-        Reintentar
-      </Button>
-    </div>
-  );
+  return <ErrorCalendario texto="No se pudo cargar la agenda" retry={retry} />;
 }
