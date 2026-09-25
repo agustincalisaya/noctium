@@ -16,7 +16,7 @@ const { TurnosListado } = await import("./turnos-listado");
 const { TurnoDetalleVista } = await import("./[id]/turno-detalle");
 const item = (estado: "PENDIENTE" | "DISPONIBLE" | "COMPLETO", extra: Record<string, unknown> = {}) => ({
   id: estado.toLowerCase(), fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", alumnos_inscriptos: "0/5",
-  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", estado, ...extra,
+  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, ...extra,
 });
 const datos = (items: unknown[], pagina = 2) => ({ items, paginacion: { total: 3, pagina_actual: pagina, total_paginas: 2, por_pagina: 2 } });
 const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: async () => ({ data, error }) });
@@ -34,16 +34,16 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe("HU-C-01 interfaz", () => {
-  it("muestra estado textual, ocupación y navega al paso faltante conservando retorno", async () => {
+  it("muestra estado textual, ocupación y navega al paso faltante (aula antes que participantes) conservando retorno", async () => {
     fetch.mockResolvedValue(respuesta(datos([
-      item("PENDIENTE"),
-      item("PENDIENTE", { id: "con-participantes", alumnos: [{ id: "a" }], profesor_id: "p", alumnos_inscriptos: "1/5" }),
-      item("DISPONIBLE", { id: "disponible" }), item("COMPLETO", { id: "completo", alumnos_inscriptos: "5/5" }),
+      item("PENDIENTE", { alumnos_inscriptos: "Sin asignar" }),
+      item("PENDIENTE", { id: "con-aula", aula: "Aula 1", aula_id: "aula-1", alumnos_inscriptos: "0/10" }),
+      item("DISPONIBLE", { id: "disponible", alumnos_inscriptos: "1/5" }), item("COMPLETO", { id: "completo", alumnos_inscriptos: "5/5" }),
     ])));
     await montar();
     expect(container.querySelector("th")?.textContent).toBe("Fecha");
     expect(container.textContent).toContain("Alumnos inscriptos");
-    for (const texto of ["Pendiente", "Disponible", "Completo", "0/5", "1/5", "5/5", "Sin asignar"]) expect(container.textContent).toContain(texto);
+    for (const texto of ["Pendiente", "Disponible", "Completo", "0/10", "1/5", "5/5", "Sin asignar"]) expect(container.textContent).toContain(texto);
     const estados = [...container.querySelectorAll("tbody tr td:nth-child(7) span")];
     expect(estados[0].className).toContain("bg-warning");
     expect(estados[2].className).toContain("bg-success");
@@ -51,8 +51,8 @@ describe("HU-C-01 interfaz", () => {
     const enlaces = [...container.querySelectorAll("a")];
     expect(enlaces.find((a) => a.textContent === "Ver detalle")?.getAttribute("href")).toBe("/turnos/pendiente?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc");
     expect(enlaces.filter((a) => a.textContent === "Continuar configuración").map((a) => a.getAttribute("href"))).toEqual([
-      "/turnos/pendiente/participantes?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
-      "/turnos/con-participantes/aula?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
+      "/turnos/pendiente/configuracion?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
+      "/turnos/con-aula/participantes?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
     ]);
     expect(enlaces.find((a) => a.textContent === "Anterior")?.getAttribute("href")).toBe("/turnos?pagina=1&orden=fecha_hora_asc");
     const paginacion = container.querySelector('nav[aria-label="Páginas de turnos"]')!;
@@ -110,7 +110,7 @@ describe("HU-C-01 interfaz", () => {
       creado_en: "2026-09-24T12:00:00.000Z", actualizado_en: "2026-09-24T12:00:00.000Z",
       creado_por: "mesa@example.com", modificado_por: "mesa@example.com",
     }));
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} puedeAsignarAula={false} />));
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} />));
     await esperar();
     expect(container.textContent).toContain("Pérez, Juan");
     expect(container.textContent).toContain("Disponible");
@@ -123,19 +123,29 @@ describe("HU-C-01 interfaz", () => {
     expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1", { cache: "no-store" });
   });
 
-  it("en un turno pendiente ofrece asignar aula solo con el permiso", async () => {
-    fetch.mockResolvedValue(respuesta({
-      ...item("PENDIENTE", { id: "turno-1" }), duracion_minutos: 60, cupo_maximo: 5,
+  it("en un turno pendiente ofrece aula antes que participantes, y cupo \"Sin asignar\" sin aula (Revisión 3)", async () => {
+    const detalle = (extra: Record<string, unknown>) => respuesta({
+      ...item("PENDIENTE", { id: "turno-1", ...extra }), duracion_minutos: 60,
       creado_en: "2026-09-24T12:00:00.000Z", actualizado_en: "2026-09-24T12:00:00.000Z",
       creado_por: "mesa@example.com", modificado_por: "mesa@example.com",
-    }));
-    const linkAula = () => container.querySelector('a[href*="/aula"]');
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} puedeAsignarAula />));
+    });
+    const volver = "?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc";
+    const enlace = (texto: string) => [...container.querySelectorAll("a")].find((a) => a.textContent === texto);
+    const cupo = () => [...container.querySelectorAll("dt")].find((elemento) => elemento.textContent === "Cupo máximo")?.nextElementSibling?.textContent;
+    fetch.mockResolvedValue(detalle({ cupo_maximo: null, alumnos_inscriptos: "Sin asignar" }));
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar puedeGestionarAlumnos />));
     await esperar();
-    expect(linkAula()?.getAttribute("href")).toBe("/turnos/turno-1/aula?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc");
-    expect(linkAula()?.textContent).toBe("Asignar o cambiar aula");
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} puedeAsignarAula={false} />));
+    expect(enlace("Modificar configuración y asignar aula")?.getAttribute("href")).toBe(`/turnos/turno-1/configuracion${volver}`);
+    expect(enlace("Asignar profesor y alumnos")).toBeUndefined();
+    expect(cupo()).toBe("Sin asignar");
+    fetch.mockResolvedValue(detalle({ aula: "Aula 1", aula_id: "aula-1", aula_capacidad: 10, cupo_maximo: 10, alumnos_inscriptos: "0/10" }));
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar puedeGestionarAlumnos />));
     await esperar();
-    expect(linkAula()).toBeNull();
+    expect(enlace("Modificar configuración o aula")?.getAttribute("href")).toBe(`/turnos/turno-1/configuracion${volver}`);
+    expect(enlace("Asignar profesor y alumnos")?.getAttribute("href")).toBe(`/turnos/turno-1/participantes${volver}`);
+    expect(cupo()).toBe("10");
+    expect(container.querySelector('a[href*="/aula"]')).toBeNull();
   });
 });

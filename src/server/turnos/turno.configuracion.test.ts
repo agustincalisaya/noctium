@@ -19,10 +19,10 @@ const { ConfigurarTurnoSchema } = await import("./turno.schema");
 const TURNO = "ckturno00000000000000001";
 const MATERIA = "ckmateria0000000000000001";
 const USUARIO = "ckusuario0000000000000001";
-const input = { fecha: new Date("2026-10-01T00:00:00.000Z"), hora_inicio: "10:00", materia_id: MATERIA, cupo_maximo: 5 };
+const input = { fecha: new Date("2026-10-01T00:00:00.000Z"), hora_inicio: "10:00", materia_id: MATERIA };
 const actual = {
   estadoTurno: "PENDIENTE", fechaTurno: input.fecha, horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"),
-  materiaId: MATERIA, profesorId: null, cupoMaximoTurno: 5, updatedAtTurno: new Date("2026-09-24T00:00:00.000Z"),
+  materiaId: MATERIA, profesorId: null, cupoMaximoTurno: 20, updatedAtTurno: new Date("2026-09-24T00:00:00.000Z"),
 };
 const payload = (tipo: string) => evento.mock.calls.find(([{ data }]) => data.tipoEvento === tipo)?.[0].data.payloadEvento;
 
@@ -37,29 +37,26 @@ beforeEach(() => {
   evento.mockResolvedValue({});
 });
 
-describe("HU-C-03 cupo máximo — schema", () => {
+describe("HU-C-03 schema (Revisión 3: sin cupo)", () => {
   const base = { fecha: "2026-10-01", hora_inicio: "10:00", materia_id: MATERIA };
-  it("exige cupo_maximo entero mayor que cero", () => {
-    expect(ConfigurarTurnoSchema.safeParse({ ...base, cupo_maximo: 5 }).success).toBe(true);
-    for (const cupo_maximo of [undefined, 0, -1, 2.5, "5"]) {
-      const resultado = ConfigurarTurnoSchema.safeParse({ ...base, cupo_maximo });
-      expect(resultado.success).toBe(false);
-      expect(resultado.error?.flatten().fieldErrors.cupo_maximo).toBeDefined();
-    }
+  it("acepta la configuración sin cupo_maximo", () => {
+    expect(ConfigurarTurnoSchema.safeParse(base).success).toBe(true);
   });
-  it("rechaza un cupo que desborda la columna INTEGER", () => {
-    expect(ConfigurarTurnoSchema.safeParse({ ...base, cupo_maximo: 2_147_483_648 }).success).toBe(false);
+  it("descarta un cupo_maximo enviado por el cliente: el cupo lo fija el aula", () => {
+    const resultado = ConfigurarTurnoSchema.safeParse({ ...base, cupo_maximo: 5 });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data).not.toHaveProperty("cupo_maximo");
   });
 });
 
 describe("HU-C-03 configurarTurno", () => {
-  it("persiste cupoMaximoTurno en PENDIENTE, sin recursos, y lo devuelve", async () => {
-    await expect(configurarTurno(input, USUARIO)).resolves.toEqual({ id: TURNO, fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", cupo_maximo: 5, estado: "PENDIENTE" });
-    expect(turno.create).toHaveBeenCalledWith({ data: expect.objectContaining({ cupoMaximoTurno: 5, estadoTurno: "PENDIENTE", profesorId: null, aulaId: null, creadoPorUsuarioId: USUARIO }) });
+  it("crea el turno PENDIENTE sin aula, sin cupo y sin recursos", async () => {
+    await expect(configurarTurno(input, USUARIO)).resolves.toEqual({ id: TURNO, fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", cupo_maximo: null, estado: "PENDIENTE" });
+    expect(turno.create).toHaveBeenCalledWith({ data: expect.objectContaining({ cupoMaximoTurno: null, estadoTurno: "PENDIENTE", profesorId: null, aulaId: null, creadoPorUsuarioId: USUARIO }) });
   });
-  it("emite turno:configurado con cupo_maximo después del INSERT", async () => {
+  it("emite turno:configurado sin cupo_maximo después del INSERT", async () => {
     await configurarTurno(input, USUARIO);
-    expect(payload("turno:configurado")).toEqual({ turno_id: TURNO, fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", materia_id: MATERIA, cupo_maximo: 5, usuario_id: USUARIO });
+    expect(payload("turno:configurado")).toEqual({ turno_id: TURNO, fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", materia_id: MATERIA, usuario_id: USUARIO });
     expect(turno.create.mock.invocationCallOrder[0]).toBeLessThan(evento.mock.invocationCallOrder[0]);
   });
   it("no crea el turno si la materia no está activa", async () => {
@@ -70,23 +67,15 @@ describe("HU-C-03 configurarTurno", () => {
 });
 
 describe("HU-C-03 modificarConfiguracionTurno", () => {
-  it("actualiza el cupo con la condición de estado y versión en la misma sentencia", async () => {
-    await expect(modificarConfiguracionTurno(TURNO, { ...input, cupo_maximo: 8 }, USUARIO)).resolves.toMatchObject({ cupo_maximo: 8, estado: "PENDIENTE" });
-    expect(turno.updateMany).toHaveBeenCalledWith({
-      where: expect.objectContaining({ idTurno: TURNO, estadoTurno: "PENDIENTE", updatedAtTurno: actual.updatedAtTurno, cupoMaximoTurno: 5 }),
-      data: expect.objectContaining({ cupoMaximoTurno: 8 }),
-    });
-    expect(payload("turno:configuracion_modificada")).toMatchObject({ campos_modificados: ["cupo_maximo"] });
-  });
-  it("rechaza un cupo menor a los alumnos ya cargados sin actualizar", async () => {
-    turnoAlumno.count.mockResolvedValueOnce(3);
-    await expect(modificarConfiguracionTurno(TURNO, { ...input, cupo_maximo: 2 }, USUARIO)).rejects.toMatchObject({ code: "CUPO_MENOR_A_INSCRIPTOS" });
-    expect(turno.updateMany).not.toHaveBeenCalled();
-    expect(evento).not.toHaveBeenCalled();
-  });
-  it("acepta un cupo igual a los alumnos ya cargados", async () => {
-    turnoAlumno.count.mockResolvedValueOnce(3);
-    await expect(modificarConfiguracionTurno(TURNO, { ...input, cupo_maximo: 3 }, USUARIO)).resolves.toMatchObject({ cupo_maximo: 3 });
+  it("actualiza con la condición de estado y versión en la misma sentencia, sin tocar el cupo del aula", async () => {
+    const nueva = new Date("2026-10-02T00:00:00.000Z");
+    await expect(modificarConfiguracionTurno(TURNO, { ...input, fecha: nueva }, USUARIO)).resolves.toMatchObject({ cupo_maximo: 20, estado: "PENDIENTE" });
+    const [{ where, data }] = turno.updateMany.mock.calls[0]!;
+    expect(where).toMatchObject({ idTurno: TURNO, estadoTurno: "PENDIENTE", updatedAtTurno: actual.updatedAtTurno });
+    expect(data).toMatchObject({ fechaTurno: nueva });
+    expect(data).not.toHaveProperty("cupoMaximoTurno");
+    expect(turnoAlumno.count).not.toHaveBeenCalled();
+    expect(payload("turno:configuracion_modificada")).toMatchObject({ campos_modificados: ["fecha"] });
   });
   it("rechaza con TURNO_YA_DISPONIBLE un turno DISPONIBLE o COMPLETO", async () => {
     for (const estadoTurno of ["DISPONIBLE", "COMPLETO"]) {
@@ -95,7 +84,7 @@ describe("HU-C-03 modificarConfiguracionTurno", () => {
     }
     expect(turno.updateMany).not.toHaveBeenCalled();
   });
-  it("informa TURNO_MODIFICADO si la fila cambió entre el conteo y la actualización", async () => {
+  it("informa TURNO_MODIFICADO si la fila cambió entre la lectura y la actualización", async () => {
     turno.updateMany.mockResolvedValueOnce({ count: 0 });
     await expect(modificarConfiguracionTurno(TURNO, input, USUARIO)).rejects.toMatchObject({ code: "TURNO_MODIFICADO" });
     expect(evento).not.toHaveBeenCalled();

@@ -17,7 +17,8 @@ const mesa = { id: "usuario-1", rol: "MESA_ENTRADA" as const };
 const registro = (estadoTurno: "PENDIENTE" | "DISPONIBLE" | "COMPLETO", cantidad: number) => ({
   idTurno: `turno-${estadoTurno}`, fechaTurno: new Date("2026-10-01T00:00:00.000Z"),
   horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"), duracionMinutosTurno: 60,
-  cupoMaximoTurno: 5, estadoTurno, profesorId: estadoTurno === "PENDIENTE" ? null : "profesor-1",
+  // Revisión 3: sin aula no hay cupo.
+  cupoMaximoTurno: estadoTurno === "PENDIENTE" ? null : 5, estadoTurno, profesorId: estadoTurno === "PENDIENTE" ? null : "profesor-1",
   profesor: estadoTurno === "PENDIENTE" ? null : { apellidoProfesor: "Gómez", nombreProfesor: "Ana", dniProfesor: "123" },
   materiaId: "materia-1", materia: { nombreMateria: "Física", codigoMateria: "FIS" },
   aulaId: estadoTurno === "PENDIENTE" ? null : "aula-1",
@@ -43,9 +44,9 @@ describe("HU-C-01 listado y detalle", () => {
   it("presenta los tres estados, ocupación y datos faltantes", async () => {
     const resultado = await listarTurnos(1, undefined, mesa);
     expect(resultado.items.map((item) => [item.estado, item.alumnos_inscriptos])).toEqual([
-      ["PENDIENTE", "0/5"], ["DISPONIBLE", "3/5"], ["COMPLETO", "5/5"],
+      ["PENDIENTE", "Sin asignar"], ["DISPONIBLE", "3/5"], ["COMPLETO", "5/5"],
     ]);
-    expect(resultado.items[0]).toMatchObject({ profesor: "Sin asignar", aula: "Sin asignar", hora_inicio: "10:00", hora_fin: "11:00" });
+    expect(resultado.items[0]).toMatchObject({ profesor: "Sin asignar", aula: "Sin asignar", cupo_maximo: null, hora_inicio: "10:00", hora_fin: "11:00" });
     expect(resultado.items[1]).toMatchObject({ profesor: "Gómez, Ana", materia: "Física", aula: "Aula 1" });
   });
 
