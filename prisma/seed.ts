@@ -530,8 +530,8 @@ const ALUMNOS: AlumnoSeed[] = [
 const CUENTAS_ALUMNO_LEGACY = Array.from({ length: 9 }, (_, i) => `alumno${pad(i + 7)}@noctium.local`);
 
 const PARAMETROS: Record<string, string> = {
-  // Turnos y calendario
-  duracion_turno_estandar_minutos: "60",
+  // Turnos y calendario (la duración del turno la elige Mesa de Entradas entre
+  // DURACIONES_PERMITIDAS_TURNO_MIN — spec_modulo_C.md Revisión 4 — no es un parámetro)
   horario_operativo_desde: "08:00",
   horario_operativo_hasta: "20:00",
   granularidad_turno_minutos: "30",

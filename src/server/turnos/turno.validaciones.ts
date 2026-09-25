@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/server/shared/service-error";
-import type { ConfigurarTurnoInput } from "./turno.schema";
+import { DURACIONES_PERMITIDAS_TURNO_MIN, esDuracionPermitida, type ConfigurarTurnoInput } from "./turno.schema";
 
 const ZONA = "America/Argentina/Buenos_Aires";
 const DIAS = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"];
@@ -24,7 +24,7 @@ export function turnoSigueVigente(fecha: Date, horaInicio: Date): boolean {
 }
 
 export async function parametrosConfiguracionTurno() {
-  const claves = ["duracion_turno_estandar_minutos", "granularidad_turno_minutos", "dias_operativos", "horario_operativo_desde", "horario_operativo_hasta", "anticipacion_maxima_dias"];
+  const claves = ["granularidad_turno_minutos", "dias_operativos", "horario_operativo_desde", "horario_operativo_hasta", "anticipacion_maxima_dias"];
   const filas = await prisma.parametroSistema.findMany({ where: { clave: { in: claves } } });
   const valores = new Map(filas.map(({ clave, valor }) => [clave, valor]));
   const entero = (clave: string, defecto: number) => {
@@ -33,12 +33,13 @@ export async function parametrosConfiguracionTurno() {
   };
   return {
     zona_horaria: ZONA,
-    duracion_minutos: entero(claves[0], 60),
-    granularidad_minutos: entero(claves[1], 30),
-    dias_operativos: (valores.get(claves[2]) ?? "LUNES,MARTES,MIERCOLES,JUEVES,VIERNES").split(",").map((dia) => dia.trim()),
-    apertura: valores.get(claves[3]) ?? "08:00",
-    cierre: valores.get(claves[4]) ?? "20:00",
-    anticipacion_maxima_dias: entero(claves[5], 30),
+    // Revisión 4: la duración la elige Mesa de Entradas entre estas opciones.
+    duraciones_permitidas_minutos: [...DURACIONES_PERMITIDAS_TURNO_MIN],
+    granularidad_minutos: entero("granularidad_turno_minutos", 30),
+    dias_operativos: (valores.get("dias_operativos") ?? "LUNES,MARTES,MIERCOLES,JUEVES,VIERNES").split(",").map((dia) => dia.trim()),
+    apertura: valores.get("horario_operativo_desde") ?? "08:00",
+    cierre: valores.get("horario_operativo_hasta") ?? "20:00",
+    anticipacion_maxima_dias: entero("anticipacion_maxima_dias", 30),
   };
 }
 
@@ -59,10 +60,12 @@ export async function validarConfiguracionTurno(input: ConfigurarTurnoInput) {
   if (inicio % parametros.granularidad_minutos !== 0) {
     throw new ServiceError("HORA_NO_GRANULAR", `La hora debe ajustarse a intervalos de ${parametros.granularidad_minutos} minutos`);
   }
-  const fin = inicio + parametros.duracion_minutos;
+  // Defensa en profundidad: el schema Zod ya lo exige (§2.1 paso 4).
+  if (!esDuracionPermitida(input.duracion_min)) throw new ServiceError("DURACION_NO_PERMITIDA", "Elegí una duración válida (1, 2 o 3 horas)");
+  const fin = inicio + input.duracion_min;
   if (inicio < minutos(parametros.apertura) || fin > minutos(parametros.cierre) || fin >= 24 * 60) {
     throw new ServiceError("FUERA_DE_HORARIO_OPERATIVO", `El turno completo debe estar entre ${parametros.apertura} y ${parametros.cierre}`);
   }
   const hora_fin = `${String(Math.floor(fin / 60)).padStart(2, "0")}:${String(fin % 60).padStart(2, "0")}`;
-  return { fecha, hora_fin, duracion_minutos: parametros.duracion_minutos };
+  return { fecha, hora_fin, duracion_min: input.duracion_min };
 }

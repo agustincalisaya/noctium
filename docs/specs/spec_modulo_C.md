@@ -1,15 +1,19 @@
 # Especificación Técnica — Módulo C (Turno)
-## Noctium — Sprint 1 (Revisión 3)
+## Noctium — Sprint 1 (Revisión 4)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker, extensión `btree_gist` prevista pero aún no migrada — ver nota en 3.4) · Prisma ORM (`prisma-client`) · Zod
 **Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 7, 10, 11) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (Materias) · `spec_modulo_B.md` (Alumno) · `spec_modulo_D.md` (Profesor, fórmula de superposición §3.4) · `spec_modulo_K.md` (Aulas) · `schema.prisma` · `docs/tasks/Sprint 1/`
 
-**HU contractualizadas en esta revisión:** HU-C-03 (Configurar turno — **implementada, reabierta en Revisión 3 por el rediseño de cupo automático**, ver `docs/tasks/Sprint 1/HU-C-03.md`), HU-C-04 (Asignar profesor y alumnos / gestionar inscripciones — **implementada, reabierta en Revisión 3**, ver `docs/tasks/Sprint 1/HU-C-04.md`), HU-C-15 (Asignar aula — **implementada externamente sin proceso, remediada y verificada 24-25/09, reabierta en Revisión 3 por el rediseño de cupo automático**, ver `docs/tasks/Sprint 1/HU-C-15.md`), HU-C-01 (Listar turnos) — Sprint 1.
+**HU contractualizadas en esta revisión:** HU-C-03 (Configurar turno — **implementada Revisión 3, reabierta en Revisión 4 por la duración configurable, implementada y verificada en navegador el 25/09/2026**, ver `docs/tasks/Sprint 1/HU-C-03.md`), HU-C-04 (Asignar profesor y alumnos / gestionar inscripciones — implementada Revisión 3, sin cambios en esta revisión, ver `docs/tasks/Sprint 1/HU-C-04.md`), HU-C-15 (Asignar aula — implementada/remediada Revisión 3, sin cambios en esta revisión, ver `docs/tasks/Sprint 1/HU-C-15.md`), HU-C-01 (Listar turnos) — Sprint 1.
 
 **Cambio de flujo (Revisión 3, pedido explícito del cliente, aprobado por el PO — ver `propuesta-cambio-cupo-aula.md`):** el cupo máximo de un turno deja de ser un valor que Mesa de Entradas escribe a mano (HU-C-03) y pasa a fijarse automáticamente según la capacidad del aula elegida (HU-C-15). Esto invierte el orden de los últimos dos pasos del flujo: **Configurar turno → Asignar aula (fija el cupo) → Asignar profesor y alumnos (ahora el último paso, el que confirma el turno)**. Ver detalle completo en la sección 1 y en 2.1/2.2/2.3.
 
-**✅ IMPLEMENTADA Y VERIFICADA EN NAVEGADOR (24-25/09/2026).** Relevamiento previo con Claude Code, implementación completa (backend + frontend + migración), los tres niveles de test en verde (296 unit + 8 Postgres real + curl + SQL), y verificación en navegador por el Scrum Master de los 10 puntos de la lista de aceptación — 9 confirmados en la primera pasada, 1 (alta/baja individual con `next dev` + Turbopack) resuelto como limitación conocida del entorno de desarrollo, no del código (funciona con `next dev --webpack` y en el build de producción; documentado en `README.md`). Esta sección refleja el contrato real tal como quedó implementado, no solo el diseño — los ajustes que el relevamiento y la implementación encontraron respecto al diseño original están marcados en cada sección afectada.
+**Cambio de esta revisión (Revisión 4, pedido explícito del cliente vía PO, aprobado 24/09/2026 — ver `propuesta-cambio-duracion-turno.md`):** la duración de un turno deja de ser fija (`DURACION_ESTANDAR_TURNO_MIN`) y pasa a ser elegida por Mesa de Entradas al configurar el turno (HU-C-03, 2.1), entre tres valores permitidos: **1 hora, 2 horas o 3 horas**, sin valor preseleccionado. `hora_fin = hora_inicio + duracion_min`, donde `duracion_min` ya no es una constante sino un dato del formulario. El parámetro `DURACION_ESTANDAR_TURNO_MIN` se reemplaza por `DURACIONES_PERMITIDAS_TURNO_MIN = [60, 120, 180]`. Ver detalle completo en 2.1 y en la tabla de parámetros configurables al pie del documento. **Nota de sincronización (relevamiento Revisión 4, R4-1):** `DURACION_ESTANDAR_TURNO_MIN` nunca existió como constante en el código: la duración fija era la fila `duracion_turno_estandar_minutos` de `ParametroSistema`. Su reemplazo, `DURACIONES_PERMITIDAS_TURNO_MIN`, es una **constante en código** (`src/server/turnos/turno.schema.ts`), no una fila de `ParametroSistema`, porque cambiar el conjunto requiere una nueva aprobación del PO.
+
+**✅ IMPLEMENTADA Y VERIFICADA EN NAVEGADOR (24-25/09/2026) — Revisión 3.** Relevamiento previo con Claude Code, implementación completa (backend + frontend + migración), los tres niveles de test en verde (296 unit + 8 Postgres real + curl + SQL), y verificación en navegador por el Scrum Master de los 10 puntos de la lista de aceptación — 9 confirmados en la primera pasada, 1 (alta/baja individual con `next dev` + Turbopack) resuelto como limitación conocida del entorno de desarrollo, no del código (funciona con `next dev --webpack` y en el build de producción; documentado en `README.md`). Esta sección refleja el contrato real tal como quedó implementado, no solo el diseño — los ajustes que el relevamiento y la implementación encontraron respecto al diseño original están marcados en cada sección afectada.
+
+**✅ REVISIÓN 4 (duración configurable) — IMPLEMENTADA Y VERIFICADA EN NAVEGADOR (25/09/2026).** Relevamiento previo con Claude Code (`docs/tasks/Sprint 1/HU-C-03.md` §10, decisiones R4-1 a R4-6 aprobadas por el Scrum Master sin cambios), implementación sin migración de Prisma, tests en verde (348 unitarios + 9 contra Postgres real + curl + SQL) y verificación en navegador por el Scrum Master de los 5 puntos de aceptación, sin hallazgos. Evidencia completa: `HU-C-03.md` §11.
 
 **Fuera de alcance de esta spec (explícito):**
 - Cancelación de un turno, en cualquier estado (`PENDIENTE`, `DISPONIBLE` o `COMPLETO`).
@@ -18,6 +22,7 @@
 - Sugerencia automática de franjas disponibles: la fecha/hora se elige manualmente este sprint.
 - Búsqueda avanzada / filtros combinados en el listado (HU-C-01 §7 lo excluye explícitamente).
 - Quitar un alumno individual mientras el turno está `PENDIENTE` — mientras el turno no tiene aula, cualquier cambio en los alumnos se resuelve reemplazando el conjunto completo (2.2), no dando de baja uno solo (la baja individual, 2.5, solo existe a partir de `DISPONIBLE`/`COMPLETO`). Ver **DECISIÓN RESUELTA** al pie de 2.5.
+- **Nuevo en Revisión 4:** duraciones de turno distintas a 60/120/180 min. Modificar la duración de un turno que ya no está `PENDIENTE` (mismo criterio que fecha/hora, ver arriba). Cualquier cambio a la fórmula de superposición (3.3) o al diseño de `reservas_turno` (3.4) — el mecanismo existente ya desnormaliza el rango horario por turno y no asume una duración uniforme, no se toca en esta revisión (confirmado en el relevamiento contra el trigger real y en Postgres real, ver nota en 3.4).
 
 ---
 
@@ -26,6 +31,12 @@
 El relevamiento previo a HU-C-03 había confirmado que los *exclusion constraints* que proponía la sección 3.4 (Revisión 2) nunca se migraron. La implementación real de HU-C-15 no siguió esa propuesta: en vez de `EXCLUDE USING gist` directamente sobre `turnos` (que no puede cubrir el caso de superposición por alumno, ya que un turno ahora tiene varios), se construyó una tabla unificada `reservas_turno` — un registro por recurso reservado (profesor, aula o alumno) con el rango horario del turno desnormalizado, y una única exclusión GiST sobre esa tabla, mantenida por triggers. Cubre los tres tipos de recurso con un solo mecanismo.
 
 Este diseño **reemplaza por completo** la propuesta de la sección 3.4 de esta spec (ver 3.4 actualizada abajo) y queda ratificado como el diseño definitivo de concurrencia del módulo. Detalle completo del relevamiento y la ratificación: `docs/tasks/Sprint 1/HU-C-15.md` §3.5 y §4 (hallazgo D8).
+
+---
+
+## ✅ DECISIÓN RESUELTA — Origen y alcance del pedido de duración configurable (Revisión 4, no relevar de nuevo)
+
+Pedido explícito del cliente, informado y ampliado por el PO el 24/09/2026 (el pedido original hablaba de 1h/2h; el PO amplió a 1h/2h/3h antes de que se redactara esta revisión). Propuesta formal aprobada — ver `propuesta-cambio-duracion-turno.md`, sección 5. No requiere una segunda ronda de aprobación salvo que cambie el conjunto de valores permitidos.
 
 ---
 
@@ -56,6 +67,14 @@ Este diseño **reemplaza por completo** la propuesta de la sección 3.4 de esta 
 | Frontend, pantallas de HU-C-03 y HU-C-15 | Dos pantallas separadas (`/turnos/nuevo` y `/turnos/[id]/aula`), navegación en dos saltos | **Revisión 3 (decisión de UI, Scrum Master 24/09):** se fusionan en una sola pantalla — fecha/hora/materia arriba, la sección de aula se habilita al completar esos campos. Sigue habiendo dos llamadas al backend en secuencia (crear turno, luego asignar aula); no se crea un endpoint combinado nuevo |
 | §3.4 (constraints) | Propuesta de `EXCLUDE USING gist` directamente sobre `turnos`, nunca migrada, con el caso de alumno sin resolver | **Reemplazada por el diseño real ratificado (D8):** tabla `reservas_turno` con exclusión GiST unificada para profesor/aula/alumno, mantenida por triggers. Ver el aviso al inicio del documento y la 3.4 actualizada |
 | HU-C-01 | Criterio 3: "...asignar profesor y alumnos (HU-C-04) o asignar aula (HU-C-15)" | **Revisión 3:** el orden se invierte — "...asignar aula (HU-C-15) o asignar profesor y alumnos (HU-C-04)", según el nuevo orden del flujo |
+| HU-C-03 / §2.1 (**Revisión 4**) | `hora_fin = hora_inicio + DURACION_ESTANDAR_TURNO_MIN` (constante fija, no editable) | Se agrega `duracion_min` (obligatorio, uno de `DURACIONES_PERMITIDAS_TURNO_MIN`, sin default) al `ConfigurarTurnoSchema`. `hora_fin = hora_inicio + duracion_min`. **Implementada y verificada en navegador (25/09/2026), ver `HU-C-03.md` §11.** |
+| Parámetros configurables (**Revisión 4**) | `DURACION_ESTANDAR_TURNO_MIN` (en el código real, fila `duracion_turno_estandar_minutos` de `ParametroSistema`) | Se reemplaza por `DURACIONES_PERMITIDAS_TURNO_MIN = [60, 120, 180]`, **constante en código** en `turno.schema.ts` (R4-1). La fila de `ParametroSistema` deja de leerse y se quitó del seed (R4-2) — ver tabla al pie del documento |
+| Modelo de referencia, `Turno.duracionMinutosTurno` (**Revisión 4**) | Columna existente en el modelo, pero siempre derivada del parámetro fijo. Además, `modificarConfiguracionTurno()` la pisaba con el parámetro en cada edición de un turno `PENDIENTE` (bug hallado en el relevamiento) | Pasa a persistir el valor elegido por Mesa de Entradas, también al modificar (bug corregido). Sin cambio de columna ni migración: `INTEGER NOT NULL`, sin `DEFAULT` ni `CHECK`. Solo se actualizó el comentario en `schema.prisma` |
+| §2.1, validación de horario operativo (**Revisión 4**) | Se validaba `[hora_inicio, hora_fin)` contenido en `HORA_APERTURA`/`HORA_CIERRE`, con `hora_fin` siempre a una distancia fija de `hora_inicio` | Misma fórmula de validación, sin cambios — pero ahora `hora_fin` varía según `duracion_min`, por lo que una franja de 2h o 3h puede rechazarse cerca del cierre operativo donde una de 1h no se rechazaría. Se agrega como caso de prueba explícito (ver 2.1, Testing) |
+| §2.1, modificación de turno `PENDIENTE` (**Revisión 4**) | No contemplaba modificar la duración (no existía como campo) | Mientras el turno sigue `PENDIENTE`, `duracion_min` puede modificarse igual que `fecha`/`hora_inicio`/`materia_id`, sujeto a las mismas validaciones de horario operativo y vigencia |
+| Evento `turno:configurado` (sección 4, **Revisión 4**) | Payload: `turno_id, fecha, hora_inicio, hora_fin, materia_id, usuario_id` | Se agrega `duracion_min` al payload. Además, `turno:configuracion_modificada` incluye `"duracion_min"` en `campos_modificados` cuando cambia la duración |
+| Nombres de campo de duración (**Revisión 4**, R4-4) | — | **Inconsistencia documentada, no corregida:** input, respuestas de 2.1 y eventos usan `duracion_min`; el presentador de 2.4 (`presentar()`, HU-C-01) sigue exponiendo `duracion_minutos`. No se renombró para no tocar HU-C-01 |
+| §3.4 (**Revisión 4**, nota de sincronización) | La forma conceptual nombraba `rango_horario`, `turno_id`, `tipo_recurso` y `recurso_id` | Nombres reales de columnas en `reservas_turno`: `inicioReserva`/`finReserva` (`timestamp(6)`; el rango se arma en la exclusión como `tsrange("inicioReserva", "finReserva", '[)')`), `turnoId`, `tipoRecurso` y `recursoId`. Solo corrección de documentación, sin cambio de código — ver 3.4 |
 
 **Decisión de equipo, a partir de definición del PO (no relevar de nuevo):** el valor de enum `AGENDADO` se **reemplaza** por `DISPONIBLE` y `COMPLETO` (no se agrega como un cuarto estado). Como el proyecto está en Sprint 1 sin datos productivos, la migración de Prisma se aplica vía reseteo del entorno de desarrollo (`prisma migrate reset`), no vía migración de datos con `ALTER TYPE`. **Aplicado 24/09** (`prisma migrate reset --force`, consentimiento explícito del Scrum Master documentado en la conversación de la task).
 
@@ -73,7 +92,7 @@ Este diseño **reemplaza por completo** la propuesta de la sección 3.4 de esta 
 
 El Módulo C es el núcleo operativo del sistema: gestiona el ciclo de vida de un `Turno` desde su configuración inicial hasta quedar completamente reservado y, opcionalmente, completo de inscripciones. Es una **máquina de tres estados**:
 
-**Orden del flujo (Revisión 3):** Configurar turno → Asignar aula (fija el cupo automáticamente) → Asignar profesor y alumnos (confirma el turno). Ver nota de cambio de flujo al inicio del documento.
+**Orden del flujo (Revisión 3, sin cambios en Revisión 4):** Configurar turno → Asignar aula (fija el cupo automáticamente) → Asignar profesor y alumnos (confirma el turno). Ver nota de cambio de flujo al inicio del documento.
 
 ```
 PENDIENTE ──(asignar aula, HU-C-15, 2.3 — fija cupoMaximoTurno = capacidad del aula)──▶ sigue PENDIENTE (aún sin profesor/alumnos)
@@ -84,9 +103,9 @@ COMPLETO ──(se libera un lugar, HU-C-04, 2.5)──▶ DISPONIBLE
 
 No existe ningún camino de vuelta a `PENDIENTE` una vez que el turno tiene profesor y alumnos confirmados — esa parte de la máquina de estados sigue sin reversión, igual que en la Revisión 1. Lo que sí es reversible, y automático, es la alternancia `DISPONIBLE ⇄ COMPLETO` según la cantidad de alumnos inscriptos activos comparada contra `cupoMaximoTurno`.
 
-**Regla central que atraviesa todo el módulo:** *un turno `PENDIENTE` no reserva ningún recurso.* Dos turnos `PENDIENTE` pueden compartir el mismo profesor, alumno o aula en el mismo horario sin que eso sea un conflicto — el conflicto solo existe entre turnos `DISPONIBLE` o `COMPLETO`. Esto se traduce técnicamente en que toda validación de disponibilidad (secciones 2.2, 2.3 y 2.5) consulta exclusivamente turnos con `estadoTurno IN ("DISPONIBLE", "COMPLETO")`. **La defensa de esta regla a nivel de motor de base de datos (sección 3.4) está descripta pero no implementada — ver aviso al inicio del documento; hoy la regla se sostiene únicamente por la validación aplicativa.**
+**Regla central que atraviesa todo el módulo:** *un turno `PENDIENTE` no reserva ningún recurso.* Dos turnos `PENDIENTE` pueden compartir el mismo profesor, alumno o aula en el mismo horario sin que eso sea un conflicto — el conflicto solo existe entre turnos `DISPONIBLE` o `COMPLETO`. Esto se traduce técnicamente en que toda validación de disponibilidad (secciones 2.2, 2.3 y 2.5) consulta exclusivamente turnos con `estadoTurno IN ("DISPONIBLE", "COMPLETO")`. **La defensa de esta regla a nivel de motor de base de datos (sección 3.4) está descripta e implementada — ver 3.4.**
 
-**Modelo de referencia** (`model Turno` en `schema.prisma`, migrado y verificado en base real): `idTurno`, `fechaTurno`, `horaInicioTurno`, `duracionMinutosTurno`, `materiaId` (NOT NULL), `profesorId` (nullable), `aulaId` (nullable), **`cupoMaximoTurno` (NOT NULL, entero > 0, tope `2147483647`)**, `estadoTurno` — `PENDIENTE` | `DISPONIBLE` | `COMPLETO`, `createdAtTurno`, `creadoPorUsuarioId`. Un turno tiene **a lo sumo** un profesor (FK simple `profesorId`) y **uno o varios** alumnos, hasta `cupoMaximoTurno`, vía la tabla intermedia `TurnoAlumno` (N:M) — a diferencia de la Revisión 1, esta relación deja de ser transitoria: es el modelo definitivo de Sprint 1 (el comentario del schema sobre "etapa futura" ya fue actualizado en la migración de HU-C-03).
+**Modelo de referencia** (`model Turno` en `schema.prisma`, migrado y verificado en base real): `idTurno`, `fechaTurno`, `horaInicioTurno`, `duracionMinutosTurno` (**Revisión 4: persiste el valor elegido por Mesa de Entradas entre `DURACIONES_PERMITIDAS_TURNO_MIN`, no un parámetro fijo. La columna ya existía (`INTEGER NOT NULL`, sin `DEFAULT` ni `CHECK`): confirmado en el relevamiento, sin migración**), `materiaId` (NOT NULL), `profesorId` (nullable), `aulaId` (nullable), **`cupoMaximoTurno` (NOT NULL, entero > 0, tope `2147483647`)**, `estadoTurno` — `PENDIENTE` | `DISPONIBLE` | `COMPLETO`, `createdAtTurno`, `creadoPorUsuarioId`. Un turno tiene **a lo sumo** un profesor (FK simple `profesorId`) y **uno o varios** alumnos, hasta `cupoMaximoTurno`, vía la tabla intermedia `TurnoAlumno` (N:M) — a diferencia de la Revisión 1, esta relación deja de ser transitoria: es el modelo definitivo de Sprint 1 (el comentario del schema sobre "etapa futura" ya fue actualizado en la migración de HU-C-03).
 
 **Servicios públicos consumidos de otros módulos** (Regla N.° 3 de aislamiento — este módulo nunca hace `SELECT`/`UPDATE` directo sobre tablas de Alumno, Profesor, Materia o Aula):
 - `verificarMateriaActiva(materiaId)` — Módulo L.
@@ -114,14 +133,18 @@ No existe ningún camino de vuelta a `PENDIENTE` una vez que el turno tiene prof
 
 ---
 
-### 2.1. Configurar turno (HU-C-03) — IMPLEMENTADA, REABIERTA EN REVISIÓN 3
+### 2.1. Configurar turno (HU-C-03) — IMPLEMENTADA (Revisión 3), REABIERTA EN REVISIÓN 4, IMPLEMENTADA Y VERIFICADA (Revisión 4, 25/09/2026)
 
 **Ruta (alta):** `POST /app/api/turnos/route.ts`
 **Ruta (modificación, mientras `PENDIENTE`):** `PATCH /app/api/turnos/[id]/configuracion/route.ts`
 **Servicio:** `src/server/turnos/turno.service.ts` → `configurarTurno()` / `modificarConfiguracionTurno()`
 **Permiso requerido:** `turnos:crear`
 
+**Estado de esta sección:** el contrato descripto a continuación (Revisión 4, con `duracion_min`) está **implementado y verificado en navegador (25/09/2026)**. Relevamiento previo en `docs/tasks/Sprint 1/HU-C-03.md` §10 (decisiones R4-1 a R4-6), evidencia en §11.
+
 **Cambio de Revisión 3:** se elimina `cupo_maximo` del formulario y del contrato de esta HU. El cupo ya no se ingresa a mano — se fija automáticamente al asignar aula (2.3). `cupoMaximoTurno` en el modelo pasa a ser `NULL` hasta que se asigna un aula (columna deja de ser `NOT NULL` a nivel de constraint aplicativo; a nivel de base, ver nota de migración pendiente en el plan de implementación).
+
+**Cambio de Revisión 4:** se agrega `duracion_min` al formulario y al contrato de esta HU. Mesa de Entradas elige la duración del turno entre los valores de `DURACIONES_PERMITIDAS_TURNO_MIN` (ver tabla de parámetros al pie), sin valor preseleccionado — la elección es obligatoria en cada turno nuevo. `hora_fin` deja de calcularse contra una constante fija y pasa a calcularse contra el valor elegido.
 
 ```typescript
 // src/server/turnos/turno.schema.ts
@@ -129,34 +152,47 @@ export const ConfigurarTurnoSchema = z.object({
   fecha: fechaCalendarioValidaSchema,          // utilidad compartida, spec_modulo_B.md §2.1
   hora_inicio: horaSchema,                     // utilidad compartida, spec_modulo_D.md §2.4
   materia_id: z.string().trim().min(1, "Seleccioná una materia"),
+  // duracion_min: NUEVO en Revisión 4 — obligatorio, sin default, uno de DURACIONES_PERMITIDAS_TURNO_MIN
+  // (constante en este mismo archivo, R4-1). Número JSON: un string como "120" se rechaza, no se coerciona.
+  duracion_min: z.number({ error: "Elegí la duración del turno" })
+    .int("Elegí una duración válida (1, 2 o 3 horas)")
+    .refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"),
   // cupo_maximo: ELIMINADO en Revisión 3 — ver 2.3, se fija automáticamente al asignar aula.
 });
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 ```
 
-**Comportamiento esperado (`configurarTurno` / `modificarConfiguracionTurno`), sin cambios de fondo respecto a Revisión 2 salvo lo marcado:**
+**Comportamiento esperado (`configurarTurno` / `modificarConfiguracionTurno`), sin cambios de fondo respecto a Revisión 3 salvo lo marcado:**
 1. Verificar `materia_id` activa (`verificarMateriaActiva()`). Si no hay materias activas en el sistema, el frontend lo indica antes de mostrar el formulario ("No hay materias activas para configurar turnos"); si igualmente se envía una inactiva: `409 MATERIA_NO_DISPONIBLE`.
 2. Validar que `fecha` no sea pasada; si `fecha` es hoy, `hora_inicio` debe ser posterior a la hora actual.
 3. Validar día operativo del centro (`DIAS_OPERATIVOS`).
-4. Calcular `hora_fin = hora_inicio + DURACION_ESTANDAR_TURNO_MIN`. `hora_fin` nunca es editable por el cliente.
-5. Validar `[hora_inicio, hora_fin)` completamente contenido en el horario operativo (`HORA_APERTURA`, `HORA_CIERRE`).
+4. **Revisión 4:** validar `duracion_min` contra `DURACIONES_PERMITIDAS_TURNO_MIN` (ya cubierto por el schema Zod, pero se revalida en el servicio como defensa en profundidad, mismo criterio que el resto de la spec). Calcular `hora_fin = hora_inicio + duracion_min`. `hora_fin` nunca es editable directamente por el cliente — es siempre derivada de `hora_inicio` + `duracion_min`.
+5. Validar `[hora_inicio, hora_fin)` completamente contenido en el horario operativo (`HORA_APERTURA`, `HORA_CIERRE`). **Revisión 4:** con `hora_fin` variable, esta validación puede rechazar una franja de 2h o 3h que una de 1h con el mismo `hora_inicio` no rechazaría — comportamiento esperado, no un caso especial nuevo a programar aparte.
 6. Validar que `fecha` no supere `ANTICIPACION_MAXIMA_DIAS`.
-7. **Alta:** insertar con `estadoTurno: "PENDIENTE"`, `profesorId: null`, `aulaId: null`, **`cupoMaximoTurno: null`** (Revisión 3 — antes recibido del formulario), sin alumnos vinculados. Un turno `PENDIENTE` recién creado no aparece en ningún calendario y no reserva ningún recurso.
-8. **Modificación** (solo si `estadoTurno === "PENDIENTE"`; si ya es `DISPONIBLE`/`COMPLETO`, `409 TURNO_YA_DISPONIBLE`): si cambia `materia_id` y el turno ya tiene `profesorId`, verificar que ese profesor siga asociado a la nueva materia (`profesorActivoDictaMateria`); si no, desasignarlo automáticamente e informar cuál dato debe reasignarse. **Revisión 3:** ya no existe `cupo_maximo` para modificar acá — el código `CUPO_MENOR_A_INSCRIPTOS` y el patrón de verificación de 3.7 para este caso quedan sin uso (el cupo ahora solo cambia al reasignar aula, ver 2.3).
-9. Emitir `turno:configurado` o `turno:configuracion_modificada` (sección 4), vía `emitirEventoTurno()` (`prisma.eventoTurno.create`), verificado en `eventos_turno`. **Revisión 3:** el payload de `turno:configurado` ya no lleva `cupo_maximo` (ver sección 4 actualizada).
+7. **Alta:** insertar con `estadoTurno: "PENDIENTE"`, `profesorId: null`, `aulaId: null`, `cupoMaximoTurno: null` (Revisión 3 — antes recibido del formulario), **`duracionMinutosTurno: duracion_min`** (Revisión 4 — antes era siempre la constante fija), sin alumnos vinculados. Un turno `PENDIENTE` recién creado no aparece en ningún calendario y no reserva ningún recurso.
+8. **Modificación** (solo si `estadoTurno === "PENDIENTE"`; si ya es `DISPONIBLE`/`COMPLETO`, `409 TURNO_YA_DISPONIBLE`): si cambia `materia_id` y el turno ya tiene `profesorId`, verificar que ese profesor siga asociado a la nueva materia (`profesorActivoDictaMateria`); si no, desasignarlo automáticamente e informar cuál dato debe reasignarse. **Revisión 3:** ya no existe `cupo_maximo` para modificar acá — el código `CUPO_MENOR_A_INSCRIPTOS` y el patrón de verificación de 3.7 para este caso quedan sin uso (el cupo ahora solo cambia al reasignar aula, ver 2.3). **Revisión 4:** si cambia `duracion_min` (con o sin cambio de `hora_inicio`), recalcular `hora_fin` y revalidar el horario operativo (paso 5) igual que en el alta — mismo tratamiento que un cambio de `hora_inicio`.
+9. Emitir `turno:configurado` o `turno:configuracion_modificada` (sección 4), vía `emitirEventoTurno()` (`prisma.eventoTurno.create`), verificado en `eventos_turno`. **Revisión 3:** el payload de `turno:configurado` ya no lleva `cupo_maximo` (ver sección 4 actualizada). **Revisión 4:** el payload de `turno:configurado` agrega `duracion_min`.
 
 **Respuesta `201 Created` (alta):**
 ```json
-{ "data": { "id": "cuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "11:00", "cupo_maximo": null, "estado": "PENDIENTE" }, "error": null }
+{ "data": { "id": "cuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "12:00", "duracion_min": 120, "cupo_maximo": null, "estado": "PENDIENTE" }, "error": null }
 ```
 
-**Frontend (Revisión 3):** esta pantalla se fusiona con la de asignar aula (2.3) en una sola vista — ver nota de cambio de flujo al inicio del documento. La sección de aula se habilita recién cuando fecha/hora/materia están completos; al guardar, la pantalla encadena `POST /api/turnos` y luego `PATCH .../aula` (dos llamadas, sin endpoint combinado nuevo).
+**Frontend (Revisión 3, sin cambios de layout en Revisión 4):** esta pantalla se fusiona con la de asignar aula (2.3) en una sola vista — ver nota de cambio de flujo al inicio del documento. La sección de aula se habilita recién cuando fecha/hora/materia están completos; al guardar, la pantalla encadena `POST /api/turnos` y luego `PATCH .../aula` (dos llamadas, sin endpoint combinado nuevo). **Revisión 4:** se agrega el selector de duración (tres opciones, sin preselección) junto a fecha/hora/materia, antes de la sección de aula. **Implementado (R4-3):** grupo de radios nativo "Duración *" entre Fecha y Hora de inicio, en `turno-configuracion.tsx` (sin componente nuevo). Las horas de inicio ofrecidas dependen de la duración elegida (la última es `cierre − duración`). Si cambiar la duración deja fuera la hora ya elegida, esa hora se limpia con un aviso, igual que al cambiar la fecha. La sección de aula se habilita recién con fecha, duración, hora y materia completas.
 
-**A verificar cuando se implemente esta revisión:** que el formulario ya no muestre el campo de cupo, que el mensaje de éxito ofrezca continuar con la asignación de aula (no con participantes), y que la modificación de un turno `PENDIENTE` sin aula todavía no muestre ningún dato de cupo.
+**A verificar cuando se implemente la Revisión 3 (ya verificado):** que el formulario ya no muestre el campo de cupo, que el mensaje de éxito ofrezca continuar con la asignación de aula (no con participantes), y que la modificación de un turno `PENDIENTE` sin aula todavía no muestre ningún dato de cupo.
+
+**A verificar cuando se implemente la Revisión 4 (✅ verificado el 25/09/2026, todos los puntos: los de UI en navegador por el Scrum Master, los de backend/motor con tests, curl y SQL — ver `HU-C-03.md` §11):**
+- Que el formulario exija elegir una de las tres duraciones antes de habilitar el envío (sin default).
+- Que la validación de horario operativo rechace correctamente una franja de 2h/3h cerca de `HORA_CIERRE` que sí sería válida como turno de 1h — caso de prueba explícito.
+- Que la modificación de un turno `PENDIENTE` permita cambiar `duracion_min` y recalcule `hora_fin` correctamente, revalidando horario operativo.
+- Que `reservas_turno` (3.4) arme `rango_horario` a partir de `hora_inicio`/`hora_fin` reales del turno (no de una constante) — confirmar contra el trigger real, no asumir.
+- Que el evento `turno:configurado` lleve `duracion_min` en el payload real, no solo en la spec.
+- Que HU-C-01 (listado) y el calendario (`spec_modulo_J.md`) sigan funcionando sin cambios con turnos de distinta duración — verificación de regresión, no de funcionalidad nueva.
 
 ---
 
-### 2.2. Asignar profesor y alumnos al turno — carga inicial y confirmación (HU-C-04) — IMPLEMENTADA, REABIERTA EN REVISIÓN 3
+### 2.2. Asignar profesor y alumnos al turno — carga inicial y confirmación (HU-C-04) — IMPLEMENTADA, REABIERTA EN REVISIÓN 3, sin cambios en Revisión 4
 
 Esta operación es el **combo inicial**: carga profesor + el conjunto completo de alumnos de una sola vez. **Cambio de Revisión 3: pasa a ser el último paso del flujo** (antes era el segundo; ahora requiere que el turno ya tenga aula asignada, ver 2.3) — es la operación que **confirma** el turno y dispara la transición a `Disponible`/`Completo` (antes esa transición ocurría al asignar aula). Para agregar o quitar un alumno de a uno una vez que el turno ya está confirmado, ver **2.5** (sin cambios).
 
@@ -192,6 +228,8 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
 9. Mientras el turno siga `PENDIENTE` (por ejemplo, si se guardó sin llegar a completar el combo), este mismo endpoint permite **reemplazar** el combo completo las veces que haga falta.
 10. Emitir `turno:participantes_asignados` y, si hubo transición, `turno:disponibilizado` o `turno:completado` según `nuevoEstado`, ambos después del `COMMIT` — antes estos dos últimos se emitían desde 2.3.
 
+**Nota Revisión 4:** la validación de disponibilidad del paso 5 (fórmula `intervalosSeSuperponen`) ya opera sobre el intervalo real `[hora_inicio, hora_fin)` del turno, sea cual sea su duración — no requiere cambios de código para soportar duraciones de 1h/2h/3h. **Confirmado en el relevamiento** (`HU-C-03.md` §10.2): `intervaloTurno()` suma el `duracionMinutosTurno` persistido. Sin cambios en esta sección. Consecuencia de comportamiento, no de código: como `estaDentroDeHorarioAtencion()` (Módulo D) exige un único bloque de atención, con turnos de 2h/3h es más frecuente que no haya profesor disponible.
+
 **Respuesta `200 OK` (confirma el turno):**
 ```json
 { "data": { "id": "cuid", "alumno_ids": ["cuid1", "cuid2"], "profesor_id": "cuid", "cupo_maximo": 5, "estado": "DISPONIBLE" }, "error": null }
@@ -209,7 +247,7 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
 
 ---
 
-### 2.3. Asignar aula al turno — fija el cupo automáticamente (HU-C-15) — REMEDIADA, REABIERTA EN REVISIÓN 3
+### 2.3. Asignar aula al turno — fija el cupo automáticamente (HU-C-15) — REMEDIADA, REABIERTA EN REVISIÓN 3, sin cambios en Revisión 4
 
 **Cambio de Revisión 3:** pasa a ser el **segundo paso** del flujo (antes era el último y confirmaba el turno; la confirmación se movió a 2.2). Ya no valida contra un cupo preexistente — **lo fija automáticamente** a partir de la capacidad del aula elegida.
 
@@ -238,6 +276,8 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 5. Emitir `turno:aula_asignada`, vía `emitirEventoTurno()` (remediación D11 — antes era un `prisma.eventoTurno.create` directo).
 6. **Reemplazo de aula mientras sigue `PENDIENTE`:** este mismo endpoint permite reemplazar el `aula_id` (y recalcular `cupoMaximoTurno`) las veces que haga falta, sujeto a la validación del paso 3 si ya hay alumnos.
 
+**Nota Revisión 4:** la validación de disponibilidad de aula (paso 2, contra turnos `DISPONIBLE`/`COMPLETO` superpuestos) ya opera sobre el intervalo real del turno — no requiere cambios. **Confirmado en el relevamiento** (`HU-C-03.md` §10.2): `aulaConTurnoSuperpuesto()` y `validarIntervalo()` no suponen una duración fija.
+
 **Respuesta `200 OK`:**
 ```json
 { "data": { "id": "cuid", "aula_id": "cuid", "cupo_maximo": 30, "estado": "PENDIENTE" }, "error": null }
@@ -250,7 +290,7 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 ---
 
-### 2.4. Listado y detalle de turnos (HU-C-01)
+### 2.4. Listado y detalle de turnos (HU-C-01) — sin cambios en Revisión 4
 
 **Ruta (listado):** `GET /app/api/turnos/route.ts` · **Ruta (detalle):** `GET /app/api/turnos/[id]/route.ts`
 **Servicio:** `src/server/turnos/turno.service.ts` → `listarTurnos()` / `obtenerTurno()` (ya implementadas, ver función `presentar()`)
@@ -262,6 +302,8 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 - Los turnos `PENDIENTE` se distinguen con la etiqueta "Pendiente" y ofrecen continuar su configuración — **Revisión 3, orden invertido (HU-C-01 criterio 3):** primero asignar aula (2.3) si todavía no la tiene, y recién si ya la tiene, asignar profesor y alumnos (2.2).
 - Paginación server-side con metadatos, sin cambios respecto a lo ya implementado.
 - El detalle sigue mostrando el listado completo de alumnos inscriptos (`turno.alumnos`, ya incluido en `turnoInclude`), no solo la ocupación.
+
+**Nota Revisión 4:** el listado ya muestra `hora_inicio`–`hora_fin` calculados; con duración variable, simplemente va a mostrar rangos de distinto ancho — no requiere cambio de contrato ni de presentador. **Regresión verificada en navegador (25/09/2026):** el listado muestra bien turnos de 2h y 3h, y la agenda por profesor del calendario dibuja un bloque de 2h con el ancho correcto (`HU-C-03.md` §11). El presentador sigue exponiendo `duracion_minutos` (no `duracion_min`, ver changelog, R4-4).
 
 **Respuesta `200 OK`:**
 ```json
@@ -281,7 +323,7 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 ---
 
-### 2.5. Agregar o quitar un alumno individual (HU-C-04, ampliación) — IMPLEMENTADA
+### 2.5. Agregar o quitar un alumno individual (HU-C-04, ampliación) — IMPLEMENTADA, sin cambios en Revisión 4
 
 **DECISIÓN RESUELTA (no relevar de nuevo):** esta operación existe **solo** cuando `estadoTurno ∈ {DISPONIBLE, COMPLETO}` — es decir, una vez que el turno ya tiene aula. Mientras el turno está `PENDIENTE`, cualquier cambio en los alumnos se resuelve reemplazando el conjunto completo vía 2.2. Motivo: HU-C-04 criterio 6 describe explícitamente "si el turno estaba en Completo, al quitar un alumno vuelve a Disponible" — esa transición solo existe una vez que el turno dejó de ser `PENDIENTE`.
 
@@ -325,7 +367,7 @@ export const AgregarAlumnoTurnoSchema = z.object({
 
 ---
 
-### 2.6. Listar profesores disponibles para el turno (HU-C-04, ampliación — NUEVA en Revisión 3)
+### 2.6. Listar profesores disponibles para el turno (HU-C-04, ampliación — NUEVA en Revisión 3), sin cambios en Revisión 4
 
 Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al confirmar. Mismo patrón que 2.3 usa para las opciones de aula.
 
@@ -340,6 +382,8 @@ Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al c
    - Tienen el horario del turno `[hora_inicio, hora_fin)` contenido en su horario de atención registrado (`estaDentroDeHorarioAtencion()`, ya existente — mismo criterio que 2.2 paso 5 usa para revalidar).
    - No tienen otro turno `DISPONIBLE`/`COMPLETO` que se superponga con ese horario (misma fórmula de `intervalosSeSuperponen()`).
 4. Devolver la lista filtrada. Si queda vacía (había profesores para la materia, pero ninguno libre en ese horario): `200 OK` con lista vacía — el frontend interpreta eso como "No hay profesores disponibles para este horario" (HU-C-04 criterio 2, ampliado).
+
+**Nota Revisión 4:** el filtro de disponibilidad (paso 3) ya opera sobre el intervalo real del turno — no requiere cambios.
 
 **Respuesta `200 OK`:**
 ```json
@@ -367,9 +411,9 @@ Toda la lógica reside en `src/server/turnos/turno.service.ts`, conforme a la Re
 Toda consulta de disponibilidad (2.2 pasos 5 y 8, 2.3 paso 2, 2.5 paso 4, 2.6 paso 3) filtra explícitamente `estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }`. Esta regla también rige fuera del módulo: `src/server/calendario/calendario.service.ts` filtra por el mismo criterio para no mostrar turnos pendientes (migrado en HU-C-03, verificado con curl + test del filtro).
 
 ### 3.3. Fórmula de superposición reutilizada, no reimplementada
-Sin cambios respecto a Revisión 1: intervalos semiabiertos (`a1 < b2 AND b1 < a2`), definida en `spec_modulo_D.md` §3.4, ya implementada en `intervalosSeSuperponen()`.
+Sin cambios respecto a Revisión 1: intervalos semiabiertos (`a1 < b2 AND b1 < a2`), definida en `spec_modulo_D.md` §3.4, ya implementada en `intervalosSeSuperponen()`. **Nota Revisión 4:** esta fórmula nunca asumió una duración fija — opera sobre los dos extremos del intervalo, cualquiera sea su ancho. No requiere cambios para soportar duración variable.
 
-### 3.4. Defensa de concurrencia: tabla `reservas_turno` + exclusión GiST unificada (extensión `btree_gist`) — DISEÑO REAL, RATIFICADO (D8)
+### 3.4. Defensa de concurrencia: tabla `reservas_turno` + exclusión GiST unificada (extensión `btree_gist`) — DISEÑO REAL, RATIFICADO (D8), sin cambios de diseño en Revisión 4
 
 **Reemplaza por completo el diseño propuesto en Revisión 2** (constraints `EXCLUDE` directos sobre `turnos`, nunca migrados, que además no podían cubrir el caso de alumno). Implementado como parte de HU-C-15, auditado y ratificado por el Scrum Master el 24/09.
 
@@ -398,6 +442,19 @@ Las filas de `reservas_turno` se crean cuando el turno confirma (2.2, transició
 
 **Esto es, a partir de esta revisión, la defensa atómica final real** — ya no una validación exclusivamente aplicativa. La validación de 2.2 paso 5 sigue existiendo como verificación de buena fe antes de intentar confirmar (para dar un mensaje de error claro), pero el `INSERT` a `reservas_turno` dentro de la misma transacción es lo que efectivamente impide, a nivel de base, que dos turnos terminen confirmados con el mismo recurso en el mismo horario.
 
+**Nota Revisión 4 — CONFIRMADO:** el rango horario se desnormaliza *desde el turno*, no desde una constante. Se releyó el trigger real (`HU-C-03.md` §10.1, punto 3): `sincronizar_reservas_turno()` y `sincronizar_reserva_alumno()` calculan `inicio := "fechaTurno" + "horaInicioTurno"` y `fin := inicio + "duracionMinutosTurno" * interval '1 minute'`, y el trigger sobre `turnos` se dispara también con `UPDATE OF "duracionMinutosTurno"`. El mecanismo soporta turnos de distinta duración por construcción: **no se tocó la migración `20260924150000_turnos_reservas_recursos_v2`**. Verificado además en Postgres real (`turno.reservas.pg.test.ts`, caso Revisión 4): la reserva de un turno de 2h cubre 10:00–12:00, rechaza un turno superpuesto a las 11:00 y acepta uno contiguo a las 12:00.
+
+**Nota de sincronización (relevamiento Revisión 4) — nombres reales de columnas:** la forma conceptual de arriba no coincide con los nombres reales de `reservas_turno`. Correspondencia:
+
+| Forma conceptual (arriba) | Columna real |
+|---|---|
+| `turno_id` | `"turnoId"` (FK a `turnos`, `ON DELETE CASCADE`) |
+| `tipo_recurso` | `"tipoRecurso"` (`CHECK` en `'AULA'`, `'PROFESOR'` o `'ALUMNO'`) |
+| `recurso_id` | `"recursoId"` |
+| `rango_horario` (tsrange) | **no existe como columna:** hay dos columnas `"inicioReserva"` / `"finReserva"` (`timestamp(6)`, `CHECK "inicioReserva" < "finReserva"`), y el rango se arma en la exclusión como `tsrange("inicioReserva", "finReserva", '[)')` |
+
+Exclusión real: `reservas_turno_sin_solapamiento EXCLUDE USING gist ("tipoRecurso" WITH =, "recursoId" WITH =, tsrange("inicioReserva", "finReserva", '[)') WITH &&)`. PK: `("turnoId", "tipoRecurso", "recursoId")`. Solo corrección de documentación, sin cambio de código.
+
 ### 3.5. Guard de vigencia reutilizado
 Sin cambios — ver sección 2, "Convenciones generales".
 
@@ -418,7 +475,7 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 
 | Evento | Disparado por | Payload mínimo |
 |---|---|---|
-| `turno:configurado` | Alta (2.1) | `turno_id, fecha, hora_inicio, hora_fin, materia_id, usuario_id` (Revisión 3: ya no lleva `cupo_maximo`, todavía no existe en este paso) |
+| `turno:configurado` | Alta (2.1) | `turno_id, fecha, hora_inicio, hora_fin, duracion_min, materia_id, usuario_id` (Revisión 3: ya no lleva `cupo_maximo`, todavía no existe en este paso; **Revisión 4: agrega `duracion_min`**) |
 | `turno:configuracion_modificada` | Modificación de turno pendiente (2.1) | `turno_id, campos_modificados, profesor_desasignado, usuario_id` |
 | `turno:aula_asignada` | Asignación de aula (2.3) | `turno_id, aula_id, cupo_maximo, usuario_id` (Revisión 3: agrega `cupo_maximo`, ahora se fija en este paso) |
 | `turno:participantes_asignados` | Carga/reemplazo inicial de profesor + alumnos (2.2) | `turno_id, alumno_ids, profesor_id, usuario_id` |
@@ -430,12 +487,11 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 
 ---
 
-## Parámetros configurables (referencia, sin cambios)
+## Parámetros configurables (referencia)
 
 | Parámetro | Usado en |
 |---|---|
-| `DURACION_ESTANDAR_TURNO_MIN` | 2.1 — cálculo de `hora_fin` |
-| `GRANULARIDAD_MINUTOS` | 2.1 — validación de `hora_inicio` |
+| `DURACIONES_PERMITIDAS_TURNO_MIN` | **Revisión 4 — reemplaza a `DURACION_ESTANDAR_TURNO_MIN`** (que en el código real era la fila `duracion_turno_estandar_minutos` de `ParametroSistema`, ya no leída ni sembrada). Lista de valores permitidos, `[60, 120, 180]`. **Constante en código** (`src/server/turnos/turno.schema.ts`), **no fila de `ParametroSistema`** (R4-1): cambiar el conjunto requiere una nueva aprobación del PO. El frontend la recibe vía `GET /api/turnos/configuracion` (`parametros.duraciones_permitidas_minutos`). 2.1 — cálculo de `hora_fin`, validación de `duracion_min` (schema Zod + revalidación en el servicio, `DURACION_NO_PERMITIDA`) || `GRANULARIDAD_MINUTOS` | 2.1 — validación de `hora_inicio` |
 | `DIAS_OPERATIVOS` | 2.1 — día válido para configurar |
 | `HORA_APERTURA` / `HORA_CIERRE` | 2.1 — horario operativo del centro |
 | `ANTICIPACION_MAXIMA_DIAS` | 2.1 — tope de anticipación para configurar un turno |
