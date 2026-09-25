@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   asignarCarriles,
+  construirUrlCalendarioMateria,
   construirUrlCalendarioProfesor,
+  etiquetaMateria,
   desplazarSemana,
   diasOperativosDeLaSemana,
   esFechaCalendario,
@@ -146,5 +148,38 @@ describe("construirUrlCalendarioProfesor", () => {
     );
     expect(construirUrlCalendarioProfesor({ semana: "2026-09-21" })).toBe("/calendario/profesor?semana=2026-09-21");
     expect(construirUrlCalendarioProfesor({})).toBe("/calendario/profesor");
+  });
+});
+
+describe("construirUrlCalendarioMateria (HU-J-02)", () => {
+  it("lleva materia y semana en los searchParams y omite los ausentes", () => {
+    expect(construirUrlCalendarioMateria({ materiaId: "ckmat", semana: "2026-09-21" })).toBe(
+      "/calendario/materia?materiaId=ckmat&semana=2026-09-21",
+    );
+    expect(construirUrlCalendarioMateria({ materiaId: "ckmat" })).toBe("/calendario/materia?materiaId=ckmat");
+    expect(construirUrlCalendarioMateria({})).toBe("/calendario/materia");
+  });
+});
+
+describe("etiquetaMateria (HU-J-02)", () => {
+  it("muestra el código entre paréntesis solo si existe", () => {
+    expect(etiquetaMateria({ nombre: "Matemática", codigo: "MAT101" })).toBe("Matemática (MAT101)");
+    expect(etiquetaMateria({ nombre: "Química", codigo: null })).toBe("Química");
+  });
+});
+
+describe("asignarCarriles con turnos de distinto profesor en el mismo horario (HU-J-02)", () => {
+  it("dos idénticos van a la mitad cada uno y tres a un tercio, sin ocultar ninguno", () => {
+    const turno = (profesor: string) => ({ hora_inicio: "08:00", hora_fin: "09:00", profesor });
+    expect(asignarCarriles([turno("A"), turno("B")]).map(({ carril, carriles }) => [carril, carriles])).toEqual([
+      [0, 2],
+      [1, 2],
+    ]);
+    const tres = asignarCarriles([turno("A"), turno("B"), turno("C")]);
+    expect(tres.map(({ evento, carril, carriles }) => [evento.profesor, carril, carriles])).toEqual([
+      ["A", 0, 3],
+      ["B", 1, 3],
+      ["C", 2, 3],
+    ]);
   });
 });
