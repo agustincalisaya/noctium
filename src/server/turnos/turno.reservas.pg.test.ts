@@ -14,10 +14,10 @@ const aulas = [0, 1].map((n) => `${prefijo}-aula-${n}`);
 const alumnos = [0, 1, 2].map((n) => `${prefijo}-alumno-${n}`);
 const materia = `${prefijo}-materia`;
 
-async function crearTurno(n: number, dia: number, inicio: string, profesor: string, aula: string, inscritos: string[]) {
+async function crearTurno(n: number, dia: number, inicio: string, profesor: string, aula: string, inscritos: string[], duracion = 60) {
   const id = `${prefijo}-turno-${n}`;
   await db!.turno.create({ data: { idTurno: id, fechaTurno: fecha(dia), horaInicioTurno: hora(inicio),
-    duracionMinutosTurno: 60, cupoMaximoTurno: 3, materiaId: materia, profesorId: profesor, aulaId: aula, estadoTurno: "PENDIENTE" } });
+    duracionMinutosTurno: duracion, cupoMaximoTurno: 3, materiaId: materia, profesorId: profesor, aulaId: aula, estadoTurno: "PENDIENTE" } });
   for (const alumnoId of inscritos) await db!.turnoAlumno.create({ data: { turnoId: id, alumnoId } });
   return id;
 }
@@ -76,6 +76,19 @@ describe.skipIf(!habilitada)("HU-C-15 / HU-C-04 (Revisión 3): exclusión real e
     await confirmarAmbos(a, b, 4);
     const c = await crearTurno(7, 3, "11:30", profesores[0], aulas[0], [alumnos[2]]);
     await expect(db!.turno.update({ where: { idTurno: c }, data: { estadoTurno: "DISPONIBLE" } })).resolves.toBeTruthy();
+  });
+  it("HU-C-03 Revisión 4: la reserva usa la duración real del turno (2h), no un valor fijo", async () => {
+    const largo = await crearTurno(18, 5, "10:00", profesores[0], aulas[0], [alumnos[0]], 120);
+    await db!.turno.update({ where: { idTurno: largo }, data: { estadoTurno: "DISPONIBLE" } });
+    expect(await db!.$queryRawUnsafe<{ inicio: string; fin: string }[]>(
+      `SELECT to_char("inicioReserva", 'HH24:MI') AS inicio, to_char("finReserva", 'HH24:MI') AS fin FROM "reservas_turno" WHERE "turnoId" = $1 AND "tipoRecurso" = 'PROFESOR'`, largo))
+      .toEqual([{ inicio: "10:00", fin: "12:00" }]);
+    // 11:00–12:00 cae en la segunda hora del turno de 2h: con una duración fija de 60 no chocaría.
+    const superpuesto = await crearTurno(19, 5, "11:00", profesores[0], aulas[1], [alumnos[1]]);
+    await expect(db!.turno.update({ where: { idTurno: superpuesto }, data: { estadoTurno: "DISPONIBLE" } })).rejects.toThrow();
+    // Contiguo al fin real (12:00) no se superpone.
+    const contiguo = await crearTurno(20, 5, "12:00", profesores[0], aulas[1], [alumnos[1]], 180);
+    await expect(db!.turno.update({ where: { idTurno: contiguo }, data: { estadoTurno: "DISPONIBLE" } })).resolves.toBeTruthy();
   });
   it("HU-C-04 agrega y quita reservas; un conflicto revierte el alta", async () => {
     const a = await crearTurno(8, 4, "10:00", profesores[0], aulas[0], [alumnos[0]]);

@@ -465,9 +465,9 @@ model Turno {
   idTurno       String        @id @default(cuid())
   fechaTurno    DateTime      @db.Date
   horaInicioTurno DateTime    @db.Time
-  // Duración vigente al crear el turno (HU-C-03 c3: duración estándar del
-  // centro). Se guarda en el turno para que cambiar el parámetro no altere
-  // los turnos ya creados.
+  // Duración elegida al configurar el turno, uno de
+  // DURACIONES_PERMITIDAS_TURNO_MIN (spec_modulo_C.md Revisión 4). La hora
+  // de fin no se guarda: se deriva como horaInicioTurno + duracionMinutosTurno.
   duracionMinutosTurno Int
   // Cantidad máxima de alumnos inscriptos. NULL hasta asignar aula: se fija
   // con la capacidad del aula elegida (spec_modulo_C.md Revisión 3, §2.3).

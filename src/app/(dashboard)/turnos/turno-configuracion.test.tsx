@@ -28,11 +28,11 @@ type Respuesta = { ok: boolean; json: () => Promise<unknown> };
 const respuesta = (data: unknown, ok = true, error?: unknown): Respuesta => ({ ok, json: async () => ({ data, error }) });
 const CONFIGURACION = {
   materias: [{ id: "materia-1", nombre: "Física", codigo: null }],
-  parametros: { zona_horaria: "America/Argentina/Buenos_Aires", duracion_minutos: 60, granularidad_minutos: 30, dias_operativos: ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO"], apertura: "08:00", cierre: "20:00", anticipacion_maxima_dias: 60 },
+  parametros: { zona_horaria: "America/Argentina/Buenos_Aires", duraciones_permitidas_minutos: [60, 120, 180], granularidad_minutos: 30, dias_operativos: ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO"], apertura: "08:00", cierre: "20:00", anticipacion_maxima_dias: 60 },
 };
 const AULAS = [{ id: "aula-1", nombre: "Aula 1", capacidad: 10 }, { id: "aula-2", nombre: "Aula 2", capacidad: 30 }];
 const PENDIENTE = {
-  id: "turno-1", fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", materia: "Física", materia_id: "materia-1", estado: "PENDIENTE",
+  id: "turno-1", fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", duracion_minutos: 60, materia: "Física", materia_id: "materia-1", estado: "PENDIENTE",
   aula: "Aula 1", aula_id: "aula-1", cupo_maximo: 10, alumnos: [], profesor_id: null,
 };
 let root: Root;
@@ -46,8 +46,12 @@ const escribir = (elemento: HTMLInputElement | HTMLSelectElement, valor: string)
   Object.getOwnPropertyDescriptor(Object.getPrototypeOf(elemento), "value")!.set!.call(elemento, valor);
   elemento.dispatchEvent(new Event(elemento instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
 });
+const duracion = (minutos: number) => campo<HTMLInputElement>(`input[name="duracion_min"][value="${minutos}"]`);
+const elegirDuracion = (minutos: number) => act(async () => { duracion(minutos).click(); });
+const horasOfrecidas = () => [...campo<HTMLSelectElement>("#hora").options].map(({ value }) => value).filter(Boolean);
 const completarConfiguracion = async () => {
   await escribir(campo<HTMLInputElement>("#fecha"), "2026-10-01");
+  await elegirDuracion(60);
   await escribir(campo<HTMLSelectElement>("#hora"), "10:00");
   await escribir(campo<HTMLSelectElement>("#materia"), "materia-1");
 };
@@ -82,9 +86,9 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     await montar();
     expect(container.querySelector("#cupo")).toBeNull();
     expect(fetch.mock.calls.map(([url]) => url)).toContain("/api/turnos/aula/opciones");
-    const seccion = campo<HTMLFieldSetElement>("fieldset");
+    const seccion = campo<HTMLFieldSetElement>('fieldset[aria-describedby="aula-ayuda"]');
     expect(seccion.disabled).toBe(true);
-    expect(container.textContent).toContain("Completá fecha, hora y materia para elegir el aula.");
+    expect(container.textContent).toContain("Completá fecha, duración, hora y materia para elegir el aula.");
     await completarConfiguracion();
     expect(seccion.disabled).toBe(false);
     expect(container.textContent).toContain("Cupo máximo: —");
@@ -100,7 +104,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     expect(campo<HTMLButtonElement>('button[type="submit"]').textContent).toBe("Guardar turno");
     await enviar();
     const [post] = llamadas("POST", "/api/turnos");
-    expect(JSON.parse(String(post![1].body))).toEqual({ fecha: "2026-10-01", hora_inicio: "10:00", materia_id: "materia-1" });
+    expect(JSON.parse(String(post![1].body))).toEqual({ fecha: "2026-10-01", duracion_min: 60, hora_inicio: "10:00", materia_id: "materia-1" });
     const [patch] = llamadas("PATCH", "/api/turnos/turno-nuevo/aula");
     expect(JSON.parse(String(patch![1].body))).toEqual({ aula_id: "aula-1" });
     expect(fetch.mock.invocationCallOrder[fetch.mock.calls.indexOf(post!)]).toBeLessThan(fetch.mock.invocationCallOrder[fetch.mock.calls.indexOf(patch!)]);
@@ -164,5 +168,58 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     await completarConfiguracion();
     expect(container.textContent).toContain("No hay aulas activas registradas. Podés guardar el turno sin aula y asignarla más tarde.");
     expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(false);
+  });
+});
+
+describe("HU-C-03 Revisión 4: duración configurable", () => {
+  it("no preselecciona duración y no permite guardar hasta elegir una", async () => {
+    await montar();
+    expect([60, 120, 180].map((minutos) => duracion(minutos).checked)).toEqual([false, false, false]);
+    expect(container.textContent).toContain("1 hora");
+    expect(container.textContent).toContain("3 horas");
+    await escribir(campo<HTMLInputElement>("#fecha"), "2026-10-01");
+    await escribir(campo<HTMLSelectElement>("#hora"), "10:00");
+    await escribir(campo<HTMLSelectElement>("#materia"), "materia-1");
+    expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(true);
+    expect(campo<HTMLFieldSetElement>('fieldset[aria-describedby="aula-ayuda"]').disabled).toBe(true);
+    expect(container.textContent).toContain("Hora de finalización: —");
+    await elegirDuracion(120);
+    expect(container.textContent).toContain("Hora de finalización: 12:00");
+    expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(false);
+    await enviar();
+    expect(JSON.parse(String(llamadas("POST", "/api/turnos")[0]![1].body))).toMatchObject({ duracion_min: 120 });
+  });
+
+  it("las horas de inicio dependen de la duración y una hora que deja de entrar se limpia con aviso", async () => {
+    await montar();
+    await escribir(campo<HTMLInputElement>("#fecha"), "2026-10-01");
+    await elegirDuracion(60);
+    expect(horasOfrecidas().at(-1)).toBe("19:00");
+    await escribir(campo<HTMLSelectElement>("#hora"), "18:00");
+    await elegirDuracion(180);
+    expect(horasOfrecidas().at(-1)).toBe("17:00");
+    expect(campo<HTMLSelectElement>("#hora").value).toBe("");
+    expect(container.textContent).toContain("La hora anterior ya no es válida para esta duración. Elegí otra.");
+    await escribir(campo<HTMLSelectElement>("#hora"), "17:00");
+    await elegirDuracion(120);
+    expect(campo<HTMLSelectElement>("#hora").value).toBe("17:00");
+    expect(container.textContent).toContain("Hora de finalización: 19:00");
+  });
+
+  it("en edición precarga la duración guardada (2h) y un cambio solo de duración reenvía la configuración", async () => {
+    rutas = (url, init) => {
+      if (url === "/api/turnos/turno-1") return respuesta({ ...PENDIENTE, hora_fin: "12:00", duracion_minutos: 120 });
+      if (url.endsWith("/configuracion") && init?.method === "PATCH") return respuesta({ id: "turno-1", hora_fin: "13:00", duracion_min: 180, cupo_maximo: 10, profesor_desasignado: false });
+      return undefined;
+    };
+    await montar("turno-1");
+    expect(duracion(120).checked).toBe(true);
+    expect(container.textContent).toContain("Hora de finalización: 12:00");
+    expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(true);
+    await elegirDuracion(180);
+    await enviar();
+    const [patch] = llamadas("PATCH", "/api/turnos/turno-1/configuracion");
+    expect(JSON.parse(String(patch![1].body))).toEqual({ fecha: "2026-10-01", duracion_min: 180, hora_inicio: "10:00", materia_id: "materia-1" });
+    expect(container.textContent).toContain("2026-10-01 · 10:00–13:00");
   });
 });

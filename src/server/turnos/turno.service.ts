@@ -33,19 +33,20 @@ async function prepararConfiguracion(input: ConfigurarTurnoInput) {
   const [materia, validacion] = await Promise.all([verificarMateriaActiva(input.materia_id), validarConfiguracionTurno(input)]);
   if (!materia) throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
   // Sin cupo: se fija con la capacidad del aula al asignarla (Revisión 3, §2.3).
-  return { validacion, data: { fechaTurno: input.fecha, horaInicioTurno: horaFecha(input.hora_inicio), duracionMinutosTurno: validacion.duracion_minutos, materiaId: input.materia_id } };
+  // Duración elegida en el formulario (Revisión 4), no un parámetro fijo.
+  return { validacion, data: { fechaTurno: input.fecha, horaInicioTurno: horaFecha(input.hora_inicio), duracionMinutosTurno: input.duracion_min, materiaId: input.materia_id } };
 }
 
 export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
   const turno = await prisma.turno.create({ data: { ...data, estadoTurno: "PENDIENTE", profesorId: null, aulaId: null, cupoMaximoTurno: null, creadoPorUsuarioId: usuarioId } });
-  await emitirEventoTurno("turno:configurado", turno.idTurno, usuarioId, { turno_id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, materia_id: input.materia_id, usuario_id: usuarioId });
-  return { id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, cupo_maximo: turno.cupoMaximoTurno, estado: turno.estadoTurno };
+  await emitirEventoTurno("turno:configurado", turno.idTurno, usuarioId, { turno_id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, usuario_id: usuarioId });
+  return { id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, cupo_maximo: turno.cupoMaximoTurno, estado: turno.estadoTurno };
 }
 
 export async function modificarConfiguracionTurno(id: string, input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
-  const actual = await prisma.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, materiaId: true, profesorId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
+  const actual = await prisma.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
   if (!actual) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
   if (actual.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de configuración");
   const profesorDesasignado = Boolean(actual.profesorId && actual.materiaId !== input.materia_id && !(await profesorActivoDictaMateria(actual.profesorId, input.materia_id)));
@@ -58,10 +59,11 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
   const camposModificados = [
     actual.fechaTurno.getTime() !== input.fecha.getTime() ? "fecha" : null,
     hora(actual.horaInicioTurno) !== input.hora_inicio ? "hora_inicio" : null,
+    actual.duracionMinutosTurno !== input.duracion_min ? "duracion_min" : null,
     actual.materiaId !== input.materia_id ? "materia_id" : null,
   ].filter((campo): campo is string => campo !== null);
   await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, profesor_desasignado: profesorDesasignado, usuario_id: usuarioId });
-  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, materia_id: input.materia_id, cupo_maximo: actual.cupoMaximoTurno, estado: "PENDIENTE" as const, profesor_desasignado: profesorDesasignado };
+  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, cupo_maximo: actual.cupoMaximoTurno, estado: "PENDIENTE" as const, profesor_desasignado: profesorDesasignado };
 }
 
 /**
