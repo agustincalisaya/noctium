@@ -6,7 +6,9 @@
 **RBAC:** `turnos:asignar_participantes` ya existe y no se toca (exclusivo Mesa de Entrada) — confirmado en relevamiento, sin cambios.
 **Schema:** ya migrado por HU-C-03 (`cupoMaximoTurno`, enum de 3 estados). Esta task no agrega columnas nuevas — solo usa las que ya existen.
 
-**Estado: CERRADA — implementada y verificada en navegador por el Scrum Master (24/09/2026). Lista para commit.**
+**Estado: CERRADA e implementada tal como está documentada abajo — REABIERTA (24/09/2026) por el rediseño de cupo automático de la Revisión 3 de `spec_modulo_C.md` — REDISEÑO IMPLEMENTADO Y VERIFICADO (24-25/09/2026), ver §9.**
+
+> **Nota de reapertura (Revisión 3, 24/09/2026, histórica):** por pedido explícito del cliente, aprobado por el PO (ver `propuesta-cambio-cupo-aula.md`), esta operación pasa a ser el **último paso del flujo** (antes era el segundo, HU-C-15/aula era el último) — ahora requiere que el turno ya tenga aula asignada, y es la que **confirma** el turno y dispara la transición a `Disponible`/`Completo` (antes esa transición ocurría al asignar aula). Además, el selector de profesor pasa a filtrar de entrada por disponibilidad (nuevo endpoint `GET /api/turnos/profesores/opciones`, spec §2.6) en vez de validar recién al confirmar, y la pantalla suma un resumen de solo lectura del turno (fecha, hora, materia, aula, cupo, estado) arriba del formulario. Todo lo documentado en las secciones 0-8 de este archivo describe la implementación tal como se cerró y verificó originalmente contra `spec_modulo_C.md` Revisión 2; el contrato vigente es el de la Revisión 3, sección 2.2 y 2.6 (nueva). **Esta reapertura ya está resuelta e implementada — ver §9 para la evidencia final.**
 
 ---
 
@@ -312,3 +314,34 @@ Verificado con usuario Mesa de Entradas, puntos 1 a 3 de la lista original:
 **Nota adicional (no bloqueante):** en `seed-turno-10`, "Última actualización" y "Modificado por" no cambian al agregar/quitar un alumno individual — solo se actualizan cuando el turno transiciona de estado (Disponible↔Completo). Es coherente con el modelo de datos (el alta/baja individual solo escribe en `TurnoAlumno`, no en la fila de `Turno`, salvo que haya transición), no es un bug. Si en algún momento se quiere que esos campos reflejen también los cambios de alumnos, es una decisión de diseño a futuro, no algo a resolver en esta HU.
 
 **Antes de probar:** correr `npx prisma db seed` si el seed quedó con los cambios de las pruebas de Claude Code (no aplica al turno `prueba-c04-superposicion`, que vive fuera del seed).
+
+---
+
+## 9. Evidencia de la reapertura Revisión 3 (24-25/09/2026) — cupo automático, confirmación movida a este paso, filtro de profesores
+
+**Relevamiento previo con Claude Code** (H1-H5, D1-D9) revisado y resuelto con recomendación del Scrum Master antes de implementar; `spec_modulo_C.md` §2.2 y §2.6 redactadas en Revisión 3 antes de tocar código.
+
+**Implementado — §2.2 (ahora último paso, confirma el turno):**
+- Precondición nueva: `409 TURNO_SIN_AULA` si el turno todavía no tiene aula asignada.
+- Revalida también `MATERIA_NO_DISPONIBLE` y `AULA_INACTIVA` al confirmar (ajuste sobre la marcha de Claude Code, aprobado): como este paso pasó a ser el que confirma el turno, se preservan las garantías que antes se chequeaban en 2.1/2.3 al momento en que cada uno de esos pasos ocurría.
+- Al confirmar con éxito, evalúa la transición `PENDIENTE → DISPONIBLE/COMPLETO` (`nuevoEstado = alumno_ids.length >= cupoMaximoTurno`) — este cálculo se movió acá desde `asignarAulaTurno()` (HU-C-15), que ya no lo hace.
+- `UPDATE ... AND estadoTurno = "PENDIENTE"` corre **después** del `createMany` de `TurnoAlumno` (orden invertido respecto al borrador original) — necesario porque el trigger de sincronización de `reservas_turno` dispara sobre `UPDATE OF "estadoTurno"` y lee `turno_alumno` en ese momento; si el orden fuera al revés, la reserva se crearía sin los alumnos todavía cargados.
+- `AULA_CAPACIDAD_INSUFICIENTE` (validación de HU-C-15 al reasignar aula) queda documentada en la spec como código en la práctica inalcanzable bajo este nuevo orden (H3) — se mantiene como defensa igual, no se retira.
+- Frontend: resumen de solo lectura (fecha, hora, materia, aula, cupo, badge de estado) arriba del formulario de participantes, mismo patrón que ya usaba la pantalla de aula en Revisión 2.
+
+**Implementado — §2.6 (nueva, filtro de profesores por disponibilidad):**
+- `GET /api/turnos/profesores/opciones?turno_id=`, servicio nuevo `src/server/turnos/turno.profesor.service.ts` → `listarOpcionesProfesorTurno()`.
+- Filtra profesores activos de la materia por horario de atención + sin conflicto de reserva, mismo patrón que el endpoint de aulas.
+- `404 SIN_PROFESORES_PARA_MATERIA` quedó reservado solo para "la materia no tiene ningún profesor activo asociado" (ajuste sobre la marcha, aprobado) — distinto del caso "hay profesores pero ninguno libre en ese horario", que responde `200` con lista vacía, preservando el mensaje literal de la HU ("No hay profesores disponibles para este horario").
+- Formato de respuesta `{ "data": [...] }` (D7) — alineado con el endpoint hermano de aula, no `{ "data": { "items": [...] } }`.
+- Nuevo módulo compartido `src/server/turnos/turno.disponibilidad.ts` (helpers de superposición reutilizados por 2.2, 2.3 y 2.6), creado aparte para evitar un import circular con `turno.aula.service.ts`.
+
+**Verificado en navegador por el Scrum Master (24-25/09/2026), como parte de los 10 puntos de aceptación del rediseño completo (detalle íntegro en `HU-C-15.md` §6.3):**
+- Selector de profesor filtrado: en el turno de prueba a las 09:30, el selector ofreció solo a Castro (Giménez, en conflicto de horario con otro turno, no apareció) — confirmado.
+- Confirmación exitosa con aula y cupo: turno con 3/3 en una sala de cupo 3 → "Profesor y alumnos asignados correctamente · Turno confirmado · Completo"; turno con 1/20 en un aula más grande → quedó Disponible — confirmado, la transición ocurre en este paso y no antes.
+- Intentar confirmar sin aula asignada: no se pudo llegar a esta pantalla sin aula, porque el flujo la exige antes (consistente con `TURNO_SIN_AULA`).
+- Alta/baja individual post-confirmación (2.5): probado con `next dev --webpack` tras el hallazgo del bug de Turbopack (ver `HU-C-15.md` §6.3) — "Alumno quitado. El turno volvió a Disponible." (2/3) y "Alumno agregado. El turno alcanzó su cupo máximo y pasó a Completo." (3/3), cupo siempre igual a la capacidad del aula — confirmado, sin regresiones respecto a lo cerrado en §8.
+
+**Hallazgo menor, no bloqueante (catalogado, no corregido en esta reapertura):** el badge "Disponible" (verde) en el mensaje de éxito de participantes tiene bajo contraste sobre el fondo verde del mensaje — mismo tipo de hallazgo que D18-D21 de `HU-C-15.md`, queda en la misma bolsa de deuda de UX menor para una futura ventana de bugfixing.
+
+**Sin commit ni `git add`** — cambios en el working directory, PR pendiente de armar junto con HU-C-03 y HU-C-15 (un único PR cruzando las tres HU del rediseño).

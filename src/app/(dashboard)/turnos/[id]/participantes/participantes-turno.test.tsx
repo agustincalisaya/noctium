@@ -27,8 +27,9 @@ const { ParticipantesTurno } = await import("./participantes-turno");
 const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: async () => ({ data, error }) });
 const turno = (extra: Record<string, unknown> = {}) => ({
   id: "turno-1", fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", materia: "Física", materia_id: "materia-1", estado: "PENDIENTE", cupo_maximo: 2,
-  alumnos: [{ id: "alumno-1", nombre: "López, Juan", dni: "30123456" }], profesor_id: "profesor-1", ...extra,
+  aula: "Aula 1", aula_id: "aula-1", alumnos: [{ id: "alumno-1", nombre: "López, Juan", dni: "30123456" }], profesor_id: "profesor-1", ...extra,
 });
+const OPCIONES = "/profesores/opciones?";
 let root: Root;
 let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
@@ -38,7 +39,7 @@ const enviar = () => act(async () => { container.querySelector("form")!.dispatch
 
 beforeEach(() => {
   vi.clearAllMocks();
-  fetch.mockImplementation(async (url: string) => url.includes("/profesores?")
+  fetch.mockImplementation(async (url: string) => url.includes(OPCIONES)
     ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }, { id: "profesor-2", nombre: "Berta", apellido: "Pérez" }])
     : respuesta(turno()));
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -46,8 +47,11 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe("HU-C-04 formulario", () => {
-  it("precarga participantes con contador de cupo y Cancelar no envía PATCH", async () => {
+  it("precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH", async () => {
     await montar();
+    expect(fetch.mock.calls.map(([url]) => url)).toContain("/api/turnos/profesores/opciones?turno_id=turno-1");
+    expect(container.textContent).toContain("Aula: Aula 1 · Cupo máximo: 2");
+    expect(container.textContent).toContain("Pendiente");
     expect(container.textContent).toContain("López, Juan · DNI 30123456");
     expect(container.textContent).toContain("(1/2)");
     const select = container.querySelector("#profesor") as HTMLSelectElement;
@@ -57,13 +61,28 @@ describe("HU-C-04 formulario", () => {
     expect(container.querySelector('a[href="/turnos/turno-1?volver=%2Fturnos"]')?.textContent).toBe("Cancelar");
     expect(patch()).toBeUndefined();
   });
-  it("muestra exactamente el mensaje cuando no hay profesores activos", async () => {
-    fetch.mockImplementation(async (url: string) => url.includes("/profesores?") ? respuesta([]) : respuesta(turno({ alumnos: [], profesor_id: null })));
+  it("muestra exactamente el mensaje cuando la materia no tiene profesores activos", async () => {
+    fetch.mockImplementation(async (url: string) => url.includes(OPCIONES)
+      ? respuesta(null, false, { code: "SIN_PROFESORES_PARA_MATERIA", message: "No hay profesores activos asociados a esta materia" })
+      : respuesta(turno({ alumnos: [], profesor_id: null })));
     await montar();
     expect(container.textContent).toContain("No hay profesores activos asociados a esta materia");
   });
+  it("distingue cuando ningún profesor está disponible en ese horario (§2.6)", async () => {
+    fetch.mockImplementation(async (url: string) => url.includes(OPCIONES) ? respuesta([]) : respuesta(turno({ alumnos: [], profesor_id: null })));
+    await montar();
+    expect(container.textContent).toContain("No hay profesores disponibles para este horario");
+  });
+  it("sin aula no ofrece el formulario y lleva a asignarla (TURNO_SIN_AULA)", async () => {
+    fetch.mockImplementation(async () => respuesta(turno({ aula: "Sin asignar", aula_id: null, cupo_maximo: null, alumnos: [], profesor_id: null })));
+    await montar();
+    expect(container.textContent).toContain("Asigná un aula antes de confirmar el turno.");
+    expect(container.querySelector('a[href="/turnos/turno-1/configuracion?volver=%2Fturnos"]')?.textContent).toBe("Asignar aula");
+    expect(container.querySelector("form")).toBeNull();
+    expect(fetch.mock.calls.some(([url]) => url.includes(OPCIONES))).toBe(false);
+  });
   it("deshabilita el buscador al alcanzar el cupo e informa el motivo", async () => {
-    fetch.mockImplementation(async (url: string) => url.includes("/profesores?") ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno({ cupo_maximo: 1 })));
+    fetch.mockImplementation(async (url: string) => url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno({ cupo_maximo: 1 })));
     await montar();
     expect((container.querySelector("#alumno-busqueda") as HTMLInputElement).disabled).toBe(true);
     expect(container.textContent).toContain("El turno alcanzó su cupo máximo");
@@ -74,18 +93,22 @@ describe("HU-C-04 formulario", () => {
     expect(container.textContent).toContain("(0/2)");
     expect((container.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
   });
-  it("confirma con los IDs seleccionados y muestra el mensaje exacto de éxito", async () => {
-    fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH" ? respuesta({}) : url.includes("/profesores?") ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
+  it("confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado", async () => {
+    fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH" ? respuesta({ estado: "DISPONIBLE" }) : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
     await montar();
+    expect(container.querySelector('button[type="submit"]')?.textContent).toBe("Confirmar turno");
     await enviar();
     expect(JSON.parse(patch()?.[1].body)).toEqual({ alumno_ids: ["alumno-1"], profesor_id: "profesor-1" });
     expect(container.textContent).toContain("Profesor y alumnos asignados correctamente");
-    expect(container.querySelector('a[href="/turnos/turno-1/aula?volver=%2Fturnos"]')?.textContent).toBe("Continuar con aula");
+    expect(container.textContent).toContain("Turno confirmado");
+    expect(container.textContent).toContain("Disponible");
+    expect(container.querySelector('a[href*="/aula"]')).toBeNull();
+    expect(container.querySelector('a[href="/turnos/turno-1?volver=%2Fturnos"]')?.textContent).toBe("Ver detalle");
   });
   it("marca el alumno en conflicto con el mensaje del servidor", async () => {
     fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH"
       ? respuesta(null, false, { code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: "alumno-1" } })
-      : url.includes("/profesores?") ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
+      : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
     await montar();
     await enviar();
     const chip = container.querySelector('ul[aria-label="Alumnos agregados"] li')!;

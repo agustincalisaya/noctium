@@ -124,6 +124,10 @@ const AULAS: { nombre: string; capacidad: number; activa: boolean }[] = [
   { nombre: "Aula 11", capacidad: 35, activa: true },
   { nombre: "Aula 12", capacidad: 25, activa: false },
   { nombre: "Laboratorio", capacidad: 15, activa: true },
+  // Capacidad chica a propósito: el cupo de un turno es la capacidad de su
+  // aula (spec_modulo_C.md Revisión 3), así se ven turnos Completo con 1 alumno.
+  { nombre: "Sala individual", capacidad: 1, activa: true },
+  { nombre: "Sala grupal", capacidad: 3, activa: true },
 ];
 
 // dia: 0 = lunes; desde/hasta "HH:mm" (HU-D-04). Deben respetar los días,
@@ -574,27 +578,31 @@ type TurnoSeed = {
   profesor: number | null; // índice en PROFESORES
   aula: string | null;
   alumno: number | null; // índice en ALUMNOS
-  // Cupo máximo (HU-C-03). Con un alumno inscripto, cupo 1 deja el turno
-  // COMPLETO y cupo 3 lo deja DISPONIBLE.
-  cupo: number;
+  // Sin cupo propio: cupoMaximoTurno = capacidad del aula (Revisión 3). Con un
+  // alumno inscripto, "Sala individual" deja el turno COMPLETO.
 };
 
 const TURNOS: TurnoSeed[] = [
   // --- Semana en curso ---
-  { id: "seed-turno-01", semana: 0, dia: 0, hora: 8, duracion: 1, materia: "Matemática", profesor: 0, aula: "Aula 1", alumno: 0, cupo: 1 },
-  { id: "seed-turno-02", semana: 0, dia: 0, hora: 10, duracion: 2, materia: "Programación I", profesor: 1, aula: "Aula 2", alumno: 1, cupo: 3 },
-  { id: "seed-turno-03", semana: 0, dia: 0, hora: 16, duracion: 2, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 2, cupo: 3 },
-  { id: "seed-turno-04", semana: 0, dia: 1, hora: 14, duracion: 3, materia: "Bases de Datos", profesor: 1, aula: "Aula 10", alumno: 3, cupo: 1 },
-  { id: "seed-turno-05", semana: 0, dia: 2, hora: 9, duracion: 2, materia: "Física", profesor: 0, aula: "Aula 2", alumno: 4, cupo: 3 },
-  { id: "seed-turno-06", semana: 0, dia: 3, hora: 15, duracion: 2, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 5, cupo: 3 },
+  { id: "seed-turno-01", semana: 0, dia: 0, hora: 8, duracion: 1, materia: "Matemática", profesor: 0, aula: "Sala individual", alumno: 0 },
+  { id: "seed-turno-02", semana: 0, dia: 0, hora: 10, duracion: 2, materia: "Programación I", profesor: 1, aula: "Aula 2", alumno: 1 },
+  { id: "seed-turno-03", semana: 0, dia: 0, hora: 16, duracion: 2, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 2 },
+  { id: "seed-turno-04", semana: 0, dia: 1, hora: 14, duracion: 3, materia: "Bases de Datos", profesor: 1, aula: "Sala individual", alumno: 3 },
+  { id: "seed-turno-05", semana: 0, dia: 2, hora: 9, duracion: 2, materia: "Física", profesor: 0, aula: "Aula 2", alumno: 4 },
+  { id: "seed-turno-06", semana: 0, dia: 3, hora: 15, duracion: 2, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 5 },
   // --- Semana siguiente ---
-  { id: "seed-turno-07", semana: 1, dia: 0, hora: 12, duracion: 2, materia: "Bases de Datos", profesor: 1, aula: "Aula 11", alumno: 6, cupo: 1 },
-  { id: "seed-turno-08", semana: 1, dia: 1, hora: 8, duracion: 3, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 7, cupo: 3 },
-  { id: "seed-turno-09", semana: 1, dia: 2, hora: 14, duracion: 1, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 8, cupo: 1 },
-  { id: "seed-turno-10", semana: 1, dia: 4, hora: 14, duracion: 2, materia: "Matemática", profesor: 0, aula: "Aula 10", alumno: 9, cupo: 3 },
-  // --- PENDIENTE: solo materia + fecha + hora + cupo (HU-C-01 "continuar configuración") ---
-  { id: "seed-turno-11", semana: 1, dia: 3, hora: 10, duracion: 2, materia: "Programación I", profesor: null, aula: null, alumno: null, cupo: 5 },
+  { id: "seed-turno-07", semana: 1, dia: 0, hora: 12, duracion: 2, materia: "Bases de Datos", profesor: 1, aula: "Sala individual", alumno: 6 },
+  { id: "seed-turno-08", semana: 1, dia: 1, hora: 8, duracion: 3, materia: "Química", profesor: 2, aula: "Sala grupal", alumno: 7 },
+  { id: "seed-turno-09", semana: 1, dia: 2, hora: 14, duracion: 1, materia: "Inglés Técnico", profesor: 3, aula: "Sala individual", alumno: 8 },
+  { id: "seed-turno-10", semana: 1, dia: 4, hora: 14, duracion: 2, materia: "Matemática", profesor: 0, aula: "Aula 10", alumno: 9 },
+  // --- PENDIENTE: solo materia + fecha + hora, sin aula ni cupo (HU-C-01 "continuar configuración") ---
+  { id: "seed-turno-11", semana: 1, dia: 3, hora: 10, duracion: 2, materia: "Programación I", profesor: null, aula: null, alumno: null },
 ];
+
+/** Cupo máximo de un turno de seed: la capacidad de su aula, o null sin aula. */
+function capacidadDeAula(nombre: string | null) {
+  return nombre === null ? null : AULAS.find((a) => a.nombre === nombre)?.capacidad ?? null;
+}
 
 // ------------------------------------------------------------
 // Validación en memoria: el seed no debe generar datos que la propia
@@ -658,6 +666,8 @@ function validarDatos(): void {
     if (!dentro) errores.push(`${t.id}: fuera del horario de ${prof.apellido}`);
     if (t.alumno === null || t.aula === null) {
       errores.push(`${t.id}: agendado sin alumno o aula`);
+    } else if (!AULAS.some((a) => a.nombre === t.aula)) {
+      errores.push(`${t.id}: aula inexistente`);
     } else {
       if (!ALUMNOS[t.alumno].activo) errores.push(`${t.id}: alumno inactivo`);
       if (!aulasActivas.has(t.aula)) errores.push(`${t.id}: aula inactiva`);
@@ -898,12 +908,13 @@ async function main() {
   for (const t of TURNOS) {
     const agendado = t.profesor !== null;
     const inscriptos = t.alumno !== null ? 1 : 0;
-    const estadoTurno: EstadoTurno = !agendado ? "PENDIENTE" : inscriptos >= t.cupo ? "COMPLETO" : "DISPONIBLE";
+    const cupo = capacidadDeAula(t.aula);
+    const estadoTurno: EstadoTurno = !agendado ? "PENDIENTE" : cupo !== null && inscriptos >= cupo ? "COMPLETO" : "DISPONIBLE";
     const data = {
       fechaTurno: fechaRelativa(t.semana, t.dia),
       horaInicioTurno: hora(t.hora),
       duracionMinutosTurno: t.duracion * 60,
-      cupoMaximoTurno: t.cupo,
+      cupoMaximoTurno: cupo,
       estadoTurno,
       materiaId: materiaIds.get(t.materia)!,
       profesorId: agendado ? profesorIds[t.profesor!] : null,
@@ -925,7 +936,7 @@ async function main() {
     }
   }
   const agendados = TURNOS.filter((t) => t.profesor !== null).length;
-  const completos = TURNOS.filter((t) => t.profesor !== null && t.alumno !== null && t.cupo <= 1).length;
+  const completos = TURNOS.filter((t) => t.profesor !== null && t.alumno !== null && (capacidadDeAula(t.aula) ?? Infinity) <= 1).length;
   console.log(`✓ ${TURNOS.length} turnos creados (${agendados - completos} DISPONIBLE, ${completos} COMPLETO, ${TURNOS.length - agendados} PENDIENTE)`);
   console.log(`✓ ${agendados} inscripciones alumno-turno creadas`);
 

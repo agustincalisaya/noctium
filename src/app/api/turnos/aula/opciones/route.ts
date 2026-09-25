@@ -4,8 +4,8 @@ import { ServiceError } from "@/server/shared/service-error";
 import { listarOpcionesAulaTurno } from "@/server/turnos/turno.aula.service";
 
 export const GET = withPermission("turnos:asignar_aula", async (req) => {
-  const turnoId = req.nextUrl.searchParams.get("turno_id");
-  if (!turnoId) return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Falta el turno" } }, { status: 400 });
+  // Opcional: en el alta (pantalla fusionada con §2.1) el turno todavía no existe.
+  const turnoId = req.nextUrl.searchParams.get("turno_id") || undefined;
   try {
     return NextResponse.json({ data: await listarOpcionesAulaTurno(turnoId), error: null });
   } catch (error) {

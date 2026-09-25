@@ -469,8 +469,9 @@ model Turno {
   // centro). Se guarda en el turno para que cambiar el parámetro no altere
   // los turnos ya creados.
   duracionMinutosTurno Int
-  // Cantidad máxima de alumnos inscriptos (HU-C-03 c1, entero > 0).
-  cupoMaximoTurno Int
+  // Cantidad máxima de alumnos inscriptos. NULL hasta asignar aula: se fija
+  // con la capacidad del aula elegida (spec_modulo_C.md Revisión 3, §2.3).
+  cupoMaximoTurno Int?
   estadoTurno   EstadoTurno   @default(PENDIENTE)
 
   materiaId  String
@@ -494,7 +495,7 @@ model Turno {
 }
 
 // Tabla intermedia N:M Turno <-> Alumno: un turno grupal tiene uno o varios
-// alumnos, hasta Turno.cupoMaximoTurno (spec_modulo_C.md Revisión 2).
+// alumnos, hasta Turno.cupoMaximoTurno (spec_modulo_C.md Revisión 3).
 model TurnoAlumno {
   turnoId  String
   alumnoId String

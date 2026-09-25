@@ -6,7 +6,9 @@
 **RBAC:** `turnos:crear` ya existe y no se toca en esta task (la HU no agrega una acción nueva, solo un campo al payload existente) — **relevar antes de asumir:** confirmar contra `spec_modulo_A.md` / seed de `RolPermiso` que `turnos:crear` sigue siendo exclusivo de Mesa de Entrada, sin cambios de matriz.
 **Schema:** requiere migración — agregar `cupoMaximoTurno Int` (NOT NULL) al modelo `Turno`, y reemplazar el enum `EstadoTurno` (`PENDIENTE | AGENDADO` → `PENDIENTE | DISPONIBLE | COMPLETO`). Ver Nota de alcance §1 sobre por qué esta task incluye el cambio de enum aunque HU-C-03 en sí solo pide el cupo.
 
-**Estado: CERRADA — implementada y verificada en navegador por el Scrum Master (24/09/2026). Lista para commit.**
+**Estado: CERRADA e implementada tal como está documentada abajo — REABIERTA (24/09/2026) por el rediseño de cupo automático de la Revisión 3 de `spec_modulo_C.md` — REDISEÑO IMPLEMENTADO Y VERIFICADO (24-25/09/2026), ver §9.**
+
+> **Nota de reapertura (Revisión 3, 24/09/2026, histórica):** por pedido explícito del cliente, aprobado por el PO (ver `propuesta-cambio-cupo-aula.md`), el campo `cupo_maximo` se **elimina** del formulario y del contrato de esta HU — el cupo pasa a fijarse automáticamente al asignar aula (HU-C-15). Todo lo documentado en las secciones 0-8 de este archivo describe la implementación tal como se cerró y verificó originalmente (Revisión 2); sigue siendo válido como historial, pero el contrato vigente para esta HU es el de `spec_modulo_C.md` §2.1 (Revisión 3). **Esta reapertura ya está resuelta e implementada — ver §9 para la evidencia final**, que reemplaza el estado "no se toca todavía" con el que se escribió originalmente esta nota.
 
 ---
 
@@ -115,3 +117,26 @@ Sin cambios respecto al diseño original de la task (ver historial de versión a
 - `participantes-turno.test.tsx` no corrió (falta `jsdom` en caché de `npx`, `vitest` no es dependencia del proyecto) — problema preexistente, ajeno a esta HU. Queda como deuda técnica a resolver en algún momento, no bloquea el cierre de esta task.
 
 **Sin commit ni `git add`** — cambios en el working directory a la espera de que el Scrum Master revise y commitee manualmente.
+
+---
+
+## 9. Evidencia de la reapertura Revisión 3 (24-25/09/2026) — cupo automático
+
+**Relevamiento previo con Claude Code** (H1-H5, D1-D9, todos resueltos con recomendación del Scrum Master antes de implementar) y **redacción completa de `spec_modulo_C.md` §2.1 (Revisión 3)** antes de tocar código, siguiendo la metodología SDD.
+
+**Implementado:**
+- `cupo_maximo` eliminado de `ConfigurarTurnoSchema` (`turno.schema.ts`) y del formulario `turno-configuracion.tsx`.
+- `configurarTurno()` inserta `cupoMaximoTurno: null`; migración aditiva `20260924235924_turno_cupo_nullable` (`ALTER COLUMN "cupoMaximoTurno" DROP NOT NULL`), sin `migrate reset` (no rompía datos existentes).
+- **Fusión de pantallas (decisión de UI, Scrum Master):** `/turnos/nuevo` y `/turnos/[id]/aula` se unificaron en una sola vista (`seccion-aula-turno.tsx`, nuevo) — la sección de aula se habilita recién al completar fecha/hora/materia, y muestra el cupo como texto de solo lectura ("Cupo máximo: N alumnos (capacidad del aula elegida; solo lectura)"), nunca un input. Se sigue llamando en dos pasos al backend (`POST /turnos` y luego `PATCH .../aula`), sin endpoint combinado nuevo.
+- Ruta vieja `/turnos/[id]/aula` y sus archivos (`aula-turno.tsx`, `aula-turno.test.tsx`) eliminados (D3) — confirmado que responde `404` sin redirect.
+- Seed realineado (D5): cupos de turnos confirmados ajustados a la capacidad real de su aula; se agregaron aulas "Sala individual" (capacidad 1) y "Sala grupal" (capacidad 3) para poder probar los casos límite.
+
+**Verificado en navegador por el Scrum Master (24-25/09/2026), como parte de la verificación de los 10 puntos de aceptación del rediseño completo (detalle íntegro en `HU-C-15.md` §6.3, ya que el rediseño cruza las tres HU):**
+1. `/turnos/nuevo` no muestra campo de cupo; la sección de aula está grisada hasta completar fecha/hora/materia — confirmado.
+2. Al elegir un aula, aparece "Cupo máximo: 10 alumnos (capacidad del aula elegida; solo lectura)" como texto, no como input — confirmado.
+3. Guardado sin aula: "Turno configurado · Sin aula asignada · Pendiente"; reintento y recarga no duplican el turno — confirmado.
+4. Modificación de un turno pendiente sin aula: "Cupo" y "Aula" muestran "Sin asignar" en el detalle — confirmado.
+
+**Sin regresiones** respecto a lo verificado en §8 (error inline, mensaje de éxito, `DirtyStateContext`) — el rediseño no tocó esa lógica, solo el campo de cupo y la fusión de pantallas.
+
+**Sin commit ni `git add`** — cambios en el working directory, PR pendiente de armar (descripción a cargo del Scrum Master una vez que se decida el momento del commit, en conjunto con HU-C-04 y HU-C-15 ya que es un único PR cruzando las tres HU).

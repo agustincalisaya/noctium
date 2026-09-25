@@ -70,10 +70,16 @@ Sistema de gestión de un centro de atención académica (turnos de apoyo escola
 8. **Levantar el servidor de desarrollo**
 
    ```bash
-   npm run dev
+   npx next dev --webpack
    ```
 
    La app queda en [http://localhost:3000](http://localhost:3000) (redirige a `/login`).
+
+   > **Limitación conocida (Turbopack en desarrollo):** con `npm run dev` / `next dev` a secas
+   > (Turbopack), la ruta `DELETE /api/turnos/[id]/alumnos/[alumnoId]` (baja individual de un
+   > alumno, HU-C-04) responde 404 porque el servidor de desarrollo no la registra. Con webpack y en
+   > el build de producción funciona correctamente. Mientras esta limitación esté vigente, usar
+   > `npx next dev --webpack` para desarrollo local.
 
 ## Seguridad — HTTPS en despliegue
 
@@ -93,7 +99,8 @@ o superior (RNF-SEG-01). La contraseña nunca viaja en URL/query params.
 
 | Comando | Descripción |
 | --- | --- |
-| `npm run dev` | Servidor de desarrollo |
+| `npx next dev --webpack` | Servidor de desarrollo (recomendado, ver limitación de Turbopack en "Puesta en marcha") |
+| `npm run dev` | Servidor de desarrollo con Turbopack (la baja individual de alumnos de un turno da 404) |
 | `npm run build` | Build de producción |
 | `npm run start` | Servidor de producción (requiere `AUTH_URL`, ver `.env.example`) |
 | `npm run lint` | ESLint |
