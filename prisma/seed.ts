@@ -3,6 +3,9 @@
 //
 // Ejecutar con:  npx prisma db seed
 // (o directo:    npx tsx prisma/seed.ts)
+// `npx prisma migrate reset` también lo corre (prisma.config.ts → migrations.seed).
+// Solo validar los datos, sin conectarse a la base:
+//                SEED_SOLO_VALIDAR=1 npx tsx prisma/seed.ts
 //
 // CREDENCIALES: todos los usuarios usan la contraseña  Password123!
 //
@@ -12,27 +15,49 @@
 //   alumno01..06@noctium.local       ALUMNO
 //   alumno.inactivo@noctium.local    ALUMNO con activoUsuario = false
 //                                    (probar "La cuenta está inactiva", HU-A-01)
+// Los alumnos con cuenta tienen aceptados los términos vigentes ("1.0").
 //
-// Fichas SIN cuenta (HU-B-01 / HU-B-08): alumnos 07..15, el alumno inactivo 17
-// y el profesor inactivo. Los alumnos 07..15 sirven para probar el autorregistro
-// con vinculación por código (HU-B-08 c4); varían en si tienen o no email
-// verificable (c5).
+// Alumnos (HU-B-04): 40 fichas, 39 activas. Contacto variado (ambos, solo
+// teléfono, solo email), normalizado igual que HU-B-02.
+//
+// Fichas SIN cuenta (HU-B-01 / HU-B-08): alumnos 07..15 y 18..40, el alumno
+// inactivo 17 y el profesor inactivo. Sirven para probar el autorregistro con
+// vinculación por código (HU-B-08 c4); varían en si tienen o no email
+// verificable (c5). En dev el código NO se manda por mail: emailSenderConsola
+// lo imprime en la consola de `next dev` ("[EMAIL] Para: ...").
 //
 // Ejemplos INACTIVOS (para probar filtros de listados): alumno 17,
 // profesores 5 y "Sosa", materia "Historia de la Ciencia" y "Aula 12".
 //
-// Listado de profesores (HU-D-05): 22 profesores (2 páginas de 20), con
-// apellidos con tilde y en minúscula/mayúscula (orden case/acento-insensitivo),
-// "Avila/Ávila, Pedro" y dos "Pérez, Juan" (desempate por DNI), uno sin
-// contacto, uno sin materias, uno con 4 materias y 3 intervalos el mismo día.
+// Listado de profesores (HU-D-05): 22 profesores (2 páginas de 20 — el
+// por_pagina default de ListarProfesoresQuerySchema, igual que alumnos, aulas
+// y materias; paginacion_limite_default = 10 solo lo usa el listado de
+// turnos), con apellidos con tilde y en minúscula/mayúscula (orden
+// case/acento-insensitivo), "Avila/Ávila, Pedro" y dos "Pérez, Juan"
+// (desempate por DNI), uno sin contacto, uno sin materias, uno con 4 materias
+// y 3 intervalos el mismo día.
+//
+// Turnos (HU-C-*): 27, con fechas en DÍAS OPERATIVOS relativos a la fecha en
+// que se corre el seed (0 = próximo día operativo después de hoy):
+//  - 25 futuros en los próximos 11 días operativos (3 por día en los primeros
+//    8): 3 PENDIENTE (sin profesor ni aula), 3 DISPONIBLE sin inscriptos,
+//    parciales (ej. 6/20 en Aula 2, 12/30 en Aula 10) y 2 COMPLETO (Aula 1
+//    10/10, Laboratorio 15/15). Giménez (profesor1) tiene 7 (+1 pasado).
+//  - 2 en el PASADO a propósito (1 y 2 días operativos antes de hoy,
+//    DISPONIBLE con inscriptos) para que el calendario muestre historial.
+//  El cupo es la capacidad del aula; ningún turno usa "Sala individual" ni
+//  "Sala grupal". Como el día de la semana de cada fecha depende de cuándo se
+//  corre el seed, los profesores con turnos tienen una franja común todos los
+//  días operativos, y validarDatos() valida contra el día REAL de la fecha.
 //
 // Es idempotente: se puede correr N veces sin duplicar datos.
 //  - Usuarios / alumnos / profesores / materias / aulas / formas de pago /
 //    parámetros: upsert por clave única.
 //  - HorarioProfesor (sin clave única): se borra y recrea por profesor.
-//  - Turnos: ids fijos ("seed-turno-XX") + upsert. Las fechas se calculan
-//    relativas a la semana en curso, así que al re-correr el seed los turnos
-//    se "mueven" a las semanas actuales en vez de duplicarse.
+//  - Turnos: ids fijos ("seed-turno-XX"). Se borran todos los "seed-turno-*"
+//    (con sus inscripciones y reservas, en cascada) y se recrean: así, al
+//    re-correr el seed otro día, los turnos se "mueven" a las fechas nuevas
+//    sin chocar a mitad de camino con la exclusión de reservas_turno.
 //  - No toca datos que no sean del seed (ej. el alumno de prueba manual).
 //  - No siembra tablas de runtime (TokenRevocado, IntentoLoginFallido,
 //    IntentoRegistro, EventoSeguridad, CodigoVerificacion).
@@ -50,8 +75,11 @@ import {
 import { normalizarTexto } from "../src/lib/normalizar-texto";
 import { clavesOrdenProfesor } from "../src/lib/profesor-listado";
 import { ContactoSchema } from "../src/server/shared/contacto.schema";
+import { crearIdentidadAlumnoSchema } from "../src/server/alumnos/alumno.schema";
+import { DURACIONES_PERMITIDAS_TURNO_MIN } from "../src/server/turnos/turno.schema";
 import {
   DIAS_SEMANA,
+  diaSemanaDeFecha,
   horaAMinutos,
   intervalosSeSuperponen,
   validarIntervaloHorario,
@@ -69,25 +97,19 @@ const BCRYPT_COST = 12;
 
 const DIAS: DiaSemana[] = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"];
 
-/** Hora del día como valor @db.Time (fecha base 1970-01-01). */
-function hora(h: number): Date {
-  return new Date(Date.UTC(1970, 0, 1, h, 0, 0));
+/** Fecha calendario de hoy (hora local) como valor @db.Date. */
+function fechaDeHoy(ahora: Date): Date {
+  return new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()));
 }
 
-/** Lunes de la semana en curso + offset de semanas + offset de días, como @db.Date. */
-function fechaRelativa(semana: number, diaIdx: number): Date {
-  const hoy = new Date();
-  const desdeLunes = (hoy.getDay() + 6) % 7; // lunes = 0
-  return new Date(
-    Date.UTC(
-      hoy.getFullYear(),
-      hoy.getMonth(),
-      hoy.getDate() - desdeLunes + semana * 7 + diaIdx,
-    ),
-  );
+/** Suma días calendario a un @db.Date. */
+function sumarDias(fecha: Date, dias: number): Date {
+  const resultado = new Date(fecha);
+  resultado.setUTCDate(resultado.getUTCDate() + dias);
+  return resultado;
 }
 
-/** "HH:mm" como valor @db.Time (HorarioProfesor, HU-D-04). */
+/** "HH:mm" como valor @db.Time (HorarioProfesor HU-D-04, Turno). */
 function horaTime(hhmm: string): Date {
   const minutos = horaAMinutos(hhmm);
   return new Date(Date.UTC(1970, 0, 1, Math.floor(minutos / 60), minutos % 60, 0));
@@ -124,8 +146,9 @@ const AULAS: { nombre: string; capacidad: number; activa: boolean }[] = [
   { nombre: "Aula 11", capacidad: 35, activa: true },
   { nombre: "Aula 12", capacidad: 25, activa: false },
   { nombre: "Laboratorio", capacidad: 15, activa: true },
-  // Capacidad chica a propósito: el cupo de un turno es la capacidad de su
-  // aula (spec_modulo_C.md Revisión 3), así se ven turnos Completo con 1 alumno.
+  // Capacidad chica: el cupo de un turno es la capacidad de su aula
+  // (spec_modulo_C.md Revisión 3). Quedan en el catálogo (selector de aulas),
+  // pero ningún turno del seed las usa: la demo muestra cupos grupales.
   { nombre: "Sala individual", capacidad: 1, activa: true },
   { nombre: "Sala grupal", capacidad: 3, activa: true },
 ];
@@ -161,9 +184,13 @@ const PROFESORES: {
     cuenta: true,
     activo: true,
     materias: ["Matemática", "Física"],
+    // Franja común de turnos: 08-12 todos los días operativos.
     horarios: [
       { dia: 0, desde: "08:00", hasta: "12:00" },
+      { dia: 1, desde: "08:00", hasta: "12:00" },
       { dia: 2, desde: "08:00", hasta: "12:00" },
+      { dia: 3, desde: "08:00", hasta: "12:00" },
+      { dia: 4, desde: "08:00", hasta: "12:00" },
       { dia: 4, desde: "14:00", hasta: "18:00" },
     ],
   },
@@ -179,12 +206,16 @@ const PROFESORES: {
     cuenta: true,
     activo: true,
     materias: ["Programación I", "Bases de Datos"],
+    // Franja común de turnos: 10-12 y 12-14 todos los días operativos.
     horarios: [
       // Intervalos contiguos (10-12 y 12-14): no deben considerarse superpuestos.
       { dia: 0, desde: "10:00", hasta: "12:00" },
       { dia: 0, desde: "12:00", hasta: "14:00" },
+      { dia: 1, desde: "10:00", hasta: "14:00" },
       { dia: 1, desde: "14:00", hasta: "18:00" },
+      { dia: 2, desde: "10:00", hasta: "14:00" },
       { dia: 3, desde: "10:00", hasta: "14:00" },
+      { dia: 4, desde: "10:00", hasta: "14:00" },
     ],
   },
   {
@@ -199,10 +230,15 @@ const PROFESORES: {
     cuenta: true,
     activo: true,
     materias: ["Química", "Matemática"],
+    // Franja común de turnos: 14-18 todos los días operativos.
     horarios: [
+      { dia: 0, desde: "14:00", hasta: "18:00" },
       { dia: 1, desde: "08:00", hasta: "12:00" },
+      { dia: 1, desde: "14:00", hasta: "18:00" },
+      { dia: 2, desde: "14:00", hasta: "18:00" },
       { dia: 3, desde: "14:00", hasta: "18:00" },
       { dia: 4, desde: "08:00", hasta: "12:00" },
+      { dia: 4, desde: "14:00", hasta: "18:00" },
     ],
   },
   {
@@ -217,11 +253,14 @@ const PROFESORES: {
     cuenta: true,
     activo: true,
     materias: ["Inglés Técnico", "Programación I"],
+    // Franja común de turnos: 16-18 todos los días operativos.
     horarios: [
       { dia: 0, desde: "16:00", hasta: "20:00" },
+      { dia: 1, desde: "16:00", hasta: "20:00" },
       { dia: 2, desde: "14:00", hasta: "18:00" },
       { dia: 3, desde: "16:00", hasta: "20:00" },
       { dia: 4, desde: "09:30", hasta: "11:00" },
+      { dia: 4, desde: "16:00", hasta: "20:00" },
     ],
   },
   {
@@ -303,7 +342,8 @@ const PROFESORES: {
   },
   {
     // 4 materias ("Física, Matemática +2") y 3 intervalos el lunes, cargados
-    // desordenados: el detalle los muestra por hora de inicio.
+    // desordenados: el detalle los muestra por hora de inicio. Franja común
+    // de turnos: 15-17 todos los días operativos.
     nombre: "Julián",
     apellido: "Castro",
     dni: "32200011",
@@ -319,7 +359,11 @@ const PROFESORES: {
       { dia: 0, desde: "15:00", hasta: "17:00" },
       { dia: 0, desde: "08:00", hasta: "10:00" },
       { dia: 0, desde: "11:00", hasta: "12:00" },
+      { dia: 1, desde: "15:00", hasta: "17:00" },
       { dia: 2, desde: "09:00", hasta: "10:30" },
+      { dia: 2, desde: "15:00", hasta: "17:00" },
+      { dia: 3, desde: "15:00", hasta: "17:00" },
+      { dia: 4, desde: "15:00", hasta: "17:00" },
     ],
   },
   {
@@ -523,7 +567,61 @@ const ALUMNOS: AlumnoSeed[] = [
   { nombre: "Ramiro", apellido: "Molina", genero: "MASCULINO", cuenta: "inactiva", activo: true },
   // Alumno INACTIVO y sin cuenta
   { nombre: "Bruno", apellido: "Paz", genero: null, cuenta: null, activo: false },
+  // --- Fichas sin cuenta para llenar turnos grupales (demo). Se agregan al
+  // final para no cambiar el DNI de las anteriores (se deriva del índice). ---
+  { nombre: "Emilia", apellido: "Acosta", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Santiago", apellido: "Gómez", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Catalina", apellido: "Ibáñez", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Thiago", apellido: "Medina", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Renata", apellido: "Suárez", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Ignacio", apellido: "Vázquez", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Abril", apellido: "Rojas", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Maximiliano", apellido: "Ortiz", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Milagros", apellido: "Giménez", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Emiliano", apellido: "Figueroa", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Zoe", apellido: "Aguirre", genero: "OTRO", cuenta: null, activo: true },
+  { nombre: "Gonzalo", apellido: "Ramírez", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Delfina", apellido: "Navarro", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Franco", apellido: "Peralta", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Ailén", apellido: "Cabrera", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Lautaro", apellido: "Domínguez", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Josefina", apellido: "Morales", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Valentín", apellido: "Ríos", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Micaela", apellido: "Luna", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Bautista", apellido: "Sosa", genero: "PREFIERO_NO_INDICARLO", cuenta: null, activo: true },
+  { nombre: "Antonella", apellido: "Quiroga", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Ezequiel", apellido: "Muñoz", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Guadalupe", apellido: "Ledesma", genero: null, cuenta: null, activo: true },
 ];
+
+/** DNI de la ficha i (se deriva del índice: no reordenar ALUMNOS). */
+const dniAlumno = (i: number) => `4010${String(i + 1).padStart(4, "0")}`;
+
+/**
+ * Contacto de la ficha i, tal como se tipearía en el formulario (HU-B-02).
+ * Varía: 0-1 ambos, 2 solo teléfono, 3 solo email. Se guarda normalizado.
+ */
+function contactoCrudoAlumno(i: number, emailCuenta: string | undefined) {
+  const n = i + 1;
+  const patron = i % 4;
+  return {
+    telefono: patron === 3 ? null : `+54 11 5550-${1000 + n}`,
+    email: patron === 2 ? null : (emailCuenta ?? `alumno${pad(n)}@example.com`),
+  };
+}
+
+/** Email de la cuenta del alumno i, o undefined si es una ficha sin cuenta. */
+function emailCuentaAlumno(i: number): string | undefined {
+  const cuenta = ALUMNOS[i].cuenta;
+  if (!cuenta) return undefined;
+  return cuenta === "inactiva" ? "alumno.inactivo@noctium.local" : `alumno${pad(i + 1)}@noctium.local`;
+}
+
+/** Fecha de nacimiento de la ficha i como @db.Date. */
+const nacimientoAlumno = (i: number) => new Date(Date.UTC(1996 + (i % 10), i % 12, 3 + ((i * 2) % 25)));
+
+// Aceptación de términos de los alumnos con cuenta (HU-B-08 c7).
+const TERMINOS_ACEPTADOS_EN = new Date(Date.UTC(2026, 8, 1, 12, 0, 0));
 
 // Cuentas de alumno que creaba una versión previa del seed (todos los alumnos
 // tenían cuenta). Ya no corresponden: esas fichas ahora no tienen cuenta.
@@ -568,35 +666,119 @@ const PARAMETROS_HORARIO = {
   granularidadMinutos: Number(PARAMETROS.granularidad_turno_minutos),
 };
 
+// Matriz RBAC (HU-A-02): una fila [rol, acción] por permiso sembrado. Varias
+// migraciones también insertan algunas, para bases que no corran el seed.
+const PERMISOS: [RolUsuario, string][] = [
+  // Ping de renovación de sesión: los 4 roles (spec_modulo_A.md, nota de
+  // sincronización HU-A-02).
+  ["MESA_ENTRADA", "sesion:ping"],
+  ["PROFESOR", "sesion:ping"],
+  ["GERENTE", "sesion:ping"],
+  ["ALUMNO", "sesion:ping"],
+  // materias:crear (HU-L-01, spec_modulo_L.md §2.1): exclusiva de Gerente.
+  ["GERENTE", "materias:crear"],
+  // materias:leer (HU-L-02, spec_modulo_L.md §2.2): todo rol que consulte el
+  // catálogo al operar otro módulo. Alumno queda afuera en este sprint.
+  ["MESA_ENTRADA", "materias:leer"],
+  ["GERENTE", "materias:leer"],
+  ["PROFESOR", "materias:leer"],
+  // aulas:crear (HU-K-01) y aulas:leer (HU-K-02 §4.3): exclusivas de Gerente
+  // por decisión de producto del backlog oficial.
+  ["GERENTE", "aulas:crear"],
+  ["GERENTE", "aulas:leer"],
+  // Alumnos (HU-B-01 alta, HU-B-02 contacto, HU-B-04 listado/detalle):
+  // exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1). Turnos consume
+  // Alumno vía servicio público, no por estos permisos.
+  ["MESA_ENTRADA", "alumnos:crear"],
+  ["MESA_ENTRADA", "alumnos:editar"],
+  ["MESA_ENTRADA", "alumnos:leer"],
+  // Profesores (HU-D-01..05): exclusivos de Mesa de Entrada
+  // (ver ACCIONES_SOLO_MESA_ENTRADA).
+  ["MESA_ENTRADA", "profesores:crear"],
+  ["MESA_ENTRADA", "profesores:editar"],
+  ["MESA_ENTRADA", "profesores:leer"],
+  // turnos:leer: Mesa de Entrada, Gerente y Profesor.
+  ["MESA_ENTRADA", "turnos:leer"],
+  ["GERENTE", "turnos:leer"],
+  ["PROFESOR", "turnos:leer"],
+  // turnos:crear (HU-C-03), asignar_participantes (HU-C-04) y asignar_aula
+  // (HU-C-15, también en la migración 20260924150000): exclusivos de Mesa de
+  // Entrada.
+  ["MESA_ENTRADA", "turnos:crear"],
+  ["MESA_ENTRADA", "turnos:asignar_participantes"],
+  ["MESA_ENTRADA", "turnos:asignar_aula"],
+  // calendario:leer (HU-J-01, spec_modulo_J.md §2): agenda semanal de solo
+  // lectura; el Profesor solo ve la suya (lo resuelve el servicio del
+  // módulo J, no el permiso).
+  ["MESA_ENTRADA", "calendario:leer"],
+  ["GERENTE", "calendario:leer"],
+  ["PROFESOR", "calendario:leer"],
+];
+
+// Acciones que migraciones viejas dieron a otros roles y hoy son exclusivas de
+// Mesa de Entrada: el seed borra esas filas (ver paso 10 de main()).
+const ACCIONES_SOLO_MESA_ENTRADA = ["profesores:crear", "profesores:editar", "profesores:leer"] as const;
+
 type TurnoSeed = {
   id: string;
-  semana: number; // 0 = semana en curso, 1 = siguiente
-  dia: number; // 0 = lunes
-  hora: number;
-  duracion: 1 | 2 | 3; // horas (se guarda en minutos)
+  // Días OPERATIVOS (dias_operativos) relativos a hoy: 0 = próximo día
+  // operativo después de hoy, 1 = el siguiente, ...; -1 = último día
+  // operativo antes de hoy (turnos pasados, historial del calendario).
+  diaOperativo: number;
+  hora: string; // "HH:mm"
+  duracionMin: number; // uno de DURACIONES_PERMITIDAS_TURNO_MIN
   materia: string;
-  profesor: number | null; // índice en PROFESORES
+  profesor: number | null; // índice en PROFESORES; null = PENDIENTE
   aula: string | null;
-  alumno: number | null; // índice en ALUMNOS
-  // Sin cupo propio: cupoMaximoTurno = capacidad del aula (Revisión 3). Con un
-  // alumno inscripto, "Sala individual" deja el turno COMPLETO.
+  alumnos: number[]; // índices en ALUMNOS
+  // Sin cupo propio: cupoMaximoTurno = capacidad del aula (Revisión 3); el
+  // estado sale de inscriptos vs. cupo (estadoDeTurno).
 };
 
+/** Índices a..b (ambos incluidos) de ALUMNOS. */
+const rango = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
+// Profesores: 0 Giménez (08-12), 1 Rossi (10-12 / 12-14), 2 Vega (14-18),
+// 3 Acuña (16-18), 9 Castro (15-17) — franjas comunes a todos los días
+// operativos (ver PROFESORES). ALUMNOS[16] (Bruno Paz) es inactivo.
 const TURNOS: TurnoSeed[] = [
-  // --- Semana en curso ---
-  { id: "seed-turno-01", semana: 0, dia: 0, hora: 8, duracion: 1, materia: "Matemática", profesor: 0, aula: "Sala individual", alumno: 0 },
-  { id: "seed-turno-02", semana: 0, dia: 0, hora: 10, duracion: 2, materia: "Programación I", profesor: 1, aula: "Aula 2", alumno: 1 },
-  { id: "seed-turno-03", semana: 0, dia: 0, hora: 16, duracion: 2, materia: "Inglés Técnico", profesor: 3, aula: "Aula 1", alumno: 2 },
-  { id: "seed-turno-04", semana: 0, dia: 1, hora: 14, duracion: 3, materia: "Bases de Datos", profesor: 1, aula: "Sala individual", alumno: 3 },
-  { id: "seed-turno-05", semana: 0, dia: 2, hora: 9, duracion: 2, materia: "Física", profesor: 0, aula: "Aula 2", alumno: 4 },
-  { id: "seed-turno-06", semana: 0, dia: 3, hora: 15, duracion: 2, materia: "Química", profesor: 2, aula: "Laboratorio", alumno: 5 },
-  // --- Semana siguiente ---
-  { id: "seed-turno-07", semana: 1, dia: 0, hora: 12, duracion: 2, materia: "Bases de Datos", profesor: 1, aula: "Sala individual", alumno: 6 },
-  { id: "seed-turno-08", semana: 1, dia: 1, hora: 8, duracion: 3, materia: "Química", profesor: 2, aula: "Sala grupal", alumno: 7 },
-  { id: "seed-turno-09", semana: 1, dia: 2, hora: 14, duracion: 1, materia: "Inglés Técnico", profesor: 3, aula: "Sala individual", alumno: 8 },
-  { id: "seed-turno-10", semana: 1, dia: 4, hora: 14, duracion: 2, materia: "Matemática", profesor: 0, aula: "Aula 10", alumno: 9 },
-  // --- PENDIENTE: solo materia + fecha + hora, sin aula ni cupo (HU-C-01 "continuar configuración") ---
-  { id: "seed-turno-11", semana: 1, dia: 3, hora: 10, duracion: 2, materia: "Programación I", profesor: null, aula: null, alumno: null },
+  // Día operativo 0
+  { id: "seed-turno-01", diaOperativo: 0, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: rango(0, 9) }, // COMPLETO 10/10
+  { id: "seed-turno-02", diaOperativo: 0, hora: "10:00", duracionMin: 120, materia: "Programación I", profesor: 1, aula: "Aula 2", alumnos: rango(17, 22) },
+  { id: "seed-turno-03", diaOperativo: 0, hora: "16:00", duracionMin: 120, materia: "Inglés Técnico", profesor: 3, aula: "Aula 10", alumnos: rango(23, 34) }, // 12/30
+  // Día operativo 1
+  { id: "seed-turno-04", diaOperativo: 1, hora: "14:00", duracionMin: 120, materia: "Química", profesor: 2, aula: "Laboratorio", alumnos: rango(0, 14) }, // COMPLETO 15/15
+  { id: "seed-turno-05", diaOperativo: 1, hora: "10:00", duracionMin: 120, materia: "Física", profesor: 0, aula: "Aula 2", alumnos: [] }, // sin inscriptos
+  { id: "seed-turno-06", diaOperativo: 1, hora: "12:00", duracionMin: 60, materia: "Bases de Datos", profesor: 1, aula: "Aula 1", alumnos: rango(17, 20) },
+  // Día operativo 2
+  { id: "seed-turno-07", diaOperativo: 2, hora: "08:00", duracionMin: 60, materia: "Física", profesor: 0, aula: "Aula 1", alumnos: rango(20, 24) },
+  { id: "seed-turno-08", diaOperativo: 2, hora: "12:00", duracionMin: 120, materia: "Bases de Datos", profesor: 1, aula: "Aula 11", alumnos: rango(0, 7) },
+  { id: "seed-turno-09", diaOperativo: 2, hora: "15:00", duracionMin: 120, materia: "Matemática", profesor: 9, aula: "Aula 2", alumnos: [] }, // sin inscriptos
+  // Día operativo 3
+  { id: "seed-turno-10", diaOperativo: 3, hora: "10:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 10", alumnos: rango(25, 36) }, // 12/30
+  { id: "seed-turno-11", diaOperativo: 3, hora: "14:00", duracionMin: 120, materia: "Química", profesor: null, aula: null, alumnos: [] }, // PENDIENTE
+  { id: "seed-turno-13", diaOperativo: 3, hora: "16:00", duracionMin: 120, materia: "Programación I", profesor: 3, aula: "Laboratorio", alumnos: rango(1, 6) },
+  // Día operativo 4
+  { id: "seed-turno-14", diaOperativo: 4, hora: "08:00", duracionMin: 120, materia: "Física", profesor: 0, aula: "Aula 2", alumnos: rango(0, 5) }, // 6/20
+  { id: "seed-turno-15", diaOperativo: 4, hora: "10:00", duracionMin: 120, materia: "Programación I", profesor: 1, aula: "Aula 11", alumnos: rango(17, 29) },
+  { id: "seed-turno-16", diaOperativo: 4, hora: "14:00", duracionMin: 180, materia: "Química", profesor: 2, aula: "Aula 10", alumnos: rango(30, 39) },
+  // Día operativo 5
+  { id: "seed-turno-17", diaOperativo: 5, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: [] }, // sin inscriptos
+  { id: "seed-turno-18", diaOperativo: 5, hora: "16:00", duracionMin: 60, materia: "Inglés Técnico", profesor: null, aula: null, alumnos: [] }, // PENDIENTE (Acuña 16-18)
+  { id: "seed-turno-19", diaOperativo: 5, hora: "15:00", duracionMin: 120, materia: "Física", profesor: 9, aula: "Laboratorio", alumnos: rango(2, 9) },
+  // Día operativo 6
+  { id: "seed-turno-20", diaOperativo: 6, hora: "12:00", duracionMin: 120, materia: "Programación I", profesor: 1, aula: "Aula 2", alumnos: rango(7, 15) },
+  { id: "seed-turno-21", diaOperativo: 6, hora: "14:00", duracionMin: 120, materia: "Matemática", profesor: 2, aula: "Aula 1", alumnos: rango(17, 24) },
+  { id: "seed-turno-22", diaOperativo: 6, hora: "16:00", duracionMin: 120, materia: "Inglés Técnico", profesor: 3, aula: "Aula 11", alumnos: rango(25, 39) },
+  // Día operativo 7
+  { id: "seed-turno-23", diaOperativo: 7, hora: "10:00", duracionMin: 120, materia: "Física", profesor: 0, aula: "Aula 10", alumnos: rango(17, 34) },
+  { id: "seed-turno-24", diaOperativo: 7, hora: "12:00", duracionMin: 60, materia: "Bases de Datos", profesor: 1, aula: "Aula 1", alumnos: rango(1, 3) },
+  { id: "seed-turno-25", diaOperativo: 7, hora: "15:00", duracionMin: 120, materia: "Programación I", profesor: null, aula: null, alumnos: [] }, // PENDIENTE
+  // Día operativo 10
+  { id: "seed-turno-12", diaOperativo: 10, hora: "10:00", duracionMin: 120, materia: "Bases de Datos", profesor: 1, aula: "Aula 2", alumnos: rango(0, 4) },
+  // --- PASADOS a propósito (historial del calendario) ---
+  { id: "seed-turno-26", diaOperativo: -1, hora: "10:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 2", alumnos: rango(0, 7) },
+  { id: "seed-turno-27", diaOperativo: -2, hora: "16:00", duracionMin: 120, materia: "Programación I", profesor: 3, aula: "Aula 10", alumnos: rango(17, 28) },
 ];
 
 /** Cupo máximo de un turno de seed: la capacidad de su aula, o null sin aula. */
@@ -604,12 +786,39 @@ function capacidadDeAula(nombre: string | null) {
   return nombre === null ? null : AULAS.find((a) => a.nombre === nombre)?.capacidad ?? null;
 }
 
+/** PENDIENTE sin profesor; si no, COMPLETO cuando los inscriptos llenan el cupo. */
+function estadoDeTurno(t: TurnoSeed): EstadoTurno {
+  if (t.profesor === null) return "PENDIENTE";
+  const cupo = capacidadDeAula(t.aula);
+  return cupo !== null && t.alumnos.length >= cupo ? "COMPLETO" : "DISPONIBLE";
+}
+
+/**
+ * Fecha del n-ésimo día operativo relativo a `hoy` (ver TurnoSeed.diaOperativo),
+ * saltando los días que no están en dias_operativos.
+ */
+function fechaOperativa(hoy: Date, n: number): Date {
+  const paso = n >= 0 ? 1 : -1;
+  let restantes = n >= 0 ? n + 1 : -n;
+  let fecha = hoy;
+  while (restantes > 0) {
+    fecha = sumarDias(fecha, paso);
+    if (PARAMETROS_HORARIO.diasOperativos.includes(diaSemanaDeFecha(fecha))) restantes--;
+  }
+  return fecha;
+}
+
+/** Fechas (@db.Date) de todos los turnos: se calculan una vez y las usan validación e insert. */
+function calcularFechasTurnos(hoy: Date): Map<string, Date> {
+  return new Map(TURNOS.map((t) => [t.id, fechaOperativa(hoy, t.diaOperativo)]));
+}
+
 // ------------------------------------------------------------
 // Validación en memoria: el seed no debe generar datos que la propia
 // lógica de negocio de la app rechazaría.
 // ------------------------------------------------------------
 
-function validarDatos(): void {
+function validarDatos(hoy: Date, fechas: Map<string, Date>): void {
   const errores: string[] = [];
   const agendados = TURNOS.filter((t) => t.profesor !== null);
 
@@ -645,44 +854,122 @@ function validarDatos(): void {
     if (!materiasCubiertas.has(m.nombre)) errores.push(`Materia sin profesor activo: ${m.nombre}`);
   }
 
+  // Alumnos: identidad con el mismo schema del alta (HU-B-01) y contacto con
+  // el de HU-B-02 — a diferencia de Profesor, toda ficha de alumno lo tiene.
+  const identidadAlumno = crearIdentidadAlumnoSchema(
+    Number(PARAMETROS.dni_longitud_min),
+    Number(PARAMETROS.dni_longitud_max),
+  );
+  ALUMNOS.forEach((a, i) => {
+    const identidad = identidadAlumno.safeParse({
+      nombre: a.nombre,
+      apellido: a.apellido,
+      dni: dniAlumno(i),
+      fecha_nacimiento: nacimientoAlumno(i).toISOString().slice(0, 10),
+      genero: a.genero ?? undefined,
+    });
+    if (!identidad.success) {
+      errores.push(`Alumno ${a.apellido}: identidad inválida (${identidad.error.issues.map((x) => x.message).join(", ")})`);
+    }
+    const contacto = ContactoSchema.safeParse(contactoCrudoAlumno(i, emailCuentaAlumno(i)));
+    if (!contacto.success) {
+      errores.push(`Alumno ${a.apellido}: contacto inválido (${contacto.error.issues.map((x) => x.message).join(", ")})`);
+    }
+  });
+
   const materiasActivas = new Set(MATERIAS.filter((m) => m.activa).map((m) => m.nombre));
   const aulasActivas = new Set(AULAS.filter((a) => a.activa).map((a) => a.nombre));
+  const apertura = horaAMinutos(PARAMETROS_HORARIO.apertura);
+  const cierre = horaAMinutos(PARAMETROS_HORARIO.cierre);
+  const fechaMaxima = sumarDias(hoy, Number(PARAMETROS.anticipacion_maxima_dias));
+  const intervaloDe = (t: TurnoSeed) => {
+    const inicio = horaAMinutos(t.hora);
+    return { inicio, fin: inicio + t.duracionMin };
+  };
 
+  if (new Set(TURNOS.map((t) => t.id)).size !== TURNOS.length) errores.push("Ids de turno repetidos");
+
+  // Mismas reglas que validarConfiguracionTurno() (HU-C-01), salvo
+  // FECHA_PASADA: los diaOperativo < 0 son historial a propósito.
   for (const t of TURNOS) {
+    const fecha = fechas.get(t.id)!;
+    const dia = diaSemanaDeFecha(fecha);
+    const { inicio, fin } = intervaloDe(t);
     if (!materiasActivas.has(t.materia)) errores.push(`${t.id}: materia inactiva`);
-  }
+    if (fecha > fechaMaxima) errores.push(`${t.id}: supera anticipacion_maxima_dias`);
+    if (!PARAMETROS_HORARIO.diasOperativos.includes(dia)) errores.push(`${t.id}: día no operativo`);
+    if (inicio % PARAMETROS_HORARIO.granularidadMinutos !== 0) errores.push(`${t.id}: hora no granular`);
+    if (!(DURACIONES_PERMITIDAS_TURNO_MIN as readonly number[]).includes(t.duracionMin)) {
+      errores.push(`${t.id}: duración ${t.duracionMin} no permitida`);
+    }
+    if (inicio < apertura || fin > cierre) errores.push(`${t.id}: fuera del horario operativo`);
+    if (new Set(t.alumnos).size !== t.alumnos.length) errores.push(`${t.id}: alumno repetido`);
 
-  for (const t of agendados) {
-    const prof = PROFESORES[t.profesor!];
-    const fin = t.hora + t.duracion;
-    const turno = { inicio: t.hora * 60, fin: fin * 60 };
+    if (t.profesor === null) {
+      if (t.aula !== null || t.alumnos.length > 0) errores.push(`${t.id}: PENDIENTE con aula o alumnos`);
+      // Tiene que poder configurarse (HU-C-15): algún profesor activo que
+      // dicte la materia, con horario que cubra el turno en el día REAL de la
+      // fecha y libre de otros turnos agendados en ese intervalo.
+      const configurable = PROFESORES.some(
+        (p, idx) =>
+          p.activo &&
+          p.materias.includes(t.materia) &&
+          p.horarios.some(
+            (h) => DIAS[h.dia] === dia && inicio >= horaAMinutos(h.desde) && fin <= horaAMinutos(h.hasta),
+          ) &&
+          !agendados.some(
+            (o) =>
+              o.profesor === idx &&
+              fechas.get(o.id)!.getTime() === fecha.getTime() &&
+              intervalosSeSuperponen(intervaloDe(o), { inicio, fin }),
+          ),
+      );
+      if (!configurable) {
+        errores.push(`${t.id}: PENDIENTE sin profesor disponible para ${t.materia} (${dia} ${t.hora})`);
+      }
+      continue;
+    }
+
+    // Asignación de profesor, aula y participantes (HU-C-15 / HU-C-04).
+    const prof = PROFESORES[t.profesor];
     if (!prof.activo) errores.push(`${t.id}: profesor inactivo`);
     if (!prof.materias.includes(t.materia)) {
       errores.push(`${t.id}: ${prof.apellido} no dicta ${t.materia}`);
     }
+    // Contra el día de la semana REAL de la fecha calculada.
     const dentro = prof.horarios.some(
-      (h) => h.dia === t.dia && turno.inicio >= horaAMinutos(h.desde) && turno.fin <= horaAMinutos(h.hasta),
+      (h) => DIAS[h.dia] === dia && inicio >= horaAMinutos(h.desde) && fin <= horaAMinutos(h.hasta),
     );
-    if (!dentro) errores.push(`${t.id}: fuera del horario de ${prof.apellido}`);
-    if (t.alumno === null || t.aula === null) {
-      errores.push(`${t.id}: agendado sin alumno o aula`);
+    if (!dentro) errores.push(`${t.id}: fuera del horario de ${prof.apellido} (${dia} ${t.hora})`);
+    if (t.aula === null) {
+      errores.push(`${t.id}: agendado sin aula`);
     } else if (!AULAS.some((a) => a.nombre === t.aula)) {
       errores.push(`${t.id}: aula inexistente`);
     } else {
-      if (!ALUMNOS[t.alumno].activo) errores.push(`${t.id}: alumno inactivo`);
       if (!aulasActivas.has(t.aula)) errores.push(`${t.id}: aula inactiva`);
+      if (t.aula === "Sala individual" || t.aula === "Sala grupal") errores.push(`${t.id}: usa ${t.aula}`);
+      if (t.alumnos.length > capacidadDeAula(t.aula)!) {
+        errores.push(`${t.id}: ${t.alumnos.length} inscriptos superan la capacidad de ${t.aula}`);
+      }
+    }
+    for (const i of t.alumnos) {
+      if (!ALUMNOS[i]) errores.push(`${t.id}: alumno ${i} inexistente`);
+      else if (!ALUMNOS[i].activo) errores.push(`${t.id}: alumno inactivo (${ALUMNOS[i].apellido})`);
     }
   }
 
+  // Superposiciones de recursos entre turnos agendados (lo mismo que impide
+  // la exclusión de reservas_turno en la base).
   for (let i = 0; i < agendados.length; i++) {
     for (let j = i + 1; j < agendados.length; j++) {
       const a = agendados[i];
       const b = agendados[j];
-      if (a.semana !== b.semana || a.dia !== b.dia) continue;
-      const solapan = a.hora < b.hora + b.duracion && b.hora < a.hora + a.duracion;
-      if (solapan && a.profesor === b.profesor) errores.push(`${a.id}/${b.id}: mismo profesor`);
-      if (solapan && a.aula === b.aula) errores.push(`${a.id}/${b.id}: misma aula`);
-      if (solapan && a.alumno === b.alumno) errores.push(`${a.id}/${b.id}: mismo alumno`);
+      if (fechas.get(a.id)!.getTime() !== fechas.get(b.id)!.getTime()) continue;
+      if (!intervalosSeSuperponen(intervaloDe(a), intervaloDe(b))) continue;
+      if (a.profesor === b.profesor) errores.push(`${a.id}/${b.id}: mismo profesor`);
+      if (a.aula === b.aula) errores.push(`${a.id}/${b.id}: misma aula`);
+      const compartidos = a.alumnos.filter((x) => b.alumnos.includes(x));
+      if (compartidos.length > 0) errores.push(`${a.id}/${b.id}: alumnos superpuestos (${compartidos.join(", ")})`);
     }
   }
 
@@ -696,7 +983,13 @@ function validarDatos(): void {
 // ------------------------------------------------------------
 
 async function main() {
-  validarDatos();
+  const hoy = fechaDeHoy(new Date());
+  const fechasTurnos = calcularFechasTurnos(hoy);
+  validarDatos(hoy, fechasTurnos);
+  if (process.env.SEED_SOLO_VALIDAR === "1") {
+    console.log(`✓ Datos del seed válidos (${ALUMNOS.length} alumnos, ${TURNOS.length} turnos). No se escribió en la base.`);
+    return;
+  }
   const passwordHash = await bcrypt.hash(PASSWORD, BCRYPT_COST);
 
   async function upsertUsuario(email: string, rol: RolUsuario, activo = true) {
@@ -723,14 +1016,11 @@ async function main() {
     usuarioProfesorIds.set(i, await upsertUsuario(`profesor${i + 1}@noctium.local`, "PROFESOR"));
   }
 
-  const alumnoEmails = new Map<number, string>(); // solo alumnos con cuenta
   const usuarioAlumnoIds = new Map<number, string>();
   for (let i = 0; i < ALUMNOS.length; i++) {
-    const cuenta = ALUMNOS[i].cuenta;
-    if (!cuenta) continue;
-    const email = cuenta === "inactiva" ? "alumno.inactivo@noctium.local" : `alumno${pad(i + 1)}@noctium.local`;
-    alumnoEmails.set(i, email);
-    usuarioAlumnoIds.set(i, await upsertUsuario(email, "ALUMNO", cuenta === "activa"));
+    const email = emailCuentaAlumno(i);
+    if (!email) continue;
+    usuarioAlumnoIds.set(i, await upsertUsuario(email, "ALUMNO", ALUMNOS[i].cuenta === "activa"));
   }
   const totalUsuarios = 2 + usuarioProfesorIds.size + usuarioAlumnoIds.size;
   console.log(`✓ ${totalUsuarios} usuarios creados (1 inactivo)`);
@@ -752,9 +1042,10 @@ async function main() {
   for (let i = 0; i < ALUMNOS.length; i++) {
     const a = ALUMNOS[i];
     const n = i + 1;
-    // Contacto variado: 0-1 ambos, 2 solo teléfono, 3 solo email (HU-B-02).
-    const patron = i % 4;
-    const email = alumnoEmails.get(i) ?? `alumno${pad(n)}@example.com`;
+    // Se guarda normalizado, igual que HU-B-02 ("+54 11 5550-1001" ->
+    // "+541155501001"); validarDatos() ya garantizó que parsea.
+    const contacto = ContactoSchema.parse(contactoCrudoAlumno(i, emailCuentaAlumno(i)));
+    const conCuenta = usuarioAlumnoIds.has(i);
     const data = {
       nombreAlumno: a.nombre,
       apellidoAlumno: a.apellido,
@@ -762,14 +1053,15 @@ async function main() {
       // §2.4) — mismo criterio que nombreNormalizadaMateria de Materias.
       nombreNormalizadoAlumno: normalizarTexto(a.nombre),
       apellidoNormalizadoAlumno: normalizarTexto(a.apellido),
-      dniAlumno: `4010${String(n).padStart(4, "0")}`,
-      fechaNacimientoAlumno: new Date(
-        Date.UTC(1996 + (i % 10), i % 12, 3 + ((i * 2) % 25)),
-      ),
+      dniAlumno: dniAlumno(i),
+      fechaNacimientoAlumno: nacimientoAlumno(i),
       generoAlumno: a.genero,
-      telefonoAlumno: patron === 3 ? null : `+54 11 5550-${1000 + n}`,
-      emailAlumno: patron === 2 ? null : email,
+      telefonoAlumno: contacto.telefono ?? null,
+      emailAlumno: contacto.email ?? null,
       direccionAlumno: i % 3 === 0 ? null : `Calle ${100 + n * 7}, CABA`,
+      // Términos aceptados al crear la cuenta (HU-B-08 c7); null en fichas sin cuenta.
+      terminosAceptadosEn: conCuenta ? TERMINOS_ACEPTADOS_EN : null,
+      versionTerminosAceptada: conCuenta ? PARAMETROS.terminos_version_vigente! : null,
       // Algunos alumnos quedan "Sin preferencia" (formaPagoPreferidaId = null).
       formaPagoPreferidaId: i % 6 === 5 ? null : formaPagoIds[i % formaPagoIds.length],
       activoAlumno: a.activo,
@@ -905,40 +1197,44 @@ async function main() {
   console.log(`✓ ${totalAsociaciones} asociaciones profesor-materia y ${totalHorarios} horarios de atención creados`);
 
   // 8) Turnos + TurnoAlumno ------------------------------------
+  // Borrar y recrear (no upsert): al re-correr otro día las fechas cambian, y
+  // mover los turnos de a uno puede chocar transitoriamente con la posición
+  // vieja de otro en la exclusión de reservas_turno. El borrado arrastra
+  // turno_alumno y reservas_turno (ON DELETE CASCADE) y también limpia ids
+  // "seed-turno-*" que ya no existan en TURNOS.
+  await prisma.turno.deleteMany({ where: { idTurno: { startsWith: "seed-turno-" } } });
   for (const t of TURNOS) {
-    const agendado = t.profesor !== null;
-    const inscriptos = t.alumno !== null ? 1 : 0;
-    const cupo = capacidadDeAula(t.aula);
-    const estadoTurno: EstadoTurno = !agendado ? "PENDIENTE" : cupo !== null && inscriptos >= cupo ? "COMPLETO" : "DISPONIBLE";
-    const data = {
-      fechaTurno: fechaRelativa(t.semana, t.dia),
-      horaInicioTurno: hora(t.hora),
-      duracionMinutosTurno: t.duracion * 60,
-      cupoMaximoTurno: cupo,
-      estadoTurno,
-      materiaId: materiaIds.get(t.materia)!,
-      profesorId: agendado ? profesorIds[t.profesor!] : null,
-      aulaId: t.aula ? aulaIds.get(t.aula)! : null,
-      creadoPorUsuarioId: mesaEntradaId,
-    };
-    await prisma.turno.upsert({
-      where: { idTurno: t.id },
-      update: data,
-      create: { idTurno: t.id, ...data },
+    // El trigger turno_sincronizar_reservas reserva profesor y aula al
+    // insertar un turno DISPONIBLE/COMPLETO; turno_alumno_sincronizar_reserva
+    // reserva a cada alumno al inscribirlo. Ninguno valida cupo, estado ni
+    // fecha (solo la exclusión de superposiciones), así que un turno puede
+    // crearse directo como COMPLETO o en el pasado y después recibir alumnos.
+    await prisma.turno.create({
+      data: {
+        idTurno: t.id,
+        fechaTurno: fechasTurnos.get(t.id)!,
+        horaInicioTurno: horaTime(t.hora),
+        duracionMinutosTurno: t.duracionMin,
+        cupoMaximoTurno: capacidadDeAula(t.aula),
+        estadoTurno: estadoDeTurno(t),
+        materiaId: materiaIds.get(t.materia)!,
+        profesorId: t.profesor !== null ? profesorIds[t.profesor] : null,
+        aulaId: t.aula ? aulaIds.get(t.aula)! : null,
+        creadoPorUsuarioId: mesaEntradaId,
+      },
     });
-
-    // Exactamente un alumno por turno agendado; ninguno para el pendiente.
-    await prisma.turnoAlumno.deleteMany({ where: { turnoId: t.id } });
-    if (t.alumno !== null) {
-      await prisma.turnoAlumno.create({
-        data: { turnoId: t.id, alumnoId: alumnoIds[t.alumno] },
+    if (t.alumnos.length > 0) {
+      await prisma.turnoAlumno.createMany({
+        data: t.alumnos.map((i) => ({ turnoId: t.id, alumnoId: alumnoIds[i] })),
       });
     }
   }
-  const agendados = TURNOS.filter((t) => t.profesor !== null).length;
-  const completos = TURNOS.filter((t) => t.profesor !== null && t.alumno !== null && (capacidadDeAula(t.aula) ?? Infinity) <= 1).length;
-  console.log(`✓ ${TURNOS.length} turnos creados (${agendados - completos} DISPONIBLE, ${completos} COMPLETO, ${TURNOS.length - agendados} PENDIENTE)`);
-  console.log(`✓ ${agendados} inscripciones alumno-turno creadas`);
+  const porEstado = (estado: EstadoTurno) => TURNOS.filter((t) => estadoDeTurno(t) === estado).length;
+  const pasados = TURNOS.filter((t) => t.diaOperativo < 0).length;
+  console.log(
+    `✓ ${TURNOS.length} turnos creados (${porEstado("DISPONIBLE")} DISPONIBLE, ${porEstado("COMPLETO")} COMPLETO, ${porEstado("PENDIENTE")} PENDIENTE; ${pasados} en el pasado)`,
+  );
+  console.log(`✓ ${TURNOS.reduce((total, t) => total + t.alumnos.length, 0)} inscripciones alumno-turno creadas`);
 
   // 9) Parámetros del sistema ----------------------------------
   for (const [clave, valor] of Object.entries(PARAMETROS)) {
@@ -951,176 +1247,25 @@ async function main() {
   console.log(`✓ ${Object.keys(PARAMETROS).length} parámetros del sistema creados`);
 
   // 10) RolPermiso (HU-A-02) ------------------------------------
-  // Matriz RBAC: se puebla incremental por módulo. El ping de renovación de
-  // sesión está habilitado para los 4 roles (docs/specs/spec_modulo_A.md,
-  // nota de sincronización HU-A-02). "materias:crear" es la primera acción
-  // real de un módulo de negocio (HU-L-01) — exclusiva de Gerente
-  // (spec_modulo_L.md §2.1). "alumnos:crear" (HU-B-01) es exclusiva de Mesa
-  // de Entrada (spec_modulo_B.md §2.1).
-  const ROLES: RolUsuario[] = ["MESA_ENTRADA", "PROFESOR", "GERENTE", "ALUMNO"];
-  for (const rol of ROLES) {
-    await prisma.rolPermiso.upsert({
-      where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "sesion:ping" } },
-      update: {},
-      create: { rolPermiso: rol, accionPermiso: "sesion:ping" },
-    });
-  }
-  await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "materias:crear" } },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "materias:crear" },
-  });
-  await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" } },
-    update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:crear" },
-  });
-  // aulas:crear (HU-K-01, spec_modulo_K.md §2.1): exclusiva de Gerente.
-  await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "aulas:crear" } },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "aulas:crear" },
-  });
-  // aulas:leer (HU-K-02, spec_modulo_K.md §2.2 / HU-K-02.md §4.3): a
-  // diferencia de materias:leer, acá es exclusiva de Gerente por decisión
-  // de producto del backlog oficial — Mesa de Entrada y Profesor no la
-  // tienen en este sprint.
-  await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "aulas:leer" } },
-    update: {},
-    create: { rolPermiso: "GERENTE", accionPermiso: "aulas:leer" },
-  });
-  for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
-    await prisma.rolPermiso.upsert({
-      where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "turnos:leer" } },
-      update: {},
-      create: { rolPermiso: rol, accionPermiso: "turnos:leer" },
-    });
-  }
-
-  // turnos:crear (HU-C-03): exclusivo de Mesa de Entrada.
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: {
-        rolPermiso: "MESA_ENTRADA",
-        accionPermiso: "turnos:crear",
-      },
-    },
-    update: {},
-    create: {
-      rolPermiso: "MESA_ENTRADA",
-      accionPermiso: "turnos:crear",
-    },
-  });
-  await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_participantes" } },
-    update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_participantes" },
-  });
-  // turnos:asignar_aula (HU-C-15): exclusivo de Mesa de Entrada. También lo
-  // inserta la migración 20260924150000 (ya aplicada, no se edita) — mismo
-  // criterio que turnos:asignar_participantes (HU-C-04).
-  await prisma.rolPermiso.upsert({
-    where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_aula" } },
-    update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "turnos:asignar_aula" },
-  });
-  // materias:leer (HU-L-02, spec_modulo_L.md §2.2): todo rol que necesite
-  // consultar el catálogo al operar otro módulo — Gerente, Mesa de Entrada,
-  // Profesor. Alumno queda afuera en este sprint (sin HU que lo requiera
-  // todavía), mismo criterio que turnos:leer arriba.
-for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
-    await prisma.rolPermiso.upsert({
-      where: {
-        rolPermiso_accionPermiso: {
-          rolPermiso: rol,
-          accionPermiso: "materias:leer",
-        },
-      },
-      update: {},
-      create: {
-        rolPermiso: rol,
-        accionPermiso: "materias:leer",
-      },
-    });
-  }
-
-
-  console.log(
-    `✓ ${ROLES.length + 10} permisos RBAC creados`,
-  );
-  // profesores:crear / profesores:editar (HU-D-01/02/03/04): exclusivos de
-  // Mesa de Entrada. Las migraciones que los insertaron para GERENTE dejan
-  // filas viejas en bases existentes, por eso se borran acá (el upsert con
-  // update: {} no las tocaría).
-  for (const accion of ["profesores:crear", "profesores:editar"] as const) {
+  // Matriz RBAC: se puebla incremental por módulo (ver PERMISOS). Las
+  // acciones exclusivas de Mesa de Entrada que alguna migración insertó
+  // también para otros roles (profesores:crear/editar/leer, p. ej. GERENTE en
+  // 20260923200000_profesor_nombre_normalizado_y_leer_permiso) dejan filas
+  // viejas en bases existentes: se borran acá, porque el upsert con
+  // update: {} no las tocaría.
+  for (const accion of ACCIONES_SOLO_MESA_ENTRADA) {
     await prisma.rolPermiso.deleteMany({
       where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: accion },
     });
+  }
+  for (const [rol, accion] of PERMISOS) {
     await prisma.rolPermiso.upsert({
-      where: {
-        rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: accion },
-      },
+      where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: accion } },
       update: {},
-      create: { rolPermiso: "MESA_ENTRADA", accionPermiso: accion },
+      create: { rolPermiso: rol, accionPermiso: accion },
     });
   }
-  console.log(`✓ 2 permisos RBAC creados (profesores:crear y profesores:editar para MESA_ENTRADA)`);
-
-  // alumnos:editar (HU-B-02, contacto): exclusivo de Mesa de Entrada, mismo
-  // criterio que alumnos:crear (HU-B-01). La migración
-  // <timestamp>_alumnos_editar_permiso también lo inserta, para bases que
-  // no corran el seed (mismo patrón que profesores:editar arriba).
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
-    },
-    update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:editar" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (alumnos:editar para MESA_ENTRADA)`);
-
-  // alumnos:leer (HU-B-04, listado y detalle): exclusivo de Mesa de Entrada,
-  // mismo criterio que alumnos:crear/alumnos:editar — ninguna HU de este
-  // sprint requiere que Gerente o Profesor lean el listado HTTP de alumnos
-  // (Turnos consume Alumno vía servicio público, no por este permiso). La
-  // migración <timestamp>_alumnos_leer_permiso también lo inserta, para
-  // bases que no corran el seed (mismo patrón que alumnos:editar arriba).
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:leer" },
-    },
-    update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "alumnos:leer" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (alumnos:leer para MESA_ENTRADA)`);
-
-  // profesores:leer (HU-D-05, listado y detalle): exclusivo de Mesa de Entrada,
-  // mismo rol que profesores:crear/editar. Se borran las filas de otros roles
-  // (p. ej. GERENTE de la migración 20260923200000_profesor_nombre_normalizado_y_leer_permiso).
-  await prisma.rolPermiso.deleteMany({
-    where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: "profesores:leer" },
-  });
-  await prisma.rolPermiso.upsert({
-    where: {
-      rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "profesores:leer" },
-    },
-    update: {},
-    create: { rolPermiso: "MESA_ENTRADA", accionPermiso: "profesores:leer" },
-  });
-  console.log(`✓ 1 permiso RBAC creado (profesores:leer para MESA_ENTRADA)`);
-
-  // calendario:leer (HU-J-01, spec_modulo_J.md §2): agenda semanal de solo
-  // lectura para Mesa de Entrada, Gerente y Profesor (este último solo ve su
-  // propia agenda; lo resuelve el servicio del módulo J, no el permiso).
-  for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
-    await prisma.rolPermiso.upsert({
-      where: { rolPermiso_accionPermiso: { rolPermiso: rol, accionPermiso: "calendario:leer" } },
-      update: {},
-      create: { rolPermiso: rol, accionPermiso: "calendario:leer" },
-    });
-  }
-  console.log(`✓ 3 permisos RBAC creados (calendario:leer para MESA_ENTRADA, GERENTE y PROFESOR)`);
+  console.log(`✓ ${PERMISOS.length} permisos RBAC creados (${new Set(PERMISOS.map(([, accion]) => accion)).size} acciones)`);
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }
