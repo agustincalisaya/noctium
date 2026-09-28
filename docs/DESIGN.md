@@ -49,7 +49,7 @@ tenga trazabilidad hasta esta tabla.
 | `--accent` | `oklch(0.93 0.008 88.64)` | `#EAE8E2` | Fondo de hover de menús/selects/items — **nunca** el verde acento, ver Regla obligatoria abajo |
 | `--accent-foreground` | `oklch(0.2648 0.0127 243.35)` | `#20262B` | Texto sobre `--accent` |
 | `--destructive` | `oklch(0.55 0.19 25)` | `#C92F33` | Acciones destructivas, errores de formulario |
-| `--success` | `oklch(0.93 0.045 152)` | `#D3F1D9` | Fondo de estado de éxito (banner/badge) |
+| `--success` | `oklch(0.93 0.045 152)` | `#D3F1D9` | Fondo de estado de éxito (banner/badge/toast) |
 | `--success-foreground` | `oklch(0.32 0.09 152)` | `#003F1A` | Texto sobre `--success` |
 | `--warning` | `oklch(0.93 0.06 75)` | `#FFE3BC` | Fondo de estado de advertencia |
 | `--warning-foreground` | `oklch(0.38 0.09 60)` | `#643400` | Texto sobre `--warning` |
@@ -90,8 +90,9 @@ directamente de la paleta base, el resultado coincide con el hex oficial.
   decorativos, highlights puntuales). No es un color de fondo de uso
   general — ver la regla de contraste abajo.
 - **`--success` / `--warning`**: estados semánticos de feedback (mensajes
-  de éxito, avisos no destructivos). Ver "Deuda de diseño pendiente" — hoy
-  todavía no los usa ningún componente.
+  de éxito, avisos no destructivos). Usados en banners inline (pantallas
+  existentes) y en toasts (ver sección 6, "Confirmaciones y feedback de
+  acciones") — no se usa un color a mano en ninguno de los dos casos.
 - **`--destructive`**: errores de validación, acciones irreversibles,
   mensajes de error de comunicación.
 
@@ -121,7 +122,97 @@ misma tabla, no algo a improvisar sobre la marcha.
 
 ---
 
-## 6. Deuda de diseño pendiente
+## 6. Confirmaciones y feedback de acciones — Toast, Banner y Modal
+
+**Regla no negociable, igual que la paleta:** cada acción que crea, modifica
+o cancela algo tiene que dar feedback explícito de éxito, y ese feedback usa
+uno de estos tres mecanismos **según el tipo de pantalla desde la que se
+dispara** — no queda a criterio del desarrollador cuál usar.
+
+### 6.1 Toast — para acciones disparadas desde un modal (`Dialog`/`AlertDialog`)
+
+**Componente:** `sonner` (`npx shadcn@latest add sonner`) — es el toast que
+shadcn/ui recomienda actualmente, reemplaza a su `Toast`/`useToast` viejo.
+Es una dependencia nueva y chica, agregada específicamente para esto — no
+hay nada en el stack actual que la reemplace.
+
+**Cuándo usarlo:** siempre que la acción se confirma desde un modal y el
+modal se cierra devolviendo a la misma pantalla (Registrar pago, Asociar
+forma de pago, Asignar prioridad, Cancelar turno, Reprogramar turno,
+Registrar clase dictada, Registrar resultado de examen, Nueva forma de
+pago — ver `docs/adicionales/mapa-pantallas-sprint-2.md` para la lista completa de
+acciones en modal).
+
+**Cómo se ve:**
+- Aparece en una esquina fija de la pantalla (arriba a la derecha),
+  no bloquea ni requiere click para cerrarse.
+- Se autodescarta a los 4 segundos.
+- Éxito: fondo `--success`, texto `--success-foreground`, ícono de check.
+- Error de servidor (ej. falla de red al guardar): fondo `--destructive`
+  con su foreground, mismo mecanismo — no usar `alert()` del navegador
+  ni dejar el modal "colgado" sin feedback.
+- El texto es siempre el mismo que ya define el criterio de aceptación de
+  la HU correspondiente, literal (ej. "Pago registrado correctamente",
+  "Forma de pago registrada correctamente") — no se parafrasea.
+
+**Qué NO hacer:** no usar un modal de confirmación ("Registrado
+exitosamente" + botón "Aceptar") para avisar un éxito. Eso obliga a un
+click extra sin que haya ninguna decisión que tomar — un modal se reserva
+para pedir una decisión (confirmar una acción destructiva, elegir entre
+opciones), nunca para informar un resultado.
+
+### 6.2 Banner inline — para acciones de página completa (patrón ya existente de Sprint 1)
+
+**Cuándo usarlo:** se mantiene sin cambios en las pantallas que ya lo usan
+y en cualquier flujo nuevo que siga el mismo patrón de página completa (alta
+o edición que no vive en un modal): Alumnos, Profesores, Materias, Aulas,
+el wizard de turno (`/turnos/nuevo`, individual y modo masivo de HU-C-17).
+
+**Cómo se ve:** franja fija en la parte superior del contenido de la
+página, fondo `--success` / texto `--success-foreground`, con los links de
+navegación que correspondan ("Volver al listado", "Ver detalle") —
+mismo patrón ya verificado en `/turnos/nuevo` y documentado como deuda de
+diseño pendiente en `/materias` (sección 7).
+
+**Por qué no se migra a toast:** son flujos de página completa (el submit
+ya te deja en una pantalla distinta o recargada), donde el banner es visible
+sin que el usuario tenga que fijarse en una esquina — cambiarlo ahora
+tocaría código ya funcionando de Sprint 1 sin necesidad real. Queda como
+inconsistencia deliberada, no como olvido.
+
+### 6.3 Modal / `AlertDialog` — solo para pedir una decisión, nunca para informar éxito
+
+**Cuándo usarlo:** exclusivamente antes de una acción irreversible o que
+necesita una confirmación explícita (Cancelar turno). Usar `AlertDialog` de
+shadcn (no se cierra con click afuera, fuerza a elegir un botón) y el botón
+de confirmación lleva el verbo de la acción, nunca "Aceptar"/"OK" genérico
+(ej. "Cancelar turno", no "Confirmar").
+
+**Después de confirmar en un `AlertDialog`, el resultado se informa con
+toast (6.1), no con otro modal.**
+
+### 6.4 Tabla resumen — qué usa cada acción de Sprint 2
+
+| Acción | Disparador | Feedback de éxito |
+|---|---|---|
+| Cancelar turno (HU-C-05) | `AlertDialog` | Toast |
+| Reprogramar turno (HU-C-06) | `Dialog` | Toast |
+| Asignar prioridad (HU-C-10) | `Dialog` | Toast |
+| Asociar forma de pago (HU-C-11) | `Dialog` | Toast |
+| Registrar pago (HU-I-01) | `Dialog` | Toast |
+| Nueva forma de pago (HU-I-03) | `Dialog` | Toast |
+| Registrar clase dictada (HU-E-01) | `AlertDialog` (confirmación simple) | Toast |
+| Registrar resultado de examen (HU-E-06) | `Dialog` | Toast |
+| Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
+| Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
+
+Si una HU nueva no está en esta tabla, se define su feedback con el mismo
+criterio (¿la acción vive en modal o en página completa?) y se agrega acá
+antes de escribir el task — no se improvisa en el momento de implementar.
+
+---
+
+## 7. Deuda de diseño pendiente
 
 Componentes que ya existen con colores hardcodeados de la paleta default
 de Tailwind, en vez de tokens. No se tocaron en esta tarea (fuera de

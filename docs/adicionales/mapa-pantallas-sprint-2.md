@@ -1,0 +1,117 @@
+# Mapa de Pantallas — Sprint 2
+
+**Objetivo de este documento:** antes de redactar los tasks SDD de cada HU, fijar a qué pantalla pertenece cada una. Evita el error de Sprint 1 (HU-B-01/02/03 y HU-D-01/02/03/04 tratadas como pantallas independientes cuando los criterios de aceptación indicaban un mismo flujo — ver `docs/tasks/Sprint 1/AUDITORIA-tasks-sesion-materias-aulas.md` y la conversación de PO que originó este mapa).
+
+**Regla de uso:** cuando se redacte el task de una HU, su sección 5 (Frontend) debe indicar la pantalla de esta tabla, **no** inventar una ruta nueva. Si el task cree que necesita una ruta distinta a la aquí indicada, es una señal para volver a este documento y discutirlo con el equipo antes de escribir código.
+
+**Actualización (27/09/2026):** el orden del wizard de turno de Mesa de Entradas cambia — ver `docs/adicionales/propuesta-cambio-orden-flujo-turno.md` (aprobada por el PO). Nuevo orden: **Materia → Profesor → Fecha/Horario → Aula → Alumnos**. Las filas de este mapa que tocan el wizard ya reflejan el nuevo orden; el detalle de contrato de cada HU lo redacta el Scrum Master en la spec.
+
+**Actualización (27/09/2026):** se incorpora **HU-C-17 — Generar turnos a partir del horario del profesor**, dejada por los PO anteriores, con sus 24 HU ya redactadas (Como/Necesito/Para/Criterios/SP/Depende de completos) — no forma parte de las 24 HU originales del backlog de Sprint 2, se suma como la 25ª. **Decisión de PO (27/09):** no es pantalla propia — vive dentro de `/turnos/nuevo` como un segundo modo, seleccionable con un toggle, para no fragmentar la sección de Turnos en dos entradas de menú ni duplicar los campos Materia/Profesor. Ver detalle en la sección 1.
+
+**Corrección (27/09):** el criterio de aceptación 1 de HU-C-17, tal como lo redactaron los PO anteriores, dice "duración del turno (1 o 2 horas)" — quedó desactualizado respecto al parámetro vigente desde la Revisión 4 de `spec_modulo_C.md` (`DURACIONES_PERMITIDAS_TURNO_MIN = [60, 120, 180]`, o sea 1h/2h/3h, aprobada y ya implementada). El Scrum Master debe corregir ese criterio a las tres opciones al redactar la spec/task — no implementar el texto original tal cual.
+
+**Actualización (28/09/2026):** cierre de las 25 HU de Sprint 2 (ver `Historias_de_Usuario_-_Sprint_2.xlsx`) y resolución de los puntos abiertos que quedaban en la sección 3 (HU-C-08, HU-E-01/E-06/E-05, HU-I-01) más la definición del módulo de Pagos (HU-I-01/HU-I-03). Ver detalle en las secciones 1, 2 y 3, actualizadas.
+
+**Actualización (28/09/2026):** se define explícitamente qué acciones de este sprint se presentan en **modal** (`Dialog`/`AlertDialog`) en vez de página completa, y qué mecanismo de feedback usa cada una (toast vs. banner) — ver sección 4, "Presentación de acciones: modal vs. página completa", y `docs/DESIGN.md` §6 para la convención completa de feedback. Esto no queda implícito en ninguna HU ni en el criterio de aceptación: es una decisión de UI que se documenta acá para que el desarrollador no tenga que inferirla.
+
+**Actualización (28/09/2026):** el PO aprobó las tres propuestas de UX que habían quedado pendientes de confirmación en la sección 4 — HU-C-12 como modal, quick-view de turno en el Calendario (HU-J-03), y HU-D-07 como modal picker. Ya no figuran como "pendientes"; el detalle de cada una está integrado en las secciones 1, 2 y 4.
+
+**Actualización (28/09/2026):** se agrega **HU-C-18 — Reordenar el flujo de registro de turno según el nuevo orden aprobado**, la 26ª HU del backlog de Sprint 2. Cubre el trabajo de mover los campos de HU-C-03/HU-C-04/HU-C-15 (ya Done de Sprint 1) a los pasos del nuevo orden del wizard — esas tres HU **no se reabren** (siguen Done), HU-C-18 es la que absorbe el reacomodo. Ver fila en la sección 1.
+
+**Revisión (28/09/2026):** a partir de las pantallas de referencia armadas para el equipo de desarrollo, se revierten dos de las decisiones de modal aprobadas más arriba, tomadas ese mismo día: **HU-C-12 (Solicitar turno)** vuelve a ser página completa propia, no modal — y **HU-D-07 (Materias asociadas al profesor)** deja de ser una excepción en modal picker: se edita embebida en el mismo modo edición de la ficha del profesor, junto a Datos personales. Ver detalle actualizado en las secciones 1, 2 y 4.
+
+---
+
+## 1. Pantallas que se EXTIENDEN (ya existen desde Sprint 1)
+
+| Pantalla (Sprint 1) | HU de Sprint 2 que la extiende | Qué agrega |
+|---|---|---|
+| Listado de alumnos (`/alumnos`) | HU-B-05 Búsqueda inteligente de alumno | Barra de búsqueda sobre el mismo listado — **no** es una pantalla nueva |
+| Listado de turnos (`/turnos`) | HU-C-02 Búsqueda inteligente de turnos | Barra de búsqueda sobre el mismo listado |
+| Listado de turnos (`/turnos`) | **HU-C-08 Consultar turnos asociados al profesor** | **Resuelto el 28/09:** no es pantalla nueva ni duplica el calendario. Es el mismo listado de HU-C-01/HU-C-02 con un filtro por Profesor: el Gerente elige el profesor desde un selector, el Profesor ve automáticamente los suyos sin selector (mismo alcance por rol que ya usa el calendario de HU-J-01). Se combina con la búsqueda inteligente (HU-C-02) y la paginación existentes. |
+| **Detalle de turno (`/turnos/[id]`)** | HU-C-05 Cancelar turno | Acción "Cancelar" en el detalle — **en modal (`AlertDialog`)**, ver sección 4 |
+| **Detalle de turno (`/turnos/[id]`)** | HU-C-06 Cambiar fecha y hora | Acción "Reprogramar" en el detalle — **en modal (`Dialog`)**, ver sección 4 |
+| **Detalle de turno (`/turnos/[id]`)** | HU-C-09 Consultar detalles del turno | Completa/formaliza la vista que ya existe desde HU-C-01 (AC4) y HU-C-15 |
+| **Detalle de turno (`/turnos/[id]`)** | HU-C-10 Asignar prioridad/urgencia | Campo nuevo en el mismo detalle — **en modal (`Dialog`)**, ver sección 4 |
+| **Detalle de turno (`/turnos/[id]`)** | HU-C-11 Asociar forma de pago al turno | Campo/acción nueva en el mismo detalle — **en modal (`Dialog`)**, ver sección 4 |
+| **Detalle de turno (`/turnos/[id]`)** | **HU-I-01 Registrar pago** | **Resuelto el 28/09** (ver también el bloque "Módulo de Pagos" más abajo): acción "Registrar pago" en la misma vista que HU-C-11, no una pantalla ni ruta propia — **en modal (`Dialog`)**, ver sección 4. El pago siempre es "de este turno", así que no se fragmenta el flujo. |
+| **`/turnos/nuevo` — el wizard completo (Materia → Profesor → Fecha/Horario → Aula → Alumnos)** | **HU-C-18 Reordenar el flujo de registro de turno** | **Agregada el 28/09:** HU dueña del reacomodo de pasos. Mueve los campos que antes pedían HU-C-03 (Fecha, Hora) y HU-C-15 (Aula) y los que pedía HU-C-04 (Profesor, Alumnos) a los pasos del nuevo orden, sin tocar sus validaciones ya implementadas (superposición, cupo, duración). HU-C-03/C-04/C-15 **no se reabren** — siguen Done de Sprint 1; esta historia es la que se hace cargo del reordenamiento. Depende de HU-C-07 y HU-C-16 (deben existir para calcular los pasos 3 y 4). Página completa, no modal — feedback por banner inline, mismo patrón que el resto del wizard. |
+| Wizard de turno — paso 3, "Elegir Fecha y Horario" (antes en HU-C-03/C-04) | **HU-C-07 Mostrar horarios disponibles del profesor** | **Cambio de naturaleza (27/09):** deja de ser una ayuda dentro del selector de profesor y pasa a ser el mecanismo que calcula las opciones de este paso, ahora el tercero del wizard (después de elegir profesor, antes de elegir aula) — ver `docs/adicionales/propuesta-cambio-orden-flujo-turno.md` |
+| Wizard de turno — paso 4, "Elegir Aula" (`HU-C-15`) | HU-C-16 Mostrar aulas disponibles según horario | Filtra las opciones del mismo paso, no agrega un paso nuevo. Sin cambio de contenido por el nuevo orden del wizard, solo cambia de posición (era el paso 2, ahora es el 4) |
+| **`/turnos/nuevo` — toggle "Turno individual / Generar varios turnos"** | **HU-C-17 Generar turnos a partir del horario del profesor** | **Decisión de PO (27/09):** no es pantalla nueva. Un control al inicio de `/turnos/nuevo` (radio/segmented, "Turno individual" por defecto) decide qué campos siguen debajo. Los pasos Materia y Profesor son los mismos componentes que el modo individual; a partir de ahí diverge: Franja del profesor (recurrente, no fecha puntual) → **Duración (1h/2h/3h, corregido — ver nota al inicio del documento)** → Hora de inicio dentro de la franja → Aula (aplica a todas las instancias, criterio 4) → Rango de fechas (Desde–Hasta) → botón "Ver vista previa" (tabla de fechas calculadas con conflicto de aula marcado por fila, criterio 5) → "Confirmar generación", deshabilitado mientras haya algún conflicto (criterio 6, todo-o-nada). Un conflicto se resuelve cambiando el aula para **todo** el rango o acotando el rango — nunca aula distinta por fecha (criterio 4). No incluye paso de Alumnos: los turnos se generan en `Pendiente`, sin inscriptos (se completan después vía HU-C-04 o el autoservicio de HU-C-12). Página completa, no modal (ver sección 4) — feedback por banner inline. |
+| Calendario por profesor / por materia (`HU-J-01`/`HU-J-02`) | HU-J-03 Vistas día/semana/mes | Toggle de vista en las mismas pantallas de calendario, ya previsto en HU-J-01 AC8 ("las vistas intercambiables... corresponden a un incremento posterior"). **Aprobado el 28/09:** al clickear un turno en cualquiera de las vistas (día/semana/mes), se abre un **quick-view modal** (resumen de fecha, materia, profesor, alumnos inscriptos y estado) con un link "Ver detalle completo" hacia `/turnos/[id]`. Es una mejora de UX agregada por el equipo de diseño, no un criterio de aceptación original de ninguna HU — ver sección 4 para el detalle. |
+| Ficha de aula (`/aulas/[id]`) | HU-K-03 Modificar datos del aula | Modo edición del mismo detalle, mismo patrón que HU-B-06/D-06 |
+| Ficha de profesor (`/profesores/[id]`) | HU-D-06 Modificar datos del profesor | Modo edición del mismo detalle |
+| Ficha de profesor (`/profesores/[id]`) | HU-D-07 Modificar materias asociadas | **Revisado el 28/09** (a partir de las pantallas de referencia): ya no es una excepción en modal — la asociación de materias se edita embebida en el mismo modo edición de la ficha (buscador + checkboxes junto a Datos personales), igual que el resto de los campos (HU-D-06). Un solo "Guardar cambios" para toda la ficha. |
+| Ficha de materia (`/materias/[id]`) | HU-L-03 Modificar datos de materia | Modo edición del mismo detalle |
+| **Ficha del alumno (`/alumnos/[id]`) — sección/tab "Historial académico"** | **HU-E-05 Ver historial académico** | **Resuelto el 28/09** (ver también el bloque "Historial académico" más abajo): vive como tab dentro de la ficha del alumno, no como ruta separada. |
+
+**Ojo particular con el bloque de Detalle de turno:** son 6 HUs (C-05, C-06, C-09, C-10, C-11, I-01) que caen en la misma pantalla. Es el mismo patrón que falló con Alumno y Profesor en Sprint 1 — si se redactan tasks sin mirar este mapa, es muy probable que se propongan rutas distintas para cada una. De esas 6, cinco son acciones en modal sobre la misma vista (C-05, C-06, C-10, C-11, I-01) — otro motivo más para no fragmentarlas en rutas separadas.
+
+**Ojo particular con el wizard de turno (HU-C-03/C-04/C-15/C-17/C-18):** el nuevo orden (Materia → Profesor → Fecha/Horario → Aula → Alumnos) reabre el *contenido* de HU-C-03/C-04/C-15 (ya implementadas) sin reabrir sus tickets — el trabajo de reordenamiento en sí lo cubre **HU-C-18**, no una reapertura de las tres originales. HU-C-17 define de cero el segundo modo del mismo formulario. No son solo HU-C-07/C-16/C-18 las afectadas conceptualmente. Ver `docs/adicionales/propuesta-cambio-orden-flujo-turno.md` §5 para la lista completa de HUs involucradas.
+
+---
+
+## 2. Pantallas NUEVAS
+
+| Pantalla nueva | HU que la crea | Notas |
+|---|---|---|
+| **Mis turnos** (alumno) | HU-C-13 Consultar turnos propios | Vista propia del alumno, no reutiliza `/turnos` de mesa de entrada (permisos distintos). Desde acá se dispara el modal de HU-C-12 (ver fila siguiente). |
+| **Solicitar turno** (alumno) | HU-C-12 Solicitar turno propio | **Aclarado (27/09):** no es un wizard de creación — es una inscripción a un turno **ya existente** (configurado por Mesa de Entradas, incluida la generación masiva de HU-C-17). El alumno elige Materia → Profesor → Horario entre las combinaciones que ya existen como turnos con inscripción abierta; **no elige aula** (ya viene asignada al turno existente) y no puede generar una combinación que no exista. Ver `docs/adicionales/propuesta-cambio-orden-flujo-turno.md` §4. **Revisado el 28/09** (a partir de las pantallas de referencia): vuelve a ser pantalla propia, página completa (no modal), accedida desde el botón "Solicitar turno" de "Mis turnos" (HU-C-13). Tres columnas (Materia / Profesor / Horario) con la elección resumida al pie y botón "Inscribirme". Ver sección 4. |
+| **Formas de pago del centro** | HU-I-03 Registrar forma de pago disponible | Catálogo de gerente, mismo patrón CRUD simple que Materias/Aulas (HU-L-01/K-01). Ver bloque "Módulo de Pagos" abajo — es la única pantalla propia que genera Pagos este sprint. El listado es página completa; el alta ("Nueva forma de pago") es **modal (`Dialog`)**, ver sección 4. |
+| **Indicadores** (dashboard de gerente) | HU-H-01 Turnos por mes + HU-H-02 Alumnos por mes | **Una sola pantalla** con dos indicadores, no dos pantallas — evitar repetir el error de Sprint 1 con estas dos HUs desde el arranque |
+
+**Historial académico — resuelto el 28/09 (antes eran los puntos abiertos #3):**
+No es una pantalla independiente: vive como sección/tab **"Historial académico"** dentro de la ficha del alumno (`/alumnos/[id]`). El flujo entre las tres HU del bloque queda así:
+- **HU-E-01 (Registrar clase dictada):** se dispara desde el **Detalle de turno**, una vez que la fecha/hora del turno ya pasó (acción "Registrar clase dictada", solo para turnos Disponible/Completo vencidos). No vive en la ficha del alumno. **En modal (`AlertDialog`, confirmación simple)**, ver sección 4.
+- **HU-E-06 (Registrar resultado de examen):** se dispara **desde la ficha del alumno**, dentro del tab "Historial académico" (acción "Registrar resultado de examen"), no desde el turno — un examen no está atado a un turno puntual. **En modal (`Dialog`)**, ver sección 4.
+- **HU-E-05 (Ver historial académico):** es la vista de solo lectura del mismo tab, mostrando ambos tipos de registro (clases dictadas y resultados de examen) en una única línea de tiempo por fecha, con filtro por materia.
+
+**Módulo de Pagos — resuelto el 28/09 (antes era el punto abierto #4):**
+Pagos no es una sección con listado propio este sprint. Se divide en dos flujos con ubicaciones distintas, según si el dato es de configuración global o de un turno puntual:
+- **HU-I-03 (Formas de pago):** catálogo de gestión del Gerente ("Efectivo", "Transferencia", "Mercado Pago", etc.) — pantalla nueva, mismo patrón que Materias/Aulas. Es solo un nombre en una lista: **no implica ninguna integración real con pasarelas de pago** (sin checkout, sin webhooks, sin conciliación automática) — es un dato de texto que Mesa de Entradas carga manualmente junto con el pago.
+- **HU-I-01 (Registrar pago):** acción dentro del **Detalle de turno**, junto a HU-C-11. No hay pantalla ni ruta de "Pagos" separada este sprint — un listado global de pagos recién se justifica en Sprint 3, cuando entren HU-I-02 (estado de cuenta) y HU-I-04 (historial de pagos por alumno), que sí necesitan una vista propia. Crear una sección "Pagos" en Sprint 2 dejaría una pantalla vacía sin filtros útiles — mismo error de fondo que dio origen a este documento.
+
+---
+
+## 3. Puntos abiertos — a resolver con el equipo antes de escribir los tasks
+
+Todos los puntos abiertos de esta sección quedaron resueltos. Se dejan a modo de historial de la decisión; el detalle vigente está en las secciones 1 y 2.
+
+1. ~~HU-C-08 (Consultar turnos asociados al profesor)~~ — **Resuelto el 28/09:** filtro sobre el listado existente de HU-C-01/C-02, no pantalla nueva. Ver fila de HU-C-08 en la sección 1.
+2. ~~HU-C-07 (horarios disponibles del profesor)~~ — **Resuelto el 27/09:** ver fila de HU-C-07 en la sección 1 y `docs/adicionales/propuesta-cambio-orden-flujo-turno.md`.
+3. ~~HU-E-01 (Registrar clase dictada) y HU-E-06 (Registrar resultados de examen)~~ — **Resuelto el 28/09:** E-01 se dispara desde el Detalle de turno (turno ya vencido), E-06 se dispara desde el tab "Historial académico" de la ficha del alumno, E-05 muestra ambos en una línea de tiempo única. Ver bloque "Historial académico" en la sección 2.
+4. ~~HU-I-01 (Registrar pago)~~ — **Resuelto el 28/09:** vive en el Detalle de turno, junto a HU-C-11, tal como se recomendaba. Sin pantalla de "Pagos" con listado propio este sprint (eso queda para Sprint 3, HU-I-02/I-04). Ver bloque "Módulo de Pagos" en la sección 2.
+5. ~~HU-C-17 (Generar turnos masivos)~~ — **Resuelto el 27/09:** toggle dentro de `/turnos/nuevo`, ver fila de HU-C-17 en la sección 1.
+6. ~~¿Quién absorbe el trabajo de reordenar el wizard (C-03/C-04/C-15)?~~ — **Resuelto el 28/09:** HU-C-18 nueva, sin reabrir las tres originales. Ver fila de HU-C-18 en la sección 1.
+
+---
+
+## 4. Presentación de acciones: modal vs. página completa
+
+Decisión de PO (28/09/2026), documentada acá para que no quede implícita en ninguna HU: qué acciones de Sprint 2 se presentan en **modal** (superpuesto a la pantalla actual) en vez de navegar a una página o ruta nueva, y qué tipo de modal de shadcn/ui corresponde a cada una. El mecanismo de feedback de éxito de cada una (toast vs. banner) está definido en `docs/DESIGN.md` §6 — no se repite acá, se linkea.
+
+**Criterio general:** modal cuando la acción tiene pocos campos, es rápida, y el contexto principal (el turno, el alumno) ya está visible detrás. Página completa cuando hay varios pasos, se necesita mucho espacio (tablas, vista previa), o es en sí un destino de navegación.
+
+| HU | Acción | Tipo de modal | Feedback (ver `docs/DESIGN.md` §6) |
+|---|---|---|---|
+| HU-C-05 | Cancelar turno | `AlertDialog` (pide confirmación explícita, no se cierra con click afuera) | Toast — "Turno cancelado correctamente" |
+| HU-C-06 | Reprogramar (cambiar fecha/hora) | `Dialog` | Toast — "Turno reprogramado correctamente" |
+| HU-C-10 | Asignar prioridad | `Dialog` | Toast |
+| HU-C-11 | Asociar forma de pago | `Dialog` | Toast — "Forma de pago del turno actualizada" |
+| HU-I-01 | Registrar pago | `Dialog` | Toast — "Pago registrado correctamente" |
+| HU-I-03 | Nueva forma de pago | `Dialog` | Toast — "Forma de pago registrada correctamente" |
+| HU-E-01 | Registrar clase dictada | `AlertDialog` (confirmación simple, sin campos) | Toast |
+| HU-E-06 | Registrar resultado de examen | `Dialog` | Toast — "Resultado registrado correctamente" |
+
+**Revisado el 28/09, salen de esta tabla:** **HU-C-12** (Solicitar turno) y **HU-D-07** (Asociar materias al profesor) — a partir de las pantallas de referencia, ambas pasan a página completa. Ver el párrafo de "página completa" más abajo y las filas actualizadas en las secciones 1 y 2.
+
+**Aprobado el 28/09, sin fila propia en la tabla de arriba porque no es una acción que modifica datos:** **HU-J-03 — quick-view de turno en el Calendario.** Al clickear un turno en cualquier vista del calendario (día/semana/mes), se abre un `Dialog` de solo lectura con el resumen del turno (fecha, materia, profesor, alumnos inscriptos, estado) y un link "Ver detalle completo" hacia `/turnos/[id]`. Al ser una vista, no dispara ningún toast de confirmación — el modal simplemente se cierra al hacer click afuera o en "Cerrar". No es un criterio de aceptación de ninguna HU (ninguna lo pide explícitamente); es una mejora de UX que el equipo de diseño agregó y el PO aprobó — el Scrum Master puede sumarla como detalle de implementación del task de HU-J-03 sin que altere sus criterios de aceptación ya redactados en el Excel.
+
+**Quedan como página completa (no modal):** el wizard de turno completo (`/turnos/nuevo`, ambos modos, incluida la reordenación de HU-C-18), Detalle de turno y las fichas de Alumno/Profesor/Materia/Aula en sí mismas (**HU-D-07 incluida, sin excepción desde el 28/09** — se edita junto al resto de la ficha del profesor), Mis turnos, **Solicitar turno (HU-C-12, desde el 28/09)**, Formas de pago (el listado), Historial académico (el tab de consulta). Estas usan banner inline como feedback, salvo donde la tabla de arriba indique lo contrario para una acción puntual dentro de ellas.
+
+---
+
+## 5. Cómo usar este mapa al redactar un task
+
+En la sección 5 (Frontend) del task de cada HU, citar la fila de este mapa en vez de definir una ruta nueva: *"Pantalla: Detalle de turno (`/turnos/[id]`), ver `docs/adicionales/mapa-pantallas-sprint-2.md` §1"*. Si la acción va en modal, citar también la sección 4 (tipo de modal y feedback). Si al redactar el task surge la necesidad de una ruta no listada aquí, es una señal de alerta — se actualiza este documento primero, con el PO, antes de seguir.

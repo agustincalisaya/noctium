@@ -19,7 +19,7 @@
 
 <Qué subsistema es este módulo, qué entidades principales gestiona, cómo se ubica en la arquitectura Next.js App Router (Route Handlers vs. Server Actions vs. capa de servicios). Si alguna HU fue cancelada o quedó fuera de alcance, se nota acá con la fecha/motivo de la decisión.>
 
-**Alcance de esta revisión:** <qué secciones son nuevas/aditivas y por qué no se renumeran las preexistentes — ver docs/sdd-metodologia.md>.
+**Alcance de esta revisión:** <qué secciones son nuevas/aditivas y por qué no se renumeran las preexistentes — ver docs/adicionales/sdd-metodologia.md>.
 
 ---
 
