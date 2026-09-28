@@ -7,6 +7,7 @@ Specification-Driven Development aplicado a Noctium: antes de escribir código d
 ```
 docs/
   RULES.md                    ← reglas no negociables del proyecto (referencia normativa)
+  DESIGN.md                   ← guía de diseño: paleta, tokens, convenciones de modal/toast/banner
   specs/
     spec_modulo_A.md          ← Sesión
     spec_modulo_B.md          ← Alumno
@@ -21,20 +22,28 @@ docs/
     spec_modulo_K.md          ← Aulas
     spec_modulo_L.md          ← Materias
   tasks/
+    templates/
+      _template-HU.md
+      _template-spec-modulo.md
     Sprint 1/
       HU-A-01.md
       HU-B-04.md
       HU-C-02.md
       ...
     Sprint 2/
+      HU-Sprint-2.md
       ...
+  adicionales/
+    sdd-metodologia.md        ← este documento
+    mapa-pantallas-sprint-<n>.md   ← un mapa por sprint, ver "El tercer tipo de documento" más abajo
+    propuesta-cambio-<tema>.md     ← decisiones de PO/cliente que no son spec ni task, ver más abajo
 ```
 
 Las specs van **todas juntas en una carpeta plana** (`docs/specs/`), sin subcarpetas por módulo: el código de la HU ya lleva la letra del módulo adelante (`HU-C-02` = Turno), así que el orden alfabético del listado ya agrupa visualmente por módulo, y esto evita saltar entre carpetas cuando una spec referencia a otro módulo — cosa que pasa todo el tiempo (Pagos referencia Turno, Indicadores referencia casi todos, etc.).
 
-Las tasks, en cambio, van agrupadas **por sprint** (`docs/tasks/Sprint <n>/`), una subcarpeta por sprint con todas las tasks de ese sprint adentro (de todos los módulos, todo el equipo junto). Esto es porque el equipo trabaja por sprint — cada integrante crea sus propias tasks dentro de la carpeta del sprint en curso — y separa naturalmente lo que ya se implementó (sprints cerrados) de lo que está en curso, sin perder la referencia cruzada a la spec del módulo correspondiente (que sigue viviendo en `docs/specs/`, fuera de la carpeta de sprints).
+Las tasks, en cambio, van agrupadas **por sprint** (`docs/tasks/Sprint <n>/`), una subcarpeta por sprint con todas las tasks de ese sprint adentro (de todos los módulos, todo el equipo junto). Esto es porque el equipo trabaja por sprint — cada integrante crea sus propias tasks dentro de la carpeta del sprint en curso — y separa naturalmente lo que ya se implementó (sprints cerrados) de lo que está en curso, sin perder la referencia cruzada a la spec del módulo correspondiente (que sigue viviendo en `docs/specs/`, fuera de la carpeta de sprints). Los dos templates (`_template-HU.md`, `_template-spec-modulo.md`) viven juntos en `docs/tasks/templates/`, separados de los sprints concretos.
 
-## Los dos tipos de documento
+## Los dos tipos de documento (spec y task)
 
 ### `spec_modulo_<letra>.md` — contrato vivo del módulo
 Es el documento de referencia de **todo** el módulo, no de una HU puntual. Vive mientras el módulo exista y se **amplía por revisiones**, nunca se reescribe desde cero. Contiene:
@@ -60,6 +69,15 @@ Tres convenciones importantes que se repiten en las tasks de referencia y hay qu
 - **"Relevamiento previo a implementación"**: antes de que Claude Code escriba una sola línea de código, reporta la lista exacta de archivos nuevos a crear y de archivos existentes a modificar, más cualquier punto ambiguo de la task. Se espera confirmación explícita sobre ese relevamiento antes de dar la orden de implementar. Esto evita que el agente asuma una estructura de archivos o resuelva una ambigüedad por su cuenta antes de que vos lo hayas visto.
 - **"Fuera de alcance (explícito)"**: cualquier cosa que la HU roce pero no implemente se nombra a propósito, para que no se termine implementando de más ni bloqueando la task por dependencias que en realidad no aplican.
 - **"Relevar antes de asumir" / "Decisión resuelta"**: un punto ambiguo de la spec se marca como pregunta abierta a confirmar con el equipo/PO, nunca se resuelve por inferencia silenciosa (se reporta justamente en el relevamiento del punto 0). Una vez resuelto, se documenta como "DECISIÓN RESUELTA (no relevar de nuevo)" con el razonamiento, para que la próxima persona (o el próximo agente) no vuelva a levantar la misma pregunta.
+
+## El tercer tipo de documento: `docs/adicionales/`
+
+Además de spec y task, el proceso usa una tercera clase de documento — a nivel de PO, no de implementación — que vive en `docs/adicionales/`:
+
+- **`mapa-pantallas-sprint-<n>.md`** — antes de que se redacten los tasks de un sprint, fija a qué pantalla pertenece cada HU (evita que HUs relacionadas se traten como pantallas separadas cuando en realidad comparten un mismo flujo — ver el incidente documentado en `docs/tasks/Sprint 1/AUDITORIA-tasks-sesion-materias-aulas.md`) y qué acciones van en modal vs. página completa. Se redacta uno por sprint, antes de escribir los tasks de ese sprint; el task de cada HU cita la fila correspondiente en su sección 5 (Frontend) en vez de inventar una ruta nueva.
+- **`propuesta-cambio-<tema>.md`** — captura una decisión de negocio del PO/cliente que afecta a HUs ya redactadas o ya implementadas (por ejemplo, un cambio de flujo pedido por el cliente a mitad de sprint). Documenta situación actual, cambio propuesto, alcance y qué HUs quedan afectadas — pero **no** redacta ni modifica ninguna spec ni task: eso sigue siendo responsabilidad exclusiva del Scrum Master, quien la contractualiza como una revisión aditiva de la spec correspondiente.
+
+Ninguno de los dos reemplaza a la spec o al task — son el puente entre la decisión de negocio/diseño y el contrato técnico que redacta el Scrum Master.
 
 ## Testing en 3 niveles
 
