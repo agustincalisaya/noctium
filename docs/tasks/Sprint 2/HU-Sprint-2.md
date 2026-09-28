@@ -2,7 +2,7 @@
 
 Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de prioridad de arriba hacia abajo (no es el orden de módulo). Formato espejo de `Historias_de_Usuario_-_Sprint_2.xlsx`.
 
-**Total: 26 Historias de Usuario — 49 SP**
+**Total: 25 Historias de Usuario — 48 SP**
 
 > Nota de proceso (SDD): este documento es un backlog a nivel de PO (Como/Necesito/Para/Criterios/SP/Justificación). Las specs (`docs/specs/spec_modulo_X.md`) y los tasks (`docs/tasks/HU-X-NN.md`) de cada historia los redacta el Scrum Master o el developer al iniciar la HU — este archivo no los reemplaza. Para la pantalla/presentación (modal vs. página) de cada acción, ver `docs/adicionales/mapa-pantallas-sprint-2.md`.
 
@@ -25,17 +25,16 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 13. HU-C-05 - Cambiar estado del turno a cancelado — 1 SP
 14. HU-C-06 - Cambiar fecha y hora del turno — 2 SP
 15. HU-C-10 - Asignar prioridad/urgencia al turno — 1 SP
-16. HU-C-11 - Asociar forma de pago al turno — 2 SP
-17. HU-I-01 - Registrar pago — 2 SP
-18. HU-C-08 - Consultar turnos asociados al profesor — 2 SP
-19. HU-J-03 - Visualizar calendario por día/semana/mes — 2 SP
-20. HU-C-12 - Solicitar turno propio — 3 SP
-21. HU-C-13 - Consultar turnos propios — 2 SP
-22. HU-E-01 - Registrar clase dictada — 2 SP
-23. HU-E-06 - Registrar resultados de exámenes — 2 SP
-24. HU-E-05 - Ver historial académico del alumno — 2 SP
-25. HU-H-01 - Ver cantidad de turnos por mes — 1 SP
-26. HU-H-02 - Ver cantidad de alumnos por mes — 1 SP
+16. HU-I-01 - Registrar pago — 3 SP
+17. HU-C-08 - Consultar turnos asociados al profesor — 2 SP
+18. HU-J-03 - Visualizar calendario por día/semana/mes — 2 SP
+19. HU-C-12 - Solicitar turno propio — 3 SP
+20. HU-C-13 - Consultar turnos propios — 2 SP
+21. HU-E-01 - Registrar clase dictada — 2 SP
+22. HU-E-06 - Registrar resultados de exámenes — 2 SP
+23. HU-E-05 - Ver historial académico del alumno — 2 SP
+24. HU-H-01 - Ver cantidad de turnos por mes — 1 SP
+25. HU-H-02 - Ver cantidad de alumnos por mes — 1 SP
 
 ---
 
@@ -89,7 +88,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 **Módulo:** Gestionar profesores  
 **SP:** 1
 
-**Como** Gerente,
+**Como** Personal de mesa de entrada,
 **necesito** Modificar los datos de identidad y contacto de un profesor,
 **para** Mantener actualizada su ficha.
 
@@ -110,7 +109,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 **Módulo:** Gestionar profesores  
 **SP:** 2
 
-**Como** Gerente,
+**Como** Personal de mesa de entrada,
 **necesito** Agregar o quitar materias asociadas a un profesor,
 **para** Mantener actualizado qué materias puede dictar.
 
@@ -118,12 +117,20 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 1. Desde la ficha del profesor se muestran las materias ya asociadas (marcadas) y las materias activas disponibles para agregar, mismo selector de HU-D-03.
 2. Se puede agregar una o varias materias nuevas en la misma operación, con las mismas validaciones de HU-D-03 (no duplicar, solo materias activas).
-3. Se puede quitar una materia ya asociada, siempre que el profesor no tenga ningún turno futuro (Disponible o Completo) de esa materia — si lo tiene, se rechaza: "No se puede quitar la materia: el profesor tiene turnos futuros de esta materia", indicando cuántos.
-   - Los turnos pasados no bloquean la desasociación.
+3. Se puede quitar una materia ya asociada, siempre que el profesor no tenga ningún turno futuro (Disponible o Completo) de esa materia. Los turnos pasados o cancelados no bloquean la desasociación.
+   - Si los tiene, la operación se rechaza y la materia sigue asociada (la casilla queda tildada). Debajo de esa materia se muestra un aviso corto: "No se puede quitar: el profesor tiene N turnos futuros de esta materia", con el link "Ver turnos".
+   - "Ver turnos" abre un modal con el mensaje "El profesor tiene N turnos futuros de esta materia. Cancelá o resolvé estos turnos y volvé a intentar." y la lista de esos turnos con fecha, hora, aula, cupo ocupado (por ejemplo, 3/5) y estado, paginada de a 10.
+   - Esa lista sale del listado de turnos existente (HU-C-01), filtrado por ese profesor, esa materia y fecha futura. No es una pantalla ni una historia nueva.
+   - Cada turno de la lista enlaza a su Detalle de turno, que se abre en una pestaña nueva para no perder los cambios de la ficha, y donde Mesa de Entrada puede cancelarlo (HU-C-05). Una vez resueltos todos, reintenta quitar la materia.
+   - (Corregido 28/09/2026 — decisión del PO en respuesta a una consulta del equipo de desarrollo: se evaluó permitir la desasociación igual y dejar el turno "esperando profesor", pero implica un estado nuevo de Turno y una reasignación de profesor sobre un turno ya confirmado que hoy no existe en ninguna HU (ver HU-C-06 criterio 5) — se prefiere resolver con las herramientas que ya existen antes de sumar ese alcance. Presentación revisada el 28/09 tras revisar el prototipo: aviso corto + modal con la lista paginada, en vez de la tabla incrustada en la ficha.)
 4. Al guardar se muestra "Materias del profesor actualizadas", mismo mensaje que el de la asociación inicial.
-5. Esta historia no elimina ni modifica los horarios de atención (HU-D-04) ya registrados para una materia que se quita — quedan huérfanos, a resolver por Mesa de Entrada si corresponde (fuera de alcance).
+5. Los horarios de atención del profesor (HU-D-04) no están asociados a ninguna materia en particular — son un patrón semanal general e independiente de qué dicte (`HorarioProfesor` no tiene materia, spec_modulo_D.md §2.4/§3.5). Por eso, quitar una materia asociada no afecta ni modifica ningún horario: quedan intactos.
 
-**Justificación de secuencia:** Depende de HU-D-03 y de los turnos ya existentes (HU-C-04) para la validación del criterio 3. Algo más compleja que HU-D-06 por esa validación cruzada con Turno.
+**Justificación de secuencia:** Depende de HU-D-03 y de los turnos ya existentes (HU-C-04) para la validación del criterio 3, y del listado de turnos (HU-C-01) para mostrar los turnos que bloquean. Al ser Profesores y Turnos módulos distintos, la consulta pasa por el servicio público de Turnos, no por su tabla (Regla N.° 3 de `docs/RULES.md`). Algo más compleja que HU-D-06 por esa validación cruzada con Turno.
+
+**Nota (28/09/2026):** el actor de HU-D-06 y HU-D-07 se corrige de "Gerente" a "Personal de mesa de entrada" — decisión del PO en respuesta a consulta del Scrum Master (Q12): el Gerente no administra Profesores, eso queda exclusivamente en Mesa de Entrada. `profesores:crear` (HU-D-01, Sprint 1) sigue siendo exclusivo del Gerente — esa parte no cambia, ver `spec_modulo_D.md` §2.1.
+
+**Nota (28/09/2026):** el criterio 5 original decía que los horarios "ya registrados para una materia que se quita" quedaban huérfanos — redactado sobre el mismo malentendido que corrigió el Q1 del Scrum Master: `HorarioProfesor` no tiene materia, así que no existe un horario "de" una materia. Corregido para reflejar que los horarios son independientes de las materias asociadas y no se ven afectados por esta operación.
 
 ---
 
@@ -134,7 +141,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Como** Gerente,
 **necesito** Registrar y listar las formas de pago que el centro admite,
-**para** Que estén disponibles para asociarlas a alumnos (HU-B-03) y a turnos (HU-C-11).
+**para** Que estén disponibles para asociarlas a alumnos (HU-B-03) y usarlas al registrar un pago (HU-I-01).
 
 **Criterios de aceptación:**
 
@@ -145,7 +152,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 4. El listado muestra Nombre y Estado (Activa/Inactiva), ordenado alfabéticamente, con paginación si corresponde — mismo patrón de listado que Materias/Aulas.
 5. Esta historia no incluye modificación ni baja de una forma de pago (quedan para una historia futura).
 
-**Justificación de secuencia:** No depende de otra historia de Sprint 2. Es prerrequisito de HU-C-11 (asociar forma de pago al turno) y de HU-I-01 (registrar pago) — conviene resolverla temprano para no bloquearlas.
+**Justificación de secuencia:** No depende de otra historia de Sprint 2. Es prerrequisito de HU-I-01 (registrar pago) — conviene resolverla temprano para no bloquearla.
 
 ---
 
@@ -209,7 +216,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Criterios de aceptación:**
 
-1. Una vez elegidos Materia y Profesor en /turnos/nuevo (nuevo orden del flujo, ver docs/adicionales/propuesta-cambio-orden-flujo-turno.md), el paso "Elegir Fecha y Horario" ofrece únicamente franjas dentro del horario de atención del profesor para esa materia (HU-D-04).
+1. Una vez elegidos Materia y Profesor en /turnos/nuevo (nuevo orden del flujo, ver docs/adicionales/propuesta-cambio-orden-flujo-turno.md), el paso "Elegir Fecha y Horario" ofrece únicamente franjas dentro del horario de atención de ese profesor (HU-D-04) — corrección de redacción (28/09/2026, respuesta del PO a Q1 del Scrum Master): la materia ya filtró qué profesor se eligió en el paso anterior, pero `HorarioProfesor` no distingue por materia (spec_modulo_D.md §2.4/§3.5) — es el mismo horario recurrente para todo lo que ese profesor dicta.
 2. Dentro de cada franja, se excluyen los horarios que ya se superponen con otro turno Disponible/Completo que el profesor ya tiene confirmado — mismo criterio de superposición que ya usa HU-C-04.
    - Los turnos Pendiente no reservan recursos y no excluyen ninguna franja (regla de negocio ya vigente, spec_modulo_C.md §3.2).
 3. Si el profesor no tiene ninguna franja libre dentro de la anticipación máxima configurada, se informa "Este profesor no tiene horarios disponibles para esta materia en este momento" y se ofrece volver a elegir profesor.
@@ -274,8 +281,8 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Criterios de aceptación:**
 
-1. El flujo solicita, en orden, Materia, Profesor (filtrado por quienes dictan esa materia), una franja disponible del profesor para esa materia, la duración del turno (1, 2 o 3 horas — corregido respecto al pedido original de los PO anteriores, que decía "1 o 2 horas": debe usar el mismo conjunto DURACIONES_PERMITIDAS_TURNO_MIN vigente desde spec_modulo_C.md Revisión 4), la hora de inicio dentro de la franja, un aula y un rango de fechas (desde–hasta).
-   - Las franjas ofrecidas provienen de los horarios registrados en HU-D-04 para ese profesor y esa materia.
+1. El flujo solicita, en orden, Materia, Profesor (filtrado por quienes dictan esa materia), una franja disponible de ese profesor, la duración del turno (1, 2 o 3 horas — corregido respecto al pedido original de los PO anteriores, que decía "1 o 2 horas": debe usar el mismo conjunto DURACIONES_PERMITIDAS_TURNO_MIN vigente desde spec_modulo_C.md Revisión 4), la hora de inicio dentro de la franja, un aula y un rango de fechas (desde–hasta).
+   - Las franjas ofrecidas provienen de los horarios registrados en HU-D-04 para ese profesor (corrección de redacción, 28/09/2026 — ver nota de HU-C-07: `HorarioProfesor` no tiene materia, la materia ya se usó para filtrar qué profesor se eligió, no filtra la franja en sí).
    - La hora de inicio no está fijada al comienzo de la franja: el usuario puede elegir cualquier inicio dentro de ella.
 2. La hora de inicio elegida más la duración elegida deben caber dentro de la franja seleccionada.
    - No se permite un inicio o una duración que exceda el horario de fin de la franja.
@@ -287,8 +294,9 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 6. El sistema muestra una vista previa con la cantidad de turnos a crear, sus fechas, y señala explícitamente cualquier fecha en conflicto por aula ocupada, antes de pedir confirmación.
    - Si existe al menos un conflicto, no se genera ningún turno hasta que el usuario lo resuelva (cambiando el aula para todo el rango, nunca por fecha individual — ver criterio 4, o acotando el rango) y vuelva a solicitar la vista previa.
    - No se generan los turnos sin conflicto salteando los conflictivos: la generación es todo o nada por corrida.
-7. Al confirmar sin conflictos pendientes, se crea una instancia de turno por cada fecha puntual calculada, en estado Pendiente, cada una con su materia, profesor, aula, fecha y horario ya completos.
-   - Cada turno generado sigue el mismo modelo y los mismos estados que un turno creado individualmente (HU-C-03): pasa a Disponible o Completo según la inscripción de alumnos (HU-C-04), no directamente al generarse.
+7. Al confirmar sin conflictos pendientes, se crea una instancia de turno por cada fecha puntual calculada, **en estado Disponible, con 0 alumnos inscriptos (0/N según el cupo del aula elegida)**, cada una con su materia, profesor, aula, fecha y horario ya completos (corregido el 28/09/2026 — decisión del PO en respuesta a Q11 del Scrum Master, ver justificación más abajo).
+   - **A diferencia de un turno creado individualmente (HU-C-03), este flujo no pasa por el estado Pendiente:** materia, profesor, aula, fecha y horario ya quedan completos y reservados (vía `reservas_turno`) en el mismo paso de confirmación, así que no hay ningún dato "a completar después" que justifique el estado Pendiente.
+   - Desde el momento en que se crea, cada turno generado admite inscripción individual de alumnos por el mecanismo ya existente para turnos Disponible/Completo (HU-C-04 §2.5, mesa de entrada) o el autoservicio de HU-C-12 (alumno) — pasa a Completo automáticamente al alcanzar el cupo, mismo criterio que cualquier otro turno.
    - La operación registra fecha de creación y usuario para cada turno generado.
    - Se informa la cantidad de turnos creados al finalizar.
 8. No existen excepciones de disponibilidad del profesor para una fecha puntual dentro de este flujo (por ejemplo, licencias).
@@ -297,6 +305,8 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 10. Se accede desde /turnos/nuevo mediante un control que alterna entre "Turno individual" y "Generar varios turnos" (decisión de PO, 27/09/2026) — no es una pantalla ni un ítem de menú aparte; los pasos Materia y Profesor son los mismos componentes que el modo individual.
 
 **Justificación de secuencia:** Depende de HU-D-04, HU-K-01 y del concepto de turno individual (HU-C-03). HU dejada por los PO anteriores para este sprint; se ubica después de HU-C-07/HU-C-16 porque reutiliza el mismo cálculo de franjas y de disponibilidad de aula ya resueltos ahí.
+
+**Nota (28/09/2026) — por qué el criterio 7 cambió de Pendiente a Disponible:** el Scrum Master marcó que un turno Pendiente no admite inscripción de alumnos, ni de mesa ni del propio alumno (decisión resuelta, spec_modulo_C.md §2.5) — contradecía el criterio 7 original y la fila de HU-C-17 del mapa de pantallas, que suponían inscripción posterior sobre esos turnos. El PO resuelve a favor de Disponible: si materia, profesor, aula, fecha y horario ya están completos al generarse (criterios 1-6), no hay ninguna razón de negocio para pasar por un estado intermedio — y exigir que Mesa confirme turno por turno no agregaría ninguna validación real, porque las validaciones (superposición de aula/profesor) ya ocurren antes de confirmar la generación.
 
 ---
 
@@ -311,13 +321,13 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Criterios de aceptación:**
 
-1. El detalle (/turnos/[id]) muestra Materia, Profesor, Fecha, Hora de inicio–fin, Duración, Aula, Cupo máximo, listado completo de alumnos inscriptos (no solo ocupación), Estado, Prioridad (HU-C-10), Forma de pago asociada (HU-C-11), fecha de creación y usuario que lo creó.
+1. El detalle (/turnos/[id]) muestra Materia, Profesor, Fecha, Hora de inicio–fin, Duración, Aula, Cupo máximo, listado completo de alumnos inscriptos (no solo ocupación), Estado, Prioridad (HU-C-10), listado de pagos registrados (HU-I-01), fecha de creación y usuario que lo creó.
 2. Un profesor que consulta el detalle de un turno que no es suyo recibe 403 — mismo criterio de alcance por rol ya usado en el calendario (HU-J-01).
 3. Si el turno está Pendiente, los datos no asignados todavía se muestran como "Sin asignar" — mismo criterio ya usado en el listado (HU-C-01).
-4. Desde el detalle se accede a las acciones habilitadas para el estado y el rol: Cancelar (HU-C-05), Reprogramar (HU-C-06), Asignar prioridad (HU-C-10), Asociar forma de pago (HU-C-11), Registrar pago (HU-I-01) y Registrar clase dictada (HU-E-01, cuando corresponda).
+4. Desde el detalle se accede a las acciones habilitadas para el estado y el rol: Cancelar (HU-C-05), Reprogramar (HU-C-06), Asignar prioridad (HU-C-10), Registrar pago (HU-I-01) y Registrar clase dictada (HU-E-01, cuando corresponda).
 5. Esta historia formaliza y completa la vista que ya existía parcialmente desde HU-C-01 (criterio 4) y HU-C-15 — no crea una pantalla nueva (ver docs/adicionales/mapa-pantallas-sprint-2.md §1).
 
-**Justificación de secuencia:** Depende de HU-C-01 y HU-C-15. Es la base sobre la que se apoyan las demás historias del bloque "Detalle de turno" (C-05, C-06, C-10, C-11) — conviene resolverla primero dentro de ese bloque.
+**Justificación de secuencia:** Depende de HU-C-01 y HU-C-15. Es la base sobre la que se apoyan las demás historias del bloque "Detalle de turno" (C-05, C-06, C-10, I-01) — conviene resolverla primero dentro de ese bloque.
 
 ---
 
@@ -387,49 +397,30 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 ---
 
-## 16. HU-C-11 - Asociar forma de pago al turno
-
-**Módulo:** Gestionar turnos  
-**SP:** 2
-
-**Como** Personal de mesa de entrada,
-**necesito** Indicar con qué forma de pago se abonará un turno,
-**para** Dejar registrada la forma de pago acordada antes de registrar el pago en sí.
-
-**Criterios de aceptación:**
-
-1. El detalle del turno permite elegir una forma de pago entre las activas (HU-I-03); por defecto se sugiere la forma de pago preferida del primer alumno inscripto (HU-B-03), sin obligarla.
-2. La forma de pago es opcional a nivel de turno y puede dejarse "Sin definir".
-3. Si la forma de pago elegida se desactiva después de asociarla, el turno conserva la referencia histórica (no se borra, muestra el nombre tal como estaba) — mismo criterio de no retroactividad que HU-B-03.
-4. Al guardar se informa "Forma de pago del turno actualizada".
-5. Esta asociación es independiente del registro de pago en sí (HU-I-01): define cómo se va a pagar, no que ya se pagó.
-
-**Justificación de secuencia:** Depende de HU-I-03 y HU-C-09. Prerrequisito conceptual de HU-I-01 (registrar pago) — conviene resolverla justo antes.
-
----
-
-## 17. HU-I-01 - Registrar pago
+## 16. HU-I-01 - Registrar pago
 
 **Módulo:** Gestionar pagos  
-**SP:** 2
+**SP:** 3
 
 **Como** Personal de mesa de entrada,
-**necesito** Registrar el pago de un turno,
-**para** Dejar constancia de que el turno fue abonado.
+**necesito** Registrar el pago de un turno, indicando qué alumno paga, cuánto, con qué forma de pago y cuándo,
+**para** Dejar constancia de que el turno fue abonado y por quién.
 
 **Criterios de aceptación:**
 
-1. Desde el detalle del turno (misma pantalla que HU-C-11), la acción "Registrar pago" solicita Monto, Forma de pago (precargada con la de HU-C-11, si existe) y Fecha de pago (por defecto hoy).
+1. Desde el detalle del turno, la acción "Registrar pago" solicita: Alumno (entre los inscriptos en ese turno, con buscador — preseleccionado automáticamente si hay uno solo), Monto, Forma de pago entre las activas (HU-I-03; por defecto la preferida del alumno elegido, HU-B-03, sin obligarla) y Fecha de pago (por defecto hoy).
 2. El monto debe ser un número positivo; no se valida contra ningún precio de lista (Noctium no modela precios por materia este sprint) — es un dato que ingresa Mesa de Entrada.
-3. Un turno puede tener más de un pago registrado (por ejemplo, pagos parciales de distintos alumnos) — cada registro queda como una entrada independiente; no se agrega una validación de "monto total esperado" este sprint.
-4. Al guardar se informa "Pago registrado correctamente" y el pago queda visible en el detalle del turno con su fecha, monto y forma de pago.
+3. Un turno puede tener más de un pago registrado — por ejemplo, pagos parciales de un mismo alumno o pagos de distintos alumnos inscriptos — cada registro queda como una entrada independiente, con su propio alumno, monto, forma de pago y fecha; no se agrega una validación de "monto total esperado" este sprint.
+4. Al guardar se informa "Pago registrado correctamente" y el pago queda visible en el detalle del turno (lista "Pagos registrados"), mostrando alumno, fecha, monto y forma de pago de cada uno.
 5. Esta historia no incluye historial de pagos por alumno (HU-I-04, Sprint 3) ni estado de cuenta (HU-I-02, Sprint 3) — solo el registro puntual asociado al turno.
 
-**Justificación de secuencia:** Depende de HU-I-03 y, conceptualmente, de HU-C-11. Vive en la misma pantalla (Detalle de turno) — se resuelve junto a HU-C-11 para no fragmentar el flujo de pago.
+**Justificación de secuencia:** Depende de HU-I-03 y de HU-C-09 (detalle del turno, de donde toma la lista de alumnos inscriptos). Vive en el Detalle de turno.
+
+**Nota (28/09/2026):** se retira **HU-C-11 (Asociar forma de pago al turno)** del backlog — decisión del PO a partir de una consulta del equipo de desarrollo: el campo "forma de pago acordada" a nivel de turno resultaba ambiguo, porque la forma de pago se termina definiendo igual al registrar el pago en sí (criterio 1 de esta historia). Se aprovecha para agregar lo que faltaba: quién de los alumnos inscriptos está pagando, reflejado en cada entrada de "Pagos registrados" — completa algo que ya estaba implícito en el criterio 3 original ("pagos parciales de **distintos alumnos**") pero nunca se capturaba explícitamente. El backlog pasa de 26 a 25 Historias de Usuario — ver índice de prioridad e Total actualizados al inicio del documento.
 
 ---
 
-## 18. HU-C-08 - Consultar turnos asociados al profesor
+## 17. HU-C-08 - Consultar turnos asociados al profesor
 
 **Módulo:** Gestionar turnos  
 **SP:** 2
@@ -450,7 +441,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 ---
 
-## 19. HU-J-03 - Visualizar calendario por día/semana/mes
+## 18. HU-J-03 - Visualizar calendario por día/semana/mes
 
 **Módulo:** Visualizar calendario  
 **SP:** 2
@@ -471,7 +462,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 ---
 
-## 20. HU-C-12 - Solicitar turno propio
+## 19. HU-C-12 - Solicitar turno propio
 
 **Módulo:** Gestionar turnos  
 **SP:** 3
@@ -488,12 +479,15 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 3. Al confirmar, se verifica que el alumno no tenga ya otro turno superpuesto en ese horario y que el turno elegido siga teniendo cupo libre (revalidación al confirmar, igual criterio que el resto del sistema).
 4. Si la inscripción es válida, se agrega al alumno al turno (mismo mecanismo que HU-C-04, alta individual, §2.5) y se informa "Te inscribiste correctamente".
 5. Si el turno alcanza su cupo máximo con esta inscripción, pasa a Completo automáticamente (regla ya vigente).
+6. En este sprint la inscripción propia no exige pago previo ni integra ninguna pasarela: el pago lo registra Mesa de Entrada (HU-I-01). Por eso, junto con "Te inscribiste correctamente", se le informa al alumno "El pago se abona en el centro".
 
 **Justificación de secuencia:** Depende de HU-B-08 (cuenta de alumno), HU-C-01 y del mecanismo de alta individual ya implementado en HU-C-04 (2.5). Más compleja que una consulta simple por el triple filtro y la revalidación de cupo.
 
+**Nota (28/09/2026):** consulta del equipo de desarrollo: un alumno que se inscribe desde su casa no debería poder reservar sin pagar antes, y la única forma online debería ser Mercado Pago (efectivo y transferencia serían presenciales). Decisión del PO: **el cobro online queda fuera de Sprint 2** y pasa a Sprint 3. Motivo: hoy Noctium no modela precios por materia (HU-I-01 criterio 2), así que no hay un monto que cobrar; además exige una integración externa (checkout, confirmación de pago por webhook, reserva temporal del cupo, reembolsos si el turno se cancela). En Sprint 2 HU-C-12 queda como reserva sin cobro (criterio 6). Historias a definir para Sprint 3, sin escribirlas todavía: precio por materia, pago online con Mercado Pago previo a la inscripción, y qué pasa con el cupo si el pago no se completa.
+
 ---
 
-## 21. HU-C-13 - Consultar turnos propios
+## 20. HU-C-13 - Consultar turnos propios
 
 **Módulo:** Gestionar turnos  
 **SP:** 2
@@ -504,17 +498,21 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Criterios de aceptación:**
 
-1. La pantalla "Mis turnos" muestra únicamente los turnos donde el alumno autenticado está inscripto, en cualquier estado excepto Cancelado.
-2. Cada ítem muestra Fecha, Hora, Materia, Profesor y Aula — sin el dato de "alumnos inscriptos" (no es relevante desde la perspectiva del alumno).
-3. Orden por defecto: Fecha y Hora ascendente, mostrando primero los turnos futuros; los turnos pasados quedan visibles más abajo o en una pestaña separada (a definir con el equipo al redactar el task).
-4. Si el alumno no tiene turnos: "Todavía no tenés turnos. Solicitá uno desde acá", con acceso directo a HU-C-12.
+1. La pantalla "Mis turnos" muestra los turnos donde el alumno autenticado está inscripto, en cualquier estado — **incluidos los Cancelados** (corregido 28/09/2026: antes los excluía; el alumno necesita enterarse de que su clase se canceló, la cancele Mesa de Entrada o se dé de baja por cualquier otro motivo, por ejemplo la situación de un profesor que deja de estar disponible).
+2. Cada ítem muestra Fecha, Hora, Materia, Profesor, Aula y, si el turno está Cancelado, la etiqueta correspondiente (mismo tratamiento visual que la etiqueta "Cancelado" del listado de Mesa de Entrada, ver `docs/DESIGN.md` §6) — sin el dato de "alumnos inscriptos" (no es relevante desde la perspectiva del alumno).
+3. La pantalla se organiza en dos pestañas — **resuelto el 28/09/2026, cierra el punto que había quedado abierto ("a definir con el equipo al redactar el task")**:
+   - **Próximos:** turnos (Cancelados o no) cuya fecha y hora todavía no llegaron, orden ascendente. Un turno Cancelado se ve acá, destacado, mientras su fecha y hora originales sigan sin llegar — así el alumno lo tiene presente como aviso.
+   - **Anteriores:** turnos cuya fecha y hora ya pasaron, cualquiera sea su estado, orden descendente (más reciente primero).
+   - El pase de una pestaña a la otra es automático y se resuelve solo comparando fecha/hora del turno contra el momento de la consulta — no es una operación que mueva datos ni un proceso en segundo plano.
+4. Si el alumno no tiene turnos en la pestaña activa: "Todavía no tenés turnos" en Próximos (con acceso directo a HU-C-12) o "No tenés turnos anteriores" en Anteriores.
 5. Esta historia no incluye cancelar un turno propio (HU-C-14, Sprint 3) — solo consulta.
+6. Cada pestaña (Próximos y Anteriores) muestra los turnos de a 10 por página, con paginación. El contador de la pestaña muestra el total, no el de la página. Al cambiar de pestaña vuelve a la página 1. Si hay 10 turnos o menos, no se muestra la paginación.
 
 **Justificación de secuencia:** Depende de HU-C-12 (para que tenga sentido tener turnos propios) y de HU-B-08. Consulta simple, similar a HU-B-04/HU-C-01 pero acotada al propio alumno.
 
 ---
 
-## 22. HU-E-01 - Registrar clase dictada
+## 21. HU-E-01 - Registrar clase dictada
 
 **Módulo:** Atención académica / Historial  
 **SP:** 2
@@ -535,7 +533,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 ---
 
-## 23. HU-E-06 - Registrar resultados de exámenes
+## 22. HU-E-06 - Registrar resultados de exámenes
 
 **Módulo:** Atención académica / Historial  
 **SP:** 2
@@ -556,7 +554,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 ---
 
-## 24. HU-E-05 - Ver historial académico del alumno
+## 23. HU-E-05 - Ver historial académico del alumno
 
 **Módulo:** Atención académica / Historial  
 **SP:** 2
@@ -572,12 +570,13 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 3. Se puede filtrar la vista por Materia.
 4. Si el alumno no tiene ningún registro: "Este alumno todavía no tiene historial académico".
 5. Esta historia es de solo consulta — las acciones de alta (HU-E-01, HU-E-06) viven en sus propias pantallas/puntos de entrada, no acá.
+6. La lista se muestra de a 10 registros por página, con paginación. Al cambiar el filtro por Materia vuelve a la página 1 y se pagina sobre el resultado filtrado. Si hay 10 registros o menos, no se muestra la paginación.
 
 **Justificación de secuencia:** Depende de HU-E-01 y HU-E-06 (necesita que existan datos para mostrar) y de HU-B-04 (ficha del alumno). Se resuelve al final del bloque de Historial académico.
 
 ---
 
-## 25. HU-H-01 - Ver cantidad de turnos por mes
+## 24. HU-H-01 - Ver cantidad de turnos por mes
 
 **Módulo:** Indicadores  
 **SP:** 1
@@ -598,7 +597,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 ---
 
-## 26. HU-H-02 - Ver cantidad de alumnos por mes
+## 25. HU-H-02 - Ver cantidad de alumnos por mes
 
 **Módulo:** Indicadores  
 **SP:** 1

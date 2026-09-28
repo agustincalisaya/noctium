@@ -49,6 +49,8 @@ tenga trazabilidad hasta esta tabla.
 | `--accent` | `oklch(0.93 0.008 88.64)` | `#EAE8E2` | Fondo de hover de menús/selects/items — **nunca** el verde acento, ver Regla obligatoria abajo |
 | `--accent-foreground` | `oklch(0.2648 0.0127 243.35)` | `#20262B` | Texto sobre `--accent` |
 | `--destructive` | `oklch(0.55 0.19 25)` | `#C92F33` | Acciones destructivas, errores de formulario |
+| `--destructive-soft` | `oklch(0.93 0.04 25)` | `#FFDEDB` | Fondo suave de error/alerta (aviso de acción rechazada, tarjeta de turno cancelado) — par de `--success`/`--warning`. **Token nuevo, 28/09/2026** (ver sección 6.5) |
+| `--destructive-soft-foreground` | `oklch(0.40 0.14 25)` | `#831A1D` | Texto sobre `--destructive-soft` (contraste ~7.9:1). **Token nuevo, 28/09/2026** |
 | `--success` | `oklch(0.93 0.045 152)` | `#D3F1D9` | Fondo de estado de éxito (banner/badge/toast) |
 | `--success-foreground` | `oklch(0.32 0.09 152)` | `#003F1A` | Texto sobre `--success` |
 | `--warning` | `oklch(0.93 0.06 75)` | `#FFE3BC` | Fondo de estado de advertencia |
@@ -95,6 +97,11 @@ directamente de la paleta base, el resultado coincide con el hex oficial.
   acciones") — no se usa un color a mano en ninguno de los dos casos.
 - **`--destructive`**: errores de validación, acciones irreversibles,
   mensajes de error de comunicación.
+- **`--destructive-soft` / `--destructive-soft-foreground`**: el fondo
+  suave para mostrar algo "en rojo" sin usar el rojo fuerte de relleno —
+  avisos de una acción rechazada y tarjetas de turno cancelado (sección
+  6.5). Es al rojo lo que `--success` y `--warning` son al verde y al
+  ámbar.
 
 ## 4. Advertencia de contraste — `--brand-accent` / `#2A9D8F`
 
@@ -111,6 +118,13 @@ para texto). Reglas:
 - Por eso mismo **nunca** está asignado a `--accent` de shadcn: ese token es
   el fondo de hover de menús y selects con texto normal encima, y pintarlo
   de acento rompería el contraste en todos esos casos a la vez.
+
+**Regla análoga para el rojo (28/09/2026):** `--destructive` sobre
+`--destructive-soft` tiene un contraste de ~4.3:1, que no alcanza AA para
+texto normal. Sobre `--destructive-soft` el texto va **siempre** en
+`--destructive-soft-foreground`; `--destructive` queda para bordes e
+íconos sobre ese fondo, o como texto/borde sobre `--card` (blanco), donde
+llega a ~5.3:1.
 
 ## 5. Modo oscuro
 
@@ -137,10 +151,10 @@ Es una dependencia nueva y chica, agregada específicamente para esto — no
 hay nada en el stack actual que la reemplace.
 
 **Cuándo usarlo:** siempre que la acción se confirma desde un modal y el
-modal se cierra devolviendo a la misma pantalla (Registrar pago, Asociar
-forma de pago, Asignar prioridad, Cancelar turno, Reprogramar turno,
-Registrar clase dictada, Registrar resultado de examen, Nueva forma de
-pago — ver `docs/adicionales/mapa-pantallas-sprint-2.md` para la lista completa de
+modal se cierra devolviendo a la misma pantalla (Registrar pago, Asignar
+prioridad, Cancelar turno, Reprogramar turno, Registrar clase dictada,
+Registrar resultado de examen, Nueva forma de pago — ver
+`docs/adicionales/mapa-pantallas-sprint-2.md` para la lista completa de
 acciones en modal).
 
 **Cómo se ve:**
@@ -191,6 +205,21 @@ de confirmación lleva el verbo de la acción, nunca "Aceptar"/"OK" genérico
 **Después de confirmar en un `AlertDialog`, el resultado se informa con
 toast (6.1), no con otro modal.**
 
+**Única excepción — `Dialog` informativo de una acción rechazada
+(28/09/2026):** cuando una acción se rechaza y la explicación necesita una
+lista o tabla que no entra en la pantalla sin deformarla (caso actual:
+HU-D-07, "Ver turnos" — los turnos futuros que impiden quitar una materia
+de un profesor), se permite un `Dialog` ancho que solo informa.
+- Lleva un único botón "Entendido" (y la X); no hay decisión que tomar.
+- **No dispara toast:** no hay éxito que informar, y el rechazo ya está
+  explicado en el propio modal.
+- Se abre desde un link del aviso corto de error ("Ver turnos"), nunca
+  automáticamente.
+- Si la lista tiene más de 10 elementos, se pagina (sección 8).
+- No es un permiso general para informar éxitos con modal: eso sigue
+  prohibido (6.1). Cualquier caso nuevo de este tipo se agrega acá y en la
+  tabla 6.4 antes de escribir el task.
+
 ### 6.4 Tabla resumen — qué usa cada acción de Sprint 2
 
 | Acción | Disparador | Feedback de éxito |
@@ -198,17 +227,45 @@ toast (6.1), no con otro modal.**
 | Cancelar turno (HU-C-05) | `AlertDialog` | Toast |
 | Reprogramar turno (HU-C-06) | `Dialog` | Toast |
 | Asignar prioridad (HU-C-10) | `Dialog` | Toast |
-| Asociar forma de pago (HU-C-11) | `Dialog` | Toast |
 | Registrar pago (HU-I-01) | `Dialog` | Toast |
 | Nueva forma de pago (HU-I-03) | `Dialog` | Toast |
 | Registrar clase dictada (HU-E-01) | `AlertDialog` (confirmación simple) | Toast |
 | Registrar resultado de examen (HU-E-06) | `Dialog` | Toast |
+| Ver turnos que impiden quitar una materia (HU-D-07) | `Dialog` informativo (6.3) | Ninguno — no modifica datos |
 | Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 
 Si una HU nueva no está en esta tabla, se define su feedback con el mismo
 criterio (¿la acción vive en modal o en página completa?) y se agrega acá
 antes de escribir el task — no se improvisa en el momento de implementar.
+
+### 6.5 Etiquetas de estado del turno y avisos de error (28/09/2026)
+
+Antes cada pantalla interpretaba el aspecto de las etiquetas de estado a su
+manera; esta tabla es la referencia única (HU-C-13 la cita para "Cancelado").
+Todas son etiquetas tipo píldora (`Badge`), con los tokens de la tabla — sin
+colores a mano.
+
+| Estado | Aspecto | Tokens |
+|---|---|---|
+| Disponible | Relleno suave | fondo `--success`, texto `--success-foreground` |
+| Completo | Relleno oscuro | fondo `--primary`, texto `--primary-foreground` |
+| Pendiente | Relleno suave | fondo `--warning`, texto `--warning-foreground` |
+| Cancelado | Contorno | borde y texto `--destructive`, fondo `--card` |
+
+**Turno cancelado en "Mis turnos" (HU-C-13):**
+- En **Próximos**: la tarjeta se destaca con fondo `--destructive-soft`,
+  borde `--destructive` y texto `--destructive-soft-foreground`, además de la
+  etiqueta "Cancelado".
+- En **Anteriores**: conserva la etiqueta "Cancelado", pero la tarjeta va
+  atenuada (sin fondo rojo, texto `--muted-foreground`) — ya no es un aviso
+  de algo por venir.
+
+**Aviso corto de una acción rechazada** (por ejemplo, "No se puede quitar:
+el profesor tiene N turnos futuros de esta materia"): una línea con ícono,
+fondo `--destructive-soft`, texto `--destructive-soft-foreground`. Si tiene
+un link (como "Ver turnos"), el link va subrayado en el mismo color de
+texto.
 
 ---
 
@@ -227,3 +284,58 @@ alcance) — quedan como candidatos para una migración futura:
 Los primeros dos son reemplazos directos (el token nuevo ya cubre
 exactamente ese caso de uso). El tercero necesita más que un cambio de
 color — se anota acá para que no se pierda, no para resolverlo ahora.
+
+---
+
+## 8. Listas paginadas y selector con buscador (28/09/2026)
+
+### 8.1 Paginación
+
+Un único componente de paginación para toda la app, con el aspecto que ya
+tiene el listado de Alumnos.
+
+- **Tamaño de página:**
+  - **10** en las listas que viven dentro de otra pantalla o modal: el tab
+    "Historial académico" de la ficha del alumno (HU-E-05), cada pestaña de
+    "Mis turnos" (HU-C-13) y la lista del modal "Ver turnos" (HU-D-07).
+  - **20** en los listados principales que ya existen (Alumnos, Turnos,
+    Materias, Aulas, Profesores). La diferencia es deliberada — son
+    pantallas de trabajo donde conviene ver más filas — y no se unifica
+    por ahora.
+- Texto "Mostrando 1–10 de N", botones "Anterior" / "Siguiente" y números
+  de página; con muchas páginas se abrevia con puntos suspensivos
+  (1 2 3 … 16).
+- Si hay una sola página, no se muestra el control.
+- Al cambiar un filtro, el texto de búsqueda o de pestaña, vuelve a la
+  página 1. Los contadores (por ejemplo "Anteriores (153)") muestran el
+  total, no el de la página.
+
+### 8.2 Selector con buscador (combobox)
+
+Para elegir un elemento de una lista de personas (alumnos) o similar, en vez
+de un desplegable simple.
+
+- Filtra por los campos que corresponda (para alumnos: Apellido, Nombre o
+  DNI combinados), con coincidencias parciales y sin distinguir mayúsculas
+  ni acentos (misma utilidad `normalizarTexto()` que ya usan los listados).
+- **Se activa a partir de 2 caracteres** cuando la lista es grande (todos
+  los alumnos, HU-B-05 y "Agregar alumno" de HU-C-04). Si la lista es corta
+  y acotada (los alumnos inscriptos en un turno, en "Registrar pago" de
+  HU-I-01) filtra desde el primer carácter.
+- Cada opción muestra "Apellido, Nombre · DNI".
+- Sin coincidencias: "No se encontraron alumnos para «texto buscado»".
+- No sumar una librería nueva para esto: reutilizar el buscador que ya
+  implementó HU-C-04 (`participantes-turno.tsx`) o, si el equipo prefiere
+  un componente compartido, el `Combobox` de shadcn/ui.
+
+---
+
+## Historial de cambios de este documento
+
+- **28/09/2026:** se retira la mención a "Asociar forma de pago" (HU-C-11,
+  eliminada del backlog) en 6.1 y 6.4; se agregan los tokens
+  `--destructive-soft` y `--destructive-soft-foreground` (sección 2, 3 y
+  4); se agrega la excepción del `Dialog` informativo en 6.3 y su fila en
+  6.4; se agrega 6.5 (etiquetas de estado y avisos de error); se agrega la
+  sección 8 (paginación y selector con buscador). No se renumeraron
+  secciones existentes.
