@@ -118,10 +118,11 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 1. Desde la ficha del profesor se muestran las materias ya asociadas (marcadas) y las materias activas disponibles para agregar, mismo selector de HU-D-03.
 2. Se puede agregar una o varias materias nuevas en la misma operación, con las mismas validaciones de HU-D-03 (no duplicar, solo materias activas).
 3. Se puede quitar una materia ya asociada, siempre que el profesor no tenga ningún turno futuro (Disponible o Completo) de esa materia. Los turnos pasados o cancelados no bloquean la desasociación.
-   - Si los tiene, la operación se rechaza y la materia sigue asociada. Se muestra "No se puede quitar la materia: el profesor tiene N turnos futuros de esta materia" y, debajo, la lista de esos turnos con fecha, hora y cupo ocupado (por ejemplo, 3/5).
+   - Si los tiene, la operación se rechaza y la materia sigue asociada (la casilla queda tildada). Debajo de esa materia se muestra un aviso corto: "No se puede quitar: el profesor tiene N turnos futuros de esta materia", con el link "Ver turnos".
+   - "Ver turnos" abre un modal con el mensaje "El profesor tiene N turnos futuros de esta materia. Cancelá o resolvé estos turnos y volvé a intentar." y la lista de esos turnos con fecha, hora, aula, cupo ocupado (por ejemplo, 3/5) y estado, paginada de a 10.
    - Esa lista sale del listado de turnos existente (HU-C-01), filtrado por ese profesor, esa materia y fecha futura. No es una pantalla ni una historia nueva.
-   - Cada turno de la lista enlaza a su Detalle de turno, donde Mesa de Entrada puede cancelarlo (HU-C-05). Una vez resueltos todos, reintenta quitar la materia.
-   - (Corregido 28/09/2026 — decisión del PO en respuesta a una consulta del equipo de desarrollo: se evaluó permitir la desasociación igual y dejar el turno "esperando profesor", pero implica un estado nuevo de Turno y una reasignación de profesor sobre un turno ya confirmado que hoy no existe en ninguna HU (ver HU-C-06 criterio 5) — se prefiere resolver con las herramientas que ya existen antes de sumar ese alcance.)
+   - Cada turno de la lista enlaza a su Detalle de turno, que se abre en una pestaña nueva para no perder los cambios de la ficha, y donde Mesa de Entrada puede cancelarlo (HU-C-05). Una vez resueltos todos, reintenta quitar la materia.
+   - (Corregido 28/09/2026 — decisión del PO en respuesta a una consulta del equipo de desarrollo: se evaluó permitir la desasociación igual y dejar el turno "esperando profesor", pero implica un estado nuevo de Turno y una reasignación de profesor sobre un turno ya confirmado que hoy no existe en ninguna HU (ver HU-C-06 criterio 5) — se prefiere resolver con las herramientas que ya existen antes de sumar ese alcance. Presentación revisada el 28/09 tras revisar el prototipo: aviso corto + modal con la lista paginada, en vez de la tabla incrustada en la ficha.)
 4. Al guardar se muestra "Materias del profesor actualizadas", mismo mensaje que el de la asociación inicial.
 5. Los horarios de atención del profesor (HU-D-04) no están asociados a ninguna materia en particular — son un patrón semanal general e independiente de qué dicte (`HorarioProfesor` no tiene materia, spec_modulo_D.md §2.4/§3.5). Por eso, quitar una materia asociada no afecta ni modifica ningún horario: quedan intactos.
 
@@ -407,7 +408,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Criterios de aceptación:**
 
-1. Desde el detalle del turno, la acción "Registrar pago" solicita: Alumno (entre los inscriptos en ese turno — preseleccionado automáticamente si hay uno solo), Monto, Forma de pago entre las activas (HU-I-03; por defecto la preferida del alumno elegido, HU-B-03, sin obligarla) y Fecha de pago (por defecto hoy).
+1. Desde el detalle del turno, la acción "Registrar pago" solicita: Alumno (entre los inscriptos en ese turno, con buscador — preseleccionado automáticamente si hay uno solo), Monto, Forma de pago entre las activas (HU-I-03; por defecto la preferida del alumno elegido, HU-B-03, sin obligarla) y Fecha de pago (por defecto hoy).
 2. El monto debe ser un número positivo; no se valida contra ningún precio de lista (Noctium no modela precios por materia este sprint) — es un dato que ingresa Mesa de Entrada.
 3. Un turno puede tener más de un pago registrado — por ejemplo, pagos parciales de un mismo alumno o pagos de distintos alumnos inscriptos — cada registro queda como una entrada independiente, con su propio alumno, monto, forma de pago y fecha; no se agrega una validación de "monto total esperado" este sprint.
 4. Al guardar se informa "Pago registrado correctamente" y el pago queda visible en el detalle del turno (lista "Pagos registrados"), mostrando alumno, fecha, monto y forma de pago de cada uno.
@@ -505,6 +506,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
    - El pase de una pestaña a la otra es automático y se resuelve solo comparando fecha/hora del turno contra el momento de la consulta — no es una operación que mueva datos ni un proceso en segundo plano.
 4. Si el alumno no tiene turnos en la pestaña activa: "Todavía no tenés turnos" en Próximos (con acceso directo a HU-C-12) o "No tenés turnos anteriores" en Anteriores.
 5. Esta historia no incluye cancelar un turno propio (HU-C-14, Sprint 3) — solo consulta.
+6. Cada pestaña (Próximos y Anteriores) muestra los turnos de a 10 por página, con paginación. El contador de la pestaña muestra el total, no el de la página. Al cambiar de pestaña vuelve a la página 1. Si hay 10 turnos o menos, no se muestra la paginación.
 
 **Justificación de secuencia:** Depende de HU-C-12 (para que tenga sentido tener turnos propios) y de HU-B-08. Consulta simple, similar a HU-B-04/HU-C-01 pero acotada al propio alumno.
 
@@ -568,6 +570,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 3. Se puede filtrar la vista por Materia.
 4. Si el alumno no tiene ningún registro: "Este alumno todavía no tiene historial académico".
 5. Esta historia es de solo consulta — las acciones de alta (HU-E-01, HU-E-06) viven en sus propias pantallas/puntos de entrada, no acá.
+6. La lista se muestra de a 10 registros por página, con paginación. Al cambiar el filtro por Materia vuelve a la página 1 y se pagina sobre el resultado filtrado. Si hay 10 registros o menos, no se muestra la paginación.
 
 **Justificación de secuencia:** Depende de HU-E-01 y HU-E-06 (necesita que existan datos para mostrar) y de HU-B-04 (ficha del alumno). Se resuelve al final del bloque de Historial académico.
 
