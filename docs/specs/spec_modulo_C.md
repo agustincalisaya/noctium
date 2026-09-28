@@ -9,7 +9,7 @@
 
 **HU contractualizadas en la Revisión 5 (Sprint 2):** HU-C-18 (Reordenar el flujo de registro de turno), HU-C-07 (Mostrar horarios disponibles del profesor), HU-C-16 (Mostrar aulas disponibles según horario — sin cambio de contrato, solo de posición), HU-C-17 (Generar turnos a partir del horario del profesor), HU-C-09 (Consultar detalles del turno), HU-C-05 (Cancelar turno), HU-C-06 (Reprogramar turno), HU-C-10 (Asignar prioridad), HU-C-02 (Búsqueda inteligente de turnos), HU-C-08 (Consultar turnos asociados al profesor), HU-C-12 (Solicitar turno propio), HU-C-13 (Consultar turnos propios). Además provee los servicios públicos que consumen HU-K-03, HU-D-07, HU-I-01, HU-E-01, HU-H-01 (sección 2.15).
 
-**Backlog v2 del 28/09/2026 (xlsx de los PO, 25 HU · 63 SP).** Respecto del backlog anterior (26 HU · 49 SP) los PO: (1) **retiraron HU-C-11** (Asociar forma de pago al turno): el turno ya no lleva forma de pago y la sección 2.13 queda sin contrato; (2) cambiaron HU-C-17 AC7: los turnos generados nacen **`DISPONIBLE` 0/N**, no `PENDIENTE` (queda resuelto el punto Q11); (3) cambiaron HU-C-07 AC1 y HU-C-17 AC1: el horario **no** depende de la materia (resuelve Q1); (4) HU-C-13 ahora **incluye los turnos `CANCELADO`**; (5) HU-C-12 agrega el aviso "El pago se abona en el centro"; (6) HU-D-07 pide listar los turnos que bloquean la baja de una materia; (7) HU-I-01 registra **qué alumno paga**.
+**Backlog v2 del 28/09/2026 (xlsx de los PO, 25 HU · 63 SP).** Respecto del backlog anterior (26 HU · 49 SP) los PO: (1) **retiraron HU-C-11** (Asociar forma de pago al turno): el turno ya no lleva forma de pago y la sección 2.13 queda sin contrato; (2) cambiaron HU-C-17 AC7: los turnos generados nacen **`DISPONIBLE` 0/N**, no `PENDIENTE` (queda resuelto el punto Q11); (3) cambiaron HU-C-07 AC1 y HU-C-17 AC1: el horario **no** depende de la materia (resuelve Q1); (4) HU-C-13 ahora **incluye los turnos `CANCELADO`**; (5) HU-C-12 agrega el aviso "El pago se abona en el centro"; (6) HU-D-07 pide listar los turnos que bloquean la baja de una materia; (7) HU-I-01 registra **qué alumno paga**. **Ajuste del 28/09 (backlog v3, mismos SP):** HU-D-07 AC3 cambia el aviso y agrega un modal "Ver turnos" paginado (2.7); HU-C-13 AC6 pagina "Mis turnos" de a 10 con totales por pestaña (2.14.1); HU-I-01 AC1 pide buscador de alumno (`spec_modulo_I.md`); HU-E-05 AC6 pagina el historial de a 10 (`spec_modulo_E.md`).
 
 **Cambio de flujo (Revisión 5, pedido del cliente vía PO, aprobado 27/09/2026 — ver `docs/adicionales/propuesta-cambio-orden-flujo-turno.md`):** el wizard de Mesa de Entradas pasa a **Elegir Materia → Elegir Profesor → Elegir Fecha y Horario → Elegir Aula → Agregar Alumnos**, y **reemplaza por completo** el orden de la Revisión 4 (Configurar → Aula → Profesor y alumnos). El trabajo de reordenamiento lo absorbe **HU-C-18** (mapa de pantallas §1, "HU-C-03/C-04/C-15 no se reabren"); esta spec ajusta los contratos 2.1, 2.2, 2.3, 2.4 y 2.6 por notas de Revisión 5 dentro de cada sección, sin renumerarlas, y agrega las secciones nuevas 2.7 a 2.15 y las reglas 3.8 a 3.13.
 
@@ -37,7 +37,7 @@
 
 ## ✅ DECISIONES DEL SCRUM MASTER — Revisión 5 (Sprint 2)
 
-Redactadas el 28/09/2026 a partir de `HU-Sprint-2.md`, el mapa de pantallas, la propuesta de orden de flujo, `schema.prisma` y `seed.ts`. Las marcadas **[CONFIRMAR PO]** tienen una propuesta por defecto (la que esta spec contractualiza) y una pregunta abierta; **no se implementa lo dudoso por inferencia** (`sdd-metodologia.md`, "Relevar antes de asumir").
+Redactadas el 28/09/2026 a partir de `HU-Sprint-2.md`, el mapa de pantallas, la propuesta de orden de flujo, `schema.prisma` y `seed.ts`. Las marcadas **[DEFAULT SM, sin ratificar]** tienen una propuesta por defecto (la que esta spec contractualiza) y una pregunta abierta; **no se implementa lo dudoso por inferencia** (`sdd-metodologia.md`, "Relevar antes de asumir").
 
 | # | Decisión | Estado |
 |---|---|---|
@@ -521,7 +521,7 @@ export const ListarTurnosQuerySchema = z.object({
 3. Incluye turnos en **cualquier estado** (`PENDIENTE`, `DISPONIBLE`, `COMPLETO`, `CANCELADO`), a diferencia del calendario (que solo muestra `DISPONIBLE`/`COMPLETO`). Esa es la diferencia que justifica HU-C-08 (AC3).
 4. Sin resultados con `profesor_id` y sin `q`: la UI muestra "Este profesor no tiene turnos registrados".
 
-**Uso por HU-D-07 (Profesor, `spec_modulo_D.md` §2.7):** cuando la baja de una materia se rechaza por turnos futuros, la UI de la ficha llama `GET /api/turnos?profesor_id=<id>&materia_id=<id>&estados=DISPONIBLE,COMPLETO&solo_futuros=true` y muestra, por cada turno, fecha, hora y ocupación (p. ej. 3/5) con enlace al Detalle de turno, donde Mesa de Entrada puede cancelarlo (HU-C-05). Los turnos **pasados y cancelados no bloquean** (HU-D-07 AC3), por eso el filtro de estados **excluye** `PENDIENTE` y `CANCELADO`. No hay endpoint nuevo.
+**Uso por HU-D-07 (Profesor, `spec_modulo_D.md` §2.7):** cuando la baja de una materia se rechaza por turnos futuros, el modal "Ver turnos" de la ficha llama `GET /api/turnos?profesor_id=<id>&materia_id=<id>&estados=DISPONIBLE,COMPLETO&solo_futuros=true&por_pagina=10&pagina=<n>` (**paginado de a 10**, backlog del 28/09) y muestra, por cada turno, fecha, hora, **aula**, ocupación (p. ej. 3/5) y **estado**, con enlace al Detalle de turno **en una pestaña nueva**, donde Mesa de Entrada puede cancelarlo (HU-C-05). Esos campos ya vienen en cada fila del listado (2.4). Los turnos **pasados y cancelados no bloquean** (HU-D-07 AC3), por eso el filtro de estados **excluye** `PENDIENTE` y `CANCELADO`. No hay endpoint nuevo.
 
 **Selector de profesores para el Gerente:** `GET /api/turnos/filtros/profesores` (permiso `turnos:leer`) devuelve `[{ id, nombre, apellido }]` de los profesores activos vía `listarProfesoresActivosOpciones()` (Módulo D, 2.8). No se usa `profesores:leer` porque el Gerente no lo tiene (`seed.ts`, `ACCIONES_SOLO_MESA_ENTRADA`).
 
@@ -767,14 +767,27 @@ export const ActualizarPrioridadSchema = z.object({ prioridad: z.enum(PRIORIDADE
 
 #### 2.14.1. Mis turnos (HU-C-13)
 
-**Ruta:** `GET /app/api/turnos/propios?vista=proximos|anteriores&pagina=&por_pagina=`
+**Ruta:** `GET /app/api/turnos/propios?vista=proximos|anteriores&pagina=`
 **Permiso requerido:** `turnos:leer_propios` (rol ALUMNO)
+
+```typescript
+export const MisTurnosQuerySchema = z.object({
+  vista: z.enum(["proximos", "anteriores"]).default("proximos"),
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(10).default(10), // HU-C-13 AC6: de a 10, fijo
+}).strict();
+```
 **Pantalla nueva:** "Mis turnos" (mapa de pantallas §2). Página completa.
 
 1. Los turnos donde el alumno autenticado está inscripto (`TurnoAlumno`), **en cualquier estado, incluido `CANCELADO`** (HU-C-13 AC1 del backlog v2: "el alumno necesita enterarse de que su clase se canceló"). Funciona porque 2.10 **conserva** los `TurnoAlumno` al cancelar.
 2. Cada ítem: `fecha`, `hora_inicio`–`hora_fin`, `materia`, `profesor`, `aula`, **`estado`**. **Sin** el dato de alumnos inscriptos (AC2). La UI destaca los `CANCELADO` con texto o ícono, no solo color.
 3. **Dos pestañas (definidas por el backlog v2, AC3):** `proximos` (por defecto): `fecha + hora_inicio ≥ ahora`, **cualquier estado** —un `CANCELADO` se ve acá, destacado, mientras su fecha y hora originales no hayan pasado—, orden ascendente. `anteriores`: `fecha + hora_inicio < ahora`, cualquier estado, orden descendente. El pase de una a otra es automático por fecha/hora contra el momento de la consulta: no mueve datos ni requiere proceso de fondo. Paginación server-side en ambas.
-4. Sin turnos en la pestaña: `200` con `items: []`; la UI muestra "Todavía no tenés turnos" en Próximos (con acceso directo a HU-C-12) o "No tenés turnos anteriores" en Anteriores (AC4).
+4. **Paginación de a 10 por pestaña (HU-C-13 AC6, backlog del 28/09).** `por_pagina` vale 10 y no admite más. La respuesta trae `paginacion` de la pestaña pedida y **`totales: { proximos, anteriores }`**: el contador de cada pestaña muestra su **total**, no el de la página, y para mostrar los dos contadores a la vez el servidor los calcula siempre, sin importar cuál pestaña se pidió. Con 10 turnos o menos la UI **no muestra la paginación**; al cambiar de pestaña la UI vuelve a pedir `pagina=1`.
+   ```json
+   { "data": { "items": [], "paginacion": { "total": 23, "pagina_actual": 1, "total_paginas": 3, "por_pagina": 10 },
+               "totales": { "proximos": 23, "anteriores": 41 } }, "error": null }
+   ```
+5. Sin turnos en la pestaña: `200` con `items: []`; la UI muestra "Todavía no tenés turnos" en Próximos (con acceso directo a HU-C-12) o "No tenés turnos anteriores" en Anteriores (AC4).
 
 #### 2.14.2. Solicitar turno (HU-C-12)
 

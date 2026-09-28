@@ -172,7 +172,7 @@ Sin `updatedAt...`: no se actualiza (§3.1).
 export const HistorialQuerySchema = z.object({
   materia_id: z.string().trim().min(1).optional(),
   pagina: z.coerce.number().int().positive().default(1),
-  por_pagina: z.coerce.number().int().positive().max(50).default(20),
+  por_pagina: z.coerce.number().int().positive().max(10).default(10), // HU-E-05 AC6 (backlog del 28/09): de a 10
 });
 ```
 
@@ -193,11 +193,13 @@ export const HistorialQuerySchema = z.object({
       { "tipo": "EXAMEN", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" }, "nota": "8.5" },
       { "tipo": "CLASE_DICTADA", "fecha": "2026-09-25", "materia": { "id": "cuid", "nombre": "Matemática" }, "profesor": "Giménez, Laura", "turno_id": "seed-turno-26" }
     ],
-    "paginacion": { "total": 2, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 20 }
+    "paginacion": { "total": 2, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 10 }
   },
   "error": null
 }
 ```
+
+**Paginación (HU-E-05 AC6, backlog del 28/09):** la lista se muestra **de a 10 registros por página**. Al cambiar el filtro por Materia la UI vuelve a pedir `pagina=1`, y se pagina **sobre el resultado ya filtrado** (el filtro se aplica dentro de la consulta unificada, antes de paginar; ver paso 2). Con 10 registros o menos la UI **no muestra la paginación**. `paginacion.total` es el total del resultado filtrado.
 
 **Acceso a la pantalla (punto abierto Q13):** el tab vive en `/alumnos/[id]`, pero `alumnos:leer` es exclusivo de Mesa de Entrada (`seed.ts`) y el Gerente y el Profesor **no pueden abrir la ficha ni el listado de alumnos**. Propuesta contractualizada: la página de la ficha admite `alumnos:leer` **o** `historial:leer`; con solo `historial:leer` se muestra únicamente el tab "Historial académico" y **nunca** se piden los datos de contacto (`GET /api/alumnos/[id]` sigue exigiendo `alumnos:leer`). El punto de entrada del Gerente y del Profesor es el **Detalle de turno**: cada alumno inscripto lleva el enlace "Ver historial" cuando el rol tiene `historial:leer`. **[DEFAULT DEL SM — Q13]**
 

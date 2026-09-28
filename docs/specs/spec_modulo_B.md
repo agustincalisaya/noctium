@@ -364,7 +364,7 @@ Funciones en `src/server/alumnos/alumno.publico.ts`. **No importa nada de otros 
 | Función | Devuelve | Consumidor |
 |---|---|---|
 | `obtenerAlumnoDeUsuario(usuarioId, db?)` | `{ id, activo } \| null`: la ficha vinculada a la cuenta (`Alumno.usuarioId`) | `spec_modulo_C.md` §2.14 (autoservicio) |
-| `obtenerAlumnosBasicos(ids, db?)` | `{ id, nombre, apellido, activo, forma_pago_preferida_id }[]` (lote, activos o inactivos, ids inexistentes simplemente no aparecen). `forma_pago_preferida_id` es `null` si el alumno está "Sin preferencia" | `spec_modulo_I.md` §2.4 y §2.5 (alumno que paga y forma de pago propuesta) |
+| `obtenerAlumnosBasicos(ids, db?)` | `{ id, nombre, apellido, dni, activo, forma_pago_preferida_id }[]` (lote, activos o inactivos, ids inexistentes simplemente no aparecen). `forma_pago_preferida_id` es `null` si el alumno está "Sin preferencia" | `spec_modulo_I.md` §2.4 y §2.5 (alumno que paga y forma de pago propuesta) |
 | `obtenerAlumnoBasico(id, db?)` | `{ id, nombre, apellido, activo } \| null`, activo o inactivo | `spec_modulo_E.md` §2.3 |
 | `contarAlumnosNuevosPorMes(desde, hasta, db?)` | `{ mes: "YYYY-MM", cantidad }[]`, **solo los meses con datos** (los ceros los completa H) | `spec_modulo_H.md` §2.1 |
 

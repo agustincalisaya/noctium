@@ -173,7 +173,7 @@ export const ListarFormasPagoQuerySchema = z.object({
 
 **Ruta:** `POST /app/api/pagos/route.ts`
 **Permiso requerido:** `pagos:crear` (Mesa de Entrada)
-**Presentación:** modal (`Dialog`) en el Detalle de turno (`/turnos/[id]`); toast "Pago registrado correctamente". Campos del modal (HU-I-01 AC1): **Alumno** (entre los inscriptos del turno; **se preselecciona solo si hay uno**), **Monto**, **Forma de pago** (entre las activas; por defecto la preferida del alumno elegido, sin obligarla) y **Fecha de pago** (por defecto hoy). Las opciones las provee 2.5.
+**Presentación:** modal (`Dialog`) en el Detalle de turno (`/turnos/[id]`); toast "Pago registrado correctamente". Campos del modal (HU-I-01 AC1): **Alumno** (entre los inscriptos del turno, **con buscador**; **se preselecciona solo si hay uno**), **Monto**, **Forma de pago** (entre las activas; por defecto la preferida del alumno elegido, sin obligarla) y **Fecha de pago** (por defecto hoy). Las opciones las provee 2.5.
 
 ```typescript
 // src/server/pagos/pago.schema.ts
@@ -259,13 +259,14 @@ Devuelve lo que el modal necesita en una sola llamada, para no obligar a la UI a
 ```json
 {
   "data": {
-    "alumnos": [ { "id": "cuid", "nombre_completo": "Pérez, Ana", "forma_pago_preferida_id": "cuid" } ],
+    "alumnos": [ { "id": "cuid", "nombre_completo": "Pérez, Ana", "dni": "40100001", "forma_pago_preferida_id": "cuid" } ],
     "formas_pago": [ { "id": "cuid", "nombre": "Efectivo" } ],
     "preseleccionar_alumno_id": "cuid"
   },
   "error": null
 }
 ```
+- **Buscador del alumno (HU-I-01 AC1, backlog del 28/09):** se resuelve **en el cliente** sobre la lista `alumnos` de esta respuesta, que ya está acotada por el cupo del turno (no puede superar la capacidad del aula). Filtra por apellido y nombre sin distinguir mayúsculas ni acentos, y por DNI parcial si el texto son solo dígitos. **No hay endpoint de búsqueda nuevo** ni se llama al buscador de alumnos de B (ese devuelve alumnos de todo el centro, no los inscriptos de un turno). Para poder buscar por DNI, cada alumno de `alumnos` agrega `dni` (dato que ya expone `obtenerAlumnosBasicos()`).
 - `alumnos`: los inscriptos del turno (`obtenerAlumnosInscriptosDeTurno()` de `spec_modulo_C.md` §2.15) con nombre y forma de pago preferida (`obtenerAlumnosBasicos()`, Módulo B). `forma_pago_preferida_id` es `null` si el alumno está "Sin preferencia" **o** si su preferida está desactivada (no se propone una forma que ya no se puede elegir).
 - `formas_pago`: solo las activas, orden alfabético normalizado.
 - `preseleccionar_alumno_id`: presente **solo si hay exactamente un inscripto**; si no, se omite.
