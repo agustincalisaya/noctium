@@ -5,5 +5,8 @@ export function EstadoTurnoBadge({ estado }: { estado: Turno["estado"] }) {
   if (estado === "PENDIENTE") {
     return <Badge variant="outline" className="border-transparent bg-warning text-warning-foreground">{ETIQUETA_ESTADO_TURNO[estado]}</Badge>;
   }
+  if (estado === "CANCELADO") {
+    return <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">{ETIQUETA_ESTADO_TURNO[estado]}</Badge>;
+  }
   return <Badge variant={estado === "DISPONIBLE" ? "success" : "default"}>{ETIQUETA_ESTADO_TURNO[estado]}</Badge>;
 }
