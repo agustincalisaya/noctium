@@ -1,12 +1,27 @@
 ```markdown
 # Especificación Técnica — Módulo D (Profesor)
-## Noctium — Sprint 1
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 7, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (Materias) · `spec_modulo_B.md` (patrón de contacto/DNI, como referencia de diseño) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 1, 2, 3, 4, 5, 6, 7, 10, 11) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (Materias) · `spec_modulo_B.md` (patrón de contacto/DNI, como referencia de diseño) · `spec_modulo_C.md` Revisión 5 (§2.15, servicios públicos) · `spec_modulo_A.md` §2.4 (matriz RBAC) · `spec_modulo_B.md` §2.5 y §3.3 (patrón de modificación) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md` · `docs/tasks/Sprint 2/HU-Sprint-2.md`
 
 **HU contractualizadas en esta revisión:** HU-D-01 (Identidad), HU-D-02 (Contacto), HU-D-03 (Asociación a materias), HU-D-04 (Horario de atención), HU-D-05 (Listado) — Sprint 1.
+
+**HU contractualizadas en la Revisión 2 (Sprint 2):** HU-D-06 (Modificar datos de un profesor), HU-D-07 (Modificar las materias asociadas a un profesor).
+
+**Changelog — Revisión 2 (Sprint 2):**
+| HU / sección | Estado previo | Acción |
+|---|---|---|
+| HU-D-06 | Gap — "Modificación de una ficha de profesor ya registrada" figuraba como fuera de alcance | Nueva sección 2.6 (aditiva, no renumera) |
+| HU-D-07 | Gap | Nueva sección 2.7. Regla 3.6 |
+| Servicios públicos | `profesorActivoDictaMateria()`, `obtenerOpcionProfesorDeUsuario()`, `obtenerOpcionProfesorActivo()` | Nueva sección 2.8: 4 funciones nuevas para Turnos (`spec_modulo_C.md` Revisión 5) y Historial |
+| Modelo `Profesor` | Tiene `modificadoPorUsuarioId` y `updatedAtProfesor` | + `version` (concurrencia optimista, mismo patrón que `Alumno`) |
+| Permisos | `profesores:crear`, `profesores:editar`, `profesores:leer` **exclusivos de Mesa de Entrada** (`seed.ts`, `ACCIONES_SOLO_MESA_ENTRADA`) | **Sin cambios.** El backlog v2 corrigió HU-D-06/D-07 a "Como personal de mesa de entrada" (R2-1 resuelto) |
+
+## ✅ RESUELTO — R2-1 (antes Q12): quién modifica un profesor
+
+Las HU-D-06 y HU-D-07 se escribían "Como Gerente", lo que chocaba con `seed.ts` (las tres acciones `profesores:*` son **exclusivas de Mesa de Entrada**). El backlog v2 del 28/09/2026 las corrigió a **"Como personal de mesa de entrada"**: la matriz de permisos **no cambia**. `profesores:editar` y `profesores:leer` siguen siendo solo de Mesa de Entrada, y `ACCIONES_SOLO_MESA_ENTRADA` del seed queda como está. El Gerente **no** modifica profesores en este sprint.
 
 **Changelog (trazabilidad Backlog → Spec):**
 | HU | Estado previo | Acción |
@@ -19,6 +34,8 @@
 - Modificación de una ficha de profesor ya registrada.
 - Baja lógica / reactivación del profesor.
 - Gestión de la cuenta de acceso del profesor: alta, vinculación o administración de su `Usuario` — se gestiona por un proceso independiente, fuera de esta spec (ver nota de aislamiento en sección 1).
+
+**Actualización de alcance — Revisión 2 (Sprint 2):** la **modificación de identidad y contacto** (2.6) y de las **materias asociadas** (2.7) pasan a estar dentro de alcance. Siguen fuera: baja lógica y reactivación (HU-D-08, Sprint 3), modificar el horario de atención y la cuenta de acceso.
 
 ---
 
@@ -361,6 +378,102 @@ export const ListarProfesoresQuerySchema = z.object({
 
 ---
 
+### 2.6. Modificar datos del profesor (HU-D-06) — NUEVA en Revisión 2
+
+**Ruta:** `PATCH /app/api/profesores/[id]/route.ts`
+**Permiso requerido:** `profesores:editar` (exclusivo de Mesa de Entrada)
+**Pantalla:** modo edición de la ficha `/profesores/[id]` (mapa de pantallas §1, "Ficha de profesor"): un único formulario con identidad, contacto y materias, con un solo botón "Guardar cambios". Página completa, banner inline. Mismo patrón que HU-B-06.
+
+```typescript
+// src/server/profesores/profesor.schema.ts
+export const ModificarProfesorSchema = IdentidadProfesorSchema.partial()
+  .merge(ContactoProfesorSchema.partial())
+  .extend({
+    version: z.number().int().nonnegative(), // concurrencia optimista — obligatorio
+  })
+  .strict();
+export type ModificarProfesorInput = z.infer<typeof ModificarProfesorSchema>;
+```
+`IdentidadProfesorSchema` se construye con `construirIdentidadProfesorSchema(parametros)` (largo del DNI desde `ParametroSistema`, igual que 2.1); las **mismas validaciones que el alta** (HU-D-06 AC2). `.strict()` rechaza `is_active`, `usuario_id` y cualquier campo ajeno (AC5).
+
+**Comportamiento esperado (`profesor.service.ts` → `modificarProfesor`), dentro de una única `prisma.$transaction`:**
+1. El profesor debe existir: `404 PROFESOR_NO_ENCONTRADO`. Si ningún campo cambia respecto de los valores actuales: `200` con `campos_modificados: []` sin escribir.
+2. Si viene `dni`: unicidad **excluyendo al propio profesor**, contra todos los demás, activos e inactivos: mismo código y criterio que 2.1 (`409 DNI_DUPLICADO`). Defensa del constraint (`P2002`) traducida al mismo `409`.
+3. **Contacto:** se valida sobre el **estado resultante** (valores actuales combinados con los enviados): debe quedar al menos un medio de contacto (teléfono o email), con el formato de 2.2. Modificar no puede dejar al profesor sin ninguno.
+4. Si cambian `nombre` o `apellido`: recalcular `nombreNormalizadoProfesor` y `apellidoNormalizadoProfesor` con `normalizarTexto()`. Mantiene el orden del listado (`profesores_orden_listado_idx`).
+5. **Concurrencia optimista (Regla N.° 7):**
+   ```typescript
+   const r = await tx.profesor.updateMany({
+     where: { idProfesor: id, version: input.version },
+     data: { ...camposModificados, version: { increment: 1 }, modificadoPorUsuarioId: usuarioId },
+   });
+   if (r.count === 0) throw new ServiceError("CONFLICTO_EDICION_CONCURRENTE");
+   ```
+6. Solo se escriben los campos enviados (diff, AC3). `updatedAtProfesor` lo actualiza Prisma (`@updatedAt`).
+7. **El email de contacto y el email de la cuenta de acceso son independientes** (3.1): cambiar el primero **no** modifica `Usuario.emailUsuario`. Es distinto de HU-B-06, donde el alumno con cuenta sí sincroniza ambos.
+
+**Modelo (cambio en `schema.prisma`):** `Profesor` agrega `version Int @default(0)`. Migración aditiva.
+
+**Respuesta `200 OK`:**
+```json
+{ "data": { "id": "cuid", "campos_modificados": ["telefono", "email"], "version": 3 }, "error": null }
+```
+**Errores esperados:** `400` (validación) · `403 SIN_PERMISO` · `404 PROFESOR_NO_ENCONTRADO` · `409 DNI_DUPLICADO` · `409 CONFLICTO_EDICION_CONCURRENTE` ("La ficha fue modificada por otro usuario. Recargá para ver los datos actuales.").
+
+---
+
+### 2.7. Modificar las materias asociadas a un profesor (HU-D-07) — NUEVA en Revisión 2
+
+**Ruta:** `PUT /app/api/profesores/[id]/materias/route.ts`
+**Permiso requerido:** `profesores:editar` (exclusivo de Mesa de Entrada)
+**Pantalla:** dentro del mismo modo edición de 2.6: buscador + casillas de las materias activas, con las actuales marcadas.
+
+```typescript
+export const ActualizarMateriasProfesorSchema = z.object({
+  materia_ids: z.array(z.string().cuid()).max(100)
+    .refine((ids) => new Set(ids).size === ids.length, "No repitas materias"),
+}).strict(); // el CONJUNTO FINAL deseado; puede quedar vacío
+```
+Se envía el **conjunto final**, no altas y bajas sueltas: el servidor calcula la diferencia. Un profesor sin materias es un estado válido (2.4 ya lo contempla con un aviso, sin bloquear).
+
+**Comportamiento esperado (`profesor.service.ts` → `actualizarMateriasDeProfesor`), en una única `prisma.$transaction`, todo o nada (3.3):**
+1. Tomar la fila del profesor: `updateMany` con `where: { idProfesor: id, activoProfesor: true }` que solo registra `modificadoPorUsuarioId`; bloquea la fila hasta el `COMMIT` (patrón de 2.3). `count === 0`: `404 PROFESOR_NO_ENCONTRADO` o `409 PROFESOR_INACTIVO`.
+2. Leer el conjunto actual y calcular `agregar = deseado − actual` y `quitar = actual − deseado`. Si ambos están vacíos: `200` con `sin_cambios: true`.
+3. **Agregar:** `bloquearMateriasParaAsociar(agregar, tx)` (`spec_modulo_L.md` §2.3): todas deben existir y estar activas, con los mismos códigos y mensajes que 2.3 (`409 MATERIA_INACTIVA` con `materia_ids_invalidas`). Insertar `ProfesorMateria` con `createdAtProfesorMateria` y `creadoPorUsuarioId`.
+4. **Quitar (HU-D-07 AC3):** por cada materia a quitar, **en este orden**: (a) eliminar la fila `ProfesorMateria`; (b) invocar `contarTurnosFuturosDeProfesorPorMateria(profesorId, materiaId, tx)` (`spec_modulo_C.md` §2.15); (c) si `confirmados > 0`, acumular `{ materia_id, cantidad }`. Si al final hay al menos una materia con turnos futuros: lanzar `409 MATERIA_CON_TURNOS_FUTUROS` con el mensaje literal de la HU, **indicando cuántos**: "No se puede quitar la materia: el profesor tiene N turnos futuros de esta materia" (N = `confirmados` de esa materia), y `detalle: [{ materia_id, cantidad }]`; **toda la transacción se revierte**, la materia sigue asociada y no se quita ninguna.
+   - **Lista de turnos que bloquean (HU-D-07 AC3, backlog v2):** debajo del mensaje la UI muestra los turnos, con **fecha, hora y cupo ocupado** (p. ej. 3/5), cada uno con enlace a su Detalle de turno, donde Mesa de Entrada puede cancelarlo (HU-C-05); una vez resueltos todos, reintenta quitar la materia. La lista **no es endpoint nuevo de este módulo**: sale del listado de turnos existente (HU-C-01) con `GET /api/turnos?profesor_id=&materia_id=&estados=DISPONIBLE,COMPLETO&solo_futuros=true` (`spec_modulo_C.md` §2.7). Los turnos **pasados o cancelados no bloquean** la desasociación.
+   - **El orden (a) → (b) es deliberado:** el `DELETE` toma un bloqueo exclusivo sobre la fila; `profesorActivoDictaMateria(…, tx)` de Turnos toma `FOR SHARE` sobre esa misma fila (2.8). Si Mesa está creando un turno justo ahora, el `DELETE` espera a que confirme y el recuento posterior lo ve; si llega después, ya no encuentra la asociación y la rechaza. Es lo que impide dejar un turno futuro con un profesor que ya no dicta la materia (Regla N.° 7).
+   - "Turno futuro" = `DISPONIBLE` o `COMPLETO` con `fecha + hora_inicio` posterior a ahora. Los turnos **pasados no bloquean**, y siguen mostrando esa materia (AC4: el historial no se altera).
+   - Los turnos `PENDIENTE` de ese profesor y materia **no bloquean** (la HU los excluye), pero pasarán a fallar con `PROFESOR_NO_DICTA_MATERIA` al confirmarse (`spec_modulo_C.md` §2.2). La respuesta informa cuántos hay (`pendientes_afectados`) para que la UI los avise.
+5. **No se toca el horario de atención (AC5, reformulado en el backlog v2):** `HorarioProfesor` no tiene `materiaId` (es un patrón semanal general del profesor), así que quitar una materia no afecta ni modifica ningún horario y no hay franjas huérfanas. AC5 no requiere trabajo adicional.
+6. La baja del vínculo `ProfesorMateria` es un `DELETE` físico sobre una tabla de asociación: excepción documentada a la Regla N.° 1, igual que la baja de `TurnoAlumno` (`spec_modulo_C.md` §3.13). Se conserva la trazabilidad de las altas (`creadoPorUsuarioId`); la baja queda reflejada en `modificadoPorUsuarioId` del profesor.
+
+**Respuesta `200 OK`:**
+```json
+{ "data": { "agregadas": ["cuid"], "quitadas": [], "pendientes_afectados": 0 }, "error": null }
+```
+**Errores esperados:** `400` · `403 SIN_PERMISO` · `404 PROFESOR_NO_ENCONTRADO` · `409 PROFESOR_INACTIVO` · `409 MATERIA_INACTIVA` · `409 MATERIA_CON_TURNOS_FUTUROS` (con `detalle: [{ materia_id, cantidad }]`).
+
+**Guardado desde la UI:** el mapa de pantallas pide un solo "Guardar cambios" para toda la ficha, pero son dos endpoints (2.6 y 2.7). La UI llama **primero a 2.7** (la regla de negocio que más probablemente falle) y **después a 2.6**. Si 2.6 falla, las materias ya quedaron guardadas y el banner lo informa: no hay transacción entre los dos.
+
+---
+
+### 2.8. Servicios públicos nuevos (Regla N.° 3) — Revisión 2
+
+Funciones en `src/server/profesores/profesor.publico.ts`. **No importa nada de otros módulos** (evita ciclos con Turnos). El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador.
+
+| Función | Devuelve | Consumidor |
+|---|---|---|
+| `listarProfesoresActivosOpciones()` | `{ id, nombre, apellido }[]`, orden `apellidoNormalizado, nombreNormalizado` | `spec_modulo_C.md` §2.7 (filtro del Gerente) |
+| `obtenerHorariosDeAtencion(profesorId, db?)` | `{ horario_id, dia_semana, hora_inicio, hora_fin }[]`, orden día y hora | `spec_modulo_C.md` §2.8, §2.9 |
+| `obtenerHorarioDeProfesor(profesorId, horarioId, db?)` | la fila anterior, o `null` si no pertenece a ese profesor | `spec_modulo_C.md` §2.9 |
+| `obtenerNombresProfesores(ids, db?)` | `Record<id, "Apellido, Nombre">` | `spec_modulo_E.md` §2.3 |
+| `profesorActivoDictaMateria(profesorId, materiaId, db?)` | `boolean` (**existente**) | `spec_modulo_C.md` §2.1, §2.2, §2.8, §2.9 |
+
+**Requisito nuevo sobre `profesorActivoDictaMateria`:** cuando recibe `db` (o sea, dentro de una transacción), debe leer la fila de `profesor_materia` con **`SELECT … FOR SHARE`**. Es la contraparte del bloqueo de 2.7 paso 4. Sin `db`, se comporta como hasta ahora.
+
+---
+
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
 Toda la lógica reside en `lib/services/profesores/*.service.ts`, conforme a la Regla N.° 4 de `docs/RULES.md`.
@@ -382,6 +495,14 @@ No tiene componente de fecha. Una consulta de disponibilidad contra este modelo 
 
 ---
 
+### 3.6. Quitar una materia exige que no queden turnos futuros que la dependan (Revisión 2)
+El profesor no puede dejar de dictar una materia mientras tenga turnos futuros `DISPONIBLE` o `COMPLETO` de ella. La regla se resuelve en una sola transacción con un orden fijo (borrar el vínculo, después contar), y la consulta de turnos pertenece a Turnos (`contarTurnosFuturosDeProfesorPorMateria`): este módulo nunca lee la tabla `turnos` (Regla N.° 3).
+
+### 3.7. Modificar respeta las mismas reglas que el alta, sobre el estado resultante (Revisión 2)
+Unicidad de DNI excluyendo al propio profesor y presencia de al menos un medio de contacto **después** de aplicar el cambio. La concurrencia optimista (`version`) se aplica igual que en `spec_modulo_B.md` §3.3.
+
+---
+
 ## 4. Eventos de Dominio (EDA)
 
 Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMMIT`.
@@ -400,4 +521,6 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
   - `ProfesorMateria`: `creadoPorUsuarioId` y `createdAtProfesorMateria` (HU-D-03, migración `profesor_materia_auditoria`). Cada asociación es el alta de una fila, así que esas columnas registran qué se asoció, cuándo y quién.
   - `HorarioProfesor`: `creadoPorUsuarioId` y `createdAtHorario` (HU-D-04, columnas ya existentes en el schema). Cada intervalo es el alta de una fila.
 - No existe tabla `EventoProfesor`.
+
+**Revisión 2 (Sprint 2) — trazabilidad (Regla N.° 2).** HU-D-06 y HU-D-07 usan la **opción (a)**: `modificadoPorUsuarioId`, `updatedAtProfesor` y `version` en la fila de `Profesor`, y `createdAtProfesorMateria` / `creadoPorUsuarioId` en cada alta de `ProfesorMateria`. Sigue sin existir `EventoProfesor`.
 ```

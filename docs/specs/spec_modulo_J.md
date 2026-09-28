@@ -1,16 +1,28 @@
 ```markdown
 # Especificación Técnica — Módulo J (Calendario)
-## Noctium — Sprint 1
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_C.md` (Turno, único dueño del dato) · `spec_modulo_D.md` (Profesor) · `spec_modulo_L.md` (Materias) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_C.md` (Turno, único dueño del dato) · `spec_modulo_D.md` (Profesor) · `spec_modulo_L.md` (Materias) · `spec_modulo_C.md` Revisión 5 (prioridad y estado `CANCELADO`, §2.12 y §3.9) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md` · `docs/tasks/Sprint 2/HU-Sprint-2.md` · `docs/adicionales/mapa-pantallas-sprint-2.md` (§1, §4)
 
 **HU contractualizadas en esta revisión:** HU-J-01 (Calendario por profesor), HU-J-02 (Calendario por materia) — Sprint 1.
+
+**HU contractualizadas en la Revisión 2 (Sprint 2):** HU-J-03 (Ver calendario en formato día, semana o mes).
+
+**Changelog — Revisión 2 (Sprint 2):**
+| HU / sección | Estado previo | Acción |
+|---|---|---|
+| HU-J-03 | Gap — "Vistas por día o por mes" figuraba como fuera de alcance | Nueva sección 2.3 (aditiva, no renumera). Amplía 2.1 y 2.2 con `vista` y `fecha` |
+| `eventos[]` | `hora_inicio`, `hora_fin`, `alumno`, `materia`, `aula`, `estado` | + `prioridad` (indicador de HU-C-10) |
+| Estado `CANCELADO` | No existía | Sin cambio de código: 3.1 ya filtra `DISPONIBLE`/`COMPLETO` (`spec_modulo_C.md` §3.9) |
+| Permisos | `calendario:leer` | Sin cambios |
 
 **Fuera de alcance de esta spec (explícito):**
 - Vistas por día o por mes (solo vista semanal este sprint).
 - Filtros combinados (ej. profesor + materia a la vez).
+
+**Actualización de alcance — Revisión 2 (Sprint 2):** las **vistas por día y por mes** pasan a estar dentro de alcance (2.3). Siguen fuera de alcance los **filtros combinados** y la creación o edición de turnos desde el calendario (es solo lectura).
 
 ---
 
@@ -139,6 +151,55 @@ export type ConsultarCalendarioMateriaQuery = z.infer<typeof ConsultarCalendario
 
 ---
 
+### 2.3. Vistas día, semana y mes (HU-J-03) — NUEVA en Revisión 2
+
+**Rutas:** las mismas de 2.1 y 2.2 (`GET /app/api/calendario/profesor/[profesorId]` y `GET /app/api/calendario/materia/[materiaId]`) — **no hay ruta nueva**: HU-J-03 amplía HU-J-01 y HU-J-02 con el parámetro `vista`.
+**Permiso requerido:** `calendario:leer`, con el mismo alcance por rol de 2.1 (un Profesor solo ve su agenda).
+**Pantalla:** el mismo calendario, con un selector "Día / Semana / Mes" (mapa de pantallas §1, fila HU-J-03).
+
+```typescript
+// src/server/calendario/calendario.schema.ts — reemplaza a ConsultarCalendario*QuerySchema
+export const VISTAS_CALENDARIO = ["dia", "semana", "mes"] as const;
+export const ConsultarCalendarioQuerySchema = z.object({
+  vista: z.enum(VISTAS_CALENDARIO).default("semana"),
+  fecha: fechaCalendarioValidaSchema.optional(),           // día de referencia; por defecto, hoy
+  semana_inicio: fechaCalendarioValidaSchema.optional(),   // alias de compatibilidad con HU-J-01/J-02: equivale a vista=semana&fecha=<valor>
+});
+```
+
+**Comportamiento esperado (`calendario.service.ts`):**
+1. Resolver el rango según la vista, en `America/Argentina/Buenos_Aires`:
+   - `dia`: `[fecha, fecha]`.
+   - `semana`: como en 2.1, del primer al último día de `DIAS_OPERATIVOS` de la semana de `fecha`.
+   - `mes`: del primer al último día calendario del mes de `fecha`.
+2. La consulta de turnos, el alcance por rol y el filtro `DISPONIBLE`/`COMPLETO` son los de 2.1, 2.2 y 3.1 (un `CANCELADO` no aparece). **La resolución de rango es lo único que cambia** por vista.
+3. **Vistas `dia` y `semana`:** devuelven `eventos[]` con la misma forma que 2.1 y 2.2, con un campo nuevo `prioridad` (`"NORMAL" | "ALTA" | "URGENTE"`) por evento. La UI marca `ALTA` y `URGENTE` con texto o ícono, **no solo color** (HU-C-10 AC2).
+4. **Vista `mes`:** por ser una vista de resumen, en lugar de la lista de eventos devuelve **un ítem por día del mes**:
+   ```json
+   {
+     "data": {
+       "profesor": { "id": "cuid", "nombre_completo": "Gómez, Ana" },
+       "vista": "mes",
+       "rango": { "desde": "2026-10-01", "hasta": "2026-10-31" },
+       "dias": [
+         { "fecha": "2026-10-05", "cantidad": 3, "por_estado": { "DISPONIBLE": 2, "COMPLETO": 1 }, "prioridad_maxima": "ALTA" },
+         { "fecha": "2026-10-06", "cantidad": 0, "por_estado": { "DISPONIBLE": 0, "COMPLETO": 0 }, "prioridad_maxima": null }
+       ]
+     },
+     "error": null
+   }
+   ```
+   `dias` incluye **todos** los días del mes; los no operativos vienen con `cantidad: 0` y la UI los atenúa. `prioridad_maxima` es la mayor prioridad entre los turnos del día (`URGENTE` > `ALTA` > `NORMAL`; `null` si no hay turnos). Sin turnos en el mes: `dias` con todos en 0; el mensaje "Agenda sin turnos" sigue siendo de la UI.
+5. **Clic en un día del mes → vista `día` de esa fecha:** es navegación del cliente (`fecha=<día>&vista=dia`), sin lógica de servidor.
+6. **Navegación:** "anterior", "siguiente" y "hoy" también son del cliente: mueven `fecha` un día, una semana o un mes según la vista. Al cambiar de vista **se conserva** el profesor o la materia seleccionados (AC de HU-J-03). Cada cambio dispara una consulta nueva con `vista` y `fecha`.
+7. **Vista rápida al hacer clic en un turno** (mapa de pantallas §4, aprobado): abre un `Dialog` de solo lectura con fecha, materia, profesor, alumnos inscriptos y estado, y un enlace "Ver detalle completo" a `/turnos/[id]`. **No requiere endpoint nuevo:** el `Dialog` consulta `GET /api/turnos/[id]` (`turnos:leer`, ya concedido a los tres roles; un Profesor solo obtiene los propios, `spec_modulo_C.md` §2.4). Los datos de pagos no aparecen ahí: requieren `pagos:leer`, que el `Dialog` ignora.
+
+**Errores esperados:** los mismos de 2.1 y 2.2 (`400`, `403 SIN_PERMISO`, `404 PROFESOR_NO_ENCONTRADO` / `MATERIA_NO_ENCONTRADA`).
+
+**Fuera de alcance:** crear, editar o arrastrar turnos desde el calendario; vista de agenda por aula; filtros combinados.
+
+---
+
 ## 3. Reglas de Negocio Estrictas
 
 Este módulo no tiene capa de servicios de escritura — sus "reglas de negocio" son, en rigor, reglas de **alcance y autorización de lectura**, resueltas en `lib/services/calendario/calendario.service.ts` (capa delgada que orquesta las llamadas a los servicios públicos de `spec_modulo_C.md`, conforme a la Regla N.° 4 de `docs/RULES.md`).
@@ -154,6 +215,14 @@ El backend nunca combina, agrupa ni descarta eventos que coincidan en horario �
 
 ### 3.4. Aislamiento: sin acceso directo a `Turno`
 Toda lectura pasa por los servicios públicos de `spec_modulo_C.md` (Regla N.° 3) — este módulo no importa ni consulta el modelo `Turno` de Prisma directamente.
+
+---
+
+### 3.5. Una sola consulta, tres resoluciones de rango (Revisión 2)
+Las tres vistas comparten la misma consulta de solo lectura y el mismo filtro de estados; solo cambia el rango que se calcula. Está prohibido agregar en la vista `mes` una consulta distinta con reglas propias: el mes agrega en memoria el resultado de la misma consulta.
+
+### 3.6. Cancelado no se muestra, pero se conserva (Revisión 2)
+Un turno `CANCELADO` desaparece del calendario (3.1) pero sigue existiendo con su historial. Si Mesa de Entrada necesita verlo, lo encuentra en el listado de Turnos (`spec_modulo_C.md` §2.4), que sí lo muestra.
 
 ---
 

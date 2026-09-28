@@ -1,12 +1,22 @@
 ```markdown
 # Especificación Técnica — Módulo L (Materias)
-## Noctium — Sprint 1
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC, matriz §2.4) · `spec_modulo_B.md` §2.5 y §3.3 (patrón de concurrencia optimista) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md` · `docs/tasks/Sprint 2/HU-Sprint-2.md`
 
 **HU contractualizadas en esta revisión:** HU-L-01 (Registrar materia), HU-L-02 (Listar materias) — Sprint 1.
+
+**HU contractualizadas en la Revisión 2 (Sprint 2):** HU-L-03 (Modificar datos de materia).
+
+**Changelog — Revisión 2 (Sprint 2):**
+| HU / sección | Estado previo | Acción |
+|---|---|---|
+| HU-L-03 | Gap — "Modificación de una materia ya registrada" figuraba como fuera de alcance | Nueva sección 2.4 (aditiva, no renumera). Nueva regla 3.4 |
+| Servicios públicos | Solo `bloquearMateriasParaAsociar()` (§2.3) | Nueva sección 2.5: `obtenerMateriasPorIds()`, consumida por `spec_modulo_E.md` |
+| Modelo `Materia` | Sin campos de modificación | + `updatedAtMateria`, `modificadoPorUsuarioId`, `version` (concurrencia optimista, mismo patrón que `Alumno`) |
+| Permisos | `materias:crear`, `materias:leer` | + `materias:editar` (GERENTE). Matriz en `spec_modulo_A.md` §2.4 |
 
 **Changelog (trazabilidad Backlog → Spec):**
 | HU | Estado previo | Acción |
@@ -17,6 +27,8 @@
 - Modificación de una materia ya registrada.
 - Baja lógica / reactivación de materias.
 - Duración configurable por materia: en este sprint todo turno usa la duración estándar del centro (parámetro definido en `spec_modulo_C.md`) — la entidad `Materia` no posee campo de duración propio.
+
+**Actualización de alcance — Revisión 2 (Sprint 2):** la **modificación de nombre y código** de una materia pasa a estar dentro de alcance (2.4). Siguen fuera: baja lógica y reactivación (cambiar `is_active`) y la duración configurable por materia, que HU-L-03 AC5 excluye expresamente, igual que en Sprint 1. La duración del turno la elige Mesa de Entradas (`spec_modulo_C.md` Revisión 4), no es un dato de la materia.
 
 ---
 
@@ -158,6 +170,66 @@ export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;
 
 ---
 
+### 2.4. Modificar datos de materia (HU-L-03) — NUEVA en Revisión 2
+
+**Ruta:** `PATCH /app/api/materias/[id]/route.ts`
+**Permiso requerido:** `materias:editar` (exclusivo del rol Gerente)
+**Pantalla:** modo edición del mismo detalle `/materias/[id]` (mapa de pantallas §1, "Ficha de materia"), con el formulario precargado con nombre y código actuales (HU-L-03 AC1). Página completa, banner inline "Materia actualizada correctamente".
+
+```typescript
+// src/server/materias/materia.schema.ts
+export const ModificarMateriaSchema = CrearMateriaSchema.partial().extend({
+  codigo: CrearMateriaSchema.shape.codigo.nullable(), // null = quitar el código (el alta permite materias sin código)
+  version: z.number().int().nonnegative(),             // control de concurrencia optimista — obligatorio
+}).strict();
+export type ModificarMateriaInput = z.infer<typeof ModificarMateriaSchema>;
+```
+Mismas reglas de validación y normalización que el alta (2.1): `nombre` recortado, espacios internos colapsados, 2 a 80 caracteres; `codigo` alfanumérico sin espacios, hasta 10, en mayúsculas. **`.strict()` rechaza `is_active` y cualquier campo de duración** (AC5). La UI usa el mismo esquema y la misma normalización que el alta (`MateriaForm`).
+
+**Comportamiento esperado (`materia.service.ts` → `modificarMateria`), dentro de una única `prisma.$transaction`:**
+1. La materia debe existir: `404 MATERIA_NO_ENCONTRADA`. Se compara el payload contra los valores actuales; si ningún campo cambia, `200` con `campos_modificados: []` sin escribir (la UI mantiene "Guardar" deshabilitado, AC3).
+2. Si cambia `nombre`: `nombreNormalizadaMateria = normalizarTexto(nombre)` y unicidad aplicativa **excluyendo la propia materia**, contra **todas** las demás, activas e inactivas: `409 NOMBRE_DUPLICADO` (con la indicación "(inactiva)" cuando corresponde, igual que 2.1). La comparación no distingue mayúsculas ni acentos (AC2).
+3. Si cambia `codigo` (ya en mayúsculas por el schema): unicidad análoga excluyendo la propia materia: `409 CODIGO_DUPLICADO`.
+4. **Concurrencia optimista (Regla N.° 7):** condición y mutación en una única sentencia (mismo patrón que `spec_modulo_B.md` §2.5 paso 3):
+   ```typescript
+   const r = await tx.materia.updateMany({
+     where: { idMateria: id, version: input.version },
+     data: { ...camposModificados, version: { increment: 1 }, updatedAtMateria: new Date(), modificadoPorUsuarioId: usuarioId },
+   });
+   if (r.count === 0) throw new ServiceError("CONFLICTO_EDICION_CONCURRENTE");
+   ```
+   Defensa adicional: la violación de constraint único (`P2002`) sobre `nombreNormalizadaMateria` o `codigoMateria` se traduce al mismo `409` que los pasos 2 y 3.
+5. **Solo se actualizan los campos modificados** (diff, AC3); se registra la fecha de última modificación (`updatedAtMateria`, que el detalle de 2.2 pasa a devolver como `updated_at`). `id`, `is_active` y `createdAtMateria` no son editables.
+6. **Efecto sobre otros módulos:** ninguno que requiera trabajo. Turnos y profesores referencian la materia por id, así que el nuevo nombre se refleja solos en todas las pantallas. Un cambio de nombre **no** afecta a los turnos ya configurados ni reabre ninguna validación.
+
+**Modelo (cambios en `schema.prisma`):**
+```prisma
+model Materia {
+  // ... campos existentes ...
+  updatedAtMateria       DateTime @default(now()) @updatedAt   // NUEVO
+  modificadoPorUsuarioId String?                                // NUEVO, escalar sin relación
+  version                Int      @default(0)                   // NUEVO
+}
+```
+
+**Respuesta `200 OK`:**
+```json
+{ "data": { "id": "cuid", "campos_modificados": ["nombre", "codigo"], "version": 2 }, "error": null }
+```
+
+**Errores esperados:** `400` (validación, incluido cualquier campo no permitido) · `403 SIN_PERMISO` · `404 MATERIA_NO_ENCONTRADA` · `409 NOMBRE_DUPLICADO` · `409 CODIGO_DUPLICADO` · `409 CONFLICTO_EDICION_CONCURRENTE` ("La materia fue modificada por otro usuario. Recargá para ver los datos actuales.").
+
+**Cancelar (AC4):** vuelve al detalle sin guardar; si hay cambios sin guardar, pide confirmación (mismo patrón `DirtyStateContext` que el alta).
+
+---
+
+### 2.5. Servicio público: obtener materias por id (Revisión 2, consumido por `spec_modulo_E.md`)
+
+**Función:** `obtenerMateriasPorIds(ids: string[], db?: Prisma.TransactionClient): Promise<{ id, nombre, codigo, activa }[]>` en `src/server/materias/materia.service.ts`.
+**Comportamiento:** devuelve las materias que existen, **activas o inactivas**, con su estado en `activa`. No lanza errores por ids inexistentes (simplemente no aparecen). No bloquea filas (a diferencia de 2.3). No tiene Route Handler propio. Sirve para completar nombres en listados de otros módulos sin consultar `materias` (Regla N.° 3).
+
+---
+
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
 Toda la lógica reside en `lib/services/materias/materia.service.ts`, conforme a la Regla N.° 4 de `docs/RULES.md`.
@@ -173,6 +245,14 @@ El servicio no expone ni acepta ningún campo relacionado a duración de clase p
 
 ---
 
+### 3.4. Modificar respeta la unicidad contra el universo completo, excluyéndose a sí misma (Revisión 2)
+Igual que el alta (3.1), pero la materia que se edita **no cuenta como duplicado de sí misma**: se puede cambiar solo el código sin que el nombre "choque" consigo mismo. La comparación sigue siendo sobre la forma normalizada, nunca sobre el texto crudo. Aplica la doble validación de 3.2 (aplicativa + constraint).
+
+### 3.5. Concurrencia optimista en la modificación (Revisión 2)
+Todo `UPDATE` de una materia desde HU-L-03 exige `version` y la compara en la misma sentencia que la escritura (`spec_modulo_B.md` §3.3). Dos gerentes editando a la vez no se pisan: el segundo recibe `409 CONFLICTO_EDICION_CONCURRENTE`.
+
+---
+
 ## 4. Eventos de Dominio (EDA)
 
 Conforme a `docs/RULES.md` Regla N.° 2: el evento se emite después de que el `INSERT` (con su defensa de constraint único) resuelva exitosamente.
@@ -182,4 +262,6 @@ Conforme a `docs/RULES.md` Regla N.° 2: el evento se emite después de que el `
 | `materia:creada` | Alta de materia (2.1) | `materia_id, nombre, codigo, usuario_id` |
 
 **Nota de sincronización (HU-L-01, resuelta):** no existe event bus ni `AuditLog` en este sprint (mismo gap documentado en `spec_modulo_A.md`). A diferencia de los eventos de sesión, acá no se escribe a ninguna tabla de log separada — `EventoSeguridad` está tipado específicamente para eventos de seguridad, no es un log genérico de dominio, y crear una tabla de auditoría de negocio nueva está fuera del alcance de esta HU. La trazabilidad que pide el criterio 4 de HU-L-01 ("se registran fecha de alta y usuario") queda satisfecha por las columnas `createdAtMateria`/`creadoPorUsuarioId` que la propia fila de `Materia` ya persiste — no hace falta un evento/log aparte para eso.
+
+**Revisión 2 (Sprint 2) — trazabilidad (Regla N.° 2).** La modificación de una materia usa la **opción (a)**: `updatedAtMateria`, `modificadoPorUsuarioId` y `version` en la propia fila; HU-L-03 AC3 ("se registra la fecha de última modificación") queda cubierta por `updatedAtMateria`. No hay evento `materia:modificada`.
 ```

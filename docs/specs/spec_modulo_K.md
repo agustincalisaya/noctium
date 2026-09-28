@@ -1,17 +1,29 @@
 ```markdown
 # Especificación Técnica — Módulo K (Aulas)
-## Noctium — Sprint 1
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (patrón de unicidad case-insensitiva, como referencia de diseño) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 10) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (patrón de unicidad case-insensitiva y de modificación, como referencia de diseño) · `spec_modulo_C.md` Revisión 5 (§2.15, ajuste de cupos) · `spec_modulo_B.md` §2.5 y §3.3 (patrón de concurrencia optimista) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md` · `docs/tasks/Sprint 2/HU-Sprint-2.md`
 
 **HU contractualizadas en esta revisión:** HU-K-01 (Registrar aula), HU-K-02 (Listar aulas) — Sprint 1.
+
+**HU contractualizadas en la Revisión 2 (Sprint 2):** HU-K-03 (Modificar datos del aula).
+
+**Changelog — Revisión 2 (Sprint 2):**
+| HU / sección | Estado previo | Acción |
+|---|---|---|
+| HU-K-03 | Gap — "Modificación de un aula ya registrada" figuraba como fuera de alcance | Nueva sección 2.4 (aditiva, no renumera). Nueva regla 3.4 |
+| Modelo `Aula` | Sin campos de modificación | + `updatedAtAula`, `modificadoPorUsuarioId`, `version` (control de concurrencia optimista, mismo patrón que `Alumno`, `spec_modulo_B.md` §3.3) |
+| Permisos | `aulas:crear`, `aulas:leer` (GERENTE) | + `aulas:editar` (GERENTE). Matriz completa en `spec_modulo_A.md` §2.4 |
+| `spec_modulo_C.md` | — | HU-K-03 consume `ajustarCuposPorCapacidadDeAula()` (Revisión 5 de C, §2.15) |
 
 **Fuera de alcance de esta spec (explícito):**
 - Modificación de un aula ya registrada.
 - Baja lógica / reactivación de aulas.
 - Consulta automática de disponibilidad por horario: eso lo resuelve `spec_modulo_C.md` (HU-C-15) al momento de asignar un aula a un turno — este módulo no expone ningún endpoint de disponibilidad propio.
+
+**Actualización de alcance — Revisión 2 (Sprint 2):** la **modificación de nombre/número y capacidad** de un aula pasa a estar dentro de alcance (2.4). Siguen fuera: baja lógica y reactivación (HU-K-04, Sprint 3) y cualquier cambio en la asignación de aulas a turnos confirmados.
 
 ---
 
@@ -134,6 +146,60 @@ Ninguna de estas funciones evalúa disponibilidad por horario (§3.3): esa valid
 
 ---
 
+### 2.4. Modificar datos del aula (HU-K-03) — NUEVA en Revisión 2
+
+**Ruta:** `PATCH /app/api/aulas/[id]/route.ts`
+**Permiso requerido:** `aulas:editar` (exclusivo del rol Gerente)
+**Pantalla:** modo edición del mismo detalle `/aulas/[id]` (mapa de pantallas §1, "Ficha de aula"); página completa, feedback por banner inline "Aula actualizada correctamente". Mismo patrón que HU-B-06 y HU-D-06.
+
+```typescript
+// src/server/aulas/aula.schema.ts
+export const ModificarAulaSchema = CrearAulaSchema.partial().extend({
+  version: z.number().int().nonnegative(), // control de concurrencia optimista — obligatorio
+}).strict();
+export type ModificarAulaInput = z.infer<typeof ModificarAulaSchema>;
+```
+Mismas reglas de `nombre` y `capacidad` que 2.1 (HU-K-01); `.strict()` rechaza cualquier otro campo, en particular `is_active` (HU-K-03 AC5: desactivar es HU-K-04, Sprint 3).
+
+**Comportamiento esperado (`aula.service.ts` → `modificarAula`), dentro de una única `prisma.$transaction`:**
+1. El aula debe existir: `404 AULA_NO_ENCONTRADA`. Se compara el payload con los valores actuales; si ningún campo cambia, responde `200` con `campos_modificados: []` sin escribir ni incrementar `version` (la UI mantiene "Guardar" deshabilitado sin cambios).
+2. Si cambia `nombre`: recalcular `nombreNormalizadaAula = normalizarTexto(nombre)` y verificar unicidad **excluyendo la propia aula**, contra todas las demás, activas e inactivas: `409 NOMBRE_DUPLICADO`. Defensa del constraint único (`P2002`) traducida al mismo `409` (mismo patrón que 2.1).
+3. **Concurrencia optimista (Regla N.° 7):** condición y mutación en una única sentencia, igual que `spec_modulo_B.md` §2.5 paso 3:
+   ```typescript
+   const r = await tx.aula.updateMany({
+     where: { idAula: id, version: input.version },
+     data: { ...camposModificados, version: { increment: 1 }, modificadoPorUsuarioId: usuarioId },
+   });
+   if (r.count === 0) throw new ServiceError("CONFLICTO_EDICION_CONCURRENTE"); // el aula existe (paso 1): alguien la modificó antes
+   ```
+4. **Si cambia `capacidad`** (HU-K-03 AC2 y AC3): en la **misma transacción**, invocar `ajustarCuposPorCapacidadDeAula(aulaId, nuevaCapacidad, usuarioId, tx)` (`spec_modulo_C.md` §2.15):
+   - Si algún turno **futuro** `DISPONIBLE` o `COMPLETO` que usa el aula tiene más alumnos inscriptos que la nueva capacidad: se lanza `409 CAPACIDAD_MENOR_A_INSCRIPTOS` con el mensaje literal "La nueva capacidad es menor a la cantidad de alumnos ya inscriptos en turnos que usan esta aula", y **toda la transacción se revierte** (tampoco se guarda el nombre). La validación es solo contra turnos con fecha futura: los pasados no bloquean el cambio (AC2).
+   - Si no hay conflicto: los turnos futuros que ya tenían esta aula actualizan su `cupoMaximoTurno` a la nueva capacidad (mismo criterio de HU-C-15: cupo = capacidad del aula, AC3) y **recalculan su estado** (`COMPLETO` si los inscriptos alcanzan el nuevo cupo, `DISPONIBLE` si queda lugar). Los turnos pasados conservan su cupo histórico.
+5. Solo se escriben los campos efectivamente provistos (diff). `id`, `is_active` y `createdAtAula` nunca son editables desde este endpoint.
+6. Después del `COMMIT`, el servicio emite los eventos de turno que devolvió `ajustarCuposPorCapacidadDeAula()` (`turno:cupo_actualizado` y, si hubo transición, `turno:completado` / `turno:disponible_nuevamente`), vía `emitirEventoTurno()`. Este módulo no escribe en `eventos_turno` por su cuenta (Regla N.° 3).
+
+**Modelo (cambios en `schema.prisma`):**
+```prisma
+model Aula {
+  // ... campos existentes ...
+  updatedAtAula          DateTime @default(now()) @updatedAt   // NUEVO
+  modificadoPorUsuarioId String?                                // NUEVO, escalar sin relación
+  version                Int      @default(0)                   // NUEVO, concurrencia optimista
+}
+```
+Migración aditiva; las aulas existentes quedan con `version = 0`.
+
+**Respuesta `200 OK`:**
+```json
+{ "data": { "id": "cuid", "campos_modificados": ["capacidad"], "version": 3, "turnos_actualizados": 4 }, "error": null }
+```
+
+**Errores esperados:** `400` (validación) · `403 SIN_PERMISO` · `404 AULA_NO_ENCONTRADA` · `409 NOMBRE_DUPLICADO` · `409 CONFLICTO_EDICION_CONCURRENTE` ("El aula fue modificada por otro usuario. Recargá para ver los datos actuales.") · `409 CAPACIDAD_MENOR_A_INSCRIPTOS` (con `detalle: { turnos_en_conflicto, max_inscriptos }`).
+
+**Fuera de alcance:** desactivar el aula (HU-K-04, Sprint 3); reasignar aulas de turnos confirmados; modificar turnos pasados.
+
+---
+
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
 Toda la lógica reside en `src/server/aulas/aula.service.ts`, conforme a la Regla N.° 4 de `docs/RULES.md`.
@@ -149,6 +215,14 @@ Crear un `Aula` no crea ni modifica ninguna relación con `Turno`. La asignació
 
 ---
 
+### 3.4. La capacidad de un aula gobierna el cupo de los turnos futuros (Revisión 2)
+Cambiar la capacidad de un aula **es** cambiar el cupo de los turnos futuros que la usan (`spec_modulo_C.md` §2.3: cupo = capacidad del aula). Por eso `modificarAula()` no decide por su cuenta: delega el ajuste y la validación en `ajustarCuposPorCapacidadDeAula()` de Turnos, dentro de su propia transacción, de modo que "guardar el aula" y "ajustar los turnos" son atómicos. Este módulo nunca hace `UPDATE` sobre `turnos` (Regla N.° 3).
+
+### 3.5. Modificar no reserva ni libera recursos
+Editar el nombre o la capacidad de un aula no crea ni elimina reservas en `reservas_turno`: el horario de los turnos no cambia. Solo cambia el cupo (y, por consecuencia, el estado `DISPONIBLE ⇄ COMPLETO`).
+
+---
+
 ## 4. Eventos de Dominio (EDA)
 
 Conforme a `docs/RULES.md` Regla N.° 2: el evento se emite después de que el `INSERT` (con su defensa de constraint único) resuelva exitosamente.
@@ -156,4 +230,6 @@ Conforme a `docs/RULES.md` Regla N.° 2: el evento se emite después de que el `
 | Evento | Disparado por | Payload mínimo |
 |---|---|---|
 | `aula:creada` | Alta de aula (2.1) | `aula_id, nombre, capacidad, usuario_id` |
+
+**Revisión 2 (Sprint 2) — trazabilidad (Regla N.° 2).** La modificación de un aula usa la **opción (a)**: `updatedAtAula`, `modificadoPorUsuarioId` y `version` en la propia fila. No hay evento `aula:modificada`. Los eventos de los **turnos afectados** (cambio de cupo y transiciones de estado) los emite el Módulo C.
 ```

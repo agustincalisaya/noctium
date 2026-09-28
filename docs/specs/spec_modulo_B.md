@@ -1,17 +1,29 @@
 ```markdown
 # Especificación Técnica — Módulo B (Alumno)
-## Noctium — Sprint 1
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod · bcryptjs
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 2, 3, 4, 5, 6, 7, 9, 10) · `spec_modulo_A.md` (sesión, JWT, AuditLog) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 2, 3, 4, 5, 6, 7, 9, 10) · `spec_modulo_A.md` (sesión, JWT, AuditLog) · `spec_modulo_I.md` (Pagos, §2.3, dueño de `FormaPago`) · `spec_modulo_C.md` Revisión 5 · `spec_modulo_H.md` (Indicadores) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md` · `docs/tasks/Sprint 2/HU-Sprint-2.md`
 
 **HU contractualizadas en esta revisión:** HU-B-01 (Identidad), HU-B-02 (Contacto), HU-B-03 (Forma de pago preferida), HU-B-04 (Listado), HU-B-06 (Modificación), HU-B-08 (Autorregistro) — Sprint 1.
+
+**HU contractualizadas en la Revisión 2 (Sprint 2):** HU-B-05 (Búsqueda inteligente de alumnos). Además provee los servicios públicos que consumen HU-C-12/C-13 (`spec_modulo_C.md`), HU-I-01 (`spec_modulo_I.md`), HU-H-02 (`spec_modulo_H.md`) y HU-E-05 (`spec_modulo_E.md`).
+
+**Changelog — Revisión 2 (Sprint 2):**
+| HU / sección | Estado previo | Acción |
+|---|---|---|
+| HU-B-05 | Gap — "Búsqueda avanzada / filtros combinados" figuraba como fuera de alcance | Nueva sección 2.7 (aditiva, no renumera). Amplía 2.4 |
+| Servicios públicos | Solo `buscarAlumnosActivos()` y `verificarAlumnoActivo()` (consumidos por Turnos) | Nueva sección 2.8: 4 funciones nuevas (incluye `obtenerAlumnosBasicos()`, que usa HU-I-01 para proponer la forma de pago preferida del alumno que paga) |
+| `FormaPago` | B la lee directamente del catálogo | Pasa a ser propiedad del Módulo I. B la consume por `verificarFormaPagoActiva()` / `obtenerFormaPago()` (`spec_modulo_I.md` §2.3). **Sin cambio de contrato HTTP** |
+| §3 | 3.1 a 3.8 | Regla 3.9: criterio de búsqueda compartido con el selector de Turnos |
 
 **Fuera de alcance de esta spec (explícito):**
 - Búsqueda avanzada / filtros combinados en el listado.
 - Baja lógica y reactivación del alumno (HU-B-06 §9 lo excluye explícitamente — el estado no es editable esta iteración).
 - Recuperación de contraseña del autorregistro (cubierto por `spec_modulo_A.md`, fuera de alcance del Sprint).
+
+**Actualización de alcance — Revisión 2 (Sprint 2):** la **búsqueda por texto** en el listado (2.7) pasa a estar dentro de alcance. Siguen fuera de alcance: filtros combinados (estado, forma de pago, fecha de alta) y la baja/reactivación del alumno.
 - Envío real de email/SMS: el servicio de notificación (envío del código OTP) se referencia como interfaz (`lib/services/notificaciones/*`) pero su implementación de proveedor externo no es parte de esta spec.
 
 ---
@@ -124,6 +136,8 @@ export type ContactoAlumnoInput = z.infer<typeof ContactoAlumnoSchema>;
 
 ### 2.3. Asociar alumno a forma de pago preferida (HU-B-03)
 
+> **Revisión 2 (Sprint 2).** El catálogo de formas de pago pasa a ser del **Módulo I** (`spec_modulo_I.md`). La función `listarFormasPagoActivas()` que hoy vive en `alumno.service.ts` se **mueve** a Pagos (`forma-pago.publico.ts`); B la importa de allí. Donde esta sección pide "verificar que la `FormaPago` exista y esté activa", el servicio debe invocar `verificarFormaPagoActiva(forma_pago_id)` (y `existeFormaPago()` para distinguir `FORMA_PAGO_NO_ENCONTRADA` de `FORMA_PAGO_NO_DISPONIBLE`) en lugar de leer la tabla `formas_pago`. **Sin cambios de ruta, permiso, códigos de error ni mensajes.** El nombre de la forma de pago en el detalle (2.4) se resuelve con `obtenerFormaPago()`, que devuelve también las formas desactivadas (3.5).
+
 **Ruta:** `PATCH /app/api/alumnos/[id]/forma-pago/route.ts`
 **Server Action equivalente:** `actualizarFormaPagoPreferida()` en `app/(dashboard)/alumnos/actions.ts`
 **Permiso requerido:** `alumnos:editar`
@@ -151,6 +165,8 @@ export type FormaPagoPreferidaInput = z.infer<typeof FormaPagoPreferidaSchema>;
 ---
 
 ### 2.4. Listado y detalle de alumnos (HU-B-04)
+
+> **Revisión 2 (Sprint 2).** `ListarAlumnosQuerySchema` agrega el parámetro opcional `q` (búsqueda de 2.7). Sin `q`, el comportamiento y la respuesta son los de siempre.
 
 **Ruta (listado):** `GET /app/api/alumnos/route.ts`
 **Permiso requerido:** `alumnos:leer`
@@ -311,6 +327,51 @@ export const VerificarCodigoAutorregistroSchema = z.object({
 
 ---
 
+### 2.7. Búsqueda de alumnos en el listado (HU-B-05) — NUEVA en Revisión 2
+
+**Ruta:** la misma de 2.4, `GET /app/api/alumnos/route.ts` — **no es una pantalla nueva**: un campo de búsqueda sobre `/alumnos` (mapa de pantallas §1, fila HU-B-05).
+**Permiso requerido:** `alumnos:leer` (sin cambios: exclusivo de Mesa de Entrada)
+
+```typescript
+// src/server/alumnos/alumno.schema.ts — se amplía ListarAlumnosQuerySchema
+export const ListarAlumnosQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+  q: z.string().trim().max(100).optional(), // HU-B-05
+});
+```
+
+**Comportamiento esperado:**
+1. Si `q` tiene menos de **2 caracteres** tras el `trim`, se **ignora** (equivale a no buscar). La UI no lo envía (AC1); la regla evita que un `q` de un carácter devuelva un listado engañoso.
+2. Se normaliza con `normalizarTexto(q)` (minúsculas y sin acentos, la utilidad de `spec_modulo_L.md`) y se parte en **tokens** por espacios (máximo 5).
+3. **Cada token** debe coincidir, de forma **parcial** (`contains`), con al menos uno de estos campos de la ficha: `apellidoNormalizadoAlumno`, `nombreNormalizadoAlumno`, o `dniAlumno` cuando el token es solo dígitos. Entre tokens es **AND**; entre campos, **OR**. Así "juan perez" y "perez juan" encuentran a Juan Pérez (AC4), "gom" encuentra "Gómez" y "Gomez" (AC2, AC3), y "3012" encuentra por DNI parcial (AC5).
+4. La búsqueda opera sobre **alumnos activos e inactivos**, igual que el listado (AC de HU-B-04): el estado se sigue mostrando en la columna Estado.
+5. El **orden es el del listado** (`apellidoNormalizadoAlumno`, `nombreNormalizadoAlumno`, `dniAlumno`), **no por relevancia**; la **paginación y el `total` son sobre el resultado filtrado** (AC7). Al borrar el texto se vuelve al listado completo.
+6. Sin coincidencias: `200` con `items: []`. El mensaje "No se encontraron alumnos para «texto»" con la opción "Nuevo alumno" es responsabilidad de la UI (AC6).
+
+**Respuesta `200 OK`:** la misma de 2.4.
+
+**Fuera de alcance:** filtros combinados, búsqueda por email o teléfono, ordenamiento por relevancia, autocompletado del servidor.
+
+**Criterio compartido con Turnos:** el selector de alumnos de HU-C-04 (`buscarAlumnosActivos(query)`, en `alumno.service.ts`) usa **el mismo umbral y la misma normalización** (mínimo 2 caracteres, normalizado, parcial), pero devuelve **solo activos y como máximo 10 resultados**. **Diferencia real que hay que respetar:** hoy el selector busca el **texto completo** contra nombre, apellido y DNI con un único `OR` (sin tokens), y `alumno.busqueda.test.ts` mockea exactamente esa forma (`where.OR`). Con un solo token, el filtro de tokens de 2.7 da el mismo resultado; con varios ("juan perez") el selector actual **no** encuentra nada. Se extrae `construirFiltroBusquedaAlumno(q)` en `src/server/alumnos/alumno.busqueda.ts` y, para no romper el selector ya verificado en Sprint 1, el desarrollador elige: (a) que el selector lo adopte y se actualice ese test, o (b) dejar el selector como está y agregar un test de paridad para un solo token. Cualquiera de las dos es válida; lo que no se admite es que diverjan sin test.
+
+---
+
+### 2.8. Servicios públicos nuevos (Regla N.° 3) — Revisión 2
+
+Funciones en `src/server/alumnos/alumno.publico.ts`. **No importa nada de otros módulos.** El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador.
+
+| Función | Devuelve | Consumidor |
+|---|---|---|
+| `obtenerAlumnoDeUsuario(usuarioId, db?)` | `{ id, activo } \| null`: la ficha vinculada a la cuenta (`Alumno.usuarioId`) | `spec_modulo_C.md` §2.14 (autoservicio) |
+| `obtenerAlumnosBasicos(ids, db?)` | `{ id, nombre, apellido, activo, forma_pago_preferida_id }[]` (lote, activos o inactivos, ids inexistentes simplemente no aparecen). `forma_pago_preferida_id` es `null` si el alumno está "Sin preferencia" | `spec_modulo_I.md` §2.4 y §2.5 (alumno que paga y forma de pago propuesta) |
+| `obtenerAlumnoBasico(id, db?)` | `{ id, nombre, apellido, activo } \| null`, activo o inactivo | `spec_modulo_E.md` §2.3 |
+| `contarAlumnosNuevosPorMes(desde, hasta, db?)` | `{ mes: "YYYY-MM", cantidad }[]`, **solo los meses con datos** (los ceros los completa H) | `spec_modulo_H.md` §2.1 |
+
+**`contarAlumnosNuevosPorMes`:** `desde` y `hasta` son meses `AAAA-MM`. Cuenta **todas** las fichas (activas o inactivas, con o sin cuenta de acceso) agrupadas por el mes de `createdAtAlumno` **en `America/Argentina/Buenos_Aires`**, no en UTC. Implementación con `$queryRaw` parametrizado (`Prisma.sql`, nunca SQL concatenado): `date_trunc('month', "createdAtAlumno" AT TIME ZONE 'America/Argentina/Buenos_Aires')`, con el límite inferior en el primer instante de `desde` y el superior en el primero del mes siguiente a `hasta`, ambos expresados en esa misma zona.
+
+---
+
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
 Toda la lógica reside en `lib/services/alumnos/*.service.ts`, conforme a la Regla N.° 4 de `docs/RULES.md`.
@@ -343,6 +404,14 @@ Cambiarla no reescribe ningún turno o pago ya registrado (regla de no retroacti
 
 ---
 
+### 3.9. Un solo criterio de búsqueda de alumnos (Revisión 2)
+El listado de Mesa de Entrada (2.7) y el selector de Turnos comparten `construirFiltroBusquedaAlumno()`: mismo umbral de 2 caracteres, misma normalización, misma coincidencia parcial. Solo difieren en lo que devuelven (todos vs. solo activos, paginado vs. tope de 10). Si el criterio cambia, cambia para ambos.
+
+### 3.10. Los meses de un alta se miden en la zona horaria del centro (Revisión 2)
+`createdAtAlumno` es un timestamp: agrupar por mes en UTC asignaría al mes siguiente las altas hechas de noche. `contarAlumnosNuevosPorMes()` agrupa siempre en `America/Argentina/Buenos_Aires`.
+
+---
+
 ## 4. Eventos de Dominio (EDA)
 
 Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMMIT`, nunca dentro de la transacción. Los eventos de este módulo relacionados a cuentas (autorregistro) son, además, eventos de seguridad — mismo canal de auditoría que `spec_modulo_A.md` §4.
@@ -356,4 +425,6 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 | `alumno:autorregistro_completado` | Autorregistro exitoso (2.6, rama a o verificación de código) | `alumno_id, usuario_id, via: "DIRECTO" \| "VINCULACION_OTP"` |
 | `alumno:codigo_verificacion_generado` | Envío/reenvío de código (2.6) | `alumno_id, solicitud_id, ip` — **nunca** el código |
 | `alumno:autorregistro_derivado_mesa_entrada` | Rama (d), datos no coinciden (2.6) | `dni, ip` — nunca detalle de qué no coincidió |
+
+**Revisión 2 (Sprint 2).** La búsqueda (2.7) y los servicios públicos (2.8) son de solo lectura: **no emiten eventos**.
 ```
