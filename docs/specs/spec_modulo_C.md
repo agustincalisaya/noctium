@@ -1,11 +1,17 @@
 # Especificación Técnica — Módulo C (Turno)
-## Noctium — Sprint 1 (Revisión 4)
+## Noctium — Sprint 1 (Revisión 4) · Sprint 2 (Revisión 5)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker, extensión `btree_gist` prevista pero aún no migrada — ver nota en 3.4) · Prisma ORM (`prisma-client`) · Zod
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 7, 10, 11) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (Materias) · `spec_modulo_B.md` (Alumno) · `spec_modulo_D.md` (Profesor, fórmula de superposición §3.4) · `spec_modulo_K.md` (Aulas) · `schema.prisma` · `docs/tasks/Sprint 1/`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 1, 2, 3, 4, 5, 6, 7, 8, 10, 11) · `spec_modulo_A.md` (sesión/RBAC) · `spec_modulo_L.md` (Materias) · `spec_modulo_B.md` (Alumno) · `spec_modulo_D.md` (Profesor, fórmula de superposición §3.4) · `spec_modulo_K.md` (Aulas) · `spec_modulo_I.md` (Pagos, Sprint 2) · `spec_modulo_E.md` (Historial, Sprint 2) · `schema.prisma` · `docs/tasks/Sprint 1/` · `docs/tasks/Sprint 2/HU-Sprint-2.md` · `docs/adicionales/mapa-pantallas-sprint-2.md` · `docs/adicionales/propuesta-cambio-orden-flujo-turno.md`
 
 **HU contractualizadas en esta revisión:** HU-C-03 (Configurar turno — **implementada Revisión 3, reabierta en Revisión 4 por la duración configurable, implementada y verificada en navegador el 25/09/2026**, ver `docs/tasks/Sprint 1/HU-C-03.md`), HU-C-04 (Asignar profesor y alumnos / gestionar inscripciones — implementada Revisión 3, sin cambios en esta revisión, ver `docs/tasks/Sprint 1/HU-C-04.md`), HU-C-15 (Asignar aula — implementada/remediada Revisión 3, sin cambios en esta revisión, ver `docs/tasks/Sprint 1/HU-C-15.md`), HU-C-01 (Listar turnos) — Sprint 1.
+
+**HU contractualizadas en la Revisión 5 (Sprint 2):** HU-C-18 (Reordenar el flujo de registro de turno), HU-C-07 (Mostrar horarios disponibles del profesor), HU-C-16 (Mostrar aulas disponibles según horario — sin cambio de contrato, solo de posición), HU-C-17 (Generar turnos a partir del horario del profesor), HU-C-09 (Consultar detalles del turno), HU-C-05 (Cancelar turno), HU-C-06 (Reprogramar turno), HU-C-10 (Asignar prioridad), HU-C-02 (Búsqueda inteligente de turnos), HU-C-08 (Consultar turnos asociados al profesor), HU-C-12 (Solicitar turno propio), HU-C-13 (Consultar turnos propios). Además provee los servicios públicos que consumen HU-K-03, HU-D-07, HU-I-01, HU-E-01, HU-H-01 (sección 2.15).
+
+**Backlog v2 del 28/09/2026 (xlsx de los PO, 25 HU · 63 SP).** Respecto del backlog anterior (26 HU · 49 SP) los PO: (1) **retiraron HU-C-11** (Asociar forma de pago al turno): el turno ya no lleva forma de pago y la sección 2.13 queda sin contrato; (2) cambiaron HU-C-17 AC7: los turnos generados nacen **`DISPONIBLE` 0/N**, no `PENDIENTE` (queda resuelto el punto Q11); (3) cambiaron HU-C-07 AC1 y HU-C-17 AC1: el horario **no** depende de la materia (resuelve Q1); (4) HU-C-13 ahora **incluye los turnos `CANCELADO`**; (5) HU-C-12 agrega el aviso "El pago se abona en el centro"; (6) HU-D-07 pide listar los turnos que bloquean la baja de una materia; (7) HU-I-01 registra **qué alumno paga**. **Ajuste del 28/09 (backlog v3, mismos SP):** HU-D-07 AC3 cambia el aviso y agrega un modal "Ver turnos" paginado (2.7); HU-C-13 AC6 pagina "Mis turnos" de a 10 con totales por pestaña (2.14.1); HU-I-01 AC1 pide buscador de alumno (`spec_modulo_I.md`); HU-E-05 AC6 pagina el historial de a 10 (`spec_modulo_E.md`).
+
+**Cambio de flujo (Revisión 5, pedido del cliente vía PO, aprobado 27/09/2026 — ver `docs/adicionales/propuesta-cambio-orden-flujo-turno.md`):** el wizard de Mesa de Entradas pasa a **Elegir Materia → Elegir Profesor → Elegir Fecha y Horario → Elegir Aula → Agregar Alumnos**, y **reemplaza por completo** el orden de la Revisión 4 (Configurar → Aula → Profesor y alumnos). El trabajo de reordenamiento lo absorbe **HU-C-18** (mapa de pantallas §1, "HU-C-03/C-04/C-15 no se reabren"); esta spec ajusta los contratos 2.1, 2.2, 2.3, 2.4 y 2.6 por notas de Revisión 5 dentro de cada sección, sin renumerarlas, y agrega las secciones nuevas 2.7 a 2.15 y las reglas 3.8 a 3.13.
 
 **Cambio de flujo (Revisión 3, pedido explícito del cliente, aprobado por el PO — ver `propuesta-cambio-cupo-aula.md`):** el cupo máximo de un turno deja de ser un valor que Mesa de Entradas escribe a mano (HU-C-03) y pasa a fijarse automáticamente según la capacidad del aula elegida (HU-C-15). Esto invierte el orden de los últimos dos pasos del flujo: **Configurar turno → Asignar aula (fija el cupo) → Asignar profesor y alumnos (ahora el último paso, el que confirma el turno)**. Ver detalle completo en la sección 1 y en 2.1/2.2/2.3.
 
@@ -23,6 +29,63 @@
 - Búsqueda avanzada / filtros combinados en el listado (HU-C-01 §7 lo excluye explícitamente).
 - Quitar un alumno individual mientras el turno está `PENDIENTE` — mientras el turno no tiene aula, cualquier cambio en los alumnos se resuelve reemplazando el conjunto completo (2.2), no dando de baja uno solo (la baja individual, 2.5, solo existe a partir de `DISPONIBLE`/`COMPLETO`). Ver **DECISIÓN RESUELTA** al pie de 2.5.
 - **Nuevo en Revisión 4:** duraciones de turno distintas a 60/120/180 min. Modificar la duración de un turno que ya no está `PENDIENTE` (mismo criterio que fecha/hora, ver arriba). Cualquier cambio a la fórmula de superposición (3.3) o al diseño de `reservas_turno` (3.4) — el mecanismo existente ya desnormaliza el rango horario por turno y no asume una duración uniforme, no se toca en esta revisión (confirmado en el relevamiento contra el trigger real y en Postgres real, ver nota en 3.4).
+
+**Actualización de alcance — Revisión 5 (Sprint 2):** pasan a estar **dentro de alcance**: cancelar un turno `DISPONIBLE`/`COMPLETO` (2.10), modificar fecha/hora de un turno `DISPONIBLE`/`COMPLETO` (2.11), sugerencia de franjas disponibles (2.8) y búsqueda simple en el listado (2.7). Siguen **fuera de alcance**: cancelar un turno `PENDIENTE` (se descarta sin guardar), cancelación de un turno propio por el alumno (HU-C-14, Sprint 3), cambiar materia, profesor o duración de un turno ya confirmado, reemplazo de aula de un turno confirmado, filtros combinados por estado o rango de fechas (HU-C-02 AC6), notificaciones por cambio de prioridad, y la vista de calendario (módulo J).
+
+---
+
+
+## ✅ DECISIONES DEL SCRUM MASTER — Revisión 5 (Sprint 2)
+
+Redactadas el 28/09/2026 a partir de `HU-Sprint-2.md`, el mapa de pantallas, la propuesta de orden de flujo, `schema.prisma` y `seed.ts`. Las marcadas **[DEFAULT SM, sin ratificar]** tienen una propuesta por defecto (la que esta spec contractualiza) y una pregunta abierta; **no se implementa lo dudoso por inferencia** (`sdd-metodologia.md`, "Relevar antes de asumir").
+
+| # | Decisión | Estado |
+|---|---|---|
+| R5-1 | **Cuándo se persiste el turno.** Los pasos 1 a 3 (Materia, Profesor, Fecha/Horario) viven en el estado del cliente. Al confirmar el paso 3 se hace `POST /api/turnos` (2.1, ahora con `profesor_id`) y el turno nace `PENDIENTE`. El paso 4 usa `PATCH .../aula` (2.3) y el paso 5 `PATCH .../participantes` (2.2), que sigue siendo la operación que confirma. No se crea un endpoint combinado. | Decidido |
+| R5-2 | **Profesor obligatorio en el alta.** `profesor_id` pasa a ser requerido en 2.1. En 2.2 pasa a ser opcional: si el turno ya tiene profesor no hace falta reenviarlo. Los turnos `PENDIENTE` creados en Revisión 4 (sin profesor, p. ej. `seed-turno-11/18/25`) se completan enviándolo en 2.2. | Decidido |
+| R5-3 | **Dónde se elige la duración (1/2/3 h).** Dentro del paso 3, antes de fecha y hora, porque las horas de inicio posibles dependen de ella (`duracion_min` es parámetro obligatorio de 2.8). HU-C-18 y HU-C-07 no la ubican. | **[DEFAULT SM, sin ratificar — Q2]** |
+| R5-4 | **Horario del profesor y materia.** `HorarioProfesor` **no tiene** `materiaId` (`schema.prisma`, `spec_modulo_D.md` §2.4/§3.5). Los PO lo reconocieron en el backlog v2: HU-C-07 AC1 y HU-C-17 AC1 ahora dicen "horario de atención de **ese profesor**" y HU-D-07 AC5 aclara que los horarios no dependen de la materia. Se contractualiza como *las franjas de un profesor activo que dicta esa materia*. **El backlog se deja tal cual** (decisión del equipo, 28/09): HU-C-17 conserva en el sub-punto de AC1 ("horarios … para ese profesor y esa materia") y en **AC5** ("el único solapamiento que se valida es el de aula") una redacción que el modelo no sostiene, porque la franja no tiene materia. **Aquí prevalece el modelo de datos:** 2.9 valida también al **profesor**, sin lo cual un choque de profesor aparecería como error técnico de la base en vez de un mensaje claro (el trigger igualmente lo rechazaría). Es una precisión técnica, no un cambio de alcance. | Resuelto; backlog sin tocar |
+| R5-5 | **Estado `CANCELADO`.** Migración aditiva `ALTER TYPE "EstadoTurno" ADD VALUE 'CANCELADO'`, **en una migración propia** (PostgreSQL no permite usar el valor nuevo en la misma transacción que lo agrega; Prisma envuelve cada migración en una). No se usa `migrate reset`: la base ya es compartida por el equipo. Terminal: no vuelve a ningún estado. | Decidido (HU-C-05 pedía coordinarlo con el SM) |
+| R5-6 | **Turnos vencidos** (`fecha + hora_inicio` ya pasó, guard `turnoSigueVigente`): **no** admiten cancelar (2.10), reprogramar (2.11) ni inscribir/quitar alumnos (2.5, 2.14). **Sí** admiten prioridad (2.12, HU-C-10 AC5), registrar pago (`spec_modulo_I.md` §2.4) y registrar clase dictada (`spec_modulo_E.md` §2.1). | **[DEFAULT SM, sin ratificar — Q5]** |
+| R5-7 | **Búsqueda del listado** (2.7): excepción **documentada** a la Regla N.° 3 (lectura de columnas normalizadas de Alumno, Profesor, Materia y Aula vía relaciones de Prisma, igual que ya hace el presentador `presentar()`); ver 3.11. | Decidido |
+| R5-8 | **Generación masiva** (2.9): (a) no se limita por `ANTICIPACION_MAXIMA_DIAS` (=30 en el seed, contradiría "un cuatrimestre"); se limita con dos parámetros nuevos `generacion_maxima_dias` y `generacion_maxima_turnos`; (b) además del aula, valida al **profesor** (R5-4); (c) detecta duplicados: un turno no cancelado del mismo profesor y materia que se superponga con la fecha calculada se informa como conflicto `TURNO_EXISTENTE` (mensaje claro: "ya generaste esas fechas"). Desde que los turnos generados nacen `DISPONIBLE` (R5-9) ya reservan profesor y aula, así que dos corridas idénticas también chocarían contra la exclusión GiST; esta guarda deja de ser la única defensa y pasa a ser solo un mensaje mejor. Se **elimina el advisory lock** de la versión anterior de esta spec. | **[DEFAULT SM, sin ratificar — Q3]** (Q10 ya no bloquea) |
+| R5-9 | **Turnos generados nacen `DISPONIBLE` 0/N.** Decisión de los PO en el backlog v2 (HU-C-17 AC7). No pasan por `PENDIENTE`: se insertan ya con profesor, aula, `cupoMaximoTurno` = capacidad del aula y `estadoTurno = DISPONIBLE`, de modo que el trigger `turno_sincronizar_reservas` reserva profesor y aula en el propio `INSERT` y admiten inscripción desde el primer momento (2.5 y autoservicio 2.14). Es el único camino, además de 2.2, por el que un turno llega a `DISPONIBLE`, y el **único que lo hace con 0 alumnos**. | Resuelto (era Q11) |
+| R5-10 | **Modificar un turno `PENDIENTE` que ya tiene aula** (paso "Atrás" del wizard, HU-C-18 AC4): si el nuevo profesor, fecha, hora o duración deja el aula en conflicto, el aula se **desasigna** (`aulaId` y `cupoMaximoTurno` a `null`) y se informa, mismo criterio que la desasignación de profesor de Revisión 3 (2.1 paso 8). | Decidido |
+| R5-11 | **RETIRADA.** Definía la forma de pago sugerida de HU-C-11 y el campo `createdAtTurnoAlumno`. Al retirarse HU-C-11 del backlog v2 desaparecen ambos; se conserva el número para no renumerar. | Retirada |
+| R5-12 | **Alcance por rol** del listado (C-08), detalle (C-09) y turnos propios (C-13): siempre lo resuelve el servidor a partir de la sesión, nunca del parámetro de la URL (mismo principio que `spec_modulo_J.md` §3.2). | Decidido |
+
+---
+
+## Changelog — Revisión 5 (Sprint 2)
+
+| HU / sección | Estado previo (Revisión 4) | Acción (Revisión 5) |
+|---|---|---|
+| HU-C-18 / flujo | Configurar → Aula → Profesor y alumnos | Nuevo orden Materia → Profesor → Fecha/Horario → Aula → Alumnos (R5-1). Anotadas 2.1, 2.2, 2.3, 2.6 |
+| HU-C-03 / 2.1 | `POST /api/turnos` sin profesor | Recibe `profesor_id` obligatorio y valida al profesor (R5-2). Anotada, sin renumerar |
+| HU-C-04 / 2.2 | Recibe `alumno_ids` + `profesor_id` obligatorio | `profesor_id` opcional. Nueva precondición `TURNO_SIN_PROFESOR` |
+| HU-C-15 / 2.3 | Segundo paso del flujo | Cuarto paso. Sin cambio de contrato (HU-C-16 sin cambio de contenido) |
+| HU-C-04 / 2.6 | Filtra el selector de profesor por horario del turno | Ya no es parte del wizard nuevo; se conserva para completar turnos `PENDIENTE` sin profesor (R5-2) |
+| HU-C-01 / 2.4 | Listado sin búsqueda ni prioridad | El presentador agrega `prioridad` y `creado_por`; el detalle agrega los pagos con su alumno (`spec_modulo_I.md`) |
+| HU-C-07 | Gap | Nueva sección 2.8 |
+| HU-C-17 | Gap | Nueva sección 2.9. Turnos generados `DISPONIBLE` 0/N (AC7 del backlog v2) |
+| HU-C-02 / HU-C-08 | Gap | Nueva sección 2.7 |
+| HU-C-05 / HU-C-06 / HU-C-10 | Gap | Nuevas secciones 2.10 a 2.12 |
+| HU-C-11 | Gap | **Retirada del backlog v2.** La sección 2.13 se conserva como marcador sin contrato (sin renumerar) |
+| HU-C-12 / HU-C-13 | Gap | Nueva sección 2.14 |
+| Servicios públicos | Solo consumía servicios de otros módulos | Nueva sección 2.15: provee 7 funciones |
+| §3.1 máquina de estados | 3 estados | 4 estados: agrega `CANCELADO` terminal |
+| Enum `EstadoTurno` | `PENDIENTE`, `DISPONIBLE`, `COMPLETO` | + `CANCELADO` (R5-5) |
+| Modelo `Turno` | Sin prioridad | + `prioridadTurno` (enum `PrioridadTurno`, default `NORMAL`). **Sin** forma de pago (HU-C-11 retirada) |
+| §3.4 `reservas_turno` | Trigger verificado ante cambios de duración | Relevado: ya cubre fecha, hora, estado, profesor y aula. Sin migración; pendiente prueba con `turno.reservas.pg.test.ts` |
+| §4 eventos | 9 eventos | + 4 eventos nuevos y 3 ampliados (ver tabla) |
+| Parámetros | — | + `generacion_maxima_dias`, `generacion_maxima_turnos` |
+
+**Migraciones de la Revisión 5** (cada una en su propio archivo; el orden importa):
+1. `ALTER TYPE "EstadoTurno" ADD VALUE 'CANCELADO'` — sola, sin más sentencias.
+2. `CREATE TYPE "PrioridadTurno" AS ENUM ('NORMAL','ALTA','URGENTE')` + `turnos.prioridadTurno NOT NULL DEFAULT 'NORMAL'`.
+3. `INSERT` en `parametros_sistema` y en `roles_permisos` (también en `seed.ts`, ver `spec_modulo_A.md` §2.4).
+
+**Triggers de `reservas_turno`: no requieren migración.** Relevados en `20260924150000_turnos_reservas_recursos_v2`: ya reaccionan a `estadoTurno`, `fechaTurno`, `horaInicioTurno`, `duracionMinutosTurno`, `profesorId` y `aulaId` (2.10 y 2.11). Solo falta probarlo contra Postgres real.
 
 ---
 
@@ -94,6 +157,8 @@ El Módulo C es el núcleo operativo del sistema: gestiona el ciclo de vida de u
 
 **Orden del flujo (Revisión 3, sin cambios en Revisión 4):** Configurar turno → Asignar aula (fija el cupo automáticamente) → Asignar profesor y alumnos (confirma el turno). Ver nota de cambio de flujo al inicio del documento.
 
+**Revisión 5 — cuarto estado.** La máquina pasa a cuatro estados: `DISPONIBLE ⇄ COMPLETO` siguen siendo automáticos y reversibles; `DISPONIBLE | COMPLETO → CANCELADO` (2.10) es manual y **terminal**. `PENDIENTE` no se cancela: se descarta sin guardar (HU-C-05 AC2). Un turno `CANCELADO` no reserva recursos (3.2), no aparece en calendarios ni en las franjas ocupadas de 2.8 y 2.3, y **conserva su historial completo** (no se borra, Regla N.° 1). Además, desde esta revisión el turno lleva `profesorId` desde el alta (R5-2) y una **prioridad** (2.12). **Excepción a "solo se sale de `PENDIENTE` en 2.2":** la generación masiva (2.9) inserta los turnos ya `DISPONIBLE` con 0 alumnos (R5-9).
+
 ```
 PENDIENTE ──(asignar aula, HU-C-15, 2.3 — fija cupoMaximoTurno = capacidad del aula)──▶ sigue PENDIENTE (aún sin profesor/alumnos)
 PENDIENTE ──(asignar profesor + ≥1 alumno, con aula ya asignada, HU-C-04, 2.2)──▶ DISPONIBLE o COMPLETO
@@ -128,12 +193,22 @@ No existe ningún camino de vuelta a `PENDIENTE` una vez que el turno tiene prof
 - **Guard de estado no-pendiente (nuevo):** toda validación de disponibilidad (profesor, alumno, aula) contra "turnos ya reservados" filtra `estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }` en vez de `estadoTurno: "AGENDADO"`.
 - **Etiquetas de texto del estado** (`ETIQUETA_ESTADO_TURNO`, agregado en HU-C-03; ubicación corregida en relevamiento de HU-C-04, 24/09: vive en `src/app/(dashboard)/turnos/turno.types.ts`, no en `src/types/turno.types.ts`): `PENDIENTE → "Pendiente"`, `DISPONIBLE → "Disponible"`, `COMPLETO → "Completo"`. Usado en `turnos-listado.tsx` y `turno-detalle.tsx`; el resto del diseño visual del listado (badge, columna `alumnos_inscriptos`) sigue siendo responsabilidad de HU-C-01.
 - **Módulo compartido `turno.disponibilidad.ts` (nuevo, Revisión 3):** `src/server/turnos/turno.disponibilidad.ts` agrupa los helpers de superposición de horario (intervalo del turno, profesores y aula con turno superpuesto) que usan en común 2.2, 2.3 y 2.6. Se creó como módulo aparte, en vez de agregar las funciones a `turno.aula.service.ts` o a `turno.profesor.service.ts` directamente, para evitar un import circular: `turno.aula.service.ts` ya importa `emitirEventoTurno` desde `turno.service.ts`, y varios de estos helpers los necesitan ambos servicios.
+- **Revisión 5 — permisos nuevos** (`RolPermiso`, sembrados en migración y en `seed.ts`; matriz completa en `spec_modulo_A.md` §2.4): `turnos:cancelar`, `turnos:reprogramar`, `turnos:priorizar` (Mesa de Entrada); `turnos:leer_propios` y `turnos:solicitar_propio` (Alumno). `turnos:leer`, `turnos:crear`, `turnos:asignar_participantes` y `turnos:asignar_aula` no cambian.
+- **Revisión 5 — archivos nuevos** (Regla N.° 11, todos en `src/server/turnos/`): `turno.generacion.service.ts` (2.9), `turno.cancelacion.service.ts` (2.10), `turno.reprogramacion.service.ts` (2.11), `turno.publico.ts` (2.15). `turno.disponibilidad.ts` y `turno.profesor.service.ts` se amplían (2.8). **`turno.publico.ts` no importa de otros módulos**; son los módulos consumidores los que importan de él.
+- **Revisión 5 — ids de turno en rutas:** las rutas nuevas que reciben el `id` del turno por URL **no** lo validan como CUID (mismo criterio y motivo que la nota de sincronización de HU-C-04: los turnos de seed tienen ids `seed-turno-NN`); un id inexistente responde `404`. El resto de los ids (alumno, profesor, aula, forma de pago, horario) sí se validan como CUID.
 - **Limitación conocida del entorno de desarrollo (Turbopack, Revisión 3):** con `next dev` (Turbopack, modo por defecto) la ruta `DELETE /api/turnos/[id]/alumnos/[alumnoId]` (2.5) deja de registrarse una vez que existe la carpeta `api/turnos/profesores/` (2.6), y responde con la página 404 de Next en vez de ejecutar el handler — sin que el código esté roto: funciona correctamente con `next dev --webpack` y en el build de producción. Causa raíz no diagnosticada en profundidad (asumida como un bug de ruteo de Turbopack en modo desarrollo). Workaround documentado en `README.md` ("Puesta en marcha", paso 8): usar `npx next dev --webpack` para desarrollo local. No se modificó el contrato de rutas ni `package.json` para evitar este problema.
 - **Nota de sincronización (HU-C-04, 24/09):** las rutas `PATCH .../participantes`, `POST .../alumnos` y `DELETE .../alumnos/[alumnoId]` no validan el `id` del turno en la URL contra el formato CUID (a diferencia del resto de la spec). Motivo: los turnos de seed usan ids no-CUID (`seed-turno-10`, etc.) y la validación los rechazaba con `400` antes de llegar al servicio, impidiendo probar el criterio 6 contra el seed. Un id inexistente ahora responde `404` desde el servicio, igual que `GET /api/turnos/[id]`. El `alumnoId` de la URL y el `alumno_id` del body sí se siguen validando como CUID. Si se decide endurecer esto en el futuro, debe aplicarse parejo en las 4 rutas de Turno que reciben el id por URL, no solo en estas 3.
 
 ---
 
 ### 2.1. Configurar turno (HU-C-03) — IMPLEMENTADA (Revisión 3), REABIERTA EN REVISIÓN 4, IMPLEMENTADA Y VERIFICADA (Revisión 4, 25/09/2026)
+
+> **Revisión 5 (HU-C-18, R5-1/R5-2/R5-3/R5-10).** El alta se dispara al confirmar el **paso 3** del wizard, no al empezar. `ConfigurarTurnoSchema` **agrega `profesor_id: z.string().cuid()` (obligatorio)**; `duracion_min` sigue igual. Comportamiento adicional, dentro de la misma transacción y sobre turnos `DISPONIBLE`/`COMPLETO` únicamente (3.2):
+> - Paso 1b: `profesorActivoDictaMateria(profesor_id, materia_id)` (Módulo D, con `tx`). Si no: `409 PROFESOR_NO_DICTA_MATERIA`. Si no existe o está inactivo: `404 PROFESOR_NO_ENCONTRADO`.
+> - Paso 5b: `estaDentroDeHorarioAtencion(profesor_id, fecha, hora_inicio, hora_fin)` y sin superposición con otro turno `DISPONIBLE`/`COMPLETO` del profesor (`intervalosSeSuperponen`). **Se reutiliza la validación de profesor que ya implementa 2.2 paso 5; no se reescribe.** Los códigos de error son los que esa validación ya devuelve (`409` identificando el recurso). Si al implementar no hubiera códigos específicos, usar `409 PROFESOR_FUERA_DE_HORARIO` y `409 PROFESOR_NO_DISPONIBLE`. Es la **revalidación de buena fe** de lo que ofreció 2.8 (HU-C-07 AC4); la defensa de motor sigue siendo `reservas_turno` al confirmar (2.2).
+> - Modificación (`PATCH .../configuracion`, solo `PENDIENTE`): admite cambiar `profesor_id` además de fecha, hora, duración y materia. Si cambia la materia y el profesor ya no la dicta, se rechaza con `409 PROFESOR_NO_DICTA_MATERIA` (en Revisión 4 se lo desasignaba; ahora es obligatorio, así que el cliente debe enviar el profesor nuevo en el mismo request). Si el cambio de profesor, fecha, hora o duración deja el **aula ya asignada** en conflicto (2.3 paso 2), el aula se desasigna y la respuesta lleva `"aula_desasignada": true` (R5-10).
+> - Respuesta `201` agrega `"profesor_id"`. El evento `turno:configurado` agrega `profesor_id` al payload.
+> - Turnos `PENDIENTE` de Revisión 4 sin profesor: siguen siendo válidos; no se migran.
 
 **Ruta (alta):** `POST /app/api/turnos/route.ts`
 **Ruta (modificación, mientras `PENDIENTE`):** `PATCH /app/api/turnos/[id]/configuracion/route.ts`
@@ -194,6 +269,8 @@ export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
 ### 2.2. Asignar profesor y alumnos al turno — carga inicial y confirmación (HU-C-04) — IMPLEMENTADA, REABIERTA EN REVISIÓN 3, sin cambios en Revisión 4
 
+> **Revisión 5 (HU-C-18, R5-2).** Sigue siendo la operación que **confirma** el turno y el **quinto y último paso** del wizard (Agregar Alumnos). Cambios: (1) `AsignarParticipantesTurnoSchema.profesor_id` pasa a **opcional**; (2) si el turno ya tiene `profesorId` y no se envía, se usa el existente; si se envía uno distinto, se revalida como en el paso 5 y reemplaza al anterior (solo mientras `PENDIENTE`); (3) si el turno no tiene profesor y no se envía: `409 TURNO_SIN_PROFESOR`, "Elegí un profesor antes de confirmar el turno"; (4) el paso 4 (`SIN_PROFESORES_PARA_MATERIA`) solo aplica cuando se envía un profesor nuevo. El resto de los pasos, la transición y los eventos **no cambian**. Precondición existente `TURNO_SIN_AULA` se mantiene: el aula ahora se elige en el paso 4, antes de este.
+
 Esta operación es el **combo inicial**: carga profesor + el conjunto completo de alumnos de una sola vez. **Cambio de Revisión 3: pasa a ser el último paso del flujo** (antes era el segundo; ahora requiere que el turno ya tenga aula asignada, ver 2.3) — es la operación que **confirma** el turno y dispara la transición a `Disponible`/`Completo` (antes esa transición ocurría al asignar aula). Para agregar o quitar un alumno de a uno una vez que el turno ya está confirmado, ver **2.5** (sin cambios).
 
 **Ruta:** `PATCH /app/api/turnos/[id]/participantes/route.ts`
@@ -207,7 +284,9 @@ export const AsignarParticipantesTurnoSchema = z.object({
   alumno_ids: z.array(z.string().cuid())
     .min(1, "Agregá al menos un alumno")
     .refine((ids) => new Set(ids).size === ids.length, "El mismo alumno no puede agregarse dos veces"),
-  profesor_id: z.string().cuid(),
+  // Revisión 5 (R5-2): opcional. Si el turno ya tiene profesor (paso 2 del wizard), se usa el existente;
+  // si no lo tiene y no se envía, el servicio responde 409 TURNO_SIN_PROFESOR (no lo decide el schema).
+  profesor_id: z.string().cuid().optional(),
 });
 export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantesTurnoSchema>;
 ```
@@ -248,6 +327,8 @@ export type AsignarParticipantesTurnoInput = z.infer<typeof AsignarParticipantes
 ---
 
 ### 2.3. Asignar aula al turno — fija el cupo automáticamente (HU-C-15) — REMEDIADA, REABIERTA EN REVISIÓN 3, sin cambios en Revisión 4
+
+> **Revisión 5 (HU-C-16, HU-C-18).** **Sin cambios de contrato ni de comportamiento.** Pasa de ser el segundo al **cuarto paso** del wizard. Como el turno ya existe (`PENDIENTE`, con profesor, fecha, hora y duración) cuando se llega acá (R5-1), el frontend usa siempre `GET /api/turnos/aula/opciones?turno_id=` con el `turno_id` real, que filtra por disponibilidad horaria; el modo sin `turno_id` (H1, Revisión 3) queda sin uso en el wizard. HU-C-16 AC1 a AC4 ya están cubiertos por 2.3: cada opción muestra nombre/número y capacidad, "No hay aulas disponibles para este horario" ante lista vacía con oferta de volver al paso 3, y revalidación al confirmar.
 
 **Cambio de Revisión 3:** pasa a ser el **segundo paso** del flujo (antes era el último y confirmaba el turno; la confirmación se movió a 2.2). Ya no valida contra un cupo preexistente — **lo fija automáticamente** a partir de la capacidad del aula elegida.
 
@@ -292,6 +373,8 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 ### 2.4. Listado y detalle de turnos (HU-C-01) — sin cambios en Revisión 4
 
+> **Revisión 5 (HU-C-09, HU-C-10, HU-C-02, HU-C-08).** El presentador `presentar()` agrega: `prioridad` (`"NORMAL" | "ALTA" | "URGENTE"`), `creado_por` y `creado_en`. **El detalle** (`GET /api/turnos/[id]`) agrega además: `cupo_maximo`, `duracion_minutos`, el listado completo de `alumnos`, `pagos` (`listarPagosDeTurno()`, cada uno con su **alumno**, monto, forma de pago y fecha, solo si el rol tiene `pagos:leer`), `clase_dictada` (`{ id, registrada_en } | null`, vía `obtenerClaseDictadaDeTurno()` de `spec_modulo_E.md` §2.4) y `acciones_habilitadas` (lista de las acciones que el estado y el rol permiten: `cancelar`, `reprogramar`, `prioridad`, `registrar_pago`, `registrar_clase`). Cada alumno inscripto lleva el enlace "Ver historial" cuando el rol tiene `historial:leer` (`spec_modulo_E.md` §2.3, punto abierto Q13); es el punto de entrada del Gerente y del Profesor a la ficha del alumno. Un profesor que consulta un turno que no es suyo recibe `403 SIN_PERMISO` sin revelar si existe (`spec_modulo_J.md` §2.1). Los datos no asignados de un `PENDIENTE` se muestran `"Sin asignar"` (D4). **`creado_por`:** `Usuario` no tiene nombre (solo `emailUsuario`) y el personal de mesa de entrada no tiene ficha; se muestra el **email** vía el servicio público de Módulo A `obtenerEmailDeUsuario()` (nunca un `SELECT` sobre `usuarios`). El listado agrega los parámetros de 2.7 (`q`, `profesor_id`) y muestra el indicador visual de prioridad `ALTA`/`URGENTE` (texto o ícono, no solo color). Vista de la pantalla: mapa de pantallas §1, fila "Detalle de turno".
+
 **Ruta (listado):** `GET /app/api/turnos/route.ts` · **Ruta (detalle):** `GET /app/api/turnos/[id]/route.ts`
 **Servicio:** `src/server/turnos/turno.service.ts` → `listarTurnos()` / `obtenerTurno()` (ya implementadas, ver función `presentar()`)
 **Permiso requerido:** `turnos:leer`
@@ -324,6 +407,8 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 ---
 
 ### 2.5. Agregar o quitar un alumno individual (HU-C-04, ampliación) — IMPLEMENTADA, sin cambios en Revisión 4
+
+> **Revisión 5 (HU-C-12).** El cuerpo de "agregar" se extrae a `inscribirAlumnoEnTurno(turnoId, alumnoId, { origen }, tx)`, que 2.14 reutiliza para la autoinscripción del alumno. Sin cambios de comportamiento ni de contrato para Mesa de Entrada (`origen: "MESA_ENTRADA"`). Un turno `CANCELADO` responde `409 TURNO_CANCELADO` tanto al agregar como al quitar.
 
 **DECISIÓN RESUELTA (no relevar de nuevo):** esta operación existe **solo** cuando `estadoTurno ∈ {DISPONIBLE, COMPLETO}` — es decir, una vez que el turno ya tiene aula. Mientras el turno está `PENDIENTE`, cualquier cambio en los alumnos se resuelve reemplazando el conjunto completo vía 2.2. Motivo: HU-C-04 criterio 6 describe explícitamente "si el turno estaba en Completo, al quitar un alumno vuelve a Disponible" — esa transición solo existe una vez que el turno dejó de ser `PENDIENTE`.
 
@@ -369,6 +454,8 @@ export const AgregarAlumnoTurnoSchema = z.object({
 
 ### 2.6. Listar profesores disponibles para el turno (HU-C-04, ampliación — NUEVA en Revisión 3), sin cambios en Revisión 4
 
+> **Revisión 5 (R5-2).** Este endpoint **deja de formar parte del wizard nuevo**: el profesor se elige en el paso 2 sin filtrar por horario (2.8, `GET /api/turnos/profesores/por-materia`), y la disponibilidad se aplica después, en el paso 3. Se **conserva sin cambios** para un único caso: completar un turno `PENDIENTE` de Revisión 4 que todavía no tiene profesor (`POST .../participantes` con `profesor_id`, 2.2).
+
 Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al confirmar. Mismo patrón que 2.3 usa para las opciones de aula.
 
 **Ruta:** `GET /api/turnos/profesores/opciones?turno_id=`
@@ -397,6 +484,358 @@ Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al c
 ```
 
 **Nota de alcance:** esta lista es de buena fe, igual que la de aulas (2.3) — el turno todavía no reserva nada hasta confirmarse en 2.2, así que un profesor listado acá puede dejar de estar disponible si otro turno lo toma antes de que este se confirme. Por eso 2.2 revalida igual en su paso 5, con la defensa final de `reservas_turno` (3.4) como garantía de motor.
+
+---
+
+### 2.7. Búsqueda en el listado y filtro por profesor (HU-C-02, HU-C-08) — NUEVA en Revisión 5
+
+**Ruta:** la misma de 2.4, `GET /app/api/turnos/route.ts` — **no es una pantalla nueva** (mapa de pantallas §1, filas HU-C-02 y HU-C-08).
+**Servicio:** `turno.service.ts` → `listarTurnos()` (se amplía, no se duplica).
+**Permiso requerido:** `turnos:leer` (sin cambios: Mesa de Entrada, Gerente y Profesor).
+
+```typescript
+// src/server/turnos/turno.schema.ts — se amplía ListarTurnosQuerySchema
+export const ListarTurnosQuerySchema = z.object({
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+  q: z.string().trim().max(100).optional(),        // HU-C-02
+  profesor_id: z.string().trim().min(1).optional(), // HU-C-08 (sin .cuid(): ver nota de ids de seed en "Convenciones")
+  // Filtros de apoyo para HU-D-07 AC3 ("la lista sale del listado de turnos existente, filtrado por ese
+  // profesor, esa materia y fecha futura"). No son filtros combinados de UI (HU-C-02 AC6 sigue fuera de alcance):
+  materia_id: z.string().trim().min(1).optional(),
+  estados: z.string().optional(),                                  // CSV de EstadoTurno, p. ej. "DISPONIBLE,COMPLETO"; valores inválidos → 400
+  solo_futuros: z.enum(["true", "false"]).transform((v) => v === "true").optional(), // fecha + hora_inicio >= ahora
+}).strict();
+```
+
+**Comportamiento esperado — búsqueda (`q`):**
+1. Si `q` tiene menos de 2 caracteres tras el `trim`, se **ignora** (equivale a no filtrar). La UI no lo envía; la regla del servidor evita que un `q` de un carácter devuelva una lista rara. Mismo umbral que HU-B-05 y el selector de HU-C-04.
+2. Se normaliza con `normalizarTexto(q)` (minúsculas, sin acentos) y se parte en **tokens** por espacios (máximo 5; el resto se descarta).
+3. **Cada token** debe coincidir (parcialmente, `contains`) con **al menos uno** de estos campos: apellido o nombre normalizado de algún alumno inscripto, apellido o nombre normalizado del profesor, `nombreNormalizadaMateria`, `nombreNormalizadaAula`. Entre tokens es **AND**; entre campos, **OR**. Así "Ana" devuelve los turnos donde coincide una alumna o una profesora (HU-C-02 AC2).
+4. Devuelve los turnos en cualquier estado, con el mismo formato de fila de 2.4, mismo orden por defecto (fecha/hora ascendente desde hoy, `profesor_id` como desempate) y paginación sobre el resultado filtrado (la UI vuelve a la página 1 al escribir).
+5. Sin coincidencias: `200` con `items: []`. Los mensajes "No se encontraron turnos para «texto»" y el vaciado de la búsqueda son responsabilidad de la UI.
+
+**Comportamiento esperado — filtro por profesor (`profesor_id`):**
+1. **Alcance por rol, resuelto siempre en el servidor** (R5-12): un `PROFESOR` ve automáticamente **solo sus turnos**; se ignora cualquier `profesor_id` que no sea el propio y, si se envía uno ajeno, `403 SIN_PERMISO` sin revelar si existe. `GERENTE` y `MESA_ENTRADA` pueden enviar cualquier `profesor_id` de un profesor activo (`404 PROFESOR_NO_ENCONTRADO` si no existe).
+2. Se combina con `q` y con la paginación.
+3. Incluye turnos en **cualquier estado** (`PENDIENTE`, `DISPONIBLE`, `COMPLETO`, `CANCELADO`), a diferencia del calendario (que solo muestra `DISPONIBLE`/`COMPLETO`). Esa es la diferencia que justifica HU-C-08 (AC3).
+4. Sin resultados con `profesor_id` y sin `q`: la UI muestra "Este profesor no tiene turnos registrados".
+
+**Uso por HU-D-07 (Profesor, `spec_modulo_D.md` §2.7):** cuando la baja de una materia se rechaza por turnos futuros, el modal "Ver turnos" de la ficha llama `GET /api/turnos?profesor_id=<id>&materia_id=<id>&estados=DISPONIBLE,COMPLETO&solo_futuros=true&por_pagina=10&pagina=<n>` (**paginado de a 10**, backlog del 28/09) y muestra, por cada turno, fecha, hora, **aula**, ocupación (p. ej. 3/5) y **estado**, con enlace al Detalle de turno **en una pestaña nueva**, donde Mesa de Entrada puede cancelarlo (HU-C-05). Esos campos ya vienen en cada fila del listado (2.4). Los turnos **pasados y cancelados no bloquean** (HU-D-07 AC3), por eso el filtro de estados **excluye** `PENDIENTE` y `CANCELADO`. No hay endpoint nuevo.
+
+**Selector de profesores para el Gerente:** `GET /api/turnos/filtros/profesores` (permiso `turnos:leer`) devuelve `[{ id, nombre, apellido }]` de los profesores activos vía `listarProfesoresActivosOpciones()` (Módulo D, 2.8). No se usa `profesores:leer` porque el Gerente no lo tiene (`seed.ts`, `ACCIONES_SOLO_MESA_ENTRADA`).
+
+**Nota de sincronización — excepción a la Regla N.° 3:** la búsqueda filtra por columnas normalizadas de otros módulos vía relaciones de Prisma. Ver R5-7 y 3.11.
+
+**Respuesta `200 OK`:** igual a 2.4, con los campos ampliados por la nota de Revisión 5.
+
+---
+
+### 2.8. Profesores por materia y disponibilidad para "Fecha y Horario" (HU-C-07) — NUEVA en Revisión 5
+
+Es el mecanismo que calcula las opciones de los pasos 2 y 3 del wizard. **Cambia de naturaleza respecto del backlog original** (propuesta de orden de flujo, §3): ya no es una ayuda visual dentro del selector de profesor, es el paso central "Elegir Fecha y Horario".
+
+**Servicio:** `src/server/turnos/turno.profesor.service.ts` (`listarProfesoresPorMateria()`, `calcularDisponibilidadProfesor()`), con el cálculo puro en `turno.disponibilidad.ts` (módulo compartido, ver "Convenciones generales").
+**Permiso requerido:** `turnos:crear`.
+
+#### 2.8.1. Paso 2 — Profesores de la materia
+
+**Ruta:** `GET /api/turnos/profesores/por-materia?materia_id=`
+
+1. Verificar `materia_id` activa (`verificarMateriaActiva()`); si no: `409 MATERIA_NO_DISPONIBLE`.
+2. Listar profesores activos asociados (`listarProfesoresActivosPorMateria()`, Módulo D). Si la lista está vacía: `404 SIN_PROFESORES_PARA_MATERIA`. **No** se filtra por horario: eso ocurre en el paso 3.
+
+**Respuesta `200 OK`:** `{ "data": [{ "id": "cuid", "nombre": "Ana", "apellido": "Gómez" }], "error": null }` (array directo, mismo formato que 2.3 y 2.6).
+
+#### 2.8.2. Paso 3 — Fechas y horarios disponibles del profesor
+
+**Ruta:** `GET /api/turnos/profesores/[profesorId]/disponibilidad?materia_id=&duracion_min=&desde=&hasta=`
+
+```typescript
+export const DisponibilidadProfesorQuerySchema = z.object({
+  materia_id: z.string().trim().min(1, "Seleccioná una materia"),
+  duracion_min: z.coerce.number({ error: "Elegí la duración del turno" })
+    .int().refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"), // R5-3
+  desde: fechaCalendarioValidaSchema.optional(), // por defecto, hoy
+  hasta: fechaCalendarioValidaSchema.optional(), // por defecto y como máximo, hoy + ANTICIPACION_MAXIMA_DIAS
+});
+```
+
+**Comportamiento esperado:**
+1. Verificar materia activa (`409 MATERIA_NO_DISPONIBLE`), profesor activo (`404 PROFESOR_NO_ENCONTRADO`) y que dicte la materia (`profesorActivoDictaMateria()`, `409 PROFESOR_NO_DICTA_MATERIA`).
+2. Rango efectivo `[max(desde, hoy), min(hasta, hoy + ANTICIPACION_MAXIMA_DIAS)]`. Si `desde > hasta` tras el ajuste: `400`. Los valores fuera de tope se recortan, no se rechazan.
+3. Para cada **día operativo** del rango (`DIAS_OPERATIVOS`), tomar las franjas de atención del profesor cuyo `dia_semana` coincide (`obtenerHorariosDeAtencion()`, Módulo D, 2.8). Las franjas son recurrentes y **no tienen materia** (R5-4).
+4. De cada franja, **restar** los intervalos de los turnos `DISPONIBLE`/`COMPLETO` del profesor en esa fecha (3.2, misma fórmula `intervalosSeSuperponen`, 3.3). Los `PENDIENTE` y `CANCELADO` **no restan** (HU-C-07 AC2). El resultado son los **tramos libres**.
+5. Dentro de cada tramo libre, las **horas de inicio ofrecidas** son las alineadas a `GRANULARIDAD_MINUTOS` tales que `inicio ≥ inicio del tramo` y `inicio + duracion_min ≤ fin del tramo`, y contenidas en `[HORA_APERTURA, HORA_CIERRE]`. Para hoy, solo las posteriores a la hora actual (`America/Argentina/Buenos_Aires`).
+6. Se omiten las fechas sin ninguna hora de inicio posible.
+
+**Respuesta `200 OK`:**
+```json
+{
+  "data": {
+    "profesor": { "id": "cuid", "nombre_completo": "Gómez, Ana" },
+    "duracion_min": 120,
+    "rango": { "desde": "2026-09-29", "hasta": "2026-10-28" },
+    "fechas": [
+      { "fecha": "2026-09-29", "dia_semana": "MARTES",
+        "franjas": [ { "hora_inicio": "08:00", "hora_fin": "12:00",
+                       "tramos_libres": [{ "desde": "08:00", "hasta": "12:00" }],
+                       "inicios": ["08:00", "08:30", "09:00", "09:30", "10:00"] } ] }
+    ]
+  },
+  "error": null
+}
+```
+`fechas: []` significa que no hay ningún horario libre en el rango: la UI muestra "Este profesor no tiene horarios disponibles para esta materia en este momento" y ofrece volver al paso 2 (HU-C-07 AC3). Es `200`, no un error.
+
+**Alcance de buena fe (HU-C-07 AC4):** igual que 2.3 y 2.6, la lista no reserva nada. Se **revalida** en 2.1 (al crear) y otra vez en 2.2 al confirmar, con `reservas_turno` (3.4) como defensa final.
+
+**Fuera de alcance de esta sección:** la vista de calendario (`spec_modulo_J.md`) y la generación masiva (2.9), que reutiliza el mismo cálculo pero en su propia pantalla.
+
+---
+
+### 2.9. Generar turnos a partir del horario del profesor (HU-C-17) — NUEVA en Revisión 5
+
+**Pantalla:** no tiene ruta propia. Vive en `/turnos/nuevo` detrás del control "Turno individual / Generar varios turnos" (decisión de PO 27/09, mapa de pantallas §1). Página completa, feedback por banner.
+**Rutas:**
+- `POST /api/turnos/generacion/vista-previa` — calcula y valida, **no persiste nada**.
+- `POST /api/turnos/generacion` — confirma y persiste.
+**Servicio:** `src/server/turnos/turno.generacion.service.ts` (`vistaPreviaGeneracion()`, `generarTurnos()`).
+**Permiso requerido:** `turnos:crear`.
+**Franjas del profesor:** `GET /api/turnos/profesores/[profesorId]/franjas?materia_id=` (permiso `turnos:crear`) devuelve las franjas **recurrentes** `[{ horario_id, dia_semana, hora_inicio, hora_fin }]` del profesor vía `obtenerHorariosDeAtencion()` (mismo profesor que dicte la materia; sin materia por franja, R5-4).
+
+```typescript
+export const GenerarTurnosSchema = z.object({
+  materia_id: z.string().trim().min(1),
+  profesor_id: z.string().cuid(),
+  horario_id: z.string().cuid(),                 // la franja recurrente elegida (HorarioProfesor)
+  duracion_min: z.number().int().refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"), // corrige el "1 o 2 horas" del criterio original: DURACIONES_PERMITIDAS_TURNO_MIN = [60, 120, 180]
+  hora_inicio: horaSchema,                       // cualquier inicio dentro de la franja (AC1)
+  aula_id: z.string().cuid(),                    // una sola para todo el rango (AC4)
+  fecha_desde: fechaCalendarioValidaSchema,
+  fecha_hasta: fechaCalendarioValidaSchema,
+}).strict().refine((d) => d.fecha_desde <= d.fecha_hasta, { message: "La fecha hasta debe ser posterior o igual a la fecha desde", path: ["fecha_hasta"] });
+```
+
+**Comportamiento esperado (ambas rutas ejecutan el mismo cálculo; la de confirmación lo repite dentro de la transacción y nunca confía en una lista enviada por el cliente):**
+1. Materia activa; profesor activo que dicta la materia (`409 PROFESOR_NO_DICTA_MATERIA`); `horario_id` pertenece a ese profesor (`404 HORARIO_NO_ENCONTRADO`); aula activa (`404 SIN_AULAS_ACTIVAS` / `404 AULA_NO_ENCONTRADA` / `409 AULA_INACTIVA`, mismos códigos que 2.3). La capacidad del aula no se compara contra inscriptos (no hay ninguno al generar), por lo que `AULA_CAPACIDAD_INSUFICIENTE` no aplica.
+2. **Encaje en la franja (AC2):** `hora_inicio` alineada a `GRANULARIDAD_MINUTOS` y `franja.hora_inicio ≤ hora_inicio` y `hora_inicio + duracion_min ≤ franja.hora_fin`. Si no: `400 FUERA_DE_FRANJA`. El tramo sobrante de la franja **no se consume**: sigue ofrecido por 2.8 para otra generación (AC3), porque solo los turnos `DISPONIBLE`/`COMPLETO` restan tramos (3.2).
+3. **Rango (R5-8a):** `fecha_desde ≥ hoy`; `fecha_hasta − fecha_desde ≤ generacion_maxima_dias`; cantidad de fechas calculadas `≤ generacion_maxima_turnos`. Si no: `400 RANGO_EXCEDIDO` indicando el máximo. **No aplica** `ANTICIPACION_MAXIMA_DIAS`.
+4. **Fechas puntuales (AC5):** todas las fechas de `[fecha_desde, fecha_hasta]` cuyo día de la semana es el de la franja y que sean día operativo. Las de hoy cuya `hora_inicio` ya pasó se **omiten** y se informan en `fechas_omitidas_vencidas`. Cada fecha se valida **por separado** (dos lunes distintos no comparten resultado).
+5. **Conflictos por fecha**, contra el intervalo real `[hora_inicio, hora_inicio + duracion_min)`:
+   - `AULA_OCUPADA`: el aula tiene un turno `DISPONIBLE`/`COMPLETO` superpuesto (`aulaConTurnoSuperpuesto()`).
+   - `PROFESOR_OCUPADO`: el profesor tiene un turno `DISPONIBLE`/`COMPLETO` superpuesto (**agregado por el SM**: AC5 lo da por imposible, R5-4).
+   - `TURNO_EXISTENTE`: existe un turno **no cancelado** del mismo profesor y materia superpuesto, en cualquier estado incluido `PENDIENTE` (R5-8c). Evita duplicar una corrida ya hecha. Si además aplican `AULA_OCUPADA` o `PROFESOR_OCUPADO`, se informa **solo** `TURNO_EXISTENTE` (es la causa; los otros son consecuencia).
+6. **Vista previa (AC6):** devuelve cantidad, fechas y, por fecha, `estado: "OK" | "CONFLICTO"` con `motivos`. Un conflicto se resuelve cambiando el aula **para todo el rango** o acotando el rango; nunca un aula por fecha (AC4).
+
+**Respuesta `200 OK` (vista previa):**
+```json
+{
+  "data": {
+    "cantidad": 15,
+    "fechas": [
+      { "fecha": "2026-10-05", "estado": "OK", "motivos": [] },
+      { "fecha": "2026-10-12", "estado": "CONFLICTO", "motivos": ["AULA_OCUPADA"] }
+    ],
+    "hay_conflictos": true,
+    "fechas_omitidas_vencidas": 0
+  },
+  "error": null
+}
+```
+
+**Confirmación (`POST /api/turnos/generacion`), dentro de una única `prisma.$transaction`:**
+1. Recalcular 1 a 5 **dentro de la transacción**. **Si existe al menos un conflicto: no se crea ningún turno** y responde `409 GENERACION_CON_CONFLICTOS` con el mismo detalle por fecha. La generación es **todo o nada por corrida** (AC6); no se saltean fechas conflictivas.
+2. Sin conflictos: insertar un `Turno` por fecha (`tx.turno.create` en bucle; el tope de `generacion_maxima_turnos` lo acota) **ya confirmado** (HU-C-17 AC7 del backlog v2, R5-9): `estadoTurno: "DISPONIBLE"`, `materiaId`, `profesorId`, `aulaId`, `cupoMaximoTurno = capacidad del aula`, `duracionMinutosTurno`, fecha y hora, `prioridadTurno: "NORMAL"`, `creadoPorUsuarioId`. **Sin alumnos (0/N).** No pasa por `PENDIENTE` ni por 2.2. Es la **única excepción** a "el turno sale de `PENDIENTE` solo en 2.2" (3.1), y la única forma de tener un `DISPONIBLE` con 0 alumnos por alta.
+3. **Defensa de motor:** el trigger `turno_sincronizar_reservas` (`AFTER INSERT`) reserva profesor y aula en cada `INSERT`. Si la exclusión GiST rechaza alguno (`23P01`; una reserva concurrente se coló entre el cálculo y la inserción), **toda la transacción se revierte** y se responde `409 GENERACION_CON_CONFLICTOS` pidiendo repetir la vista previa; se traduce con `esConflictoDeReserva()` / `errorDeReserva()` de `turno.reserva-error.ts`, sin reescribirlos. Esto reemplaza al advisory lock de la versión anterior de esta spec: ya no hace falta, porque los turnos generados reservan.
+4. Tras el `COMMIT`, emitir por cada turno `turno:configurado` (con `generacion_id`), `turno:aula_asignada` y `turno:disponibilizado` (con `alumno_ids: []`), en un único `createMany` sobre `eventos_turno`.
+
+**Respuesta `201 Created`:** `{ "data": { "generacion_id": "cuid", "cantidad": 15, "turno_ids": ["cuid", "…"] }, "error": null }` — la UI informa la cantidad creada (AC7).
+
+**Reglas que **no** cambian (AC8, AC9):** no hay excepciones de disponibilidad del profesor por fecha (una licencia se resuelve cancelando ese turno puntual con 2.10, sin tocar el horario recurrente ni los demás turnos) y la generación siempre la dispara una persona; no existe proceso automático de fondo.
+
+**Fuera de alcance:** aula distinta por fecha, excepciones por licencia, generación con alumnos, y cualquier proceso programado.
+
+---
+
+### 2.10. Cancelar un turno (HU-C-05) — NUEVA en Revisión 5
+
+**Ruta:** `POST /app/api/turnos/[id]/cancelacion/route.ts` (sin body)
+**Servicio:** `src/server/turnos/turno.cancelacion.service.ts` → `cancelarTurno()`
+**Permiso requerido:** `turnos:cancelar` (exclusivo de Mesa de Entrada)
+**Presentación:** `AlertDialog` en el Detalle de turno, mensaje "¿Confirmás cancelar este turno? Esta acción no se puede deshacer." y botón "Cancelar turno"; toast "Turno cancelado correctamente" (mapa de pantallas §4, `DESIGN.md` §6).
+
+**Comportamiento esperado, dentro de una única `prisma.$transaction`:**
+1. Condición y mutación en **una sola sentencia** (Regla N.° 7):
+   ```typescript
+   const r = await tx.turno.updateMany({
+     where: { idTurno: id, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } },
+     data: { estadoTurno: "CANCELADO", modificadoPorUsuarioId: usuarioId },
+   });
+   ```
+2. Si `count === 0`, leer el turno para distinguir: no existe `404 TURNO_NO_ENCONTRADO`; `PENDIENTE` → `409 TURNO_PENDIENTE` (no tiene esta acción, HU-C-05 AC2); ya `CANCELADO` → `409 TURNO_YA_CANCELADO`.
+3. **Guard de vigencia** (R5-6): un turno cuyo `fecha + hora_inicio` ya pasó no se cancela → `409 TURNO_VENCIDO`. Un turno con clase dictada registrada (`spec_modulo_E.md`) siempre está vencido, así que queda protegido por el mismo guard.
+4. **Liberación de recursos (AC3): la hace el trigger, no el servicio.** `turno_sincronizar_reservas` (migración `20260924150000_turnos_reservas_recursos_v2`, verificado leyendo el SQL) escucha `UPDATE OF "estadoTurno"`, borra **todas** las reservas del turno (aula, profesor y alumnos) y solo las reinserta si el estado es `DISPONIBLE` o `COMPLETO`. Al pasar a `CANCELADO` quedan liberadas sin código adicional. **No se hace `DELETE` manual sobre `reservas_turno`** (así no hay una segunda vía que mantener). **No** se borra `TurnoAlumno`: el turno conserva sus inscriptos como historial, y `sincronizar_reserva_alumno` no vuelve a reservar a nadie porque el turno ya no está confirmado.
+5. Ningún camino sale de `CANCELADO`.
+6. Emitir `turno:cancelado` después del `COMMIT`.
+
+**Efectos sobre otras consultas (ya cubiertos por 3.2, sin cambios de código):** un `CANCELADO` desaparece de los calendarios (`spec_modulo_J.md` §3.1) y de las franjas ocupadas de 2.8 y 2.3 (todos filtran `IN ("DISPONIBLE","COMPLETO")`). El listado (2.4) y el detalle **lo siguen mostrando** con la etiqueta "Cancelado" y su historial completo (AC5). `ETIQUETA_ESTADO_TURNO` agrega `CANCELADO → "Cancelado"`.
+
+**Relevado (28/09/2026):** el trigger ya contempla el cambio de estado (ver paso 4); no hace falta migración de triggers. **Pendiente solo la prueba** contra Postgres real, con el patrón de `turno.reservas.pg.test.ts`: cancelar un `DISPONIBLE` y comprobar que aula, profesor y alumnos quedan libres para otro turno superpuesto. Ojo: `ALTER TYPE ... ADD VALUE 'CANCELADO'` va en su propia migración (R5-5); el cuerpo del trigger compara contra literales, así que no hay que recrearlo.
+
+**Respuesta `200 OK`:** `{ "data": { "id": "cuid", "estado": "CANCELADO" }, "error": null }`
+
+**Fuera de alcance:** cancelación de un turno propio por el alumno (HU-C-14, Sprint 3); motivo de cancelación; notificaciones; reactivar un turno cancelado.
+
+---
+
+### 2.11. Reprogramar un turno (HU-C-06) — NUEVA en Revisión 5
+
+**Ruta:** `PATCH /app/api/turnos/[id]/reprogramacion/route.ts`
+**Servicio:** `src/server/turnos/turno.reprogramacion.service.ts` → `reprogramarTurno()`
+**Permiso requerido:** `turnos:reprogramar` (exclusivo de Mesa de Entrada)
+**Presentación:** `Dialog` en el Detalle de turno con **Fecha** y **Hora de inicio**; toast "Turno reprogramado correctamente".
+
+```typescript
+export const ReprogramarTurnoSchema = z.object({
+  fecha: fechaCalendarioValidaSchema,
+  hora_inicio: horaSchema,
+}).strict(); // no admite duracion, profesor ni materia (HU-C-06 AC5)
+```
+
+**Comportamiento esperado, dentro de una única `prisma.$transaction`:**
+1. Bloquear el turno con `SELECT … FOR UPDATE` (mismo patrón que 3.7). Debe existir y estar `DISPONIBLE` o `COMPLETO`: `PENDIENTE` → `409 TURNO_PENDIENTE` (se modifica con 2.1); `CANCELADO` → `409 TURNO_CANCELADO`.
+2. **Guard de vigencia** sobre el turno actual (R5-6): `409 TURNO_VENCIDO`. La nueva fecha/hora también debe ser futura.
+3. Validaciones de fecha de 2.1 pasos 2, 3, 5 y 6 (no pasada, día operativo, dentro del horario operativo con la duración **ya persistida**, dentro de `ANTICIPACION_MAXIMA_DIAS`, alineada a `GRANULARIDAD_MINUTOS`).
+4. **Triple validación (AC2)** contra turnos `DISPONIBLE`/`COMPLETO`, **excluyendo el propio turno** de cada comparación, con la misma fórmula de 3.3:
+   - Profesor: `estaDentroDeHorarioAtencion()` y sin superposición.
+   - Aula ya asignada: sin superposición.
+   - **Cada alumno inscripto**: sin otro turno superpuesto.
+   Se evalúan los tres y se informan **todos** los conflictos encontrados: `409 REPROGRAMACION_CONFLICTO` con `conflictos: [{ recurso: "PROFESOR" | "AULA" | "ALUMNO", id }]`. No se guarda nada.
+5. `UPDATE` de `fechaTurno` y `horaInicioTurno` (y `modificadoPorUsuarioId`). **Estado, inscripciones, aula, profesor, duración e historial de clases dictadas no cambian** (AC4). El turno conserva `DISPONIBLE` o `COMPLETO`.
+6. **Defensa de motor:** `reservas_turno` debe recalcular su rango. Una violación de la exclusión GiST (`23P01`) se traduce al mismo `409 REPROGRAMACION_CONFLICTO`, nunca se propaga como error técnico.
+7. Emitir `turno:reprogramado` después del `COMMIT`.
+
+**Relevado (28/09/2026), ya no es bloqueante:** `turno_sincronizar_reservas` escucha `AFTER INSERT OR UPDATE OF "estadoTurno", "fechaTurno", "horaInicioTurno", "duracionMinutosTurno", "profesorId", "aulaId"` y, ante cada cambio, borra las reservas del turno y las regenera con el nuevo intervalo, **incluidas las de los alumnos** (las lee de `turno_alumno`). Reprogramar mueve las reservas sin migración. Para traducir la violación de la exclusión GiST usar los helpers existentes de `turno.reserva-error.ts` (`esConflictoDeReserva`, `recursoEnConflicto`, `errorDeReserva`) en vez de reescribirlos. **Pendiente solo la prueba** contra Postgres real: reprogramar hacia un horario donde el aula, el profesor o un alumno ya están ocupados debe devolver `409 REPROGRAMACION_CONFLICTO` y dejar el turno intacto.
+
+**Respuesta `200 OK`:** `{ "data": { "id": "cuid", "fecha": "2026-10-06", "hora_inicio": "10:00", "hora_fin": "12:00", "estado": "DISPONIBLE" }, "error": null }`
+
+**Fuera de alcance:** cambiar materia, profesor o duración de un turno confirmado (implicaría reconstruirlo); reprogramar un `PENDIENTE`.
+
+---
+
+### 2.12. Asignar prioridad al turno (HU-C-10) — NUEVA en Revisión 5
+
+**Ruta:** `PATCH /app/api/turnos/[id]/prioridad/route.ts`
+**Servicio:** `turno.service.ts` → `actualizarPrioridadTurno()`
+**Permiso requerido:** `turnos:priorizar` (exclusivo de Mesa de Entrada)
+**Presentación:** `Dialog` en el Detalle de turno; toast "Prioridad actualizada".
+
+```typescript
+export const PRIORIDADES_TURNO = ["NORMAL", "ALTA", "URGENTE"] as const;
+export const ActualizarPrioridadSchema = z.object({ prioridad: z.enum(PRIORIDADES_TURNO) }).strict();
+```
+
+**Comportamiento esperado:**
+1. `updateMany` con `where: { idTurno: id, estadoTurno: { not: "CANCELADO" } }` (Regla N.° 7). `count === 0`: `404 TURNO_NO_ENCONTRADO` si no existe, `409 TURNO_CANCELADO` si está cancelado. Disponible en **cualquier otro estado**, incluido `PENDIENTE` y turnos vencidos (AC5, R5-6).
+2. Si la prioridad enviada es la que ya tiene: `200` con `sin_cambios: true`, sin escribir ni emitir evento.
+3. `Normal` es el valor por defecto al crearse; **no se elige en el wizard** de creación.
+4. Cambiar la prioridad **no dispara notificaciones** ni altera el orden por defecto del listado (sigue por fecha/hora) (AC3).
+5. Emitir `turno:prioridad_actualizada` con valor anterior y nuevo (AC4).
+
+**Visualización:** el listado (2.4) y el calendario (`spec_modulo_J.md` 2.3) muestran un indicador cuando la prioridad es `ALTA` o `URGENTE`, con **texto o ícono, no solo color**.
+
+**Respuesta `200 OK`:** `{ "data": { "id": "cuid", "prioridad": "ALTA" }, "error": null }`
+
+---
+
+### 2.13. (RETIRADA) Asociar forma de pago al turno — HU-C-11 fuera del Sprint 2
+
+**Esta sección no tiene contrato.** El backlog v2 del 28/09/2026 **retiró HU-C-11** (Asociar forma de pago al turno). Se conserva el número para no renumerar (`sdd-metodologia.md`). Consecuencias, ya aplicadas en el resto de la spec y en las demás:
+- `Turno` **no** lleva `formaPagoId`; no existe ruta `PUT /api/turnos/[id]/forma-pago`, ni el permiso `turnos:forma_pago`, ni el evento `turno:forma_pago_actualizada`, ni el campo `forma_pago` en el listado o el detalle.
+- `TurnoAlumno` **no** lleva `createdAtTurnoAlumno` (existía solo para definir "primer alumno inscripto").
+- La forma de pago vive únicamente en el **pago** (`spec_modulo_I.md` §2.4): HU-I-01 la pide al registrar y la propone por defecto a partir de la **preferida del alumno que paga** (HU-B-03), sin obligarla.
+- HU-I-03 ya no menciona turnos: el catálogo se usa para alumnos (HU-B-03) y pagos (HU-I-01).
+
+---
+
+### 2.14. Autoservicio del alumno: solicitar y consultar turnos propios (HU-C-12, HU-C-13) — NUEVA en Revisión 5
+
+**Aclaración de alcance (propuesta de orden de flujo, §4):** el alumno **no crea turnos**. Se **inscribe en un turno ya existente**, elige Materia → Profesor → Horario entre las combinaciones que ya existen, y **no elige aula** (ya viene con el turno).
+
+**Identidad:** el alumno se resuelve siempre a partir de la sesión: `obtenerAlumnoDeUsuario(session.sub)` (Módulo B, 2.8). Nunca se acepta un `alumno_id` del cliente. Si la cuenta no tiene ficha vinculada: `403 SIN_PERMISO`.
+
+#### 2.14.1. Mis turnos (HU-C-13)
+
+**Ruta:** `GET /app/api/turnos/propios?vista=proximos|anteriores&pagina=`
+**Permiso requerido:** `turnos:leer_propios` (rol ALUMNO)
+
+```typescript
+export const MisTurnosQuerySchema = z.object({
+  vista: z.enum(["proximos", "anteriores"]).default("proximos"),
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(10).default(10), // HU-C-13 AC6: de a 10, fijo
+}).strict();
+```
+**Pantalla nueva:** "Mis turnos" (mapa de pantallas §2). Página completa.
+
+1. Los turnos donde el alumno autenticado está inscripto (`TurnoAlumno`), **en cualquier estado, incluido `CANCELADO`** (HU-C-13 AC1 del backlog v2: "el alumno necesita enterarse de que su clase se canceló"). Funciona porque 2.10 **conserva** los `TurnoAlumno` al cancelar.
+2. Cada ítem: `fecha`, `hora_inicio`–`hora_fin`, `materia`, `profesor`, `aula`, **`estado`**. **Sin** el dato de alumnos inscriptos (AC2). La UI destaca los `CANCELADO` con texto o ícono, no solo color.
+3. **Dos pestañas (definidas por el backlog v2, AC3):** `proximos` (por defecto): `fecha + hora_inicio ≥ ahora`, **cualquier estado** —un `CANCELADO` se ve acá, destacado, mientras su fecha y hora originales no hayan pasado—, orden ascendente. `anteriores`: `fecha + hora_inicio < ahora`, cualquier estado, orden descendente. El pase de una a otra es automático por fecha/hora contra el momento de la consulta: no mueve datos ni requiere proceso de fondo. Paginación server-side en ambas.
+4. **Paginación de a 10 por pestaña (HU-C-13 AC6, backlog del 28/09).** `por_pagina` vale 10 y no admite más. La respuesta trae `paginacion` de la pestaña pedida y **`totales: { proximos, anteriores }`**: el contador de cada pestaña muestra su **total**, no el de la página, y para mostrar los dos contadores a la vez el servidor los calcula siempre, sin importar cuál pestaña se pidió. Con 10 turnos o menos la UI **no muestra la paginación**; al cambiar de pestaña la UI vuelve a pedir `pagina=1`.
+   ```json
+   { "data": { "items": [], "paginacion": { "total": 23, "pagina_actual": 1, "total_paginas": 3, "por_pagina": 10 },
+               "totales": { "proximos": 23, "anteriores": 41 } }, "error": null }
+   ```
+5. Sin turnos en la pestaña: `200` con `items: []`; la UI muestra "Todavía no tenés turnos" en Próximos (con acceso directo a HU-C-12) o "No tenés turnos anteriores" en Anteriores (AC4).
+
+#### 2.14.2. Solicitar turno (HU-C-12)
+
+**Pantalla:** "Solicitar turno", **página completa propia** (revisión del 28/09 del mapa de pantallas), accedida desde el botón de "Mis turnos". Tres columnas (Materia / Profesor / Horario), resumen al pie y botón "Inscribirme".
+**Permiso requerido:** `turnos:solicitar_propio` (rol ALUMNO)
+
+**Rutas de opciones (solo lectura):** `GET /api/turnos/inscripcion/opciones?materia_id=&profesor_id=`
+- Sin parámetros: materias activas que tienen al menos un turno con inscripción abierta.
+- Con `materia_id`: profesores que dictan esa materia y tienen al menos un turno con inscripción abierta.
+- Con `materia_id` y `profesor_id`: los **horarios**, es decir, los turnos con inscripción abierta de esa combinación, con `turno_id`, fecha, hora, y cupo libre. No se devuelve el aula (AC1) ni datos de otros alumnos.
+- **Inscripción abierta** = `estadoTurno = DISPONIBLE`, con `fecha + hora_inicio` futura y `alumnos_inscriptos < cupoMaximoTurno`, y el alumno no inscripto ya.
+- Combinación sin turnos: `200` con lista vacía; la UI muestra "No hay turnos disponibles para esta combinación" y ofrece elegir otra materia/profesor (AC2).
+
+**Ruta de inscripción:** `POST /app/api/turnos/[id]/inscripcion/route.ts` (sin body)
+**Servicio:** reutiliza el núcleo de 2.5, `inscribirAlumnoEnTurno(turnoId, alumnoId, { origen }, tx)` (no se reimplementa), con `origen: "AUTOSERVICIO"`.
+
+**Comportamiento esperado (dentro de `prisma.$transaction`, con `SELECT … FOR UPDATE` del turno, 3.7):**
+1. El turno debe existir y estar `DISPONIBLE`: `COMPLETO` → `409 CUPO_INSUFICIENTE`; `PENDIENTE` o `CANCELADO` → `409 TURNO_NO_DISPONIBLE`. Guard de vigencia: `409 TURNO_VENCIDO`.
+2. Alumno activo (`verificarAlumnoActivo()`); ya inscripto: `409 ALUMNO_YA_ASIGNADO`.
+3. **Revalidación al confirmar (AC3):** el alumno no tiene otro turno `DISPONIBLE`/`COMPLETO` superpuesto: `409 ALUMNO_NO_DISPONIBLE`, mensaje "Ya tenés otro turno en ese horario". Y el cupo sigue libre (guarda atómica 3.7): `409 CUPO_INSUFICIENTE`.
+4. Insertar `TurnoAlumno`. Si `inscriptos + 1 === cupoMaximoTurno`: `DISPONIBLE → COMPLETO` automáticamente (AC5).
+5. Emitir `turno:alumno_agregado` con `origen: "AUTOSERVICIO"` y, si hubo transición, `turno:completado`.
+
+**Respuesta `200 OK`:** `{ "data": { "id": "cuid", "alumnos_inscriptos": "4/5", "estado": "DISPONIBLE" }, "error": null }` — la UI informa "Te inscribiste correctamente" y, junto a ese mensaje, **"El pago se abona en el centro"** (HU-C-12 AC6 del backlog v2: en este sprint la inscripción propia no exige pago previo ni integra pasarela; el pago lo registra Mesa de Entrada con HU-I-01). Banner, porque es página completa.
+
+**Turnos generados (R5-9, resuelto):** los que crea 2.9 nacen `DISPONIBLE` 0/N, así que aparecen en estas opciones desde el primer momento, tal como pide el mapa de pantallas.
+
+**Fuera de alcance:** que el alumno cancele o cambie su inscripción (HU-C-14, Sprint 3), crear turnos, elegir aula, y el cobro online previo (Mercado Pago), que pasa a Sprint 3 porque Noctium no modela precios por materia.
+
+---
+
+### 2.15. Servicios públicos de Turnos para otros módulos (Regla N.° 3) — NUEVA en Revisión 5
+
+Funciones de `src/server/turnos/turno.publico.ts`. Otros módulos las invocan **en lugar de consultar** `turnos`, `turno_alumno` ni `reservas_turno`. No son endpoints ni exigen un permiso `turnos:*`: el control de acceso lo hace la ruta del módulo consumidor. El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador. **`turno.publico.ts` no importa nada de los demás módulos** (evita el ciclo con `turno.disponibilidad.ts`, ver "Convenciones generales").
+
+| Función | Devuelve | Consumidor |
+|---|---|---|
+| `bloquearTurnoParaOperacion(turnoId, tx)` | `{ id, estado, fecha, hora_inicio, hora_fin, duracion_min, materia_id, profesor_id, aula_id, alumno_ids, vencido } \| null`, con `SELECT … FOR SHARE` sobre la fila | `spec_modulo_I.md` §2.4 (registrar pago), `spec_modulo_E.md` §2.1 (clase dictada) |
+| `obtenerAlumnosInscriptosDeTurno(turnoId, db?)` | `string[]` (ids de `TurnoAlumno`), o `null` si el turno no existe. Solo lectura, sin bloqueo | `spec_modulo_I.md` §2.5 (opciones del modal de pago) |
+| `contarTurnosFuturosDeProfesorPorMateria(profesorId, materiaId, db?)` | `{ confirmados: number, pendientes: number }`: turnos futuros `DISPONIBLE`/`COMPLETO` (los que **bloquean**) y `PENDIENTE` (solo informativo) | HU-D-07, `spec_modulo_D.md` 2.7 (el **listado** de esos turnos sale de 2.7 de esta spec, no de esta función) |
+| `ajustarCuposPorCapacidadDeAula(aulaId, nuevaCapacidad, usuarioId, tx)` | `{ ok: true, turnos_actualizados } \| { ok: false, turnos_en_conflicto, max_inscriptos }` | HU-K-03, `spec_modulo_K.md` 2.4 |
+| `contarTurnosPorMes(desde, hasta, db?)` | `{ mes: "YYYY-MM", cantidad }[]`: turnos `DISPONIBLE`/`COMPLETO`/`CANCELADO` agrupados por el mes de `fechaTurno` (**no** de creación); sin ceros | HU-H-01, `spec_modulo_H.md` |
+
+**`ajustarCuposPorCapacidadDeAula` — comportamiento** (dentro del `tx` del llamador, que es la transacción de `modificarAula()`):
+1. Seleccionar con `FOR UPDATE`, ordenados por `idTurno` (evita interbloqueos), los turnos **futuros** (`fecha + hora_inicio ≥ ahora`) con ese `aulaId` en estado `PENDIENTE`, `DISPONIBLE` o `COMPLETO`. Los turnos pasados **no bloquean** el cambio ni se modifican.
+2. Con la fila bloqueada, contar `TurnoAlumno` de cada uno. Si algún turno `DISPONIBLE`/`COMPLETO` tiene más inscriptos que `nuevaCapacidad`: devolver `{ ok: false, … }` sin escribir (HU-K-03 AC2). El llamador traduce a `409` con el mensaje literal de la HU.
+3. Si no hay conflicto: `cupoMaximoTurno = nuevaCapacidad` en todos ellos (mismo criterio de HU-C-15: cupo = capacidad del aula) y **recalcular el estado** (propuesta del SM, **[DEFAULT SM, sin ratificar — Q4]**): `COMPLETO` si `inscriptos ≥ cupo`, `DISPONIBLE` si hay lugar. Un `PENDIENTE` solo actualiza el cupo.
+4. Emitir `turno:cupo_actualizado` por turno, y `turno:completado` / `turno:disponible_nuevamente` si hubo transición, **después del `COMMIT` del llamador** (los devuelve para que el llamador los emita).
 
 ---
 
@@ -469,6 +908,27 @@ Dos casos distintos, con soluciones distintas:
 
 ---
 
+### 3.8. Turnos vencidos: qué se puede y qué no (Revisión 5, R5-6)
+Un turno está **vencido** cuando `fecha + hora_inicio` ya pasó (`turnoSigueVigente()`, 2, "Guard de vigencia"). Desde la Revisión 5 el guard `409 TURNO_VENCIDO` se aplica también a **cancelar** (2.10), **reprogramar** (2.11) y **autoinscribirse** (2.14), además de 2.2, 2.3 y 2.5. **No** se aplica a: cambiar prioridad (2.12), registrar un pago (`spec_modulo_I.md` §2.4) ni registrar la clase dictada (`spec_modulo_E.md` §2.1), porque son operaciones que tienen sentido, o son necesarias, después de que la clase ocurrió. Consecuencia útil: un turno con clase dictada registrada nunca puede cancelarse ni reprogramarse. **[DEFAULT SM, sin ratificar — Q5]**
+
+### 3.9. `CANCELADO` es terminal y no reserva nada (Revisión 5)
+Ninguna operación de este módulo saca a un turno de `CANCELADO`. Sus `reservas_turno` se eliminan al cancelar (2.10); sus `TurnoAlumno` **se conservan** como historial. Toda consulta de disponibilidad sigue filtrando `estadoTurno IN ("DISPONIBLE","COMPLETO")` (3.2), por lo que `CANCELADO` queda excluido sin cambios de código. Las consultas de **conteo** de `spec_modulo_H.md` sí lo incluyen (HU-H-01 AC2).
+
+### 3.10. Una sola fuente de verdad para "qué tramos están libres" (Revisión 5)
+`turno.disponibilidad.ts` expone `calcularTramosLibres(franja, ocupados)` y `iniciosPosibles(tramo, duracion, granularidad)`, funciones puras sobre minutos desde las 00:00. Las usan 2.8 (opciones del wizard), 2.9 (encaje en la franja y conflictos) y 2.11 (validación). Está prohibido reimplementar el cálculo en un componente de frontend: el frontend solo **muestra** lo que devuelve 2.8. La fórmula de superposición sigue siendo `intervalosSeSuperponen()` (3.3, sin cambios).
+
+### 3.11. Búsqueda del listado: excepción documentada a la Regla N.° 3 (Revisión 5, R5-7)
+`listarTurnos()` ya lee de otros módulos, por relaciones de Prisma, los datos que muestra (profesor, materia, aula, alumnos). La búsqueda de 2.7 filtra por las **columnas normalizadas** de esas mismas relaciones (`apellidoNormalizadoAlumno`, `nombreNormalizadoAlumno`, `apellidoNormalizadoProfesor`, `nombreNormalizadoProfesor`, `nombreNormalizadaMateria`, `nombreNormalizadaAula`). Se documenta como **excepción de solo lectura**, en vez de crear cuatro servicios públicos que devuelvan listas de ids potencialmente enormes para un patrón de 2 letras. Si en Sprint 3 se agregan filtros combinados (HU-C-02 AC6), se reevalúa mover el filtro a servicios públicos. La excepción **no** se extiende a escrituras.
+
+### 3.12. Generación masiva: todo o nada, y con reserva desde el `INSERT` (Revisión 5, R5-8 y R5-9)
+La generación de 2.9 nunca crea turnos parciales. Como los turnos generados nacen `DISPONIBLE` (backlog v2), el trigger `turno_sincronizar_reservas` reserva profesor y aula en cada `INSERT`, y la exclusión GiST es la defensa final contra dos corridas simultáneas o contra un turno creado por otra vía entre el cálculo y la inserción. **No se usa advisory lock.** La vista previa es solo informativa: la confirmación recalcula todo dentro de su transacción y **nunca** confía en ella. Esta es la **única** ruta por la que un turno se crea directamente `DISPONIBLE`; cualquier otra sigue el camino `PENDIENTE` → 2.2.
+
+### 3.13. Excepciones documentadas a las Reglas N.° 1 y N.° 8 (Revisión 5)
+- **Regla N.° 1 (sin `DELETE`):** se eliminan filas de `reservas_turno` al cancelar (2.10) y se elimina el vínculo `ProfesorMateria` al quitar una materia (HU-D-07). Ambas son tablas de proyección o asociación, no entidades de dominio (mismo criterio que la baja de `TurnoAlumno` en 2.5). El `Turno` nunca se borra: se cancela.
+- **Regla N.° 8 (inmutabilidad):** el pago y el historial académico son registros de hecho consumado y **no viven en este módulo**; ver `spec_modulo_I.md` §3.6 y `spec_modulo_E.md` §3.1. `Turno` no es un registro de hecho consumado (se reprograma, se cancela).
+
+---
+
 ## 4. Eventos de Dominio (EDA)
 
 Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMMIT`, vía `emitirEventoTurno()` → `prisma.eventoTurno.create()` (opción b de la Regla N.° 2, ya implementada — sin encadenamiento hash, ver historial de esa regla).
@@ -484,6 +944,15 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 | `turno:alumno_agregado` | Alta individual de alumno (2.5) | `turno_id, alumno_id, usuario_id` |
 | `turno:alumno_quitado` | Baja individual de alumno (2.5) | `turno_id, alumno_id, usuario_id` |
 | `turno:disponible_nuevamente` | Transición Completo→Disponible (2.5) | `turno_id, alumno_id_liberado, usuario_id` |
+| `turno:cancelado` | Cancelación (2.10) | `turno_id, estado_anterior, profesor_id, aula_id, alumno_ids, usuario_id` |
+| `turno:reprogramado` | Reprogramación (2.11) | `turno_id, fecha_anterior, hora_inicio_anterior, fecha_nueva, hora_inicio_nueva, hora_fin_nueva, usuario_id` |
+| `turno:prioridad_actualizada` | Cambio de prioridad (2.12) | `turno_id, prioridad_anterior, prioridad_nueva, usuario_id` |
+| `turno:cupo_actualizado` | Cambio de capacidad del aula (2.15, HU-K-03) | `turno_id, aula_id, cupo_anterior, cupo_nuevo, usuario_id` |
+| `turno:alumno_agregado` (ampliado) | 2.5 y autoinscripción (2.14) | agrega `origen: "MESA_ENTRADA" \| "AUTOSERVICIO"` al payload existente |
+| `turno:configurado` (ampliado) | 2.1 y generación masiva (2.9) | agrega `profesor_id` y, si viene de 2.9, `generacion_id` |
+| `turno:aula_asignada` (ampliado) | 2.3 y 2.9 | sin cambios de payload; 2.9 lo emite por cada turno generado |
+
+**Revisión 5 — trazabilidad (Regla N.° 2).** Todas las mutaciones nuevas del módulo usan la opción (b): `emitirEventoTurno()` → `eventos_turno`, después del `COMMIT`. `eventos_turno.turnoId` es obligatorio, por eso la generación masiva (2.9) emite eventos por turno y no uno global; el `generacion_id` en el payload los agrupa. Además, la fila `Turno` ya guarda `modificadoPorUsuarioId` y `updatedAtTurno`, que 2.10 a 2.13 actualizan en la misma operación. Los pagos y el historial académico **no** viven en este módulo (`spec_modulo_I.md`, `spec_modulo_E.md`).
 
 ---
 
@@ -495,3 +964,7 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento se emite después del `COMM
 | `DIAS_OPERATIVOS` | 2.1 — día válido para configurar |
 | `HORA_APERTURA` / `HORA_CIERRE` | 2.1 — horario operativo del centro |
 | `ANTICIPACION_MAXIMA_DIAS` | 2.1 — tope de anticipación para configurar un turno |
+| `generacion_maxima_dias` | **Revisión 5 — nuevo, fila de `ParametroSistema`.** Amplitud máxima (`fecha_hasta − fecha_desde`) de una generación masiva, en días. Valor propuesto: `150` (≈ un cuatrimestre). 2.9. **[DEFAULT SM, sin ratificar — Q3]** |
+| `generacion_maxima_turnos` | **Revisión 5 — nuevo, fila de `ParametroSistema`.** Tope de turnos creados por corrida de 2.9. Valor propuesto: `40`. **[DEFAULT SM, sin ratificar — Q3]** |
+| `anticipacion_maxima_dias` (nombre real en `ParametroSistema`; `ANTICIPACION_MAXIMA_DIAS` en esta spec) | 2.1, 2.8 y 2.11. Valor de seed: `30`. **No** aplica a 2.9 (R5-8) |
+| `granularidad_turno_minutos` (`GRANULARIDAD_MINUTOS`) | 2.1, 2.8, 2.9, 2.11. Valor de seed: `30` |

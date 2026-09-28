@@ -1,12 +1,20 @@
 ```markdown
 # Especificación Técnica — Módulo A (Sesión)
-## Noctium — Sprint 1
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod · NextAuth (Credentials Provider) · bcryptjs
-**Referencias normativas:** `docs/RULES.md` (Reglas N.° 2, 4, 5, 6, 9, 10) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md`
+**Referencias normativas:** `docs/RULES.md` (Reglas N.° 2, 4, 5, 6, 9, 10) · `spec_modulo_A.md` §2.4 (esta matriz) · `schema.prisma` · `docs/tasks/HU-Sprint-1.md` · `docs/tasks/Sprint 2/HU-Sprint-2.md`
 
 **HU contractualizadas en esta revisión:** HU-A-01 (Iniciar sesión), HU-A-02 (Mantener sesión), HU-A-03 (Cerrar sesión) — Sprint 1.
+
+**Revisión 2 (Sprint 2):** Sprint 2 **no agrega HU a este módulo**. La Regla N.° 10 de `docs/RULES.md` exige que la matriz de permisos por rol "se documente y mantenga junto a `spec_modulo_A.md`"; hasta ahora vivía repartida entre el `seed.ts` y las notas de cada módulo. La Revisión 2 agrega la sección **2.4 — Matriz RBAC**, con todos los permisos existentes y los de Sprint 2, y una función pública para Turnos.
+
+**Changelog — Revisión 2 (Sprint 2):**
+| Sección | Estado previo | Acción |
+|---|---|---|
+| 2.4 Matriz RBAC | No existía como tabla única | Nueva sección (aditiva, no renumera) |
+| Servicios públicos | — | `obtenerEmailDeUsuario()` (consumida por `spec_modulo_C.md` §2.4) |
 
 **Fuera de alcance de esta spec (explícito):**
 - Recuperación de contraseña (no aparece en el sprint).
@@ -136,6 +144,53 @@ export type CredencialesLoginInput = z.infer<typeof CredencialesLoginSchema>;
 - **`TokenRevocado` sin purga — deuda conocida:** no hay job de limpieza de filas vencidas (`expiraEn < now`) en Sprint 1. Cada logout agrega una fila permanente; la tabla crece sin límite mientras no exista ese job. No es un defecto de HU-A-03 (explícitamente fuera de su alcance) sino trabajo pendiente a programar en un sprint futuro — se deja anotado acá para que no se pierda.
 - **Logout sin sesión vigente:** `POST /api/auth/logout` tolera llamarse sin cookie/sesión válida y responde `200 { revocado: true }` igual (no `401`) — no hay nada que revocar, y el objetivo del cliente (no seguir logueado) ya está cumplido. Un `401` acá sería un error técnico sin nada accionable para el cliente, en contra del espíritu del criterio HU-A-03 §6.
 - **`jti` nunca sale de la capa server-side:** para revocar hace falta el `jti` crudo del token, que `callbacks.session` oculta a propósito (HU-A-02). Se resuelve con `getToken()` de `next-auth/jwt` sobre el mismo `decode` HS256 custom — nunca se relaja la regla de HU-A-02 de no exponer `jti` al cliente.
+
+---
+
+### 2.4. Matriz RBAC (Regla N.° 10) — NUEVA en Revisión 2
+
+Fuente única de permisos por rol, sincronizada con `RolPermiso` (`schema.prisma`) y con el arreglo `PERMISOS` de `seed.ts`. **Toda acción nueva se agrega acá, en una migración que inserta la fila y en `seed.ts`** (el seed usa `upsert`, así que es idempotente). Los permisos se comprueban con `withPermission("<recurso>:<accion>")`, nunca por rol suelto. Los roles: **M** = MESA_ENTRADA, **G** = GERENTE, **P** = PROFESOR, **A** = ALUMNO.
+
+| Permiso | M | G | P | A | HU / módulo | Estado |
+|---|:-:|:-:|:-:|:-:|---|---|
+| `sesion:ping` | ✔ | ✔ | ✔ | ✔ | HU-A-02 | existente |
+| `materias:crear` | | ✔ | | | HU-L-01 | existente |
+| `materias:leer` | ✔ | ✔ | ✔ | | HU-L-02 | existente |
+| `materias:editar` | | ✔ | | | HU-L-03 | **nuevo** |
+| `aulas:crear` | | ✔ | | | HU-K-01 | existente |
+| `aulas:leer` | | ✔ | | | HU-K-02 | existente |
+| `aulas:editar` | | ✔ | | | HU-K-03 | **nuevo** |
+| `alumnos:crear` | ✔ | | | | HU-B-01 | existente |
+| `alumnos:editar` | ✔ | | | | HU-B-02/03/06 | existente |
+| `alumnos:leer` | ✔ | | | | HU-B-04/05 | existente (HU-B-05 la reutiliza) |
+| `profesores:crear` | ✔ | | | | HU-D-01 | existente |
+| `profesores:editar` | ✔ | | | | HU-D-02/03/04/06/07 | existente (sin cambios: el backlog v2 puso D-06/D-07 en manos de Mesa) |
+| `profesores:leer` | ✔ | | | | HU-D-05 | existente |
+| `turnos:leer` | ✔ | ✔ | ✔ | | HU-C-01/02/08/09 | existente (el Profesor solo ve los suyos) |
+| `turnos:crear` | ✔ | | | | HU-C-03/07/17 | existente |
+| `turnos:asignar_participantes` | ✔ | | | | HU-C-04 | existente |
+| `turnos:asignar_aula` | ✔ | | | | HU-C-15/16 | existente |
+| `turnos:cancelar` | ✔ | | | | HU-C-05 | **nuevo** |
+| `turnos:reprogramar` | ✔ | | | | HU-C-06 | **nuevo** |
+| `turnos:priorizar` | ✔ | | | | HU-C-10 | **nuevo** |
+| `turnos:leer_propios` | | | | ✔ | HU-C-13 | **nuevo** |
+| `turnos:solicitar_propio` | | | | ✔ | HU-C-12 | **nuevo** |
+| `calendario:leer` | ✔ | ✔ | ✔ | | HU-J-01/02/03 | existente (el Profesor solo ve la suya) |
+| `formas_pago:crear` | | ✔ | | | HU-I-03 | **nuevo** |
+| `formas_pago:leer` | ✔ | ✔ | | | HU-I-03 y modal de HU-I-01 | **nuevo** |
+| `pagos:crear` | ✔ | | | | HU-I-01 (incluye `GET /api/pagos/opciones`) | **nuevo** |
+| `pagos:leer` | ✔ | ✔ | | | HU-I-01 (detalle) | **nuevo** — Profesor sin acceso a montos, **[DEFAULT SM, sin ratificar — Q6d]** |
+| `clases:registrar` | ✔ | | ✔ | | HU-E-01 | **nuevo** (el Profesor solo en sus turnos) |
+| `examenes:registrar` | ✔ | | ✔ | | HU-E-06 | **nuevo** (el Profesor solo con alumnos que atendió) |
+| `historial:leer` | ✔ | ✔ | ✔ | | HU-E-05 | **nuevo** (el Profesor solo con alumnos que atendió), **[DEFAULT SM, sin ratificar — Q7b, Q13]** |
+| `indicadores:leer` | | ✔ | | | HU-H-01/H-02 | **nuevo** |
+
+**Notas de sincronización con `seed.ts`:**
+- Agregar las 21 acciones-rol nuevas (15 acciones distintas) al arreglo `PERMISOS` y a **una migración de permisos** (el patrón vigente: `INSERT … ON CONFLICT DO NOTHING`).
+- **`ACCIONES_SOLO_MESA_ENTRADA` no se toca** (`profesores:crear`, `:editar`, `:leer`): el backlog v2 dejó a Mesa de Entrada como único rol que modifica profesores (R2-1 de `spec_modulo_D.md`). No agregar filas de `profesores:*` para GERENTE.
+- El rol **ALUMNO** es el primero con permisos de negocio: hasta Sprint 1 solo tenía `sesion:ping`. Sus rutas **nunca** aceptan un id de alumno del cliente: la ficha se resuelve con `obtenerAlumnoDeUsuario(session.sub)` (`spec_modulo_B.md` §2.8).
+
+**Servicio público nuevo:** `obtenerEmailDeUsuario(usuarioId): Promise<string | null>` en `src/server/usuarios/usuario.service.ts` (el archivo real del Módulo A para cuentas; **no existe** `sesion/cuenta.service.ts`, que es la ruta que citan `spec_modulo_B.md` §2.5 y la task HU-B-06). Devuelve el email de la cuenta sin exponer el hash ni otros campos. Lo usa Turnos (`creado_por`), porque `Usuario` no tiene nombre y el personal de mesa de entrada no tiene ficha. Se agrega junto a `obtenerNombreVisible()`, que ya resuelve nombre o email según el rol pero exige conocer el rol: acá no se lo conoce. **Nunca** se consulta la tabla `usuarios` desde otro módulo (Regla N.° 3).
 
 ---
 

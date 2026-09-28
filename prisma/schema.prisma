@@ -9,11 +9,9 @@
 // foráneas usan <entidadReferenciada>Id, ya que ese patrón ya
 // identifica la tabla referenciada y es el esperado por Prisma.
 //
-// IMPORTANTE: este schema modela ÚNICAMENTE el alcance de Sprint 1.
-// No incluye: Pago, historial académico/exámenes, prioridad/forma
-// de pago del turno, ni baja/reactivación de entidades (los flags
-// activo/activa existen, pero ninguna HU de Sprint 1 los modifica)
-// — todo eso corresponde a los DER de Sprint 2 / Sprint 3.
+// Sprint 1 + extensión aditiva de Sprint 2 (estado CANCELADO, pagos con alumno,
+// historial académico, prioridad, auditoría y versiones). Backlog v2 (28/09):
+// HU-C-11 retirada, así que el turno NO tiene forma de pago.
 //
 // Auditoría (creadoPorUsuarioId / modificadoPorUsuarioId): se modelan
 // como campos escalares SIN @relation a Usuario. Una relación explícita
@@ -67,6 +65,13 @@ enum EstadoTurno {
   PENDIENTE
   DISPONIBLE
   COMPLETO
+  CANCELADO
+}
+
+enum PrioridadTurno {
+  NORMAL
+  ALTA
+  URGENTE
 }
 
 // Eventos de seguridad a auditar (RNF-SEG-09): HU-A-01 c3/c5, HU-A-03 c3 y HU-B-08 c9.
@@ -181,9 +186,13 @@ model EventoSeguridad {
 model FormaPago {
   idFormaPago     String  @id @default(cuid())
   nombreFormaPago String  @unique
+  nombreNormalizadaFormaPago String @unique
   activaFormaPago Boolean @default(true)
+  createdAtFormaPago DateTime @default(now())
+  creadoPorUsuarioId String?
 
   alumnos Alumno[]
+  pagos Pago[]
 
   @@map("formas_pago")
 }
@@ -236,6 +245,9 @@ model Alumno {
   usuario                  Usuario?                 @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
   formaPagoPreferida       FormaPago?               @relation(fields: [formaPagoPreferidaId], references: [idFormaPago])
   turnos                   TurnoAlumno[]
+  clasesDictadas           ClaseDictadaAlumno[]
+  resultadosExamen         ResultadoExamen[]
+  pagos                    Pago[]
   codigosVerificacion      CodigoVerificacion[]
   solicitudesAutorregistro SolicitudAutorregistro[]
 
@@ -357,11 +369,13 @@ model Profesor {
 
   createdAtProfesor DateTime @default(now())
   updatedAtProfesor DateTime @updatedAt
+  version Int @default(0)
 
   usuario  Usuario?          @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
   materias ProfesorMateria[] // HU-D-03: materias/especialidades asociadas
   horarios HorarioProfesor[] // HU-D-04: horario de atención
   turnos   Turno[]
+  clasesDictadas ClaseDictada[]
 
   // Orden del listado (HU-D-05): apellido, nombre, DNI.
   @@index([apellidoNormalizadoProfesor, nombreNormalizadoProfesor, dniProfesor], map: "profesores_orden_listado_idx")
@@ -402,10 +416,15 @@ model Materia {
 
   // Auditoría (escalar sin relación, ver encabezado)
   createdAtMateria   DateTime @default(now())
+  updatedAtMateria   DateTime @default(now()) @updatedAt
   creadoPorUsuarioId String?
+  modificadoPorUsuarioId String?
+  version Int @default(0)
 
   profesores ProfesorMateria[]
   turnos     Turno[]
+  clasesDictadas ClaseDictada[]
+  resultadosExamen ResultadoExamen[]
 
   @@map("materias")
 }
@@ -449,7 +468,10 @@ model Aula {
 
   // Auditoría (escalar sin relación, ver encabezado)
   createdAtAula      DateTime @default(now())
+  updatedAtAula      DateTime @default(now()) @updatedAt
   creadoPorUsuarioId String?
+  modificadoPorUsuarioId String?
+  version Int @default(0)
 
   turnos Turno[]
 
@@ -473,6 +495,7 @@ model Turno {
   // con la capacidad del aula elegida (spec_modulo_C.md Revisión 3, §2.3).
   cupoMaximoTurno Int?
   estadoTurno   EstadoTurno   @default(PENDIENTE)
+  prioridadTurno PrioridadTurno @default(NORMAL)
 
   materiaId  String
   profesorId String?
@@ -490,6 +513,8 @@ model Turno {
   aula     Aula?         @relation(fields: [aulaId], references: [idAula])
   alumnos  TurnoAlumno[]
   reservas ReservaTurno[]
+  pagos Pago[]
+  claseDictada ClaseDictada?
 
   @@map("turnos")
 }
@@ -505,6 +530,62 @@ model TurnoAlumno {
 
   @@id([turnoId, alumnoId])
   @@map("turno_alumno")
+}
+
+model Pago {
+  idPago String @id @default(cuid())
+  turnoId String
+  alumnoId String
+  montoPago Decimal @db.Decimal(11, 2)
+  formaPagoId String
+  fechaPago DateTime @db.Date
+  createdAtPago DateTime @default(now())
+  creadoPorUsuarioId String?
+  turno Turno @relation(fields: [turnoId], references: [idTurno])
+  alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])
+  formaPago FormaPago @relation(fields: [formaPagoId], references: [idFormaPago])
+  @@index([turnoId, createdAtPago])
+  @@index([alumnoId, createdAtPago])
+  @@map("pagos")
+}
+
+model ClaseDictada {
+  idClaseDictada String @id @default(cuid())
+  turnoId String @unique
+  fechaClaseDictada DateTime @db.Date
+  materiaId String
+  profesorId String
+  createdAtClaseDictada DateTime @default(now())
+  creadoPorUsuarioId String?
+  turno Turno @relation(fields: [turnoId], references: [idTurno])
+  materia Materia @relation(fields: [materiaId], references: [idMateria])
+  profesor Profesor @relation(fields: [profesorId], references: [idProfesor])
+  alumnos ClaseDictadaAlumno[]
+  @@map("clases_dictadas")
+}
+
+model ClaseDictadaAlumno {
+  claseDictadaId String
+  alumnoId String
+  clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada])
+  alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])
+  @@id([claseDictadaId, alumnoId])
+  @@index([alumnoId])
+  @@map("clases_dictadas_alumnos")
+}
+
+model ResultadoExamen {
+  idResultadoExamen String @id @default(cuid())
+  alumnoId String
+  materiaId String
+  fechaExamen DateTime @db.Date
+  notaExamen Decimal @db.Decimal(4, 1)
+  createdAtResultadoExamen DateTime @default(now())
+  creadoPorUsuarioId String?
+  alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])
+  materia Materia @relation(fields: [materiaId], references: [idMateria])
+  @@index([alumnoId, fechaExamen])
+  @@map("resultados_examen")
 }
 
 // Proyección técnica mantenida por triggers PostgreSQL para impedir
