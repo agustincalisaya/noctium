@@ -105,3 +105,16 @@ o superior (RNF-SEG-01). La contraseña nunca viaja en URL/query params.
 | `npm run start` | Servidor de producción (requiere `AUTH_URL`, ver `.env.example`) |
 | `npm run lint` | ESLint |
 | `npx tsc --noEmit` | Chequeo de tipos |
+
+## Interfaz de los listados
+
+Los listados de **Aulas, Materias, Profesores y Alumnos** abren la ficha y el formulario de alta en ventanas modales, sin abandonar el listado. La página y la paginación del listado permanecen en la URL. Las rutas directas de ficha, alta y edición siguen disponibles para enlaces existentes.
+
+- **Aulas y Materias:** al seleccionar una fila se abre su detalle; los botones «Nueva aula» y «Nueva materia» abren el formulario de alta.
+- **Profesores:** la ficha muestra identidad, contacto, materias y horarios. Desde ella se puede editar el contacto, asociar materias y registrar horarios en el mismo modal. El alta conserva sus tres pasos.
+- **Alumnos:** la ficha muestra contacto, fecha de alta y forma de pago preferida. «Modificar datos», «Editar contacto» y «Editar forma de pago» se abren dentro del modal. «Nuevo alumno» abre el formulario de alta.
+- **Calendario:** al seleccionar un evento se abre un resumen del turno con fecha, horario, aula, capacidad y alumnos inscriptos. Desde allí se puede abrir el detalle completo del turno. La grilla permite desplazamiento horizontal y vertical y mantiene visibles los encabezados al desplazarse.
+
+Los modales muestran estados de carga y error. Si un formulario tiene cambios sin guardar, cerrar con la X, Escape, un clic fuera o Cancelar pide confirmar el descarte. Las operaciones mantienen las validaciones y permisos del servidor; el modal solo cambia la interacción de la interfaz. La página directa de **Turnos** conserva su comportamiento.
+
+Antes de abrir un PR contra `develop`, ejecutar las verificaciones locales. El workflow de CI usa Node.js 20 y corre `npm ci`, `npm run lint`, `npx prisma generate` y `npm run build`; las pruebas y el chequeo de tipos se ejecutan localmente con `npm test` y `npx tsc --noEmit`.

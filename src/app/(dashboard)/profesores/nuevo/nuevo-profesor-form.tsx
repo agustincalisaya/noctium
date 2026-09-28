@@ -47,12 +47,16 @@ type NuevoProfesorFormProps = {
    * "Desviaciones de la spec original" en docs/tasks/Sprint 1/HU-D-01.md).
    */
   fechaMaximaNacimiento: string;
+  onCreado?: (profesorId: string) => void;
+  onCancelar?: () => void;
 };
 
 export function NuevoProfesorForm({
   dniLongitudMin,
   dniLongitudMax,
   fechaMaximaNacimiento,
+  onCreado,
+  onCancelar,
 }: NuevoProfesorFormProps) {
   // Mismo patrón que login-form.tsx: sin useActionState/<form action>,
   // invocación directa de la action envuelta en try/catch (un fallo de
@@ -137,7 +141,8 @@ export function NuevoProfesorForm({
       if (resultado.status === "exito") {
         setDirty(false);
         notificarExito(MENSAJE_EXITO);
-        router.push(`/profesores/${resultado.profesorId}/materias?alta=1`);
+        if (onCreado) onCreado(resultado.profesorId);
+        else router.push(`/profesores/${resultado.profesorId}/materias?alta=1`);
         return;
       }
       if (resultado.status === "error_validacion") {
@@ -168,7 +173,8 @@ export function NuevoProfesorForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push("/profesores");
+    if (onCancelar) onCancelar();
+    else router.push("/profesores");
   }
 
   const errorNombre = erroresCliente.nombre ?? (estado.status === "error_validacion" ? estado.errores.nombre?.[0] : undefined);
@@ -344,7 +350,8 @@ export function NuevoProfesorForm({
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push("/profesores");
+          if (onCancelar) onCancelar();
+          else router.push("/profesores");
         }}
       />
     </form>

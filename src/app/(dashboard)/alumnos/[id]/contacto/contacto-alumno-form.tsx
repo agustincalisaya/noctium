@@ -22,6 +22,8 @@ type ContactoAlumnoFormProps = {
   /** Contacto actual, para precargar el formulario (null = sin cargar). */
   telefonoActual: string | null;
   emailActual: string | null;
+  onCancelar?: () => void;
+  onGuardado?: () => void;
 };
 
 type ExitoContacto = { telefono: string | null; email: string | null };
@@ -39,6 +41,8 @@ export function ContactoAlumnoForm({
   alumnoId,
   telefonoActual,
   emailActual,
+  onCancelar,
+  onGuardado,
 }: ContactoAlumnoFormProps) {
   const [exito, setExito] = useState<ExitoContacto | null>(null);
   const [pendiente, setPendiente] = useState(false);
@@ -86,6 +90,7 @@ export function ContactoAlumnoForm({
       if (!resultado.error) {
         setDirty(false);
         setExito(resultado.data);
+        onGuardado?.();
         return;
       }
 
@@ -118,7 +123,8 @@ export function ContactoAlumnoForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push(rutaFicha);
+    if (onCancelar) onCancelar();
+    else router.push(rutaFicha);
   }
 
   if (exito) {
@@ -137,9 +143,7 @@ export function ContactoAlumnoForm({
             <dd className="break-words font-medium">{exito.email ?? "—"}</dd>
           </div>
         </dl>
-        <Link href={rutaFicha} className={buttonVariants({ variant: "default" })}>
-          Volver a la ficha
-        </Link>
+        {onCancelar ? <Button type="button" onClick={onCancelar}>Volver a la ficha</Button> : <Link href={rutaFicha} className={buttonVariants({ variant: "default" })}>Volver a la ficha</Link>}
       </div>
     );
   }
@@ -209,7 +213,8 @@ export function ContactoAlumnoForm({
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push(rutaFicha);
+          if (onCancelar) onCancelar();
+          else router.push(rutaFicha);
         }}
       />
     </form>

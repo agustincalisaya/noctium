@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, unstable_rethrow } from "next/navigation";
-import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,14 +12,24 @@ import { ESTADO_INICIAL, type EstadoMateria } from "@/types/materia.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
-export function MateriaForm() {
+export function MateriaForm({
+  onCancelar,
+  onCreada,
+  onCambios,
+  onGuardando,
+}: {
+  onCancelar?: () => void;
+  onCreada?: () => void;
+  onCambios?: (hayCambios: boolean) => void;
+  onGuardando?: (guardando: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const { dirty, setDirty } = useDirtyState();
+  const { setDirty, confirmarSalida } = useDirtyState();
   const [estado, setEstado] = useState<EstadoMateria>(ESTADO_INICIAL);
   const [pendiente, setPendiente] = useState(false);
   const [erroresCliente, setErroresCliente] = useState<{ nombre?: string; codigo?: string }>({});
-  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const nombreRef = useRef<HTMLInputElement>(null);
+  const codigoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     nombreRef.current?.focus();
@@ -28,7 +37,10 @@ export function MateriaForm() {
 
   function handleChange() {
     const nombre = nombreRef.current?.value.trim() ?? "";
-    if (nombre) setDirty(true);
+    const codigo = codigoRef.current?.value.trim() ?? "";
+    const hayCambios = Boolean(nombre || codigo);
+    setDirty(hayCambios);
+    onCambios?.(hayCambios);
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -48,14 +60,21 @@ export function MateriaForm() {
     }
     setErroresCliente({});
     setPendiente(true);
+    onGuardando?.(true);
 
     try {
       const resultado = await crearMateria(estado, formData);
+      if (resultado.status === "ok") {
+        setDirty(false);
+        onCambios?.(false);
+        if (onCreada) onCreada();
+        else router.push("/materias?creada=1");
+        return;
+      }
       setEstado(resultado);
     } catch (error) {
-      // El redirect() de la action en el caso exitoso se propaga como señal
-      // de control de Next.js, no como un error real — se deja pasar antes
-      // de tratar cualquier otro throw como falla de comunicación.
+      // Propagar las señales de control de Next.js antes de tratar cualquier
+      // otro error como falla de comunicación.
       unstable_rethrow(error);
       setEstado({
         status: "error_comunicacion",
@@ -64,15 +83,13 @@ export function MateriaForm() {
       });
     } finally {
       setPendiente(false);
+      onGuardando?.(false);
     }
   }
 
   function handleCancelar() {
-    if (dirty) {
-      setConfirmandoCancelar(true);
-      return;
-    }
-    router.push("/materias");
+    if (onCancelar) onCancelar();
+    else confirmarSalida(() => router.push("/materias"));
   }
 
   const errorNombre =
@@ -90,12 +107,11 @@ export function MateriaForm() {
         ? MENSAJE_ERROR_COMUNICACION
         : undefined;
 
-  const nombreDefault = estado.status !== "idle" ? estado.nombre : "";
-  const codigoDefault = estado.status !== "idle" ? estado.codigo : "";
+  const nombreDefault = "nombre" in estado ? estado.nombre : "";
+  const codigoDefault = "codigo" in estado ? estado.codigo : "";
 
   return (
-    <>
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-5">
         <div className="space-y-1.5">
           <Label htmlFor="nombre">Nombre</Label>
           <Input
@@ -105,9 +121,11 @@ export function MateriaForm() {
             defaultValue={nombreDefault}
             onChange={handleChange}
             aria-invalid={!!errorNombre}
+            aria-describedby="materia-nombre-ayuda"
             placeholder="Ej: Matemática"
+            className="h-11 bg-card"
           />
-          <p className="text-xs text-muted-foreground">Entre 2 y 80 caracteres.</p>
+          <p id="materia-nombre-ayuda" className="text-xs text-muted-foreground">Entre 2 y 80 caracteres.</p>
           {errorNombre && (
             <p className="text-sm text-destructive" role="alert">
               {errorNombre}
@@ -118,14 +136,17 @@ export function MateriaForm() {
         <div className="space-y-1.5">
           <Label htmlFor="codigo">Código (opcional)</Label>
           <Input
+            ref={codigoRef}
             id="codigo"
             name="codigo"
             defaultValue={codigoDefault}
             onChange={handleChange}
             aria-invalid={!!errorCodigo}
+            aria-describedby="materia-codigo-ayuda"
             placeholder="Ej: MAT101"
+            className="h-11 bg-card"
           />
-          <p className="text-xs text-muted-foreground">
+          <p id="materia-codigo-ayuda" className="text-xs text-muted-foreground">
             Letras y números, sin espacios, hasta 10 caracteres. Se guarda en mayúsculas.
           </p>
           {errorCodigo && (
@@ -141,40 +162,14 @@ export function MateriaForm() {
           </p>
         )}
 
-        <div className="flex gap-2">
-          <Button type="submit" disabled={pendiente}>
-            {pendiente ? "Guardando..." : "Registrar materia"}
-          </Button>
+        <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
             Cancelar
           </Button>
+          <Button type="submit" disabled={pendiente}>
+            {pendiente ? "Guardando..." : "Registrar materia"}
+          </Button>
         </div>
       </form>
-
-      <AlertDialog.Root open={confirmandoCancelar} onOpenChange={setConfirmandoCancelar}>
-        <AlertDialog.Portal>
-          <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
-          <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg bg-background p-6 shadow-lg">
-            <AlertDialog.Title className="font-semibold">Datos sin guardar</AlertDialog.Title>
-            <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
-              Tenés datos ingresados sin guardar. ¿Querés salir igualmente?
-            </AlertDialog.Description>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setConfirmandoCancelar(false)}>
-                Seguir editando
-              </Button>
-              <Button
-                onClick={() => {
-                  setDirty(false);
-                  router.push("/materias");
-                }}
-              >
-                Salir sin guardar
-              </Button>
-            </div>
-          </AlertDialog.Popup>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
-    </>
   );
 }

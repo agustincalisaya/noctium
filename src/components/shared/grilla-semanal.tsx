@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DesplazamientoGrilla } from "@/components/shared/desplazamiento-grilla";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_DIA } from "@/lib/horario-atencion";
 import {
@@ -40,19 +41,23 @@ export function GrillaSemanal<T extends EventoEnGrilla>({
   const franjas = franjasDeLaGrilla(horario);
   const altoColumna = `${franjas.length * ALTO_FRANJA_REM}rem`;
   const columnas = `4rem repeat(${dias.length}, minmax(9rem, 1fr))`;
+  const primeraHora = eventos.reduce<string | null>(
+    (primera, evento) => !primera || evento.hora_inicio < primera ? evento.hora_inicio : primera,
+    null,
+  );
 
   return (
-    <div className="overflow-x-auto rounded-md border border-border bg-card">
+    <DesplazamientoGrilla primeraHora={primeraHora} apertura={horario.apertura} granularidadMinutos={horario.granularidadMinutos}>
       <div className="grid min-w-max" style={{ gridTemplateColumns: columnas }}>
         {/* Encabezado: día y fecha */}
-        <div className="sticky left-0 z-10 border-b border-border bg-muted" aria-hidden />
+        <div className="sticky left-0 top-0 z-30 border-b border-border bg-muted" aria-hidden />
         {dias.map(({ fecha, dia }) => {
           const esHoy = fecha === hoy;
           return (
             <div
               key={fecha}
               className={cn(
-                "border-b border-l border-border px-2 py-2 text-center text-sm",
+                "sticky top-0 z-20 border-b border-l border-border px-2 py-2 text-center text-sm",
                 esHoy ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground",
               )}
               aria-current={esHoy ? "date" : undefined}
@@ -115,6 +120,6 @@ export function GrillaSemanal<T extends EventoEnGrilla>({
           );
         })}
       </div>
-    </div>
+    </DesplazamientoGrilla>
   );
 }

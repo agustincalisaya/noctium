@@ -8,6 +8,11 @@
 
 **HU contractualizadas en esta revisión:** HU-J-01 (Calendario por profesor), HU-J-02 (Calendario por materia) — Sprint 1.
 
+**Changelog:**
+| HU | Estado previo | Acción |
+|---|---|---|
+| HU-J-01 / HU-J-02 (presentación en modal) | §2.1 devolvía estado sin cifras de ocupación; §2.2 ya incluía esas cifras | Anotado que ambos eventos incluyen `inscriptos` y `cupo` para indicar disponibilidad en la grilla. El modal consulta el detalle existente de Turnos; no crea un contrato de escritura. |
+
 **Fuera de alcance de esta spec (explícito):**
 - Vistas por día o por mes (solo vista semanal este sprint).
 - Filtros combinados (ej. profesor + materia a la vez).
@@ -56,7 +61,7 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
    - Rol `MESA_ENTRADA` o `GERENTE`: usan el `profesorId` de la ruta libremente; debe corresponder a un profesor activo (`404 PROFESOR_NO_ENCONTRADO` en caso contrario).
 2. Calcular `semana_inicio`/`semana_fin` (si no viene `semana_inicio`, se usa el lunes de la semana actual del servidor).
 3. Invocar `listarTurnosAgendadosPorProfesor(profesorId, semanaInicio, semanaFin)` — filtra exclusivamente turnos confirmados, `estado ∈ {"DISPONIBLE", "COMPLETO"}`, en la query (regla central, sección 1). Un `PENDIENTE` con profesor, alumnos o aula ya cargados no se incluye.
-4. Cada evento del resultado incluye: `hora_inicio`, `hora_fin`, `alumno` (`"Apellido, Nombre"`), `materia`, `aula`, `estado` (`"DISPONIBLE" | "COMPLETO"`, para que la UI lo muestre con texto e ícono, no solo color). Un turno `DISPONIBLE` puede quedar sin alumnos (`spec_modulo_C.md` §2.5, Decisión B); en ese caso `alumno` es `"—"`. No hay diferencias de campos mostrados entre los roles autorizados en este sprint — la frase "según permisos del rol" del criterio de aceptación se refiere al acceso mismo (paso 1), no a una vista con campos distintos por rol.
+4. Cada evento del resultado incluye: `hora_inicio`, `hora_fin`, `alumno` (`"Apellido, Nombre"`), `materia`, `aula`, `estado` (`"DISPONIBLE" | "COMPLETO"`, para que la UI lo muestre con texto e ícono, no solo color), `inscriptos` y `cupo` numéricos para mostrar la ocupación en la grilla. Un turno `DISPONIBLE` puede quedar sin alumnos (`spec_modulo_C.md` §2.5, Decisión B); en ese caso `alumno` es `"—"`. No hay diferencias de campos mostrados entre los roles autorizados en este sprint — la frase "según permisos del rol" del criterio de aceptación se refiere al acceso mismo (paso 1), no a una vista con campos distintos por rol.
 5. Si no hay turnos en el rango: se devuelve `eventos: []` — el mensaje "Agenda sin turnos" es responsabilidad de la UI ante una lista vacía, no un código de error.
 
 **Respuesta `200 OK`:**
@@ -67,9 +72,9 @@ export type ConsultarCalendarioProfesorQuery = z.infer<typeof ConsultarCalendari
     "rango": { "desde": "2026-04-06", "hasta": "2026-04-11" },
     "eventos": [
       { "turno_id": "cuid", "fecha": "2026-04-07", "hora_inicio": "10:00", "hora_fin": "11:00",
-        "alumno": "Pérez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "DISPONIBLE" },
+        "alumno": "Pérez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "DISPONIBLE", "inscriptos": 1, "cupo": 5 },
       { "turno_id": "cuid", "fecha": "2026-04-08", "hora_inicio": "14:00", "hora_fin": "16:00",
-        "alumno": "Ruiz, Marcos", "materia": "Física", "aula": "Aula 5", "estado": "COMPLETO" }
+        "alumno": "Ruiz, Marcos", "materia": "Física", "aula": "Aula 5", "estado": "COMPLETO", "inscriptos": 5, "cupo": 5 }
     ]
   },
   "error": null

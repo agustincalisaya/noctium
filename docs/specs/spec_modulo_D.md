@@ -14,6 +14,7 @@
 | HU-D-03 | §2.3 contractualizada en snake_case, con rutas `lib/`/`app/` y `@@unique`; §4 declara el evento `profesor:materias_asociadas` | Anotada §2.3 (nota de sincronización) y §4 (el módulo D usa la opción (a) de la Regla N.° 2). Sin renumerar. |
 | HU-D-04 | §2.4 contractualizada en snake_case con días fijos L-S y `GRANULARIDAD_MINUTOS` constante; §4 declara `profesor:horario_registrado` | Anotada §2.4 (nota de sincronización + "Contrato para HU-C-04") y §4. Días, franja y granularidad salen de `ParametroSistema`. Sin renumerar. |
 | HU-D-01 / HU-D-02 (ajuste) | §2.1 alta solo con identidad; §2.2 contacto como paso separado, desde la ficha | Anotada §2.1 (nota de sincronización: contacto opcional en el alta, en la misma transacción, y acciones posteriores al alta) y §2.2 (referencia). Sin renumerar. |
+| HU-D-05 (presentación en modal) | §2.5 contempla el detalle agrupado por día para la ruta directa | Anotada en §2.5 la lectura alternativa para el modal, que reutiliza el mismo servicio sin alterar el contrato existente. Sin renumerar. |
 
 **Fuera de alcance de esta spec (explícito):**
 - Modificación de una ficha de profesor ya registrada.
@@ -358,6 +359,8 @@ export const ListarProfesoresQuerySchema = z.object({
 - **camelCase**, igual que HU-D-03/04. El detalle devuelve `{ ..., contacto: { telefono, email }, horarios: { LUNES: [{ horaInicio, horaFin }] } }`. Solo aparecen los días que tienen horarios.
 - **Materias:** se ordenan por nombre normalizado. El listado muestra las 2 primeras y un contador (`"Física, Matemática +2"`); el detalle, todas.
 - **Contrato para HU-J-01:** `listarOpcionesProfesoresActivos(): Promise<{ id: string; nombreParaMostrar: string }[]>`. Devuelve los activos con el mismo orden que el listado; `nombreParaMostrar` es `"Apellido, Nombre"`.
+
+**Lectura para el modal del listado (revisión de presentación de HU-D-05):** `GET /api/profesores/[id]/ficha`, con permiso `profesores:leer`, reutiliza `obtenerDetalleProfesor(id)`. Responde con el contrato estándar `{ data, error }`: `data` contiene identidad, `telefono`, `email`, materias y horarios como lista de intervalos, tal como devuelve el servicio, sin agrupar por día; ante un id inexistente responde `404` con código `PROFESOR_NO_ENCONTRADO`. La UI necesita esa lista para el resumen y el formulario de horario. El contrato de `GET /api/profesores/[id]` descrito arriba se conserva para sus consumidores existentes. Esta ruta es solo de lectura y no agrega reglas de negocio.
 
 ---
 

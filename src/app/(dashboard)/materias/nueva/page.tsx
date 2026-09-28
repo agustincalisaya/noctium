@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { BookOpen } from "lucide-react";
 import { auth } from "@/auth";
 import { MateriaForm } from "./materia-form";
 
@@ -13,11 +14,14 @@ export default async function NuevaMateriaPage() {
 
   return (
     <main className="mx-auto max-w-lg space-y-6 p-6">
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Nueva materia</h1>
-        <p className="text-sm text-muted-foreground">
-          Registrá una materia para el catálogo del centro.
-        </p>
+      <div className="flex items-start gap-4">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-primary">
+          <BookOpen className="size-6" aria-hidden />
+        </span>
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold">Nueva materia</h1>
+          <p className="text-sm text-muted-foreground">Registrá una materia para el catálogo del centro.</p>
+        </div>
       </div>
       <MateriaForm />
     </main>

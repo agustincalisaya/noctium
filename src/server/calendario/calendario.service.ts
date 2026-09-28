@@ -73,6 +73,8 @@ const SELECT_EVENTO_BASE = {
   horaInicioTurno: true,
   duracionMinutosTurno: true,
   aula: { select: { nombreAula: true } },
+  cupoMaximoTurno: true,
+  _count: { select: { alumnos: true } },
 } satisfies Prisma.TurnoSelect;
 
 type FilaEventoBase = Prisma.TurnoGetPayload<{ select: typeof SELECT_EVENTO_BASE }>;
@@ -86,6 +88,8 @@ function eventoBase(turno: FilaEventoBase): EventoCalendarioBase {
     hora_fin: minutosAHora(horaAMinutos(horaInicio) + turno.duracionMinutosTurno),
     aula: turno.aula?.nombreAula ?? VALOR_AUSENTE,
     estado: turno.estadoTurno === "COMPLETO" ? "COMPLETO" : "DISPONIBLE",
+    inscriptos: turno._count.alumnos,
+    cupo: turno.cupoMaximoTurno ?? 0,
   };
 }
 

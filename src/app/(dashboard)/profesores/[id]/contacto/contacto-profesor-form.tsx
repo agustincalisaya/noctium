@@ -26,6 +26,8 @@ type ContactoProfesorFormProps = {
   /** Contacto actual, para precargar el formulario (null = sin cargar). */
   telefonoActual: string | null;
   emailActual: string | null;
+  onGuardado?: () => void;
+  onCancelar?: () => void;
 };
 
 /**
@@ -38,6 +40,8 @@ export function ContactoProfesorForm({
   profesorId,
   telefonoActual,
   emailActual,
+  onGuardado,
+  onCancelar,
 }: ContactoProfesorFormProps) {
   const [estado, setEstado] = useState<EstadoContactoProfesor>(ESTADO_INICIAL_CONTACTO_PROFESOR);
   const [pendiente, setPendiente] = useState(false);
@@ -82,6 +86,7 @@ export function ContactoProfesorForm({
       setEstado(resultado);
       if (resultado.status === "exito") {
         setDirty(false);
+        onGuardado?.();
       } else if (resultado.status === "error_validacion") {
         enfocarPrimerCampoInvalido(form, resultado.errores);
       }
@@ -97,7 +102,8 @@ export function ContactoProfesorForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push(rutaFicha);
+    if (onCancelar) onCancelar();
+    else router.push(rutaFicha);
   }
 
   const erroresServidor = estado.status === "error_validacion" ? estado.errores : {};
@@ -196,7 +202,8 @@ export function ContactoProfesorForm({
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push(rutaFicha);
+          if (onCancelar) onCancelar();
+          else router.push(rutaFicha);
         }}
       />
     </form>

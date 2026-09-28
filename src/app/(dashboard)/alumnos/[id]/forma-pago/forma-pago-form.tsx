@@ -21,6 +21,8 @@ type FormaPagoFormProps = {
   formasPagoActivas: FormaPagoActiva[];
   /** Id de la forma de pago preferida actual (`null` = "Sin preferencia"). */
   formaPagoIdActual: string | null;
+  onCancelar?: () => void;
+  onGuardado?: () => void;
 };
 
 /**
@@ -30,7 +32,7 @@ type FormaPagoFormProps = {
  * controlado, `DirtyStateContext`/`ConfirmarDescarteDialog` para "Cancelar"
  * con cambios sin guardar.
  */
-export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }: FormaPagoFormProps) {
+export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual, onCancelar, onGuardado }: FormaPagoFormProps) {
   const [exito, setExito] = useState<{ nombre: string | null } | null>(null);
   const [pendiente, setPendiente] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState<string | undefined>();
@@ -60,6 +62,7 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
         setDirty(false);
         const seleccionada = formasPagoActivas.find((fp) => fp.id === resultado.data.forma_pago_preferida_id);
         setExito({ nombre: seleccionada?.nombre ?? null });
+        onGuardado?.();
         return;
       }
 
@@ -79,7 +82,8 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
       setConfirmandoCancelar(true);
       return;
     }
-    router.push(rutaFicha);
+    if (onCancelar) onCancelar();
+    else router.push(rutaFicha);
   }
 
   if (exito) {
@@ -91,9 +95,7 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
         <p className="text-sm text-muted-foreground">
           Forma de pago preferida: <span className="font-medium text-foreground">{exito.nombre ?? "Sin preferencia"}</span>
         </p>
-        <Link href={rutaFicha} className={buttonVariants({ variant: "default" })}>
-          Volver a la ficha
-        </Link>
+        {onCancelar ? <Button type="button" onClick={onCancelar}>Volver a la ficha</Button> : <Link href={rutaFicha} className={buttonVariants({ variant: "default" })}>Volver a la ficha</Link>}
       </div>
     );
   }
@@ -147,7 +149,8 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push(rutaFicha);
+          if (onCancelar) onCancelar();
+          else router.push(rutaFicha);
         }}
       />
     </form>

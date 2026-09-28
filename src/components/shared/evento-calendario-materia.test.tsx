@@ -58,24 +58,24 @@ describe("EventoCalendarioMateria", () => {
   it("muestra hora, profesor, ocupación, aula y estado con texto, sin nombres de alumnos", async () => {
     await act(async () => root.render(<EventoCalendarioMateria evento={evento()} estilo={ESTILO} volverA={VOLVER} />));
 
-    const link = container.querySelector("a")!;
-    const lineas = [...link.querySelectorAll("span")].map((span) => span.textContent);
+    const boton = container.querySelector("button")!;
+    const lineas = [...boton.querySelectorAll("span")].map((span) => span.textContent);
     expect(lineas).toContain("10:00–11:00");
     expect(lineas).toContain("Giménez, Laura");
     expect(lineas).toContain("Alumnos: 3/5");
     expect(lineas).toContain("Aula 2");
-    expect(link.textContent).toContain("Disponible");
-    expect(link.getAttribute("aria-label")).toBe(
+    expect(boton.textContent).toContain("Disponible");
+    expect(boton.getAttribute("aria-label")).toBe(
       "Turno 10:00–11:00 · Giménez, Laura · 3 de 5 alumnos inscriptos · Aula 2 · Disponible. Ver detalle",
     );
   });
 
-  it("abre el detalle con ?volver= apuntando al calendario de la materia", async () => {
+  it("abre el detalle en un modal sin navegar", async () => {
     await act(async () => root.render(<EventoCalendarioMateria evento={evento()} estilo={ESTILO} volverA={VOLVER} />));
-
-    expect(container.querySelector("a")!.getAttribute("href")).toBe(
-      `/turnos/ckturno1?volver=${encodeURIComponent(VOLVER)}`,
-    );
+    await act(async () => container.querySelector("button")!.click());
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Detalle del turno");
+    expect(document.querySelector('[role="dialog"] a')?.getAttribute("href")).toBe(`/turnos/ckturno1?volver=${encodeURIComponent(VOLVER)}`);
   });
 
   it("usa un ícono distinto por estado, además del texto", async () => {
@@ -91,10 +91,10 @@ describe("EventoCalendarioMateria", () => {
         />,
       ),
     );
-    const link = container.querySelector("a")!;
+    const boton = container.querySelector("button")!;
 
-    expect(link.textContent).toContain("Completo");
-    expect(link.textContent).toContain("Alumnos: 5/5");
+    expect(boton.textContent).toContain("Completo");
+    expect(boton.textContent).toContain("Alumnos: 5/5");
     expect(container.querySelector("svg")!.getAttribute("class")).not.toBe(iconoDisponible);
   });
 });
@@ -113,6 +113,8 @@ describe("EventoCalendario (HU-J-01, regresión del refactor)", () => {
             materia: "Matemática",
             aula: "Aula 2",
             estado: "COMPLETO",
+            inscriptos: 5,
+            cupo: 5,
           }}
           estilo={ESTILO}
           volverA="/calendario/profesor?profesorId=ckprof"
@@ -120,10 +122,10 @@ describe("EventoCalendario (HU-J-01, regresión del refactor)", () => {
       ),
     );
 
-    const link = container.querySelector("a")!;
-    expect(link.getAttribute("aria-label")).toBe(
+    const boton = container.querySelector("button")!;
+    expect(boton.getAttribute("aria-label")).toBe(
       "Turno 10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completo. Ver detalle",
     );
-    expect(link.getAttribute("title")).toBe("10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completo");
+    expect(boton.getAttribute("title")).toBe("10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completo");
   });
 });

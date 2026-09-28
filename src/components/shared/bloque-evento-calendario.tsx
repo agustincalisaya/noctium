@@ -1,22 +1,12 @@
-import Link from "next/link";
-import { CalendarCheck, Users, type LucideIcon } from "lucide-react";
+"use client";
+
+import { CalendarCheck, Users, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { TurnoCalendarioModal } from "@/components/shared/turno-calendario-modal";
 import type { EventoCalendarioBase } from "@/types/calendario.types";
 
 type Estado = EventoCalendarioBase["estado"];
-
-export const ETIQUETA_ESTADO: Record<Estado, string> = {
-  DISPONIBLE: "Disponible",
-  COMPLETO: "Completo",
-};
-
-// El ícono distingue el estado además del texto, sin depender del color
-// (HU-J-01 c3, HU-J-02 c2).
-export const ICONO_ESTADO: Record<Estado, LucideIcon> = {
-  DISPONIBLE: CalendarCheck,
-  COMPLETO: Users,
-};
 
 export type EstiloEventoEnGrilla = { top: string; height: string; left: string; width: string };
 
@@ -33,6 +23,8 @@ export function BloqueEventoCalendario({
   horaInicio,
   horaFin,
   estado,
+  inscriptos,
+  cupo,
   lineas,
   descripcion,
   estilo,
@@ -42,6 +34,8 @@ export function BloqueEventoCalendario({
   horaInicio: string;
   horaFin: string;
   estado: Estado;
+  inscriptos: number;
+  cupo: number;
   /** La primera va destacada; el resto, en texto secundario. */
   lineas: string[];
   /** Descripción completa, sin horario ni estado (se agregan acá). */
@@ -51,22 +45,34 @@ export function BloqueEventoCalendario({
   volverA: string;
 }) {
   const horario = `${horaInicio}–${horaFin}`;
-  const etiquetaEstado = ETIQUETA_ESTADO[estado];
-  const IconoEstado = ICONO_ESTADO[estado];
+  const completo = estado === "COMPLETO" || (cupo > 0 && inscriptos >= cupo);
+  const casiCompleto = !completo && cupo > 0 && inscriptos / cupo >= 0.75;
+  const etiquetaEstado = completo ? "Completo" : casiCompleto ? "Pocos lugares" : "Disponible";
+  const IconoEstado = completo ? Users : casiCompleto ? TriangleAlert : CalendarCheck;
+  const color = completo
+    ? "border-destructive/30 bg-destructive/10 hover:bg-destructive/15"
+    : casiCompleto
+      ? "border-warning-foreground/25 bg-warning/65 hover:bg-warning"
+      : "border-success-foreground/20 bg-success/65 hover:bg-success";
+  const colorInsignia = completo
+    ? "bg-destructive/15 text-destructive"
+    : casiCompleto
+      ? "bg-warning text-warning-foreground"
+      : "bg-success text-success-foreground";
   const completa = `${horario} · ${descripcion} · ${etiquetaEstado}`;
 
   return (
-    <Link
-      href={`/turnos/${encodeURIComponent(turnoId)}?volver=${encodeURIComponent(volverA)}`}
-      prefetch={false}
+    <TurnoCalendarioModal turnoId={turnoId} volverA={volverA}>
+    <button
+      type="button"
       title={completa}
       aria-label={`Turno ${completa}. Ver detalle`}
-      className="absolute flex flex-col gap-0.5 overflow-hidden rounded-md border border-border border-l-4 border-l-primary bg-background p-1.5 text-xs text-foreground shadow-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn("absolute flex flex-col gap-0.5 overflow-hidden rounded-md border p-1.5 text-left text-xs text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", color)}
       style={estilo}
     >
       <span className="flex items-center justify-between gap-1">
         <span className="font-semibold tabular-nums">{horario}</span>
-        <Badge variant="success" className="shrink-0 gap-1 px-1.5 py-0">
+        <Badge className={cn("shrink-0 gap-1 border-transparent px-1.5 py-0", colorInsignia)}>
           <IconoEstado className="size-3" aria-hidden />
           {etiquetaEstado}
         </Badge>
@@ -76,6 +82,7 @@ export function BloqueEventoCalendario({
           {linea}
         </span>
       ))}
-    </Link>
+    </button>
+    </TurnoCalendarioModal>
   );
 }

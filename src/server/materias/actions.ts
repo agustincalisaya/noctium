@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { CrearMateriaSchema } from "@/server/materias/materia.schema";
 import { crearMateria as crearMateriaService } from "@/server/materias/materia.service";
 import { verificarPermiso, PermisoError } from "@/server/shared/with-permission";
@@ -59,5 +58,5 @@ export async function crearMateria(
     return { status: "error_comunicacion", nombre: nombreIngresado, codigo: codigoIngresado };
   }
 
-  redirect("/materias?creada=1");
+  return { status: "ok" };
 }

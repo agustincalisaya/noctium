@@ -22,6 +22,8 @@ export function EventoCalendarioMateria({
       horaInicio={evento.hora_inicio}
       horaFin={evento.hora_fin}
       estado={evento.estado}
+      inscriptos={evento.inscriptos}
+      cupo={evento.cupo}
       lineas={[evento.profesor, `Alumnos: ${evento.alumnos_inscriptos}`, evento.aula]}
       descripcion={`${evento.profesor} · ${evento.inscriptos} de ${evento.cupo} alumnos inscriptos · ${evento.aula}`}
       estilo={estilo}

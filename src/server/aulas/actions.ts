@@ -1,7 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { CrearAulaSchema } from "@/server/aulas/aula.schema";
 import { crearAula as crearAulaService } from "@/server/aulas/aula.service";
 import { verificarPermiso, PermisoError } from "@/server/shared/with-permission";
@@ -59,6 +57,5 @@ export async function crearAula(
     return { status: "error_comunicacion", nombre: nombreIngresado, capacidad: capacidadIngresada };
   }
 
-  revalidatePath("/aulas");
-  redirect("/aulas?creada=1");
+  return { status: "ok" };
 }

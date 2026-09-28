@@ -45,9 +45,13 @@ type CamposError = {
 export function AlumnoForm({
   dniLongitudMin,
   dniLongitudMax,
+  onCancelar,
+  onCreado,
 }: {
   dniLongitudMin: number;
   dniLongitudMax: number;
+  onCancelar?: () => void;
+  onCreado?: (alumnoId: string, contacto: "sin_cargar" | "guardado" | { error: string }) => void;
 }) {
   const router = useRouter();
   const { setDirty } = useDirtyState();
@@ -162,7 +166,8 @@ export function AlumnoForm({
           }
         }
         setDirty(false);
-        router.push(rutaTrasAlta(resultado.data.id, contacto));
+        if (onCreado) onCreado(resultado.data.id, contacto);
+        else router.push(rutaTrasAlta(resultado.data.id, contacto));
         return;
       }
 
@@ -201,7 +206,8 @@ export function AlumnoForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push("/alumnos");
+    if (onCancelar) onCancelar();
+    else router.push("/alumnos");
   }
 
   return (
@@ -411,7 +417,8 @@ export function AlumnoForm({
               <Button
                 onClick={() => {
                   setDirty(false);
-                  router.push("/alumnos");
+                  if (onCancelar) onCancelar();
+                  else router.push("/alumnos");
                 }}
               >
                 Salir sin guardar

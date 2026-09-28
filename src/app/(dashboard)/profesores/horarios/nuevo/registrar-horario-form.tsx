@@ -69,12 +69,18 @@ export function RegistrarHorarioForm({
   parametros,
   modoAlta = false,
   cantidadHorarios = 0,
+  fijarProfesor = false,
+  onGuardado,
+  onCancelar,
 }: {
   profesores: ProfesorActivoOpcion[];
   profesorIdInicial: string;
   parametros: ParametrosHorarioOperativo;
   modoAlta?: boolean;
   cantidadHorarios?: number;
+  fijarProfesor?: boolean;
+  onGuardado?: () => void;
+  onCancelar?: () => void;
 }) {
   const [valores, setValores] = useState<Valores>({
     profesorId: profesorIdInicial,
@@ -85,6 +91,7 @@ export function RegistrarHorarioForm({
   const [estado, setEstado] = useState<EstadoRegistrarHorario>(ESTADO_INICIAL_REGISTRAR_HORARIO);
   const [erroresCliente, setErroresCliente] = useState<Partial<Record<Campo, string>>>({});
   const [pendiente, setPendiente] = useState(false);
+  const [horariosRegistrados, setHorariosRegistrados] = useState(cantidadHorarios);
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const router = useRouter();
   const { setDirty } = useDirtyState();
@@ -123,7 +130,7 @@ export function RegistrarHorarioForm({
     setValores((previos) => ({ ...previos, [campo]: valor }));
     setErroresCliente((previos) => ({ ...previos, [campo]: undefined }));
     if (estado.status !== "idle") setEstado(ESTADO_INICIAL_REGISTRAR_HORARIO);
-    if (campo === "profesorId") {
+    if (campo === "profesorId" && !fijarProfesor) {
       router.replace(
         valor ? `/profesores/horarios/nuevo?profesorId=${valor}` : "/profesores/horarios/nuevo",
         { scroll: false },
@@ -171,11 +178,13 @@ export function RegistrarHorarioForm({
         // Fuera del wizard el día queda cargado (HU-D-04 criterio 4).
         setValores((previos) => ({
           ...previos,
-          diaSemana: modoAlta ? "" : previos.diaSemana,
+          diaSemana: modoAlta || fijarProfesor ? "" : previos.diaSemana,
           horaInicio: "",
           horaFin: "",
         }));
-        router.refresh();
+        setHorariosRegistrados((cantidad) => cantidad + 1);
+        if (onGuardado) onGuardado();
+        else router.refresh();
       } else if (resultado.status === "error_validacion") {
         enfocarPrimerCampoInvalido(form, resultado.errores);
       }
@@ -193,7 +202,8 @@ export function RegistrarHorarioForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push(rutaVolver);
+    if (onCancelar) onCancelar();
+    else router.push(rutaVolver);
   }
 
   function errorDe(campo: Campo): string | undefined {
@@ -259,7 +269,7 @@ export function RegistrarHorarioForm({
         </div>
       )}
 
-      {!modoAlta &&
+      {!modoAlta && !fijarProfesor &&
         campoSelect(
           "profesorId",
           "Profesor",
@@ -305,16 +315,12 @@ export function RegistrarHorarioForm({
           <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
             Cancelar
           </Button>
-        ) : cantidadHorarios > 0 ? (
-          <LinkProtegido href={rutaVolver} className={buttonVariants({ variant: "outline" })}>
-            Finalizar
-          </LinkProtegido>
+        ) : horariosRegistrados > 0 ? (
+          onCancelar ? <Button type="button" variant="outline" onClick={() => { setDirty(false); onCancelar(); }}>Finalizar</Button> : <LinkProtegido href={rutaVolver} className={buttonVariants({ variant: "outline" })}>Finalizar</LinkProtegido>
         ) : (
           // Salida explícita del wizard: sin confirmación de descarte (ver
           // AsociarMateriasForm). Se limpia el dirty flag antes de navegar.
-          <Link href={rutaVolver} onClick={() => setDirty(false)} className={CLASE_LINK_SECUNDARIO}>
-            Completar esto más tarde
-          </Link>
+          onCancelar ? <button type="button" onClick={() => { setDirty(false); onCancelar(); }} className={CLASE_LINK_SECUNDARIO}>Completar esto más tarde</button> : <Link href={rutaVolver} onClick={() => setDirty(false)} className={CLASE_LINK_SECUNDARIO}>Completar esto más tarde</Link>
         )}
       </div>
 
@@ -323,7 +329,8 @@ export function RegistrarHorarioForm({
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push(rutaVolver);
+          if (onCancelar) onCancelar();
+          else router.push(rutaVolver);
         }}
       />
     </form>

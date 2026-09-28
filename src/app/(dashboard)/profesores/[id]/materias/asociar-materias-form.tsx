@@ -54,10 +54,16 @@ export function AsociarMateriasForm({
   profesorId,
   opciones,
   modoAlta = false,
+  onGuardado,
+  onAvanzar,
+  onCancelar,
 }: {
   profesorId: string;
   opciones: OpcionMateria[];
   modoAlta?: boolean;
+  onGuardado?: () => void;
+  onAvanzar?: () => void;
+  onCancelar?: () => void;
 }) {
   const [estado, setEstado] = useState<EstadoAsociarMaterias>(ESTADO_INICIAL_ASOCIAR_MATERIAS);
   const [pendiente, setPendiente] = useState(false);
@@ -115,7 +121,8 @@ export function AsociarMateriasForm({
         // `pendiente` queda en true hasta que la navegación desmonte el form.
         setDirty(false);
         notificarExito(MENSAJE_EXITO_ALTA);
-        router.push(`/profesores/horarios/nuevo?profesorId=${profesorId}&alta=1`);
+        if (onAvanzar) onAvanzar();
+        else router.push(`/profesores/horarios/nuevo?profesorId=${profesorId}&alta=1`);
         return;
       }
       setEstado(resultado);
@@ -127,6 +134,7 @@ export function AsociarMateriasForm({
           return siguiente;
         });
         setSeleccionadas(new Set());
+        onGuardado?.();
       }
     } catch {
       setEstado({ status: "error_comunicacion" });
@@ -139,7 +147,8 @@ export function AsociarMateriasForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push(rutaFicha);
+    if (onCancelar) onCancelar();
+    else router.push(rutaFicha);
   }
 
   const mensajeError =
@@ -157,12 +166,12 @@ export function AsociarMateriasForm({
       {estado.status === "exito" && (
         <div role="status" className="space-y-1 rounded-md bg-success p-3 text-sm text-success-foreground">
           <p className="font-medium">{MENSAJE_EXITO}</p>
-          <LinkProtegido
+          {onCancelar ? <button type="button" onClick={onCancelar} className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Volver a la ficha</button> : <LinkProtegido
             href={rutaFicha}
             className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Volver a la ficha
-          </LinkProtegido>
+          </LinkProtegido>}
         </div>
       )}
 
@@ -257,9 +266,7 @@ export function AsociarMateriasForm({
           // Salida explícita del wizard: <Link> simple, sin confirmación de
           // descarte (a diferencia de LinkProtegido, pensado para salidas
           // accidentales). Se limpia el dirty flag antes de navegar.
-          <Link href={rutaFicha} onClick={() => setDirty(false)} className={CLASE_LINK_SECUNDARIO}>
-            Completar esto más tarde
-          </Link>
+          onCancelar ? <button type="button" onClick={() => { setDirty(false); onCancelar(); }} className={CLASE_LINK_SECUNDARIO}>Completar esto más tarde</button> : <Link href={rutaFicha} onClick={() => setDirty(false)} className={CLASE_LINK_SECUNDARIO}>Completar esto más tarde</Link>
         ) : (
           <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
             Cancelar
@@ -272,7 +279,8 @@ export function AsociarMateriasForm({
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push(rutaFicha);
+          if (onCancelar) onCancelar();
+          else router.push(rutaFicha);
         }}
       />
     </form>

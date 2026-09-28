@@ -1,9 +1,12 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { GraduationCap, Loader2, Mail, Phone } from "lucide-react";
+import { ChevronRight, Loader2, Mail, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/shared/pagination";
+import { fechaUTCHaceAnios } from "@/server/shared/fecha";
+import { getParametroNumerico, obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
+import { listarMateriasActivas } from "@/server/materias/materia.service";
+import { AbrirNuevoProfesor, AbrirProfesor, ProfesoresModales } from "./profesores-modales";
 import { formatearApellidoNombre, resumirMaterias, VALOR_AUSENTE } from "@/lib/profesor-listado";
 import { ListarProfesoresQuerySchema } from "@/server/profesores/profesor.schema";
 import { listarProfesores } from "@/server/profesores/profesor.service";
@@ -27,14 +30,22 @@ export default async function ProfesoresPage({
   // Ocultamiento de UI únicamente — el alta vuelve a verificar
   // profesores:crear en su Server Action / Route Handler.
   const puedeCrear = await tienePermiso("profesores:crear");
+  const puedeEditar = await tienePermiso("profesores:editar");
+  const [dniLongitudMin, dniLongitudMax, parametrosHorario, materiasActivas] = await Promise.all([
+    getParametroNumerico("dni_longitud_min", 7),
+    getParametroNumerico("dni_longitud_max", 8),
+    obtenerParametrosHorarioOperativo(),
+    puedeEditar ? listarMateriasActivas() : Promise.resolve([]),
+  ]);
 
   const { pagina } = await searchParams;
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Profesores</h1>
-        {puedeCrear && <LinkNuevoProfesor />}
+    <ProfesoresModales puedeCrear={puedeCrear} puedeEditar={puedeEditar} dniLongitudMin={dniLongitudMin} dniLongitudMax={dniLongitudMax} fechaMaximaNacimiento={fechaUTCHaceAnios(18).toISOString().slice(0, 10)} parametrosHorario={parametrosHorario} materiasActivas={materiasActivas.map((materia) => ({ id: materia.idMateria, nombre: materia.nombreMateria, codigo: materia.codigoMateria, activa: true }))}>
+    <div className="space-y-5 p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1"><h1 className="text-2xl font-semibold tracking-tight">Profesores</h1><p className="text-sm text-muted-foreground">Consultá las fichas, materias y horarios de atención.</p></div>
+        {puedeCrear && <AbrirNuevoProfesor />}
       </div>
 
       {/*
@@ -47,18 +58,7 @@ export default async function ProfesoresPage({
         <TablaProfesores pagina={pagina} puedeCrear={puedeCrear} />
       </Suspense>
     </div>
-  );
-}
-
-function LinkNuevoProfesor() {
-  return (
-    <Link
-      href="/profesores/nuevo"
-      className="flex items-center text-sm font-medium underline underline-offset-4"
-    >
-      <GraduationCap className="mr-2 size-4" aria-hidden />
-      Nuevo profesor
-    </Link>
+    </ProfesoresModales>
   );
 }
 
@@ -91,15 +91,10 @@ async function TablaProfesores({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-md border border-border bg-card py-12 text-center">
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card py-12 text-center">
         <p className="text-sm text-muted-foreground">No hay profesores registrados</p>
         {puedeCrear && (
-          <Link
-            href="/profesores/nuevo"
-            className="text-sm font-medium text-primary underline underline-offset-4"
-          >
-            Nuevo profesor
-          </Link>
+          <AbrirNuevoProfesor />
         )}
       </div>
     );
@@ -107,8 +102,9 @@ async function TablaProfesores({
 
   return (
     <>
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full text-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3"><p className="text-sm font-semibold">{paginacion.total} {paginacion.total === 1 ? "profesor registrado" : "profesores registrados"}</p><p className="text-xs text-muted-foreground">Seleccioná un profesor para ver su ficha</p></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[780px] text-sm">
           <thead className="bg-muted text-muted-foreground">
             <tr>
               <th scope="col" className="px-4 py-2 text-left font-medium">Apellido y nombre</th>
@@ -116,6 +112,7 @@ async function TablaProfesores({
               <th scope="col" className="px-4 py-2 text-left font-medium">Contacto</th>
               <th scope="col" className="px-4 py-2 text-left font-medium">Materias</th>
               <th scope="col" className="px-4 py-2 text-left font-medium">Estado</th>
+              <th scope="col" className="w-10 px-3 py-2"><span className="sr-only">Abrir ficha</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border bg-card">
@@ -134,12 +131,7 @@ async function TablaProfesores({
                     className="max-w-[16rem] truncate px-4 py-2 font-medium text-foreground"
                     title={apellidoNombre}
                   >
-                    <Link
-                      href={`/profesores/${profesor.id}?pagina=${paginacion.pagina_actual}`}
-                      className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-                    >
-                      {apellidoNombre}
-                    </Link>
+                    <AbrirProfesor id={profesor.id} nombre={apellidoNombre} />
                   </td>
                   <td className="px-4 py-2 tabular-nums text-muted-foreground">{profesor.dni}</td>
                   <td className="max-w-[16rem] px-4 py-2 text-muted-foreground">
@@ -157,11 +149,12 @@ async function TablaProfesores({
                       {profesor.activo ? "Activo" : "Inactivo"}
                     </Badge>
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground"><ChevronRight className="size-4" aria-hidden /></td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <Pagination

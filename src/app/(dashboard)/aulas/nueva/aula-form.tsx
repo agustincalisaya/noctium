@@ -12,13 +12,24 @@ import { ESTADO_INICIAL, type EstadoAula } from "@/types/aula.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
-export function AulaForm() {
+export function AulaForm({
+  onCancelar,
+  onCreada,
+  onCambios,
+  onGuardando,
+}: {
+  onCancelar?: () => void;
+  onCreada?: () => void;
+  onCambios?: (hayCambios: boolean) => void;
+  onGuardando?: (guardando: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const { setDirty } = useDirtyState();
+  const { setDirty, confirmarSalida } = useDirtyState();
   const [estado, setEstado] = useState<EstadoAula>(ESTADO_INICIAL);
   const [pendiente, setPendiente] = useState(false);
   const [erroresCliente, setErroresCliente] = useState<{ nombre?: string; capacidad?: string }>({});
   const nombreRef = useRef<HTMLInputElement>(null);
+  const capacidadRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     nombreRef.current?.focus();
@@ -26,7 +37,10 @@ export function AulaForm() {
 
   function handleChange() {
     const nombre = nombreRef.current?.value.trim() ?? "";
-    if (nombre) setDirty(true);
+    const capacidad = capacidadRef.current?.value.trim() ?? "";
+    const hayCambios = Boolean(nombre || capacidad);
+    setDirty(hayCambios);
+    onCambios?.(hayCambios);
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -46,14 +60,21 @@ export function AulaForm() {
     }
     setErroresCliente({});
     setPendiente(true);
+    onGuardando?.(true);
 
     try {
       const resultado = await crearAula(estado, formData);
+      if (resultado.status === "ok") {
+        setDirty(false);
+        onCambios?.(false);
+        if (onCreada) onCreada();
+        else router.push("/aulas?creada=1");
+        return;
+      }
       setEstado(resultado);
     } catch (error) {
-      // El redirect() de la action en el caso exitoso se propaga como señal
-      // de control de Next.js, no como un error real — se deja pasar antes
-      // de tratar cualquier otro throw como falla de comunicación.
+      // Propagar las señales de control de Next.js antes de tratar cualquier
+      // otro error como falla de comunicación.
       unstable_rethrow(error);
       setEstado({
         status: "error_comunicacion",
@@ -62,15 +83,13 @@ export function AulaForm() {
       });
     } finally {
       setPendiente(false);
+      onGuardando?.(false);
     }
   }
 
   function handleCancelar() {
-    // A diferencia de Materias (HU-L-01), el criterio de aceptación de esta
-    // HU ("Cancelar vuelve al listado sin guardar") no exige confirmación
-    // condicional — navegación directa (HU-K-01.md §5).
-    setDirty(false);
-    router.push("/aulas");
+    if (onCancelar) onCancelar();
+    else confirmarSalida(() => router.push("/aulas"));
   }
 
   const errorNombre =
@@ -88,12 +107,12 @@ export function AulaForm() {
         ? MENSAJE_ERROR_COMUNICACION
         : undefined;
 
-  const nombreDefault = estado.status !== "idle" ? estado.nombre : "";
-  const capacidadDefault = estado.status !== "idle" ? estado.capacidad : "";
+  const nombreDefault = "nombre" in estado ? estado.nombre : "";
+  const capacidadDefault = "capacidad" in estado ? estado.capacidad : "";
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-4">
-      <div className="space-y-1.5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <div className="space-y-2">
         <Label htmlFor="nombre">Nombre o número</Label>
         <Input
           ref={nombreRef}
@@ -102,9 +121,11 @@ export function AulaForm() {
           defaultValue={nombreDefault}
           onChange={handleChange}
           aria-invalid={!!errorNombre}
+          aria-describedby="nombre-ayuda"
           placeholder="Ej: Aula 3"
+          className="h-11 bg-card"
         />
-        <p className="text-xs text-muted-foreground">Entre 1 y 30 caracteres.</p>
+        <p id="nombre-ayuda" className="text-xs text-muted-foreground">Entre 1 y 30 caracteres.</p>
         {errorNombre && (
           <p className="text-sm text-destructive" role="alert">
             {errorNombre}
@@ -112,9 +133,10 @@ export function AulaForm() {
         )}
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label htmlFor="capacidad">Capacidad</Label>
         <Input
+          ref={capacidadRef}
           id="capacidad"
           name="capacidad"
           type="number"
@@ -124,9 +146,11 @@ export function AulaForm() {
           defaultValue={capacidadDefault}
           onChange={handleChange}
           aria-invalid={!!errorCapacidad}
+          aria-describedby="capacidad-ayuda"
           placeholder="Ej: 25"
+          className="h-11 bg-card"
         />
-        <p className="text-xs text-muted-foreground">Número entero mayor a cero.</p>
+        <p id="capacidad-ayuda" className="text-xs text-muted-foreground">Número entero mayor a cero.</p>
         {errorCapacidad && (
           <p className="text-sm text-destructive" role="alert">
             {errorCapacidad}
@@ -140,12 +164,12 @@ export function AulaForm() {
         </p>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pendiente}>
-          {pendiente ? "Guardando..." : "Registrar aula"}
-        </Button>
+      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={handleCancelar} disabled={pendiente}>
           Cancelar
+        </Button>
+        <Button type="submit" disabled={pendiente}>
+          {pendiente ? "Guardando..." : "Registrar aula"}
         </Button>
       </div>
     </form>

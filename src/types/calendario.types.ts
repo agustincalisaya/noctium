@@ -14,6 +14,8 @@ export type EventoCalendarioBase = {
   hora_fin: string;
   aula: string;
   estado: "DISPONIBLE" | "COMPLETO";
+  inscriptos: number;
+  cupo: number;
 };
 
 /**
@@ -35,8 +37,6 @@ export type EventoCalendarioMateria = EventoCalendarioBase & {
   profesor: string;
   /** "3/5" */
   alumnos_inscriptos: string;
-  inscriptos: number;
-  cupo: number;
 };
 
 export type RangoSemana = { desde: string; hasta: string };

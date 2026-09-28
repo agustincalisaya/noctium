@@ -46,6 +46,8 @@ type EditarAlumnoFormProps = {
   formasPagoActivas: FormaPagoActiva[];
   dniLongitudMin: number;
   dniLongitudMax: number;
+  onCancelar?: () => void;
+  onGuardado?: () => void;
 };
 
 /**
@@ -75,6 +77,8 @@ export function EditarAlumnoForm({
   formasPagoActivas,
   dniLongitudMin,
   dniLongitudMax,
+  onCancelar,
+  onGuardado,
 }: EditarAlumnoFormProps) {
   const router = useRouter();
   const { dirty, setDirty } = useDirtyState();
@@ -196,6 +200,7 @@ export function EditarAlumnoForm({
         setDirty(false);
         setHayCambios(false);
         setExito({ campos_modificados: resultado.data.campos_modificados });
+        onGuardado?.();
         return;
       }
 
@@ -244,7 +249,8 @@ export function EditarAlumnoForm({
       setConfirmandoCancelar(true);
       return;
     }
-    router.push(rutaFicha);
+    if (onCancelar) onCancelar();
+    else router.push(rutaFicha);
   }
 
   if (exito) {
@@ -253,9 +259,7 @@ export function EditarAlumnoForm({
         <p className="rounded-md bg-success px-3 py-2 text-sm font-medium text-success-foreground">
           {MENSAJE_EXITO}
         </p>
-        <Link href={rutaFicha} className={buttonVariants({ variant: "default" })}>
-          Volver a la ficha
-        </Link>
+        {onCancelar ? <Button type="button" onClick={onCancelar}>Volver a la ficha</Button> : <Link href={rutaFicha} className={buttonVariants({ variant: "default" })}>Volver a la ficha</Link>}
       </div>
     );
   }
@@ -504,7 +508,8 @@ export function EditarAlumnoForm({
         onAbiertoChange={setConfirmandoCancelar}
         onConfirmar={() => {
           setDirty(false);
-          router.push(rutaFicha);
+          if (onCancelar) onCancelar();
+          else router.push(rutaFicha);
         }}
       />
     </form>

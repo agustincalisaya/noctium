@@ -59,6 +59,8 @@ function filaTurno({
     materia: { nombreMateria: "Matemática" },
     aula: aula ? { nombreAula: aula } : null,
     alumnos: alumnos.map(([apellidoAlumno, nombreAlumno]) => ({ alumno: { apellidoAlumno, nombreAlumno } })),
+    cupoMaximoTurno: 4,
+    _count: { alumnos: alumnos.length },
   };
 }
 
@@ -102,6 +104,8 @@ describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
       materia: "Matemática",
       aula: "Aula 2",
       estado: "DISPONIBLE",
+      inscriptos: 1,
+      cupo: 4,
     });
   });
 
