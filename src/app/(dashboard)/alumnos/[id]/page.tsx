@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
 import { ServiceError } from "@/server/shared/service-error";
+import { parametrosListadoAlumnos } from "@/lib/alumno-listado";
 import { FichaEncabezado } from "./ficha-encabezado";
 import { FichaContacto } from "./ficha-contacto";
 import { FichaAltaPago } from "./ficha-alta-pago";
@@ -26,10 +27,10 @@ export default async function AlumnoDetallePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ pagina?: string }>;
+  searchParams: Promise<{ pagina?: string; q?: string }>;
 }) {
   const { id } = await params;
-  const { pagina } = await searchParams;
+  const { pagina, q } = await searchParams;
 
   try {
     await verificarPermiso("alumnos:leer");
@@ -61,7 +62,12 @@ export default async function AlumnoDetallePage({
     throw error;
   }
 
-  const hrefListado = pagina ? `/alumnos?pagina=${pagina}` : "/alumnos";
+  // Vuelve a la misma página y búsqueda del listado (HU-B-04 / HU-B-05).
+  const paginaListado = Number(pagina);
+  const hrefListado = `/alumnos${parametrosListadoAlumnos({
+    q: q?.trim() || undefined,
+    pagina: Number.isInteger(paginaListado) ? paginaListado : undefined,
+  })}`;
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl space-y-5 p-6">

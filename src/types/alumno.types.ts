@@ -40,6 +40,12 @@ export type Paginacion = {
   por_pagina: number;
 };
 
+/** Respuesta de `listarAlumnos()` / `GET /api/alumnos` (HU-B-04, con la búsqueda de HU-B-05). */
+export type ListadoAlumnos = {
+  items: AlumnoListado[];
+  paginacion: Paginacion;
+};
+
 /**
  * Detalle completo del alumno (HU-B-04): identidad + contacto + forma de
  * pago preferida (nombre resuelto, `null` = "Sin preferencia") + estado +
