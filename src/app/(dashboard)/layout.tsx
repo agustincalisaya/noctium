@@ -5,6 +5,7 @@ import { AvisoExpiracion } from "@/components/sesion/aviso-expiracion";
 import { ProtegerCacheNavegador } from "@/components/sesion/proteger-cache-navegador";
 import { DirtyStateProvider } from "@/components/sesion/dirty-state-context";
 import { ToastProvider } from "@/components/ui/toast";
+import { Toaster } from "@/components/ui/sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -35,6 +36,7 @@ export default async function DashboardLayout({
     <DirtyStateProvider>
       <ToastProvider>
         <ProtegerCacheNavegador />
+        <Toaster />
         <AvisoExpiracion expiresISO={session.expires} avisoAnticipadoMin={avisoAnticipadoMin} />
         <div className="flex h-screen overflow-hidden bg-background">
           <Sidebar />

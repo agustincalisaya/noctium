@@ -41,6 +41,10 @@ const PUBLICOS = [
       "@/server/profesores/profesor.service",
     ],
   },
+  {
+    ruta: "server/pagos/forma-pago.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
 ];
 
 function permitidoEnPublico(especificador: string, permitidos: string[]) {
@@ -75,6 +79,11 @@ describe("aislamiento de los .publico.ts (Regla N.° 3)", () => {
     [1, "@/lib/normalizar-texto"],
     [1, "@/types/materia.types"],
     [1, "./profesor.service"],
+    [2, "@/server/alumnos/alumno.service"],
+    [2, "@/server/alumnos/alumno.publico"],
+    [2, "@/server/materias/materia.service"],
+    [2, "@/server/pagos/forma-pago.service"],
+    [2, "./forma-pago.service"],
   ])("rechaza en el público %i el import %s", (indice, especificador) => {
     const { permitidos } = PUBLICOS[indice]!;
     const imports = [...importaciones(PUBLICOS[indice]!.ruta), { especificador, soloTipo: false }];
