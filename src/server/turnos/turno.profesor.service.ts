@@ -1,7 +1,21 @@
 import { prisma } from "@/lib/prisma";
+import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
+
+/** HU-C-07 §2.8.1: profesores activos asociados a una materia activa. */
+export async function listarProfesoresPorMateria(materiaId: string) {
+  if (!(await verificarMateriaActiva(materiaId))) {
+    throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
+  }
+
+  const profesores = await listarProfesoresActivosPorMateria(materiaId);
+  if (profesores.length === 0) {
+    throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
+  }
+  return profesores.map(({ id, nombre, apellido }) => ({ id, nombre, apellido }));
+}
 
 /**
  * HU-C-04 §2.6: profesores activos de la materia del turno cuyo horario de

@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { turno, profesores, horario } = vi.hoisted(() => ({
-  turno: { findUnique: vi.fn(), findMany: vi.fn() }, profesores: vi.fn(), horario: vi.fn(),
+const { turno, profesores, horario, materiaActiva } = vi.hoisted(() => ({
+  turno: { findUnique: vi.fn(), findMany: vi.fn() }, profesores: vi.fn(), horario: vi.fn(), materiaActiva: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { turno } }));
+vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
 vi.mock("@/server/profesores/profesor.service", () => ({
   listarProfesoresActivosPorMateria: profesores, estaDentroDeHorarioAtencion: horario,
   intervalosSeSuperponen: (a: { inicio: number; fin: number }, b: { inicio: number; fin: number }) => a.inicio < b.fin && b.inicio < a.fin,
 }));
 
-const { listarOpcionesProfesorTurno } = await import("./turno.profesor.service");
+const { listarOpcionesProfesorTurno, listarProfesoresPorMateria } = await import("./turno.profesor.service");
 const TURNO = "ckturno00000000000000001";
 const [ANA, BETO, CARLA] = ["ckprofesor000000000000001", "ckprofesor000000000000002", "ckprofesor000000000000003"];
 const actual = {
@@ -24,6 +25,29 @@ beforeEach(() => {
   turno.findMany.mockResolvedValue([]);
   profesores.mockResolvedValue([{ id: ANA, nombre: "Ana", apellido: "Gómez" }, { id: BETO, nombre: "Beto", apellido: "López" }, { id: CARLA, nombre: "Carla", apellido: "Ruiz" }]);
   horario.mockResolvedValue(true);
+  materiaActiva.mockResolvedValue({ idMateria: actual.materiaId });
+});
+
+describe("HU-C-07 §2.8.1 listarProfesoresPorMateria", () => {
+  it("devuelve solo id, nombre y apellido de los profesores activos asociados, sin filtrar por horario", async () => {
+    profesores.mockResolvedValueOnce([{ id: ANA, nombre: "Ana", apellido: "Gómez", interno: "no exponer" }]);
+    await expect(listarProfesoresPorMateria(actual.materiaId)).resolves.toEqual([{ id: ANA, nombre: "Ana", apellido: "Gómez" }]);
+    expect(materiaActiva).toHaveBeenCalledExactlyOnceWith(actual.materiaId);
+    expect(profesores).toHaveBeenCalledExactlyOnceWith(actual.materiaId);
+    expect(horario).not.toHaveBeenCalled();
+    expect(turno.findMany).not.toHaveBeenCalled();
+  });
+
+  it("rechaza una materia inexistente o inactiva antes de listar profesores", async () => {
+    materiaActiva.mockResolvedValueOnce(null);
+    await expect(listarProfesoresPorMateria(actual.materiaId)).rejects.toMatchObject({ code: "MATERIA_NO_DISPONIBLE" });
+    expect(profesores).not.toHaveBeenCalled();
+  });
+
+  it("distingue una materia activa sin profesores asociados", async () => {
+    profesores.mockResolvedValueOnce([]);
+    await expect(listarProfesoresPorMateria(actual.materiaId)).rejects.toMatchObject({ code: "SIN_PROFESORES_PARA_MATERIA" });
+  });
 });
 
 describe("HU-C-04 §2.6 listarOpcionesProfesorTurno", () => {
