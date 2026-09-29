@@ -230,3 +230,39 @@ No se modificaron `urlContinuar()`, listado ni detalle; no se agregó reanudaci�
 | HU-C-17 | Downstream; no bloquea C-18 | Reutilizará Materia/Profesor; modo masivo no se implementó. |
 
 **Estado de etapa 2:** implementación propia completada y revisada; integración funcional de Profesor/Fecha-Horario pendiente de HU-C-07; rama todavía no mergeable. HU-C-18 sigue abierta por C-07, D y el resto del flujo individual.
+
+---
+
+## 3. Etapa 3 — Profesor y Fecha/Horario reales en el wizard
+
+**Alcance:** `/turnos/nuevo` ya permite recorrer Materia → Profesor → Fecha y horario y confirmar el paso 3. La rama incorpora desde `develop` los dos GET de HU-C-07, su componente `PasoFechaHorarioTurno` y la corrección PO de HU-C-16. Esta etapa no implementa Aula, Alumnos, generación masiva ni reglas nuevas de disponibilidad; tampoco modifica Prisma, seed, migraciones o módulo D.
+
+### 3.1. Contratos consumidos y archivos
+
+- `src/app/(dashboard)/turnos/nuevo/turno-wizard.tsx`: conserva la carga de materias desde `GET /api/turnos/configuracion` y usa `parametros.duraciones_permitidas_minutos` como única fuente de duraciones. Consulta `GET /api/turnos/profesores/por-materia?materia_id=` al elegir Materia; usa la lista exacta devuelta, sin consultar el endpoint legacy. Integra `PasoFechaHorarioTurno` como componente controlado y mantiene paso, selección local, `turnoId` y copia de la configuración persistida.
+- `src/app/(dashboard)/turnos/paso-profesor-turno.tsx`: mantiene la presentación reutilizable por C-17 y agrega estados de carga, error con reintento y lista vacía. `404 SIN_PROFESORES_PARA_MATERIA` usa el mensaje contractual recibido del endpoint. El componente no consulta Profesores ni implementa reglas de asociación.
+- `src/app/(dashboard)/turnos/nuevo/turno-wizard.test.tsx`: reemplaza las expectativas de shell sin C-07 por pruebas de la integración real, persistencia y regreso.
+- `docs/tasks/Sprint 2/HU-C-18.md`: registra esta etapa y sus límites.
+
+El paso 3 pasa a `PasoFechaHorarioTurno` los ids de Materia/Profesor, las duraciones de configuración, duración/fecha/hora controladas y callbacks. Ese componente sigue consumiendo `GET /api/turnos/profesores/[profesorId]/disponibilidad?materia_id=&duracion_min=`. El wizard no calcula tramos, granularidad, zona horaria ni inicios; solo comprueba pertenencia a los `inicios` recibidos cuando necesita conservar una elección anterior tras cambiar Materia. No presenta horarios indisponibles inventados.
+
+### 3.2. Navegación, invalidación y persistencia
+
+Los pasos 1, 2 y 3 viven en estado cliente hasta confirmar el paso 3. Atrás de 3 a 2 y de 2 a 1 conserva las elecciones. Cambiar Profesor conserva Materia y duración, pero limpia fecha/hora; la disponibilidad del nuevo Profesor se consulta al volver al paso 3. Cambiar Materia vuelve a consultar `por-materia`: si el Profesor ya no figura, limpia Profesor y fecha/hora. Si sigue figurando, conserva duración y consulta la disponibilidad para la nueva Materia antes de conservar fecha/hora; si la elección no figura o falla esa revalidación, limpia fecha/hora. La asociación Profesor–Materia y los inicios disponibles proceden exclusivamente de los GET de C-07.
+
+Al confirmar por primera vez el paso 3 se envía `POST /api/turnos` con `{ materia_id, profesor_id, fecha, hora_inicio, duracion_min }`; solo tras recibir el id del `PENDIENTE` se guardan `turnoId` y la configuración persistida y se avanza al lugar estructural del paso 4. No hay POST al elegir Materia, Profesor, duración, fecha u hora. Si la persona vuelve desde Aula, edita elecciones y confirma el paso 3, se usa `PATCH /api/turnos/[id]/configuracion` con el mismo payload; no nace otro turno. Volver Atrás por sí solo no modifica el `PENDIENTE`. El estado de cambios sin guardar compara la selección local con la configuración persistida: se limpia tras POST/PATCH exitoso y vuelve a activarse si se cambia una elección. POST/PATCH fallidos mantienen el paso 3 y las elecciones locales, muestran el error y permiten reintentar; una guarda inmediata evita envíos dobles mientras la petición está pendiente.
+
+La elección de Aula todavía es un lugar estructural: no hay GET ni PATCH de Aula desde este wizard en etapa 3. HU-C-16 corregida ya aporta el filtrado de `GET /api/turnos/aula/opciones?turno_id=` para la próxima integración; el flujo legacy `TurnoConfiguracion` conserva la secuencia PO POST → GET con id → selección → PATCH. La pantalla legacy y los PENDIENTES antiguos siguen disponibles.
+
+### 3.3. Evidencia y pendientes
+
+La regresión pedida pasó: **146 tests en 10 archivos** (16 del wizard, 11 de `PasoFechaHorarioTurno`, 20 de configuración legacy, 23 del servicio Profesor, 13 de Aula, 28 de configuración backend, 14 de la ruta de disponibilidad, 8 de `por-materia`, 7 de opciones de Aula y 6 de POST). `npx.cmd tsc --noEmit` pasó. Los tests del wizard verifican carga y error de Profesor, ausencia de persistencia temprana, payloads POST/PATCH, conservación e invalidación al cambiar Materia/Profesor, revalidación de una selección anterior con el GET de disponibilidad, errores y doble envío.
+
+| Dependencia | Estado después de etapa 3 | Pendiente propio de C-18 |
+|---|---|---|
+| HU-C-07 | Integrada desde `develop`: GET de Profesores, GET de disponibilidad y `PasoFechaHorarioTurno` consumidos en pasos 2/3. | Regresión final al completar el wizard. |
+| HU-C-16 | Corrección PO integrada desde `develop`; disponibilidad de Aula por `turno_id` disponible. | Integrar funcionalmente Aula como paso 4 y el regreso a Fecha/Horario ante `data: []`. |
+| Módulo D | `profesor.publico.ts` ya existe para C-07. El backend de etapa 1 de C-18 todavía importa helpers desde `profesor.service.ts`. | Integrar esa frontera pública y verificar el handoff transaccional sin modificar D desde esta HU. |
+| HU-C-17 | Posterior; no bloquea. | Reutilizará Materia y Profesor; C-18 no implementa el modo masivo. |
+
+Siguen pendientes la integración completa de Aula, el paso 5 Alumnos, la finalización del wizard y `aula_desasignada: true` en `PATCH /configuracion` cuando un cambio vuelve incompatible un aula persistida. Esta etapa no simula ni desasigna el aula desde el cliente. Por ello, el regreso desde Aula llega funcionalmente hasta el nuevo PATCH del paso 3, pero todavía no cierra toda la semántica de Atrás posterior a la asignación de Aula. **HU-C-18 no está Done.**
