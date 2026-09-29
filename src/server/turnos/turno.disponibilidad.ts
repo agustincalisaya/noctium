@@ -1,4 +1,5 @@
 import type { EstadoTurno, Prisma } from "@prisma/client";
+import type { IntervaloMinutos } from "@/lib/horario-atencion";
 import { intervalosSeSuperponen } from "@/server/profesores/profesor.service";
 
 /** Solo los turnos confirmados reservan recursos (spec_modulo_C.md §3.2). */
@@ -14,6 +15,41 @@ export function intervaloTurno(turno: Horario) {
 
 export function horaDeMinutos(total: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/** Resta de una franja los intervalos ocupados, sin alterar los argumentos. */
+export function calcularTramosLibres(franja: IntervaloMinutos, ocupados: readonly IntervaloMinutos[]): IntervaloMinutos[] {
+  if (franja.inicio >= franja.fin) return [];
+
+  const tramos: IntervaloMinutos[] = [];
+  let inicioLibre = franja.inicio;
+  const superpuestos = ocupados
+    .filter((ocupado) => ocupado.inicio < ocupado.fin && intervalosSeSuperponen(franja, ocupado))
+    .sort((a, b) => a.inicio - b.inicio || a.fin - b.fin);
+
+  for (const ocupado of superpuestos) {
+    const inicioOcupado = Math.max(franja.inicio, ocupado.inicio);
+    if (inicioOcupado > inicioLibre) tramos.push({ inicio: inicioLibre, fin: inicioOcupado });
+    inicioLibre = Math.max(inicioLibre, Math.min(franja.fin, ocupado.fin));
+    if (inicioLibre === franja.fin) break;
+  }
+
+  if (inicioLibre < franja.fin) tramos.push({ inicio: inicioLibre, fin: franja.fin });
+  return tramos;
+}
+
+/** Inicios alineados desde las 00:00 cuyo turno completo cabe en el tramo. */
+export function iniciosPosibles(tramo: IntervaloMinutos, duracion: number, granularidad: number): number[] {
+  if (!Number.isInteger(duracion) || duracion <= 0 || !Number.isInteger(granularidad) || granularidad <= 0) {
+    return [];
+  }
+
+  const inicios: number[] = [];
+  const primerInicio = Math.ceil(tramo.inicio / granularidad) * granularidad;
+  for (let inicio = primerInicio; inicio + duracion <= tramo.fin; inicio += granularidad) {
+    inicios.push(inicio);
+  }
+  return inicios;
 }
 
 /**

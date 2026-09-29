@@ -22,6 +22,16 @@ export const ConfigurarTurnoSchema = z.object({
 
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
+/** HU-C-07 §2.8.2: parámetros de consulta para disponibilidad del profesor. */
+export const DisponibilidadProfesorQuerySchema = z.object({
+  materia_id: ConfigurarTurnoSchema.shape.materia_id,
+  duracion_min: z.coerce.number({ error: "Elegí la duración del turno" })
+    .int().refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"),
+  desde: fechaCalendarioValidaSchema.optional(),
+  hasta: fechaCalendarioValidaSchema.optional(),
+});
+export type DisponibilidadProfesorQuery = z.infer<typeof DisponibilidadProfesorQuerySchema>;
+
 export const AsignarParticipantesTurnoSchema = z.object({
   alumno_ids: z.array(z.cuid())
     .min(1, "Agregá al menos un alumno")
