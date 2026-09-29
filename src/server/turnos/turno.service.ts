@@ -7,11 +7,12 @@ import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service
 import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { obtenerAlumnoDeUsuario } from "@/server/alumnos/alumno.publico";
+import { obtenerClaseDictadaDeTurno } from "@/server/historial/historial.publico";
 import { verificarAulaActiva } from "@/server/aulas/aula.publico";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
 import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
-import type { AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, OpcionesInscripcionQuery } from "./turno.schema";
+import type { AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, MisTurnosQuery, OpcionesInscripcionQuery } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -25,6 +26,96 @@ function hora(date: Date) { return date.toISOString().slice(11, 16); }
 function nombre(apellido: string, primero: string) { return `${apellido}, ${primero}`; }
 
 function horaFecha(horaInicio: string) { return new Date(`1970-01-01T${horaInicio}:00.000Z`); }
+
+const ZONA_TURNOS = "America/Argentina/Buenos_Aires";
+
+function corteLocal(ahora: Date) {
+  const partes = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ZONA_TURNOS,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(ahora);
+  const valor = (tipo: string) => Number(partes.find((parte) => parte.type === tipo)!.value);
+  return {
+    fecha: new Date(Date.UTC(valor("year"), valor("month") - 1, valor("day"))),
+    hora: new Date(Date.UTC(1970, 0, 1, valor("hour"), valor("minute"), valor("second"), ahora.getUTCMilliseconds())),
+  };
+}
+
+function filtroVistaPropia(vista: MisTurnosQuery["vista"], fechaCorte: Date, horaCorte: Date) {
+  const esProximo = vista === "proximos";
+  return {
+    OR: [
+      { fechaTurno: esProximo ? { gt: fechaCorte } : { lt: fechaCorte } },
+      { fechaTurno: fechaCorte, horaInicioTurno: esProximo ? { gte: horaCorte } : { lt: horaCorte } },
+    ],
+  };
+}
+
+/** HU-C-13 §2.14.1: lista solo los turnos vinculados al alumno de la sesión. */
+export async function listarTurnosPropios(
+  query: MisTurnosQuery,
+  usuarioId: string,
+  db: Prisma.TransactionClient = prisma,
+  ahora = new Date(),
+) {
+  const alumno = await obtenerAlumnoDeUsuario(usuarioId, db);
+  if (!alumno) throw new ServiceError("SIN_PERMISO", "Tu cuenta no tiene una ficha de alumno vinculada");
+
+  const { fecha: fechaCorte, hora: horaCorte } = corteLocal(ahora);
+  const propietario = { alumnos: { some: { alumnoId: alumno.id } } };
+  const filtroProximos = { ...propietario, ...filtroVistaPropia("proximos", fechaCorte, horaCorte) };
+  const filtroAnteriores = { ...propietario, ...filtroVistaPropia("anteriores", fechaCorte, horaCorte) };
+  const filtroSolicitado = query.vista === "proximos" ? filtroProximos : filtroAnteriores;
+  const [proximos, anteriores, turnos] = await Promise.all([
+    db.turno.count({ where: filtroProximos }),
+    db.turno.count({ where: filtroAnteriores }),
+    db.turno.findMany({
+      where: filtroSolicitado,
+      select: {
+        idTurno: true,
+        fechaTurno: true,
+        horaInicioTurno: true,
+        duracionMinutosTurno: true,
+        estadoTurno: true,
+        materia: { select: { nombreMateria: true } },
+        profesor: { select: { apellidoProfesor: true, nombreProfesor: true } },
+        aula: { select: { nombreAula: true } },
+      },
+      orderBy: query.vista === "proximos"
+        ? [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { idTurno: "asc" }]
+        : [{ fechaTurno: "desc" }, { horaInicioTurno: "desc" }, { idTurno: "desc" }],
+      skip: (query.pagina - 1) * query.por_pagina,
+      take: query.por_pagina,
+    }),
+  ]);
+  const total = query.vista === "proximos" ? proximos : anteriores;
+  const items = await Promise.all(turnos.map(async (turno) => {
+    const claseDictada = await obtenerClaseDictadaDeTurno(turno.idTurno, db);
+    return {
+      turno_id: turno.idTurno,
+      fecha: fecha(turno.fechaTurno),
+      hora_inicio: hora(turno.horaInicioTurno),
+      hora_fin: hora(new Date(turno.horaInicioTurno.getTime() + turno.duracionMinutosTurno * 60_000)),
+      materia: turno.materia.nombreMateria,
+      profesor: turno.profesor ? nombre(turno.profesor.apellidoProfesor, turno.profesor.nombreProfesor) : "Sin asignar",
+      aula: turno.aula?.nombreAula ?? "Sin asignar",
+      estado: turno.estadoTurno,
+      clase_dictada: claseDictada !== null,
+    };
+  }));
+
+  return {
+    items,
+    paginacion: {
+      total,
+      pagina_actual: query.pagina,
+      total_paginas: Math.ceil(total / query.por_pagina),
+      por_pagina: query.por_pagina,
+    },
+    totales: { proximos, anteriores },
+  };
+}
 
 export async function emitirEventoTurno(tipoEvento: string, turnoId: string, usuarioId: string, payloadEvento: Record<string, unknown>) {
   await prisma.eventoTurno.create({ data: { tipoEvento, turnoId, usuarioId, payloadEvento: JSON.parse(JSON.stringify(payloadEvento)) } });

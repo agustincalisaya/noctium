@@ -45,5 +45,13 @@ export const OpcionesInscripcionQuerySchema = z.object({
 });
 export type OpcionesInscripcionQuery = z.infer<typeof OpcionesInscripcionQuerySchema>;
 
+/** HU-C-13 §2.14.1: consulta paginada de turnos del alumno autenticado. */
+export const MisTurnosQuerySchema = z.object({
+  vista: z.enum(["proximos", "anteriores"]).default("proximos"),
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(10).default(10),
+}).strict();
+export type MisTurnosQuery = z.infer<typeof MisTurnosQuerySchema>;
+
 export const AsignarAulaTurnoSchema = z.object({ aula_id: z.cuid() });
 export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
