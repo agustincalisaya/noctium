@@ -110,6 +110,33 @@ export function construirAltaProfesorSchema(dniLongitudMin: number, dniLongitudM
 export type AltaProfesorInput = z.infer<ReturnType<typeof construirAltaProfesorSchema>>;
 
 /**
+ * Modificación de identidad y contacto (HU-D-06, `spec_modulo_D.md` §2.6):
+ * identidad con las mismas reglas que el alta (criterio 1), todos los campos
+ * opcionales (ausente = no se toca).
+ * - `genero: null` vuelve a "sin especificar" (mismo criterio que HU-B-06).
+ * - Contacto: `null` = quitar ese medio; string = nuevo valor con el formato
+ *   de HU-D-02. No se usa `campoOpcional()`: convierte "" en `undefined`
+ *   ("no se toca") y acá la UI manda `null` cuando Mesa vacía un dato. Un ""
+ *   que llegue por API lo rechazan los propios schemas de contacto.
+ * - Sin la regla "al menos uno": la aplica el servicio sobre el estado
+ *   resultante (§2.6 paso 3, N-2).
+ * - `.strict()` rechaza materias, estado, cuenta o dirección (criterio 5).
+ */
+export function construirModificarProfesorSchema(dniLongitudMin: number, dniLongitudMax: number) {
+  return construirIdentidadProfesorSchema(dniLongitudMin, dniLongitudMax)
+    .partial()
+    .extend({
+      genero: z.enum(GENERO_VALORES).nullable().optional(),
+      telefono: telefonoContactoSchema.nullable().optional(),
+      email: emailContactoSchema.nullable().optional(),
+      version: z.number().int().nonnegative(),
+    })
+    .strict();
+}
+
+export type ModificarProfesorInput = z.infer<ReturnType<typeof construirModificarProfesorSchema>>;
+
+/**
  * Contacto del profesor (HU-D-02): mismas reglas que el contacto de Alumno
  * (HU-B-02), así que se reutiliza el schema compartido en vez de duplicarlo
  * — utilidad de validación transversal, no acoplamiento de dominio.
