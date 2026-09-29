@@ -16,6 +16,7 @@ export const ConfigurarTurnoSchema = z.object({
   fecha: fechaCalendarioValidaSchema,
   hora_inicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Ingresá una hora válida (HH:MM)"),
   materia_id: z.string().trim().min(1, "Seleccioná una materia"),
+  profesor_id: z.cuid(),
   // Sin cupo_maximo (Revisión 3): se fija con la capacidad del aula (§2.3).
   // Revisión 4: obligatorio, sin default. Número JSON (no se coerciona un string).
   duracion_min: z.number({ error: "Elegí la duración del turno" }).int("Elegí una duración válida (1, 2 o 3 horas)").refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"),

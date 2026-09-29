@@ -6,7 +6,7 @@ import { intervalosSeSuperponen } from "@/server/profesores/profesor.service";
 export const ESTADOS_AGENDADOS: EstadoTurno[] = ["DISPONIBLE", "COMPLETO"];
 
 type Horario = { horaInicioTurno: Date; duracionMinutosTurno: number };
-type TurnoConHorario = Horario & { idTurno: string; fechaTurno: Date };
+type TurnoConHorario = Horario & { idTurno?: string; fechaTurno: Date };
 
 export function intervaloTurno(turno: Horario) {
   const inicio = turno.horaInicioTurno.getUTCHours() * 60 + turno.horaInicioTurno.getUTCMinutes();
@@ -60,7 +60,7 @@ export function iniciosPosibles(tramo: IntervaloMinutos, duracion: number, granu
 export async function profesoresConTurnoSuperpuesto(db: Prisma.TransactionClient, turno: TurnoConHorario, profesorIds: string[]) {
   const intervalo = intervaloTurno(turno);
   const otros = await db.turno.findMany({
-    where: { idTurno: { not: turno.idTurno }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, profesorId: { in: profesorIds } },
+    where: { ...(turno.idTurno ? { idTurno: { not: turno.idTurno } } : {}), fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, profesorId: { in: profesorIds } },
     select: { profesorId: true, horaInicioTurno: true, duracionMinutosTurno: true },
     orderBy: { horaInicioTurno: "asc" },
   });
