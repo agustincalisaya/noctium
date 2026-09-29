@@ -724,22 +724,70 @@ Con datos reales de seed:
 ## 7. Definition of Done
 
 - [x] Relevamiento previo documentado y aprobado.
-- [ ] Contratos con Módulo D respetados.
-- [ ] Sin consultas directas a `HorarioProfesor`.
-- [ ] `calcularTramosLibres()` implementada y testeada.
-- [ ] `iniciosPosibles()` implementada y testeada.
-- [ ] `listarProfesoresPorMateria()` implementada.
-- [ ] `calcularDisponibilidadProfesor()` implementada.
-- [ ] Route Handler de profesores por materia implementado.
-- [ ] Route Handler de disponibilidad implementado.
-- [ ] Respuestas `{ data, error }`.
-- [ ] Permiso `turnos:crear` aplicado.
+- [x] Contratos con Módulo D respetados para la consulta de disponibilidad.
+- [x] Sin consultas directas a `HorarioProfesor` desde Turnos.
+- [x] `calcularTramosLibres()` implementada y testeada.
+- [x] `iniciosPosibles()` implementada y testeada.
+- [x] `listarProfesoresPorMateria()` implementada.
+- [x] `calcularDisponibilidadProfesor()` implementada.
+- [x] Route Handler de profesores por materia implementado.
+- [x] Route Handler de disponibilidad implementado.
+- [x] Respuestas `{ data, error }` en ambas rutas de C-07.
+- [x] Permiso `turnos:crear` aplicado en ambas rutas de C-07.
 - [ ] Frontend consume disponibilidad del servidor.
-- [ ] Mensaje contractual de disponibilidad vacía implementado.
+- [x] Mensaje contractual de disponibilidad vacía implementado en el componente reutilizable.
 - [ ] Sin cálculo duplicado de disponibilidad del profesor en React.
-- [ ] Sin cambios de Prisma ni migraciones innecesarias.
-- [ ] Tests unitarios aprobados.
+- [x] Sin cambios de Prisma, seed ni migraciones.
+- [x] Tests unitarios específicos aprobados.
 - [ ] Tests de integración aprobados.
-- [ ] Tests frontend aprobados.
+- [x] Tests frontend del componente reutilizable aprobados; integración con el wizard pendiente.
 - [ ] Verificación manual realizada.
 - [ ] PR limitado a HU-C-07.
+
+## 8. Etapa backend de disponibilidad tras el handoff D
+
+**Estado:** implementación backend propia completada y aprobada. HU-C-07 no está Done: falta la integración funcional con el wizard de HU-C-18.
+
+### 8.1. Base y dependencia
+
+La rama `feature/HU-C-07` fue rebaseada sobre `origin/develop` con el PR 0′ de servicios públicos integrado (`b9cc43b`). `src/server/profesores/profesor.publico.ts` publica `obtenerHorariosDeAtencion(profesorId, db?)`, `obtenerOpcionProfesorActivo()` y `profesorActivoDictaMateria()`. El servicio de C-07 consume esas funciones, además de `listarProfesoresActivosPorMateria()` y `estaDentroDeHorarioAtencion()` desde la misma frontera pública. La consulta de horarios devuelve `{ horario_id, dia_semana, hora_inicio, hora_fin }[]`, ordenada por día y hora, con horas `HH:mm`; Turnos no consulta `HorarioProfesor` directamente. El `FOR SHARE` transaccional de `profesorActivoDictaMateria(..., tx)` también está publicado por D, aunque este GET de solo lectura no requiere bloqueo.
+
+### 8.2. Implementación y decisiones
+
+Archivos modificados: `src/server/turnos/turno.profesor.service.ts`, `src/server/turnos/turno.profesor.test.ts`, `src/server/turnos/turno.validaciones.ts` y esta task. Archivos nuevos: `src/app/api/turnos/profesores/[profesorId]/disponibilidad/route.ts` y `route.test.ts` en el mismo directorio. No se modificó módulo D, Prisma, seed, migraciones ni frontend.
+
+`calcularDisponibilidadProfesor()` verifica materia activa, profesor activo y asociación en ese orden. Lee anticipación, días operativos, apertura, cierre y granularidad desde `parametrosConfiguracionTurno()`, la misma función que usan `validarConfiguracionTurno()` y `GET /api/turnos/configuracion`. Usa la hora local de Buenos Aires ya aplicada por Turnos; `horaLocal()` se expuso desde `turno.validaciones.ts` para evitar repetir esa conversión. El rango inclusivo se recorta a `[hoy, hoy + anticipación]`; un rango efectivo invertido produce `VALIDATION_ERROR` (400). La consulta de Turnos filtra profesor, rango y `ESTADOS_AGENDADOS` (`DISPONIBLE`/`COMPLETO`) en una sola lectura. Agrupa sus intervalos reales por fecha, cruza las franjas recurrentes con el horario operativo y reutiliza `calcularTramosLibres()` e `iniciosPosibles()`. Elimina los inicios de hoy que no son posteriores a la hora actual. Conserva todas las franjas que intersectan el horario operativo, incluso con `tramos_libres: []` e `inicios: []`; omite únicamente fechas cuya suma de inicios es cero. Una lista `fechas: []` es respuesta válida 200.
+
+La nueva ruta aplica `withPermission("turnos:crear")`, valida la query con `DisponibilidadProfesorQuerySchema` y devuelve `{ data, error }`. Traduce `VALIDATION_ERROR` a 400, `PROFESOR_NO_ENCONTRADO` a 404 y `MATERIA_NO_DISPONIBLE`/`PROFESOR_NO_DICTA_MATERIA` a 409; otros `ServiceError` conservan código/mensaje y usan 422, como fallback de las rutas de configuración de Turnos. No reserva recursos: la creación y la confirmación del turno revalidan la elección según §2.1 y §2.2.
+
+### 8.3. Evidencia y criterios
+
+Tras la revisión técnica, tests específicos de cálculo puro, servicio de profesor y ambas rutas de C-07: **60 tests OK en 4 archivos**. Regresión de Aula C-16: **20 tests OK en 2 archivos**; total **80 tests OK en 6 archivos**. `npx.cmd tsc --noEmit`: **OK**. `git diff --check`: **OK** para archivos seguidos; los archivos nuevos se revisan también antes del cierre de la etapa. Vitest se ejecutó fuera del sandbox porque allí no pudo leer `vitest.config.mjs`.
+
+### 8.4. Correcciones de revisión de backend
+
+La revisión detectó que el Route Handler convertía cualquier `ServiceError` no mapeado en 409; se limitó ese status a los dos conflictos de la spec y se probó `ERROR_NO_MAPEADO` → 422. También detectó que `obtenerParametrosHorarioOperativo()` normaliza una granularidad mayor a 60 a 30, mientras el validador de POST/PATCH de Turnos usa el entero positivo persistido. Disponibilidad pasó a consumir `parametrosConfiguracionTurno()` para obtener exactamente la misma granularidad efectiva que la configuración y su endpoint; el caso de 90 minutos confirma que los inicios se alinean a 90. **No se modificó `shared/parametros.ts`**, usado por HU-D-04 y otros consumidores del módulo D.
+
+La fecha se omite solo si ninguna franja tiene inicios. Se agregó el caso de dos franjas del mismo día: una completamente ocupada permanece en la respuesta con `tramos_libres: []` e `inicios: []`, mientras la otra ofrece horas. Se probaron además el tope exacto de anticipación, el día local de Buenos Aires cuando UTC ya avanzó al siguiente y los estados `DISPONIBLE`/`COMPLETO` por separado mediante filas de prueba con estado explícito. La integración funcional con C-18 sigue pendiente; HU-C-07 sigue abierta.
+
+AC1 y AC2: satisfechos en el backend de disponibilidad (franjas del profesor y resta de turnos confirmados). AC3: `fechas: []` disponible; el mensaje y la acción de volver a Profesor están cubiertos en el componente de C-07, con su integración en el wizard pendiente. AC4: la consulta no reserva recursos; la revalidación al crear/confirmar corresponde a §2.1/§2.2 y a la integración con C-18. En esta rama, el `POST /api/turnos` todavía refleja el flujo anterior sin `profesor_id` en la configuración: no se declara AC4 cerrado por esta etapa. AC5: funciones puras reutilizables para C-17; su consumo en C-17 queda fuera de esta HU. La presentación dentro del wizard permanece pendiente de integración con HU-C-18.
+
+## 9. Etapa frontend reutilizable de Fecha y Horario
+
+**Estado:** presentación propia de C-07 implementada; integración real con `/turnos/nuevo` pendiente de HU-C-18. No se modificó el shell del wizard ni el backend aprobado.
+
+### 9.1. Alcance y archivos
+
+Se crearon `src/app/(dashboard)/turnos/paso-fecha-horario-turno.tsx` y `paso-fecha-horario-turno.test.tsx` en el mismo directorio. El componente recibe materia, profesor, `duracionesPermitidas`, duración, fecha y hora seleccionadas junto con callbacks de cambio, continuación y regreso. El padre conserva el estado del wizard, obtiene `parametros.duraciones_permitidas_minutos` de `GET /api/turnos/configuracion` y será responsable de persistir el turno cuando corresponda. Esta etapa no ejecuta `POST` ni `PATCH`; el componente tampoco consulta la configuración por su cuenta.
+
+### 9.2. Contrato y comportamiento
+
+La duración se elige de los valores recibidos por prop, sin valor preseleccionado por el componente ni una copia local de `[60, 120, 180]`. Una vez elegida, consulta exclusivamente `GET /api/turnos/profesores/[profesorId]/disponibilidad?materia_id=&duracion_min=`. Muestra carga, error con reintento, las fechas y los inicios devueltos por el servidor. Une los `inicios` de las franjas de cada fecha sin duplicados, conservando el orden recibido; no calcula otros horarios ni presenta motivos de indisponibilidad. `fechas: []` muestra exactamente «Este profesor no tiene horarios disponibles para esta materia en este momento» y ofrece volver a Profesor mediante callback. Cambiar duración limpia fecha y hora y vuelve a consultar; cambiar fecha limpia la hora si no pertenece a la nueva fecha. La clave de consulta y `AbortController` impiden que una respuesta tardía de otro profesor o materia sustituya la disponibilidad vigente.
+
+El componente es controlado: el padre de C-18 debe invalidar fecha/hora al cambiar dependencias según las reglas del wizard. Cambiar Profesor limpia fecha/hora; cambiar Materia puede conservar Profesor y horario si sigue dictándola, y los invalida si dejan de ser válidos. Por ello el componente no ejecuta una limpieza automática e incondicional al cambiar `profesorId` o `materiaId`. Continuar requiere un inicio que figure en la respuesta vigente; la integración concreta con el padre sigue pendiente de C-18.
+
+### 9.3. Evidencia y pendientes
+
+Las pruebas del componente cubren parámetros de la consulta, carga, opciones recibidas, selección, invalidación de fecha/hora, vacío, regreso a Profesor, error y ausencia de escrituras HTTP. La revisión final agregó casos para duraciones controladas por prop, fecha con una franja sin inicios y otra disponible, inicio repetido entre franjas y respuesta tardía del profesor anterior tras cambiar al nuevo. Tests específicos frontend y backend de C-07: **71 OK en 5 archivos** (11 del componente y 60 del backend). `npx.cmd tsc --noEmit`: **OK**. `git diff --check`: **OK** para archivos seguidos; se verificó también el whitespace de archivos nuevos.
+
+AC3 queda cubierto a nivel de componente. AC4 sigue pendiente de la integración y revalidación final en C-18. La pantalla `/turnos/nuevo` y el flujo legacy permanecen sin cambios. HU-C-07 no se declara Done hasta que C-18 integre esta presentación y complete el flujo real.

@@ -10,7 +10,7 @@ function minutos(hora: string) {
   return h * 60 + m;
 }
 
-function horaLocal(fecha: Date) {
+export function horaLocal(fecha: Date) {
   const partes = new Intl.DateTimeFormat("en-GB", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(fecha);
   const valor = (tipo: string) => partes.find((parte) => parte.type === tipo)!.value;
   return { fecha: `${valor("year")}-${valor("month")}-${valor("day")}`, hora: `${valor("hour")}:${valor("minute")}` };
