@@ -2,7 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
-import type { DetalleAlumno, FichaAlumno } from "@/types/alumno.types";
+import { construirFiltroBusquedaAlumno } from "@/server/alumnos/alumno.busqueda";
+import type { DetalleAlumno, FichaAlumno, ListadoAlumnos } from "@/types/alumno.types";
 import type {
   ContactoAlumnoInput,
   FormaPagoPreferidaInput,
@@ -109,19 +110,16 @@ export async function obtenerFichaAlumno(alumnoId: string): Promise<FichaAlumno 
   };
 }
 
-/** Consulta acotada para el autocompletado de HU-C-04. */
+/**
+ * Consulta acotada para el autocompletado de HU-C-04. Usa el mismo filtro
+ * que el listado (HU-B-05, spec_modulo_B.md §3.9); solo difiere en que
+ * devuelve activos y como máximo 10.
+ */
 export async function buscarAlumnosActivos(query: string) {
-  const termino = normalizarTexto(query.trim());
-  if (termino.length < 2) return [];
+  const filtro = construirFiltroBusquedaAlumno(query);
+  if (!filtro) return [];
   const alumnos = await prisma.alumno.findMany({
-    where: {
-      activoAlumno: true,
-      OR: [
-        { nombreNormalizadoAlumno: { contains: termino } },
-        { apellidoNormalizadoAlumno: { contains: termino } },
-        { dniAlumno: { contains: query.trim() } },
-      ],
-    },
+    where: { activoAlumno: true, ...filtro },
     orderBy: [{ apellidoNormalizadoAlumno: "asc" }, { nombreNormalizadoAlumno: "asc" }, { idAlumno: "asc" }],
     take: 10,
     select: { idAlumno: true, nombreAlumno: true, apellidoAlumno: true, dniAlumno: true },
@@ -247,14 +245,20 @@ export async function actualizarContactoAlumno(
  * acento-insensitivo) con `dniAlumno` como segundo criterio de desempate
  * estable — sin este segundo criterio, dos alumnos con el mismo apellido y
  * nombre normalizado podrían cambiar de orden entre páginas.
+ *
+ * Búsqueda (HU-B-05, spec_modulo_B.md §2.7): `q` se traduce a un `where`
+ * que usan tanto el conteo como la página, así el total y las páginas son
+ * los del resultado filtrado. El orden no cambia (sin relevancia).
  */
-export async function listarAlumnos(query: ListarAlumnosQuery) {
+export async function listarAlumnos(query: ListarAlumnosQuery): Promise<ListadoAlumnos> {
   const { pagina, por_pagina: porPagina } = query;
+  const where = construirFiltroBusquedaAlumno(query.q);
 
-  const total = await prisma.alumno.count();
+  const total = await prisma.alumno.count({ where });
   const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
 
   const alumnos = await prisma.alumno.findMany({
+    where,
     orderBy: [
       { apellidoNormalizadoAlumno: "asc" },
       { nombreNormalizadoAlumno: "asc" },
