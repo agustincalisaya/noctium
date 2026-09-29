@@ -1,11 +1,19 @@
+```markdown
 # Especificación Técnica — Módulo H (Indicadores / Dashboard)
 ## Noctium — Sprint 2
+## Revisión 1 — primera versión (módulo nuevo de Sprint 2)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM · Zod · NextAuth · shadcn/ui (`chart-*` de `docs/DESIGN.md`)
 **Referencias normativas:** `docs/RULES.md` (Reglas N.° 3, 4, 5, 6, 10, 11) · `spec_modulo_A.md` (sesión/RBAC, matriz §2.4) · `spec_modulo_B.md` (Alumno, §2.8) · `spec_modulo_C.md` Revisión 5 (Turno, §2.15, estado `CANCELADO`) · `schema.prisma` · `docs/tasks/Sprint 2/HU-Sprint-2.md` · `docs/adicionales/mapa-pantallas-sprint-2.md` (§2, "Indicadores") · `docs/DESIGN.md` (§2 tokens `--chart-1` a `--chart-5`)
 
 **HU contractualizadas en esta revisión:** HU-H-01 (Ver cantidad de turnos por mes), HU-H-02 (Ver cantidad de alumnos por mes) — Sprint 2. Es la **primera revisión** del módulo: no existía `spec_modulo_H.md`.
+
+**Changelog de esta revisión (trazabilidad Backlog → Spec):**
+| HU | Estado previo | Acción |
+|---|---|---|
+| HU-H-01 | Gap — no contractualizada | Añadida sección 2.1 |
+| HU-H-02 | Gap — no contractualizada | Añadida sección 2.1 |
 
 **Fuera de alcance de esta spec (explícito):**
 - Indicadores por materia (HU-H-03) y por profesor (HU-H-04), de Sprint 3.
@@ -23,22 +31,25 @@ Principio de diseño: **el módulo compone, no calcula**. No consulta `turnos` n
 
 Implementación estándar: Route Handler delgado que delega en `src/server/indicadores/indicadores.service.ts` (Reglas N.° 4 y 11).
 
+**Alcance de esta revisión:** módulo nuevo de Sprint 2; la sección 2.1 y las reglas 3.1 a 3.5 son nuevas y aditivas. No hay secciones preexistentes, por lo que no se renumera nada (criterio de `docs/adicionales/sdd-metodologia.md`); los indicadores de Sprint 3 (HU-H-03 y HU-H-04) se agregarán como secciones nuevas al final de la §2.
+
 ---
 
 ## 2. Interfaces y Contratos
 
 ### Convenciones generales
 - Contrato de respuesta estándar y validación Zod previa: `docs/RULES.md` Reglas N.° 5 y 6.
-- Toda ruta requiere `withPermission("indicadores:leer")` (Regla N.° 10). **Permiso nuevo, exclusivo de GERENTE** (matriz en `spec_modulo_A.md` §2.4). Mesa de Entrada, Profesor y Alumno reciben `403 SIN_PERMISO`.
-- Ubicación de archivos (Regla N.° 11): `src/types/indicadores.types.ts`, `src/server/indicadores/indicadores.service.ts`, `src/server/indicadores/indicadores.schema.ts`, Route Handler en `app/api/indicadores/route.ts`.
+- Toda ruta requiere sesión autenticada y permiso granular vía `withPermission("indicadores:leer")` (Regla N.° 10). **Permiso nuevo, exclusivo de GERENTE** (matriz en `spec_modulo_A.md` §2.4). Mesa de Entrada, Profesor y Alumno reciben `403 SIN_PERMISO`.
+- Ubicación de archivos según la Regla N.° 11: tipos en `src/types/indicadores.types.ts`, services en `src/server/indicadores/indicadores.service.ts`, schemas Zod en `src/server/indicadores/indicadores.schema.ts` y Route Handler en `app/api/indicadores/route.ts`. Sin `actions.ts`: el módulo es de solo lectura y el frontend llama al Route Handler. Imports siempre con el alias `@/`.
 - **Zona horaria:** todos los meses se calculan en `America/Argentina/Buenos_Aires`.
 
 ---
 
 ### 2.1. Turnos por mes y alumnos nuevos por mes (HU-H-01, HU-H-02)
 
-**Ruta:** `GET /app/api/indicadores/route.ts`
-**Servicio:** `indicadores.service.ts` → `obtenerIndicadoresMensuales()`
+**Ruta:** `GET /api/indicadores`
+**Server Action equivalente:** — (solo Route Handler; módulo de solo lectura)
+**Servicio:** `obtenerIndicadoresMensuales()` en `src/server/indicadores/indicadores.service.ts`
 **Permiso requerido:** `indicadores:leer`
 **Pantalla:** "Indicadores" (nueva, mapa de pantallas §2). Página completa; dos gráficos con **un solo selector de rango** para ambos.
 
@@ -51,18 +62,22 @@ export const IndicadoresQuerySchema = z.object({
   hasta: mesSchema.optional(), // por defecto: el mes actual
 }).refine((q) => !q.desde || !q.hasta || q.desde <= q.hasta, {
   message: "El mes desde no puede ser posterior al mes hasta", path: ["desde"],
+}).refine((q) => q.hasta || !q.desde || q.desde <= mesActual(), {
+  // solo `desde`: `hasta` es el mes actual, y un `desde` posterior dejaría un rango invertido
+  message: "El mes desde no puede ser posterior al mes actual", path: ["desde"],
 });
+// mesActual(): mes de hoy en America/Argentina/Buenos_Aires, formato AAAA-MM (helper de indicadores.service.ts)
 export type IndicadoresQuery = z.infer<typeof IndicadoresQuerySchema>;
 ```
 
 **Comportamiento esperado:**
-1. **Rango por defecto (AC1 de ambas HU):** los últimos **6 meses incluyendo el actual**. Si solo viene `hasta`, `desde` es 5 meses antes; si solo viene `desde`, `hasta` es el mes actual.
-2. **Rango ajustable:** cualquier rango `[desde, hasta]` con `desde ≤ hasta` (HU-H-01 AC3). **Tope de 24 meses**: si lo excede, `400` con el mensaje "El rango máximo es de 24 meses". **[DEFAULT DEL SM — Q8, sin respuesta del PO al 28/09: se implementa esto salvo objeción]**. Se permiten meses futuros (hay turnos programados hasta 30 días adelante); las altas de alumnos de esos meses son 0.
+1. **Rango por defecto (AC1 de ambas HU):** los últimos **6 meses incluyendo el actual**. Si solo viene `hasta`, `desde` es 5 meses antes; si solo viene `desde`, `hasta` es el mes actual (y si ese `desde` es posterior al mes actual, `400` "El mes desde no puede ser posterior al mes actual").
+2. **Rango ajustable:** cualquier rango `[desde, hasta]` con `desde ≤ hasta` (HU-H-01 AC3). **Tope de 24 meses**: si lo excede, `400` con el mensaje "El rango máximo es de 24 meses". **Ratificado por el PO (29/09/2026) — Q8**. Se permiten meses futuros (hay turnos programados a futuro: hasta 30 días los que se configuran de a uno, `ANTICIPACION_MAXIMA_DIAS`, y hasta `generacion_maxima_meses` —6 meses— los que genera `spec_modulo_C.md` §2.9); las altas de alumnos de esos meses son 0.
 3. Generar la lista de meses del rango, **todos** — un mes sin datos **se muestra con valor 0**, nunca se omite (HU-H-01 AC4, HU-H-02 AC3).
-4. **Turnos por mes** — invocar `contarTurnosPorMes(desde, hasta)` (Módulo C, §2.15). Reglas de conteo, ya resueltas en ese servicio:
+4. **Turnos por mes** — invocar `contarTurnosPorMes(desde, hasta, db?)` (Módulo C, `spec_modulo_C.md` §2.15). Contrato de la llamada, según C §2.15: `desde` y `hasta` son meses `AAAA-MM` y los **límites son inclusivos** (desde el primer día de `desde` hasta el último día de `hasta`); devuelve `{ mes: "AAAA-MM", cantidad }[]`, **solo los meses con datos**. Reglas de conteo, ya resueltas en ese servicio:
    - Se agrupan por el **mes de la fecha del turno** (`fechaTurno`), **no** por la fecha de creación (HU-H-01 AC1).
    - Cuentan los turnos `DISPONIBLE`, `COMPLETO` y `CANCELADO`. **Los `PENDIENTE` no se cuentan**: todavía no representan una clase real (AC2).
-5. **Alumnos por mes** — invocar `contarAlumnosNuevosPorMes(desde, hasta)` (Módulo B, `spec_modulo_B.md` §2.8). Reglas de conteo, ya resueltas en ese servicio:
+5. **Alumnos por mes** — invocar `contarAlumnosNuevosPorMes(desde, hasta, db?)` (Módulo B, `spec_modulo_B.md` §2.8), con el mismo formato (`AAAA-MM`, límites inclusivos) y el mismo resultado (`{ mes, cantidad }[]`, solo meses con datos). Reglas de conteo, ya resueltas en ese servicio:
    - Se agrupan por la **fecha de alta de la ficha** (`createdAtAlumno`, un timestamp) convertida a `America/Argentina/Buenos_Aires`, no a UTC: un alta a las 22:00 del 30 de septiembre en Salta pertenece a septiembre, aunque en UTC ya sea octubre.
    - Se cuentan **todas** las fichas dadas de alta en el mes, **activas o inactivas, con o sin cuenta de acceso vinculada** (HU-H-02 AC2). Es un conteo simple: no distingue por otro criterio (AC5).
 6. Combinar ambas series sobre la misma lista de meses. Los dos servicios devuelven solo los meses con datos (sin ceros): completar con `0` es responsabilidad de este módulo.
@@ -97,7 +112,7 @@ export type IndicadoresQuery = z.infer<typeof IndicadoresQuerySchema>;
 
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
-Toda la lógica reside en `src/server/indicadores/indicadores.service.ts` (Regla N.° 4).
+Toda la lógica listada reside exclusivamente en `src/server/indicadores/indicadores.service.ts`. Route Handlers y Server Actions son capa delgada (Regla N.° 4).
 
 ### 3.1. El módulo no consulta tablas de otros módulos
 Los conteos vienen de los servicios públicos `contarTurnosPorMes()` (`spec_modulo_C.md` §2.15) y `contarAlumnosNuevosPorMes()` (`spec_modulo_B.md` §2.8). Cualquier indicador futuro se agrega pidiendo una función pública nueva al módulo dueño del dato, nunca con un `SELECT` directo.
@@ -116,15 +131,16 @@ El módulo no crea, modifica ni transiciona ningún dato. Por eso no aplica la R
 
 ---
 
-## 4. Eventos de Dominio (EDA)
+## 4. Trazabilidad de Mutaciones (Regla N.° 2)
 
-Este módulo **no emite eventos de dominio**: es exclusivamente de lectura (misma conclusión que `spec_modulo_J.md` §4).
+Este módulo no usa ni la opción (a) (columnas de auditoría) ni la opción (b) (tabla de eventos) de la Regla N.° 2: es exclusivamente de lectura, no tiene tablas propias, no muta ningún dato y por lo tanto no hay mutaciones que trazar ni eventos de dominio que emitir (misma conclusión que `spec_modulo_J.md` §4).
 
 ---
 
-## 5. Puntos abiertos
+## 5. Decisiones registradas
 
-| # | Punto | Dónde impacta | Quién resuelve | Propuesta contractualizada |
+| # | Punto | Dónde impacta | Quién resuelve | Decisión contractualizada |
 |---|---|---|---|---|
-| Q8 | ¿Tope de meses del rango? | 2.1 paso 2 | PO | 24 meses |
+| Q8 | ¿Tope de meses del rango? | 2.1 paso 2 | PO | 24 meses — **ratificado 29/09/2026** |
 | — | Librería de gráficos | Frontend | Equipo, en la task | Componente `chart` de shadcn/ui |
+```
