@@ -27,6 +27,8 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -73,6 +75,9 @@
   --accent: oklch(0.93 0.008 88.64);
   --accent-foreground: oklch(0.2648 0.0127 243.35);
   --destructive: oklch(0.55 0.19 25); /* rojo sobrio */
+  /* Aviso corto de error (docs/DESIGN.md §2 y §6.5). */
+  --destructive-soft: oklch(0.93 0.04 25);
+  --destructive-soft-foreground: oklch(0.40 0.14 25);
   /* Semánticos nuevos — solo definidos acá, ningún componente los usa
      todavía (docs/DESIGN.md, sección "Deuda de diseño pendiente"). */
   --success: oklch(0.93 0.045 152);

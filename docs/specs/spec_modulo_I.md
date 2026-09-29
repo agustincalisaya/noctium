@@ -1,22 +1,23 @@
-```markdown
 # Especificación Técnica — Módulo I (Pagos)
 ## Noctium — Sprint 2
-## Revisión 1 — primera versión de la spec en Sprint 2 (incorpora el backlog v2 del 28/09/2026)
+## Revisión 2 — precisiones de HU-I-03 sobre la versión del 29/09/2026 (conserva HU-I-01)
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM · Zod · NextAuth
 **Referencias normativas:** `docs/RULES.md` (Reglas N.° 1, 2, 3, 4, 5, 6, 7, 8, 10, 11) · `spec_modulo_A.md` (sesión/RBAC, matriz §2.4) · `spec_modulo_B.md` (§2.3, forma de pago preferida) · `spec_modulo_C.md` Revisión 5 (§2.4 detalle de turno, §2.15 servicios públicos) · `spec_modulo_K.md` y `spec_modulo_L.md` (patrón de catálogo y unicidad) · `schema.prisma` · `docs/tasks/Sprint 2/HU-Sprint-2.md` · `docs/adicionales/mapa-pantallas-sprint-2.md` (§1, §2, §4) · `docs/DESIGN.md` §6
 
-**HU contractualizadas en esta revisión:** HU-I-03 (Registrar y listar formas de pago del centro), HU-I-01 (Registrar pago) — Sprint 2.
+**HU contractualizadas en la spec:** HU-I-03 (Registrar y listar formas de pago del centro), HU-I-01 (Registrar pago) — Sprint 2.
 
 **Backlog v2 del 28/09/2026:** (1) **HU-C-11 se retiró**: el turno ya no lleva forma de pago, así que esta spec ya no la consume ni la propone desde el turno; (2) **HU-I-01 ahora registra qué alumno paga** (AC1, AC3, AC4): el pago lleva `alumnoId` y la forma de pago se propone a partir de la **preferida del alumno elegido** (HU-B-03), sin obligarla; (3) HU-I-01 depende ahora de HU-C-09 (detalle del turno, de donde sale la lista de inscriptos) y no de HU-C-11; (4) HU-I-03 ya no menciona turnos.
 
-**Changelog de esta revisión (trazabilidad Backlog → Spec):**
+**Changelog de Revisión 1 (trazabilidad Backlog → Spec):**
 | HU | Estado previo | Acción |
 |---|---|---|
 | HU-I-03 | Gap — no contractualizada | Añadidas secciones 2.1 y 2.2 |
 | HU-I-01 | Gap — no contractualizada | Añadidas secciones 2.4 y 2.5 (opciones del modal) |
 | HU-C-11 | Vigente en el backlog previo | Retirada del backlog v2: esta spec ya no la consume |
+
+**Changelog de Revisión 2 (HU-I-03):** se precisa el alcance del endpoint de opciones, las fixtures para pruebas de inactivas y el estado de la migración ya versionada. Además (29/09/2026): el mensaje del `409` y el del campo vacío pasan a los textos del mockup (páginas 24 y 25) y del prototipo; el schema colapsa los espacios antes de validar el largo; y se aclara que la garantía frente a la carrera es el índice único. HU-I-01 y los contratos existentes conservan sus secciones y numeración.
 
 **Detalle por sección y modelo:**
 | HU / sección | Estado previo | Acción |
@@ -28,7 +29,7 @@
 | `spec_modulo_C.md` §2.4 | El detalle no muestra pagos | Lo ajusta la Revisión 5 de C; consume `listarPagosDeTurno()` (§2.3), que ahora devuelve el alumno de cada pago |
 
 **Fuera de alcance de esta spec (explícito):**
-- Modificar, dar de baja o reactivar una forma de pago (HU-I-03 AC5): existe el estado `Inactiva` pero ninguna acción de este sprint lo alcanza desde la UI. **Para probar esas ramas** (`FORMA_PAGO_NO_DISPONIBLE`, opciones que excluyen inactivas, listado con estado «Inactiva») hay que sembrar una forma de pago `Inactiva` en el `seed.ts` de demo y cubrir cada rama con una prueba unitaria con mock; sin eso solo se alcanzan con SQL.
+- Modificar, dar de baja o reactivar una forma de pago (HU-I-03 AC5): existe el estado `Inactiva` pero ninguna acción de este sprint lo alcanza desde la UI. Para comprobar estas ramas, crear fixtures inactivas aisladas en la base de test o usar mocks según el nivel de prueba. HU-I-03 no exige una forma inactiva en el seed de demo. El `upsert` de las cuatro formas auditado en `b9cc43b` fija `activaFormaPago: true` al actualizar; no usarlo como fixture inactiva ni alterar su política de reactivación en esta HU.
 - **Editar o anular un pago ya registrado.** Un pago es un registro de hecho consumado (Regla N.° 8): no admite `UPDATE`; una corrección se resolvería con un registro compensatorio que lo referencie, y el PO planificó una HU en Sprint 3 para solventar los casos en que haya que corregir (Q6c). Ver "Puntos abiertos".
 - Historial de pagos por alumno (HU-I-04) y estado de cuenta (HU-I-02), ambos de Sprint 3. (El pago **guarda** el alumno desde este sprint, así que HU-I-04 no requerirá migrar datos; lo que queda fuera es la pantalla.)
 - Asociar una forma de pago **al turno** (HU-C-11, retirada del sprint).
@@ -52,7 +53,7 @@ El Módulo I gestiona dos entidades independientes:
 
 Implementación estándar del proyecto: Route Handlers delgados que delegan en `src/server/pagos/forma-pago.service.ts` y `src/server/pagos/pago.service.ts` (Reglas N.° 4 y 11). Como en Turnos, el frontend llama directamente a los Route Handlers; **no** se crea `actions.ts` sin uso.
 
-**Alcance de esta revisión:** es la primera versión del módulo: todas las secciones (2.1 a 2.5) son nuevas y aditivas, por lo que no se renumera ninguna sección preexistente (no las hay; ver `docs/adicionales/sdd-metodologia.md`). Lo único que se toca de lo ya existente es el modelo `FormaPago` del Sprint 1, que pasa a este módulo (§2.1, migración) sin cambiar el contrato con B.
+**Historial y alcance de Revisión 2:** la Revisión 1 creó las secciones 2.1 a 2.5. Esta revisión solo precisa HU-I-03 en las secciones indicadas en el changelog; preserva la numeración, los contratos de HU-I-01 y la propiedad de `FormaPago` en I.
 
 ---
 
@@ -86,10 +87,11 @@ Implementación estándar del proyecto: Route Handlers delgados que delegan en `
 // src/server/pagos/forma-pago.schema.ts
 export const CrearFormaPagoSchema = z.object({
   nombre: z.string()
-    .trim()
-    .min(2, "El nombre debe tener al menos 2 caracteres")
-    .max(40, "El nombre no puede superar los 40 caracteres")
-    .transform((v) => v.replace(/\s+/g, " ")),
+    .transform((v) => v.trim().replace(/\s+/g, " ")) // primero se recorta y se colapsan los espacios...
+    .pipe(z.string()                                    // ...y recién después se valida el largo
+      .min(1, "Ingresá el nombre de la forma de pago.") // campo vacío (mockup); con vacío se muestra solo este mensaje
+      .min(2, "El nombre debe tener al menos 2 caracteres")
+      .max(40, "El nombre no puede superar los 40 caracteres")),
 }).strict(); // rechaza cualquier campo extra: no se solicita ni almacena ningún dato financiero (HU-I-03 AC1)
 export type CrearFormaPagoInput = z.infer<typeof CrearFormaPagoSchema>;
 ```
@@ -97,7 +99,7 @@ export type CrearFormaPagoInput = z.infer<typeof CrearFormaPagoSchema>;
 **Comportamiento esperado (`forma-pago.service.ts` → `crearFormaPago`):**
 1. Calcular `nombreNormalizadaFormaPago = normalizarTexto(nombre)` con la utilidad compartida (`spec_modulo_L.md` §2.1; misma que Materias y Aulas).
 2. Verificar unicidad aplicativa contra **todas** las formas de pago, activas e inactivas. Si existe: `409 NOMBRE_DUPLICADO`.
-3. Revalidación inmediatamente antes del `INSERT` + defensa del constraint único (`P2002`), traducido al mismo `409` (patrón de `spec_modulo_L.md` §3.2).
+3. Revalidación inmediatamente antes del `INSERT` + defensa del constraint único (`P2002`), traducido al mismo `409` (patrón de `spec_modulo_L.md` §3.2). La revalidación mejora el mensaje, pero **no cierra la carrera**: la garantía frente a dos altas simultáneas es el índice único con la captura de `P2002`.
 4. Insertar con `activaFormaPago: true`, `createdAtFormaPago` y `creadoPorUsuarioId`.
 
 **Modelo (cambios en `schema.prisma`):**
@@ -115,7 +117,7 @@ model FormaPago {
 }
 ```
 
-**Migración en tres pasos (hay filas de seed preexistentes):** (1) agregar las columnas nuevas, `nombreNormalizadaFormaPago` todavía `NULL`; (2) rellenar las filas existentes con la **misma** `normalizarTexto()` de la aplicación (en `seed.ts`, que ya hace `upsert` por nombre, y en un script de backfill para bases ya sembradas), no con SQL ad hoc, para que la normalización sea idéntica; (3) migración posterior: `NOT NULL` + `UNIQUE`. `seed.ts` debe fijar `nombreNormalizadaFormaPago` en su `upsert`.
+**Estado de migración y despliegue:** la base de código auditada en `b9cc43b` ya contiene el modelo y la migración versionada `20260928150100_sprint2_modelo`, con backfill literal de cuatro formas, `NOT NULL` e índice único de `nombreNormalizadaFormaPago`. Su aplicación en cada base no se comprobó. Antes de desplegar en una base no migrada, verificar los nombres preexistentes, las colisiones bajo `normalizarTexto()` y el estado de la migración; si existen otros nombres o colisiones, preparar un saneamiento seguro o una migración adicional apropiada antes de imponer unicidad. No reescribir una migración ya aplicada. El seed auditado fija el nombre normalizado en el `upsert`; verificar su versión vigente al implementar.
 
 **Trazabilidad:** opción (a) de la Regla N.° 2 (columnas de la propia fila), igual que Materias y Aulas. No hay tabla de eventos de Pagos.
 
@@ -125,7 +127,7 @@ model FormaPago {
 ```
 **Respuesta `409 Conflict`:**
 ```json
-{ "data": null, "error": { "code": "NOMBRE_DUPLICADO", "message": "Ya existe una forma de pago registrada con ese nombre" } }
+{ "data": null, "error": { "code": "NOMBRE_DUPLICADO", "message": "Ya existe una forma de pago con ese nombre." } }
 ```
 
 **Errores esperados:**
@@ -164,10 +166,12 @@ export const ListarFormasPagoQuerySchema = z.object({
 }
 ```
 
-**Ruta (opciones para selectores):** `GET /api/formas-pago/opciones` — **solo activas**, sin paginar, orden alfabético normalizado, array directo (mismo formato que las rutas de opciones de Turno). Lo usa el modal de HU-I-01 (y el alta de alumnos, HU-B-03). Permiso `formas_pago:leer`. Servicio: `listarFormasPagoActivas()` (§2.3).
+**Ruta (opciones para selectores):** `GET /api/formas-pago/opciones` — **solo activas**, sin paginar, orden alfabético normalizado, array directo (mismo formato que las rutas de opciones de Turno). Está previsto para el modal de HU-I-01; las páginas actuales de B obtienen las opciones por el servicio público interno de I. Permiso `formas_pago:leer`. Servicio: `listarFormasPagoActivas()` (§2.3).
 ```json
 { "data": [{ "id": "cuid", "nombre": "Efectivo" }], "error": null }
 ```
+
+**Alcance de HU-I-03:** esta historia implementa `POST /api/formas-pago` y `GET /api/formas-pago` (listado de gestión). El endpoint HTTP `/api/formas-pago/opciones` queda especificado para HU-I-01 y no se crea en la task I-03. Las páginas actuales de B obtienen las opciones mediante el servicio interno `listarFormasPagoActivas()` de I, sin una ruta HTTP nueva.
 
 **Errores esperados:**
 - `400` (validación Zod, `flatten()`) — `pagina` o `por_pagina` inválidos (solo el listado).
@@ -177,7 +181,7 @@ export const ListarFormasPagoQuerySchema = z.object({
 
 ### 2.3. Servicios públicos del módulo
 
-Conforme a la Regla N.° 3, **provistos por este módulo**, en `forma-pago.publico.ts` y `pago.publico.ts`. Otros módulos los invocan en lugar de consultar `formas_pago` o `pagos`. No son endpoints ni exigen un permiso `formas_pago:*`/`pagos:*`: el control de acceso lo hace la ruta del módulo consumidor. El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador.
+Conforme a la Regla N.° 3, **provistos por este módulo**, en `forma-pago.publico.ts` y `pago.publico.ts`. Otros módulos los invocan en lugar de consultar `formas_pago` o `pagos`. No son endpoints ni exigen un permiso `formas_pago:*`/`pagos:*`: el control de acceso lo hace la ruta del módulo consumidor. En las funciones que lo declaran, el parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador; `listarFormasPagoActivas()` no recibe `db`.
 
 | Función | Devuelve | Consumidores |
 |---|---|---|
@@ -363,4 +367,3 @@ Conforme a `docs/RULES.md` Regla N.° 2, este módulo usa la **opción (a) — c
 | — | Tope del monto (9 dígitos enteros) y del nombre (2–40) son propuestas del SM | §2.1, §2.4 | SM (fijado) | Fijados |
 | — | ¿Un alumno inactivo puede figurar como pagador? | §2.4 paso 3 | SM (fijado) | Sí, si está inscripto (hecho consumado); no se valida `activo` |
 | — | B lee hoy `FormaPago` directo (`alumno.service.ts`) | Changelog, §3.2 | Relevamiento del código | Debe pasar a `verificarFormaPagoActiva()`; `listarFormasPagoActivas()` se mueve a este módulo |
-```
