@@ -2,7 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
-import type { CrearMateriaInput, ListarMateriasQuery } from "./materia.schema";
+import type { DetalleMateria } from "@/types/materia.types";
+import type { CrearMateriaInput, ListarMateriasQuery, ModificarMateriaInput } from "./materia.schema";
 
 function nombreCompleto(apellido: string, nombre: string): string {
   return `${apellido}, ${nombre}`;
@@ -12,7 +13,25 @@ const MENSAJES = {
   NOMBRE_DUPLICADO_ACTIVA: "Ya existe una materia registrada con ese nombre",
   NOMBRE_DUPLICADO_INACTIVA: "Ya existe una materia registrada con ese nombre (inactiva)",
   CODIGO_DUPLICADO: "Ya existe una materia registrada con ese código",
+  MATERIA_NO_ENCONTRADA: "No se encontró la materia",
+  CONFLICTO_EDICION_CONCURRENTE:
+    "La materia fue modificada por otro usuario. Recargá para ver los datos actuales.",
 } as const;
+
+/**
+ * Violación de constraint único (P2002) sobre nombre normalizado o código →
+ * mismo `ServiceError` que la validación aplicativa (spec_modulo_L.md §3.2).
+ * `null` si el error no es un P2002, para que el llamador lo relance.
+ */
+function traducirViolacionUnicidad(error: unknown): ServiceError | null {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return null;
+  const target = Array.isArray(error.meta?.target) ? (error.meta.target as string[]) : [];
+  const esNombre = target.some((t) => t.toLowerCase().includes("nombre"));
+  return new ServiceError(
+    esNombre ? "NOMBRE_DUPLICADO" : "CODIGO_DUPLICADO",
+    esNombre ? MENSAJES.NOMBRE_DUPLICADO_ACTIVA : MENSAJES.CODIGO_DUPLICADO,
+  );
+}
 
 /** Consultas públicas para los flujos que seleccionan una materia. */
 export async function listarMateriasActivas() {
@@ -123,17 +142,7 @@ export async function crearMateria(input: CrearMateriaInput, usuarioId: string) 
     });
   } catch (error) {
     if (error instanceof ServiceError) throw error;
-
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const target = Array.isArray(error.meta?.target) ? (error.meta.target as string[]) : [];
-      const esNombre = target.some((t) => t.toLowerCase().includes("nombre"));
-      throw new ServiceError(
-        esNombre ? "NOMBRE_DUPLICADO" : "CODIGO_DUPLICADO",
-        esNombre ? MENSAJES.NOMBRE_DUPLICADO_ACTIVA : MENSAJES.CODIGO_DUPLICADO,
-      );
-    }
-
-    throw error;
+    throw traducirViolacionUnicidad(error) ?? error;
   }
 }
 
@@ -182,7 +191,7 @@ export async function listarMaterias(query: ListarMateriasQuery) {
  * materia inactiva sigue siendo consultable en detalle, no es un 404 solo
  * por estar de baja.
  */
-export async function obtenerMateriaPorId(id: string) {
+export async function obtenerMateriaPorId(id: string): Promise<DetalleMateria> {
   const materia = await prisma.materia.findUnique({
     where: { idMateria: id },
     include: {
@@ -195,7 +204,7 @@ export async function obtenerMateriaPorId(id: string) {
   });
 
   if (!materia) {
-    throw new ServiceError("MATERIA_NO_ENCONTRADA", "No se encontró la materia");
+    throw new ServiceError("MATERIA_NO_ENCONTRADA", MENSAJES.MATERIA_NO_ENCONTRADA);
   }
 
   return {
@@ -204,9 +213,99 @@ export async function obtenerMateriaPorId(id: string) {
     codigo: materia.codigoMateria,
     is_active: materia.activaMateria,
     created_at: materia.createdAtMateria.toISOString(),
+    updated_at: materia.updatedAtMateria.toISOString(),
+    version: materia.version,
     profesores: materia.profesores.map(({ profesor }) => ({
       id: profesor.idProfesor,
       nombre_completo: nombreCompleto(profesor.apellidoProfesor, profesor.nombreProfesor),
     })),
   };
+}
+
+/**
+ * Modificación de materia (spec_modulo_L.md §2.4, HU-L-03), dentro de una
+ * única transacción:
+ * 1. La materia debe existir (activa o inactiva).
+ * 2. Diff contra los valores actuales: solo se escriben los campos que
+ *    cambiaron (criterio 3). Sin cambios → no escribe y devuelve
+ *    `campos_modificados: []`.
+ * 3. Unicidad de nombre normalizado y código contra todas las demás
+ *    materias, activas e inactivas, excluyendo la propia (§3.4): un cambio
+ *    solo de mayúsculas/acentos del propio nombre no es duplicado.
+ * 4. Concurrencia optimista (Regla N.° 7, §3.5): `version` en el `where`
+ *    del `updateMany` — `count === 0` es `CONFLICTO_EDICION_CONCURRENTE`.
+ * 5. P2002 → mismo 409 que la validación aplicativa (§3.2).
+ *
+ * Sin evento de dominio: trazabilidad por columnas (Regla N.° 2, opción a).
+ */
+export async function modificarMateria(
+  id: string,
+  input: ModificarMateriaInput,
+  usuarioId: string,
+): Promise<{ id: string; campos_modificados: ("nombre" | "codigo")[]; version: number }> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const actual = await tx.materia.findUnique({
+        where: { idMateria: id },
+        select: { nombreMateria: true, codigoMateria: true, version: true },
+      });
+      if (!actual) {
+        throw new ServiceError("MATERIA_NO_ENCONTRADA", MENSAJES.MATERIA_NO_ENCONTRADA);
+      }
+
+      const campos_modificados: ("nombre" | "codigo")[] = [];
+      const data: Prisma.MateriaUpdateManyMutationInput = {};
+
+      if (input.nombre !== undefined && input.nombre !== actual.nombreMateria) {
+        const nombreNormalizado = normalizarTexto(input.nombre);
+        const otra = await tx.materia.findFirst({
+          where: { nombreNormalizadaMateria: nombreNormalizado, NOT: { idMateria: id } },
+          select: { activaMateria: true },
+        });
+        if (otra) {
+          throw new ServiceError(
+            "NOMBRE_DUPLICADO",
+            otra.activaMateria ? MENSAJES.NOMBRE_DUPLICADO_ACTIVA : MENSAJES.NOMBRE_DUPLICADO_INACTIVA,
+          );
+        }
+        data.nombreMateria = input.nombre;
+        data.nombreNormalizadaMateria = nombreNormalizado;
+        campos_modificados.push("nombre");
+      }
+
+      if (input.codigo !== undefined && input.codigo !== actual.codigoMateria) {
+        if (input.codigo !== null) {
+          const otra = await tx.materia.findFirst({
+            where: { codigoMateria: input.codigo, NOT: { idMateria: id } },
+            select: { idMateria: true },
+          });
+          if (otra) throw new ServiceError("CODIGO_DUPLICADO", MENSAJES.CODIGO_DUPLICADO);
+        }
+        data.codigoMateria = input.codigo;
+        campos_modificados.push("codigo");
+      }
+
+      if (campos_modificados.length === 0) {
+        return { id, campos_modificados, version: actual.version };
+      }
+
+      const resultado = await tx.materia.updateMany({
+        where: { idMateria: id, version: input.version },
+        data: {
+          ...data,
+          version: { increment: 1 },
+          updatedAtMateria: new Date(),
+          modificadoPorUsuarioId: usuarioId,
+        },
+      });
+      if (resultado.count === 0) {
+        throw new ServiceError("CONFLICTO_EDICION_CONCURRENTE", MENSAJES.CONFLICTO_EDICION_CONCURRENTE);
+      }
+
+      return { id, campos_modificados, version: input.version + 1 };
+    });
+  } catch (error) {
+    if (error instanceof ServiceError) throw error;
+    throw traducirViolacionUnicidad(error) ?? error;
+  }
 }
