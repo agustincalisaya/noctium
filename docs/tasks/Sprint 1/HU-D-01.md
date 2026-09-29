@@ -26,12 +26,12 @@ Un relevamiento previo del repo (`develop`, limpio) encontró seis puntos donde 
 1. **Ubicación de los schemas Zod:** `spec_modulo_D.md` referencia `lib/schemas/profesores.schema.ts`, pero el repo real no tiene un `lib/schemas/` separado — `sesion.schema.ts` (HU-A-01) vive co-ubicado junto a su servicio, en `src/server/sesion/`. Esta HU sigue esa misma convención real: `src/server/profesores/profesor.schema.ts`, junto a `profesor.service.ts`.
 2. **Enum `Genero`:** el pseudocódigo de `spec_modulo_D.md` §2.1 usa `"PREFIERO_NO_INDICAR"` — es un typo de la spec. El valor real en `schema.prisma` (y ya usado por `seed.ts`) es `PREFIERO_NO_INDICARLO`. El schema Zod de esta task usa el enum real de Prisma, no una lista de strings hardcodeada aparte.
 3. **Longitud del DNI:** la spec asume un único parámetro `DNI_LONGITUD` con `.length(...)`. El parámetro real, ya sembrado en `ParametroSistema`, son dos claves separadas: `dni_longitud_min` (7) y `dni_longitud_max` (8). El schema Zod valida con `.min(min).max(max)`, leyendo ambos valores vía `getParametroNumerico()` (`src/server/shared/parametros.ts`).
-4. **Eventos de dominio / `AuditLog` (Regla N.° 2 de `docs/RULES.md`):** **fuera de alcance explícito de esta task.** La infraestructura de eventos (`lib/events/event-types.ts`, listener de `AuditLog` encadenado por hash) no existe todavía en el repo para **ningún** módulo — ni siquiera Módulo A (HU-A-01/02/03) la implementó, a pesar de que las specs y `RULES.md` la dan por sentada. No corresponde que esta HU la introduzca unilateralmente. **Acción:** plantear en el próximo daily del equipo quién y cuándo construye esa infraestructura transversal (probablemente una task propia, no acoplada a ninguna HU de dominio en particular). Mientras tanto, "alta en transacción única, registra fecha y usuario" (criterio de aceptación 4) se satisface con el `INSERT` en sí (`createdAtProfesor`, `creadoPorUsuarioId`) — sin emisión de evento.
+4. **Trazabilidad y auditoría (Regla N.° 2 de `docs/RULES.md`):** se aplica el patrón (a) — columnas de auditoría en la propia entidad (`createdAtProfesor`, `creadoPorUsuarioId`), persistidas en el `INSERT` síncrono. No se requiere event bus ni tabla de eventos separada.
 5. **Permiso `profesores:crear`:** se agrega como fila nueva en el bloque de `RolPermiso` de `prisma/seed.ts` (no como migración de datos suelta), ya que el seed es el archivo compartido y versionado por todo el equipo para la matriz RBAC (mismo patrón que el bloque `sesion:ping` existente).
 6. **Utilidades compartidas:** `spec_modulo_D.md` da por existentes `fechaCalendarioValidaSchema` y `normalizarTexto()` (`spec_modulo_B.md` §2.1) — ninguna de las dos existe todavía en el repo. Se crean en `src/server/shared/` (junto a `parametros.ts`), con nombres genéricos y sin ningún acoplamiento a "profesor": `spec_modulo_B.md` deja explícito que `HU-B-01` (Alumno, a cargo de Adriel) las va a necesitar también para su propio alta de identidad. Esta task es la primera en tocarlas — quien implemente HU-B-01 después las reutiliza sin duplicar.
 
 **Fuera de alcance de esta task (explícito):**
-- Eventos de dominio / `AuditLog` — ver punto 4 arriba.
+- Tabla de eventos separada (se usa Regla N.° 2, patrón a: columnas de auditoría) — ver punto 4 arriba.
 - HU-D-02 (contacto), HU-D-03 (materias), HU-D-04 (horario), HU-D-05 (listado/detalle real) — esta task solo deja las rutas de destino (`/profesores`, `/profesores/[id]`) como enlaces válidos desde la pantalla de éxito; su contenido real (hoy "en construcción") lo completan sus propias HU.
 - Modificación o baja lógica de una ficha de profesor ya registrada (`spec_modulo_D.md`, "Fuera de alcance" general).
 - Cualquier vínculo con `Usuario` (`Profesor.usuarioId` permanece `null` — criterio de aceptación 5, `spec_modulo_D.md` §3.1).
@@ -62,7 +62,7 @@ Implementación frontend + backend conforme a `spec_modulo_D.md` §2.1, con las 
 - UI: pantalla "Nuevo profesor" (`app/(dashboard)/profesores/nuevo/page.tsx` + formulario cliente), conectada a `DirtyStateProvider`.
 
 **Fuera de alcance de esta task** (no implementar bajo ninguna circunstancia):
-- Emisión de eventos de dominio / `AuditLog` (ver §1, punto 4).
+- Tabla de eventos separada (aplica Regla N.° 2, patrón a — ver §1, punto 4).
 - Cualquier campo de contacto, materia u horario — solo identidad.
 - Contenido real de `/profesores` (listado) y `/profesores/[id]` (detalle) — siguen "en construcción"; esta task solo los usa como destino de navegación desde la pantalla de éxito.
 
@@ -185,7 +185,7 @@ Server Action separada y liviana, disparada en el `onBlur` del campo DNI — **n
 
 ### 4.5. Eventos de dominio
 
-**Fuera de alcance de esta task — ver §1, punto 4.** No se crea `lib/events/event-types.ts` ni ningún listener de `AuditLog` acá. Si esa infraestructura llega a existir antes del merge de esta HU (por resolución del equipo en el daily), esta sección se actualiza para emitir `profesor:creado` (`profesor_id, dni, usuario_registrante_id`) inmediatamente después del `INSERT` — pero no es una condición de bloqueo para dar por terminada esta task.
+**Trazabilidad según Regla N.° 2 (patrón a):** se resuelve mediante las columnas de auditoría de la entidad (`createdAtProfesor`, `creadoPorUsuarioId`). No aplica tabla de eventos separada ni listener.
 
 **Nota — mismo estado que el test runner (ver §6):** ambas son piezas de infraestructura transversal que ningún módulo, ni siquiera A, resolvió todavía. Se documentan acá juntas para que quede claro que no son un olvido de esta HU en particular, sino dos temas a plantear en el próximo daily del equipo.
 
@@ -241,7 +241,7 @@ El array usa `as const satisfies Genero[]`, así que TypeScript sí verifica en 
 ### Nivel 3 — BD / TablePlus
 - Verificar la fila creada en `profesores`: `activo_profesor = true`, `usuario_id IS NULL`, `creado_por_usuario_id` = el Gerente que hizo el alta, `created_at_profesor` con la fecha/hora real de la operación.
 - Verificar que el `dni_profesor` insertado respeta el constraint único (`P2002`) probando un `INSERT` manual duplicado desde TablePlus.
-- `AuditLog`: **no aplica en esta task** (§1 punto 4) — documentar explícitamente como "Fuera de alcance, ver nota de infraestructura pendiente", nunca como si hubiera pasado.
+- Auditoría: verificada según Regla N.° 2 (patrón a) con las columnas `createdAtProfesor` y `creadoPorUsuarioId` de la entidad.
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y la capa de datos; capturas de la pantalla "Nuevo profesor" en sus estados (vacío, con errores por campo, cargando, éxito con las dos acciones de continuar).
 
@@ -260,8 +260,8 @@ El array usa `as const satisfies Genero[]`, así que TypeScript sí verifica en 
 - [x] Frontend funcional: formulario con los 4 campos obligatorios + género opcional, errores inline por campo, loading state, mensaje de éxito con las dos acciones de continuar, Cancelar con confirmación vía `DirtyStateProvider` cuando hay datos cargados. Probado end-to-end en navegador real, logueado como Gerente (casos 1-4).
 - [x] Ningún `DELETE` físico en ningún punto del código.
 - [x] Sin alta parcial: un DNI duplicado o cualquier otro rechazo del servicio no deja ninguna fila creada. Verificado con curl (409) y en navegador (caso 2): ningún intento duplicado creó una fila.
-- [x] Eventos de dominio / `AuditLog` explícitamente fuera de alcance (§1 punto 4) — no bloquea el DoD, pero el punto quedó planteado para el próximo daily del equipo.
-- [x] Tests de los 3 niveles documentados con evidencia (Nivel 3 de `AuditLog` documentado como "Fuera de alcance", nunca como si hubiera pasado). Nivel 1 queda como "Código escrito, no ejecutado — sin test runner instalado (ver §4.5)", pendiente de decisión de equipo; eso no bloquea el resto del DoD, que sí se verificó por otras vías (build real, curl, navegador).
+- [x] Trazabilidad resuelta según Regla N.° 2 (patrón a: columnas de auditoría en la propia entidad).
+- [x] Tests de los 3 niveles documentados con evidencia (Nivel 3 verificado sobre columnas de auditoría de la entidad según Regla N.° 2). Nivel 1 queda como "Código escrito, no ejecutado — sin test runner instalado (ver §4.5)", pendiente de decisión de equipo; eso no bloquea el resto del DoD, que sí se verificó por otras vías (build real, curl, navegador).
 - [ ] PR con diff acotado exclusivamente a HU-D-01 (sin adelantar contacto, materias, horario ni listado — esas son HU-D-02/03/04/05). Pendiente: acción del usuario, no de esta implementación.
 
 ---

@@ -117,7 +117,7 @@ No hay `prisma.$transaction` multi-tabla en este flujo: es una operación de lec
 
 Los tres se emiten inmediatamente después de que `verificarCredenciales()` resuelve (éxito o rechazo) — no hay una transacción multi-tabla cuyo `COMMIT` esperar en el sentido estricto de la Regla N.° 2, pero se mantiene el mismo principio: nunca se emite en medio de una operación de escritura sin resolver (el `INSERT` síncrono de `IntentoAccesoFallido`, si ocurre, ya se completó antes de emitir).
 
-**Listener de auditoría:** agregar los tres handlers en `audit-log.listener.ts`, patrón `void registrarAuditLog(...)` — nunca `await`. El payload de `sesion:intento_fallido` nunca incluye `password` (Regla de negocio 3.4 de la spec).
+**Auditoría (Regla N.° 2, patrón b):** escritura directa y síncrona en `EventoSeguridad` — nunca dentro de una transacción. El payload nunca incluye `password` (Regla de negocio 3.4 de la spec).
 
 ---
 
@@ -157,7 +157,7 @@ Los tres se emiten inmediatamente después de que `verificarCredenciales()` resu
 
 ### Nivel 3 — BD / TablePlus
 - Verificar la fila creada en `IntentoAccesoFallido` tras un intento fallido (`email`, `ip`, `created_at`) — confirmar que no existe ninguna columna con la contraseña ingresada.
-- Verificar en `AuditLog` que `sesion:inicio_exitoso` y `sesion:intento_fallido` quedaron encadenados con hash SHA-256 intacto. **Si el `AuditLog` todavía no está implementado por ninguna task previa** (es la primera task del proyecto), este criterio se documenta como "Bloqueado" con ese motivo explícito, conforme a `docs/sdd-metodologia.md` — nunca como si hubiera pasado.
+- Verificar en `EventoSeguridad` (Regla N.° 2, patrón b) que `sesion:inicio_exitoso` y `sesion:intento_fallido` quedaron registrados de forma directa y síncrona.
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y la capa de datos; capturas de la pantalla de login en sus tres estados (normal, error, cargando), incluyendo el estado de error de comunicación con el texto exacto.
 
@@ -173,5 +173,5 @@ Los tres se emiten inmediatamente después de que `verificarCredenciales()` resu
 - [ ] JWT emitido con algoritmo `HS256` explícito; transporte de la superficie de autenticación restringido a HTTPS TLS 1.2+ en cualquier entorno desplegado, documentado en el README de despliegue.
 - [ ] Frontend funcional: login con sus tres estados (incluyendo el texto exacto "No se pudo conectar. Intentá nuevamente" en el error de comunicación), redirect por rol, enlace a "Crear cuenta".
 - [ ] Ningún `DELETE` físico en ningún punto del código.
-- [ ] Tests de los 3 niveles documentados con evidencia (Nivel 3 de AuditLog puede quedar "Bloqueado" si aún no existe esa infraestructura, con motivo explícito).
+- [ ] Tests de los 3 niveles documentados con evidencia (Nivel 3 verificado sobre `EventoSeguridad` según Regla N.° 2).
 - [ ] PR con diff acotado exclusivamente a HU-A-01 (sin adelantar lógica de HU-A-02 o HU-A-03 más allá de lo que esta task necesita para mintear el JWT inicial).

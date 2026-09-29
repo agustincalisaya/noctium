@@ -17,7 +17,7 @@ vi.mock("@/server/profesores/profesor.service", () => ({
 }));
 vi.mock("@/server/turnos/turno.validaciones", () => ({ turnoSigueVigente: vigente }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
-vi.mock("@/server/aulas/aula.service", () => ({ verificarAulaActiva: aulaActiva }));
+vi.mock("@/server/aulas/aula.publico", () => ({ verificarAulaActiva: aulaActiva }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: vi.fn() }));
 
 const { asignarParticipantesTurno } = await import("./turno.service");

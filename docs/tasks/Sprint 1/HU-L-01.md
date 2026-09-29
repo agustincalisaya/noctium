@@ -116,7 +116,7 @@ Comportamiento exigido, en este orden (`spec_modulo_L.md` §2.1, dentro de una �
 ### 4.5. Eventos de dominio
 
 **Archivo:** `lib/events/event-types.ts` — agregar `materia:creada` si no está ya declarado desde la spec.
-**Listener de auditoría:** handler en `audit-log.listener.ts`, patrón `void registrarAuditLog(...)` — nunca `await`.
+**Trazabilidad (Regla N.° 2, patrón a):** columnas de auditoría en la propia entidad (`createdAtMateria`, `creadoPorUsuarioId`), persistidas en la misma operación.
 
 Payload: `materia_id, nombre, codigo, usuario_id` — emitido después del `COMMIT`, nunca dentro de la transacción.
 
@@ -158,7 +158,7 @@ Payload: `materia_id, nombre, codigo, usuario_id` — emitido después del `COMM
 ### Nivel 3 — BD / TablePlus
 - Verificar la fila creada en `Materia` (`nombre`, `nombre_normalizado`, `codigo`, `is_active: true`, `created_by`).
 - Verificar que el constraint único de `nombre_normalizado` y de `codigo` existen efectivamente en el schema (no solo la validación aplicativa).
-- Verificar en `AuditLog` que `materia:creada` quedó encadenado con hash SHA-256 intacto.
+- Verificar columnas de auditoría (`createdAtMateria`, `creadoPorUsuarioId`) en la tabla `Materia` según Regla N.° 2 (patrón a).
 - Verificar en `RolPermiso` que `materias:crear` quedó sembrado para el rol Gerente únicamente.
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y capa de datos; capturas del formulario de alta en sus estados (normal, error de duplicado, cargando, confirmación de "Cancelar" con datos ingresados).

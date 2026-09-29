@@ -156,7 +156,7 @@ No hay eventos nuevos — una consulta de lectura no dispara auditoría conforme
 ### Nivel 3 — BD / TablePlus
 - Verificar directamente en el schema (no solo por el resultado de la API) que la columna `nombre` de `Aula` tiene la collation `natural_es` aplicada.
 - Correr `SELECT nombre FROM "Aula" ORDER BY nombre ASC` directo en TablePlus con datos "Aula 2"/"Aula 10"/"Aula 3" y confirmar el orden natural a nivel de base, no solo a través de Prisma.
-- No aplica verificación de `AuditLog` (no hay eventos en esta task, operación de solo lectura).
+- No aplica verificación de auditoría (operación de solo lectura sin eventos ni mutaciones según Regla N.° 2).
 - Verificar en `RolPermiso` que `aulas:leer` quedó sembrado exactamente para los roles acordados (punto abierto de la sección 4.3).
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y capa de datos (incluyendo el `SELECT ... ORDER BY` directo); capturas de la tabla de listado mostrando el orden natural con al menos un caso de doble dígito, y de los tres estados (carga, vacío, error con Reintentar).

@@ -6,7 +6,7 @@ import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service";
 import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
-import { verificarAulaActiva } from "@/server/aulas/aula.service";
+import { verificarAulaActiva } from "@/server/aulas/aula.publico";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
 import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";

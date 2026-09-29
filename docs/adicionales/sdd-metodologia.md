@@ -84,7 +84,7 @@ Ninguno de los dos reemplaza a la spec o al task — son el puente entre la deci
 Toda task documenta evidencia en estos tres niveles:
 1. **Unit** — funciones puras de la capa de servicios (validaciones, máquinas de estado, resolución de precondiciones).
 2. **Postman** — colección cubriendo el contrato de API: caso exitoso, cada error esperado con su código, casos límite.
-3. **BD (TablePlus u otro cliente Postgres)** — verificación directa de que las columnas relevantes (`is_active`, `deleted_at`, campos de estado, `AuditLog`) quedaron como se espera tras la operación.
+3. **BD (TablePlus u otro cliente Postgres)** — verificación directa de que las columnas relevantes (`is_active`, `deleted_at`, campos de estado, columnas de auditoría o tabla de eventos según Regla 2) quedaron como se espera tras la operación.
 
 Un criterio de aceptación que no se pudo verificar se documenta como "Bloqueado" con motivo explícito — nunca se marca como si hubiera pasado.
 

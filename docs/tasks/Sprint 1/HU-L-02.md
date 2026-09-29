@@ -157,7 +157,7 @@ No hay eventos nuevos — una consulta de lectura no dispara auditoría conforme
 - `pagina`/`por_pagina` fuera de rango (ej. `por_pagina=999`) → `400`, error de validación Zod (tope de 20).
 
 ### Nivel 3 — BD / TablePlus
-- No aplica verificación de `AuditLog` (no hay eventos en esta task — confirmar explícitamente que no aparece nada nuevo ahí, como corresponde a una operación de solo lectura).
+- No aplica verificación de auditoría (operación de solo lectura sin eventos ni mutaciones según Regla N.° 2).
 - Verificar en `RolPermiso` que `materias:leer` quedó sembrado exactamente para los roles acordados (Gerente, Mesa de Entrada, Profesor — y Alumno si el punto abierto de la sección 1 se resuelve a favor).
 
 **Evidencia esperada:** Postman + SQL para el contrato de API; capturas de la tabla de listado (con al menos una materia inactiva visible), de la vista de detalle, y de los tres estados (carga, vacío, error con Reintentar).

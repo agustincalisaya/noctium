@@ -91,10 +91,11 @@ Comportamiento exigido, en este orden, dentro de una única `prisma.$transaction
 **Archivo:** `app/(dashboard)/.../actions.ts`
 **Función:** `<nombreFuncion>()` — wrapper delgado sobre el servicio (validar sesión, invocar servicio, `revalidatePath` si aplica).
 
-### 4.5. Eventos de dominio
+### 4.5. Trazabilidad / Auditoría (Regla N.° 2)
 
-**Archivo:** `lib/events/event-types.ts` — agregar `<modulo>:<evento>` si no existe declarado.
-**Listener de auditoría:** handler en `audit-log.listener.ts`, patrón `void registrarAuditLog(...)` — nunca `await`, el servicio nunca llama `registrarAuditLog()` directo (Regla N.° 2).
+Indicar patrón según Regla N.° 2 de `docs/RULES.md`:
+- **(a) Columnas de auditoría en la propia entidad:** `createdAt...`, `creadoPorUsuarioId`, etc., persistidas en la misma operación.
+- **(b) Tabla de eventos por dominio:** escritura directa y síncrona después del commit de negocio (ej. `EventoSeguridad` en módulo A).
 
 ---
 
@@ -122,7 +123,7 @@ Comportamiento exigido, en este orden, dentro de una única `prisma.$transaction
 
 ### Nivel 3 — BD / TablePlus
 - Verificar columnas relevantes (`is_active`, `deleted_at`, campos de estado) tras la operación.
-- Verificar en `AuditLog` que el evento fue escrito con encadenamiento SHA-256 intacto.
+- Verificar persistencia de auditoría según Regla N.° 2 (columnas de auditoría o fila en tabla de eventos correspondiente).
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y capa de datos; capturas de UI si hay frontend.
 
