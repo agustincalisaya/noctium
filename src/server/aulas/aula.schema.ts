@@ -19,3 +19,16 @@ export const ListarAulasQuerySchema = z.object({
   por_pagina: z.coerce.number().int().positive().max(20).default(20),
 });
 export type ListarAulasQuery = z.infer<typeof ListarAulasQuerySchema>;
+
+/**
+ * Modificación de aula (spec_modulo_K.md §2.4, HU-K-03): mismas reglas que
+ * el alta (criterio 1). Campo ausente = no se modifica; `version` es
+ * obligatoria (concurrencia optimista) y `.strict()` rechaza `is_active`
+ * (desactivar es HU-K-04) y cualquier otro campo.
+ */
+export const ModificarAulaSchema = CrearAulaSchema.partial()
+  .extend({
+    version: z.number().int().nonnegative(),
+  })
+  .strict();
+export type ModificarAulaInput = z.infer<typeof ModificarAulaSchema>;
