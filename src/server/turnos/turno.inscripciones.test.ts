@@ -57,6 +57,7 @@ describe("HU-C-04 §2.5 agregar alumno", () => {
     expect(tx.turnoAlumno.count.mock.invocationCallOrder[0]).toBeLessThan(tx.turnoAlumno.create.mock.invocationCallOrder[0]);
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
     expect(tipos()).toEqual(["turno:alumno_agregado"]);
+    expect(evento.mock.calls[0]![0].data.payloadEvento).toEqual({ turno_id: TURNO, alumno_id: A, usuario_id: USUARIO, origen: "MESA_ENTRADA" });
   });
   it("al alcanzar el cupo transiciona a COMPLETO y emite turno:completado", async () => {
     tx.turnoAlumno.count.mockResolvedValueOnce(2);
@@ -83,6 +84,11 @@ describe("HU-C-04 §2.5 agregar alumno", () => {
     await expect(agregar()).rejects.toMatchObject({ code: "TURNO_NO_ENCONTRADO" });
     vigente.mockReturnValueOnce(false);
     await expect(agregar()).rejects.toMatchObject({ code: "TURNO_VENCIDO" });
+    expect(tx.turnoAlumno.create).not.toHaveBeenCalled();
+  });
+  it("rechaza un turno CANCELADO con el código de la revisión 5", async () => {
+    bloqueado("CANCELADO");
+    await expect(agregar()).rejects.toMatchObject({ code: "TURNO_CANCELADO" });
     expect(tx.turnoAlumno.create).not.toHaveBeenCalled();
   });
   it("rechaza alumno inactivo, repetido o con turno superpuesto, identificándolo", async () => {
@@ -124,5 +130,10 @@ describe("HU-C-04 §2.5 quitar alumno", () => {
     vigente.mockReturnValueOnce(false);
     await expect(quitar()).rejects.toMatchObject({ code: "TURNO_VENCIDO" });
     expect(evento).not.toHaveBeenCalled();
+  });
+  it("no quita inscripciones de un turno CANCELADO", async () => {
+    bloqueado("CANCELADO");
+    await expect(quitar()).rejects.toMatchObject({ code: "TURNO_CANCELADO" });
+    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
   });
 });

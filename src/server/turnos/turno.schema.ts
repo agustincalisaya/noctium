@@ -35,5 +35,15 @@ export const AgregarAlumnoTurnoSchema = z.object({
 });
 export type AgregarAlumnoTurnoInput = z.infer<typeof AgregarAlumnoTurnoSchema>;
 
+/** HU-C-12 §2.14.2: el segundo filtro requiere el primero. */
+export const OpcionesInscripcionQuerySchema = z.object({
+  materia_id: z.string().trim().min(1).optional(),
+  profesor_id: z.string().trim().min(1).optional(),
+}).strict().refine((query) => !query.profesor_id || Boolean(query.materia_id), {
+  message: "Elegí una materia antes de elegir un profesor",
+  path: ["materia_id"],
+});
+export type OpcionesInscripcionQuery = z.infer<typeof OpcionesInscripcionQuerySchema>;
+
 export const AsignarAulaTurnoSchema = z.object({ aula_id: z.cuid() });
 export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;

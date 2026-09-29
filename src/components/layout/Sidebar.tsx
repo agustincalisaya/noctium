@@ -11,6 +11,7 @@ import {
   Contact,
   Library,
   BadgeCheck,
+  CalendarPlus2,
   type LucideIcon 
 } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
@@ -27,6 +28,8 @@ interface SidebarSeccionConfig {
   label: string;
   icon: LucideIcon;
   items: SidebarItemConfig[];
+  collapsible?: boolean;
+  hideItemIcons?: boolean;
 }
 
 /**
@@ -106,7 +109,18 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       ],
     },
   ],
-  ALUMNO: [],
+  ALUMNO: [
+    {
+      label: "Mi cuenta",
+      icon: CalendarDays,
+      collapsible: false,
+      hideItemIcons: true,
+      items: [
+        { label: "Mis turnos", href: "/alumno", icon: CalendarDays },
+        { label: "Solicitar turno", href: "/alumno/turnos/solicitar", icon: CalendarPlus2 },
+      ],
+    },
+  ],
 };
 
 /**
@@ -130,6 +144,8 @@ export async function Sidebar() {
     return {
       label: seccion.label,
       icon: <SeccionIcon className="size-4 shrink-0" aria-hidden />,
+      collapsible: seccion.collapsible,
+      hideItemIcons: seccion.hideItemIcons,
       items: seccion.items.map((item) => {
         const ItemIcon = item.icon;
         return {

@@ -1025,7 +1025,7 @@ export const MisTurnosQuerySchema = z.object({
 4. Insertar `TurnoAlumno`. Si `inscriptos + 1 === cupoMaximoTurno`: `DISPONIBLE → COMPLETO` automáticamente (AC5).
 5. Emitir `turno:alumno_agregado` con `origen: "AUTOSERVICIO"` y, si hubo transición, `turno:completado`.
 
-**Respuesta `200 OK`:** `{ "data": { "id": "cuid", "alumnos_inscriptos": "4/5", "estado": "DISPONIBLE" }, "error": null }` — la UI informa "Te inscribiste correctamente" y, junto a ese mensaje, **"El pago se abona en el centro"** (HU-C-12 AC6 del backlog v2: en este sprint la inscripción propia no exige pago previo ni integra pasarela; el pago lo registra Mesa de Entrada con HU-I-01). Banner, porque es página completa.
+**Respuesta `200 OK`:** `{ "data": { "id": "cuid", "alumnos_inscriptos": "4/5", "estado": "DISPONIBLE" }, "error": null }` — la UI informa "Te inscribiste correctamente" y, junto a ese mensaje, **"El pago se abona en el centro"** (HU-C-12 AC6 del backlog v2: en este sprint la inscripción propia no exige pago previo ni integra pasarela; el pago lo registra Mesa de Entrada con HU-I-01). El banner se muestra al volver a "Mis turnos", como indica el flujo aprobado en el mapa de pantallas.
 
 **Errores esperados (2.14.2):**
 - `403 SIN_PERMISO` — falta `turnos:solicitar_propio` o la cuenta no tiene ficha de alumno vinculada.
