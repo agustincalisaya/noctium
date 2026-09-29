@@ -88,3 +88,22 @@ export type DetalleProfesor = {
   materias: MateriaDeProfesor[];
   horarios: HorarioAtencion[];
 };
+
+/**
+ * Opción de profesor activo del contrato público (`spec_modulo_D.md` §2.8,
+ * `listarOpcionesProfesoresActivos`): `OpcionProfesor` más nombre y apellido
+ * por separado.
+ */
+export type OpcionProfesorConNombre = OpcionProfesor & { nombre: string; apellido: string };
+
+/**
+ * Horario de atención del contrato público (`spec_modulo_D.md` §2.8):
+ * `dia_semana` es el valor del enum ("LUNES"…"DOMINGO") y las horas son
+ * "HH:mm" en 24 h, igual que `HorarioAtencion`.
+ */
+export type HorarioDeAtencionPublico = {
+  horario_id: string;
+  dia_semana: DiaSemanaValor;
+  hora_inicio: string;
+  hora_fin: string;
+};

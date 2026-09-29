@@ -29,6 +29,13 @@
 | `FormaPago` | B la lee directamente del catálogo | Pasa a ser propiedad del Módulo I. B la consume por `verificarFormaPagoActiva()` / `existeFormaPago()` / `obtenerFormaPago()` (`spec_modulo_I.md` §2.3). **Sin cambio de ruta ni de permiso.** Códigos de 2.3 alineados con `spec_modulo_I.md` §2.4: `404 FORMA_PAGO_NO_ENCONTRADA` (inexistente) y `409 FORMA_PAGO_NO_DISPONIBLE` (inactiva) |
 | §3 | 3.1 a 3.8 | Regla 3.9: criterio de búsqueda compartido con el selector de Turnos |
 
+**Actualización del 29/09/2026 (implementación del PR 0', sin renumerar secciones):**
+| Sección | Estado previo | Acción |
+|---|---|---|
+| 2.8 (`contarAlumnosNuevosPorMes`) | La fórmula aplicaba `AT TIME ZONE 'America/Argentina/Buenos_Aires'` directamente sobre `createdAtAlumno` | **Corregida:** `createdAtAlumno` es `TIMESTAMP(3)` **sin zona** y Prisma lo guarda en UTC; hay que pasar primero por `AT TIME ZONE 'UTC'`. Sin la corrección el mes quedaba corrido 3 horas |
+| 2.8 (`verificarAlumnoActivo`) | Firma y propagación de errores «a confirmar» | Fijadas: `verificarAlumnoActivo(alumnoId, db?)` lanza `ServiceError` con `ALUMNO_NO_ENCONTRADO` / `ALUMNO_INACTIVO`. `alumno.service.ts` conserva la versión interna que devuelve `boolean` (la usa Turnos hasta que migre) |
+| 2.8 (imports) | «No importa nada de otros módulos» | Se precisa qué sí puede importar (ver nota al inicio de 2.8) |
+
 **Fuera de alcance de esta spec (explícito):**
 - Filtros combinados en el listado (estado, forma de pago, fecha de alta). ~~Búsqueda por texto~~: **incorporada en Revisión 2** (2.7).
 - Baja lógica y reactivación del alumno (HU-B-06 §9 lo excluye explícitamente — el estado no es editable esta iteración).
@@ -426,18 +433,20 @@ export const ListarAlumnosQuerySchema = z.object({
 
 Conforme a la Regla N.° 3: se declaran en `src/server/alumnos/alumno.publico.ts`. **No importa nada de otros módulos.** El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador.
 
+**Qué puede importar `alumno.publico.ts` (precisión del 29/09/2026):** `@prisma/client` (solo tipos), `@/lib/prisma`, `@/server/shared/*`, `@/types/alumno.types` y, únicamente para **reexportar** funciones existentes con la firma de esta tabla, el service de su propio módulo (`@/server/alumnos/alumno.service`, siempre con el alias `@/`, Regla N.° 11). También puede importar **utilidades puras de `src/lib/`** (sin `prisma` ni imports de `src/server/**`). Nada de otros módulos de dominio; lo verifica `src/server/publico.aislamiento.test.ts`.
+
 | Función | Devuelve | Consumidores |
 |---|---|---|
 | `obtenerAlumnoDeUsuario(usuarioId, db?)` | `{ id, activo } \| null`: la ficha vinculada a la cuenta (`Alumno.usuarioId`) | `spec_modulo_C.md` §2.14 (autoservicio) |
 | `obtenerAlumnosBasicos(ids, db?)` | `{ id, nombre, apellido, dni, activo, forma_pago_preferida_id }[]` (lote, activos o inactivos, ids inexistentes simplemente no aparecen). `forma_pago_preferida_id` es `null` si el alumno está "Sin preferencia" | `spec_modulo_I.md` §2.3 (`listarPagosDeTurno`), §2.4 y §2.5 (alumno que paga y forma de pago propuesta); `spec_modulo_E.md` §2.1 (`GET` del registro de clase: nombres de los inscriptos, en lote) |
 | `obtenerAlumnoBasico(id, db?)` | `{ id, nombre, apellido, activo } \| null`, activo o inactivo | `spec_modulo_E.md` §2.3 (nombre del alumno en el historial; E la cita también en su §3.5) |
-| `verificarAlumnoActivo(alumnoId)` | verifica que la ficha exista y esté activa, **distinguiendo** los dos fallos con los códigos `ALUMNO_NO_ENCONTRADO` (no existe) y `ALUMNO_INACTIVO` (existe con `activo = false`); ver «Códigos de `verificarAlumnoActivo()`» abajo (**existente de Sprint 1**; firma exacta: a confirmar contra `alumno.service.ts`) | `spec_modulo_C.md` §2.2, §2.5; `spec_modulo_E.md` §2.2. **No** lo consume C §2.14 (autoservicio: usa el `activo` de `obtenerAlumnoDeUsuario()`) |
+| `verificarAlumnoActivo(alumnoId, db?)` | `Promise<void>`. Verifica que la ficha exista y esté activa, **distinguiendo** los dos fallos con los códigos `ALUMNO_NO_ENCONTRADO` (no existe) y `ALUMNO_INACTIVO` (existe con `activo = false`), lanzados como `ServiceError`; ver «Códigos de `verificarAlumnoActivo()`» abajo. **Versión pública nueva (29/09/2026):** `alumno.service.ts` conserva su `verificarAlumnoActivo` interna, que devuelve `boolean` y sigue usando Turnos hasta que migre | `spec_modulo_C.md` §2.2, §2.5; `spec_modulo_E.md` §2.2. **No** lo consume C §2.14 (autoservicio: usa el `activo` de `obtenerAlumnoDeUsuario()`) |
 | `buscarAlumnosActivos(query)` | `{ id, nombre, apellido, dni }[]`, solo activos, máximo 10; activación desde 2 caracteres, coincidencia parcial sobre columnas normalizadas (**existente de Sprint 1**, `alumno.service.ts`; ver «Criterio compartido con Turnos» en 2.7) | `spec_modulo_C.md` §2.5 |
 | `contarAlumnosNuevosPorMes(desde, hasta, db?)` | `{ mes: "YYYY-MM", cantidad }[]`, **solo los meses con datos** (los ceros los completa H) | `spec_modulo_H.md` §2.1 |
 
-**Códigos de `verificarAlumnoActivo()`:** ficha inexistente → `ALUMNO_NO_ENCONTRADO`; ficha existente inactiva → `ALUMNO_INACTIVO`; activa → resuelve sin error. Lo que esta spec contractualiza es la **distinción** de ambos casos con esos códigos (B es quien la resuelve, para que los consumidores no la reimplementen leyendo `alumnos`). La forma exacta en que se propagan (`ServiceError` con ese `code` o resultado discriminado) queda **a confirmar contra `alumno.service.ts`**. La traducción a HTTP es del consumidor: `spec_modulo_E.md` §2.2 responde `404 ALUMNO_NO_ENCONTRADO` / `409 ALUMNO_INACTIVO`; C §2.2 y §2.5 rechazan e informan cuál alumno es inválido.
+**Códigos de `verificarAlumnoActivo()`:** ficha inexistente → `ALUMNO_NO_ENCONTRADO`; ficha existente inactiva → `ALUMNO_INACTIVO`; activa → resuelve sin error. Lo que esta spec contractualiza es la **distinción** de ambos casos con esos códigos (B es quien la resuelve, para que los consumidores no la reimplementen leyendo `alumnos`). Se propagan como `ServiceError` con ese `code` (mensajes internos «El alumno ya no existe» y «El alumno está inactivo»; el consumidor decide qué mostrar). Resuelto el 29/09/2026. La traducción a HTTP es del consumidor: `spec_modulo_E.md` §2.2 responde `404 ALUMNO_NO_ENCONTRADO` / `409 ALUMNO_INACTIVO`; C §2.2 y §2.5 rechazan e informan cuál alumno es inválido.
 
-**`contarAlumnosNuevosPorMes`:** `desde` y `hasta` son meses `AAAA-MM`. Cuenta **todas** las fichas (activas o inactivas, con o sin cuenta de acceso) agrupadas por el mes de `createdAtAlumno` **en `America/Argentina/Buenos_Aires`**, no en UTC. Implementación con `$queryRaw` parametrizado (`Prisma.sql`, nunca SQL concatenado): `date_trunc('month', "createdAtAlumno" AT TIME ZONE 'America/Argentina/Buenos_Aires')`, con el límite inferior en el primer instante de `desde` y el superior en el primero del mes siguiente a `hasta`, ambos expresados en esa misma zona.
+**`contarAlumnosNuevosPorMes`:** `desde` y `hasta` son meses `AAAA-MM`. Cuenta **todas** las fichas (activas o inactivas, con o sin cuenta de acceso) agrupadas por el mes de `createdAtAlumno` **en `America/Argentina/Buenos_Aires`**, no en UTC. Implementación con `$queryRaw` parametrizado (`Prisma.sql`, nunca SQL concatenado). **Fórmula corregida el 29/09/2026:** `createdAtAlumno` es `TIMESTAMP(3)` **sin zona** y se guarda en UTC, por lo que primero se lo interpreta como UTC y después se lo convierte a la zona del centro: `to_char(("createdAtAlumno" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Argentina/Buenos_Aires', 'YYYY-MM')`. El filtro compara ese `AAAA-MM` como texto, inclusivo en ambos extremos (`mes >= desde AND mes <= hasta`), con `GROUP BY mes ORDER BY mes`. Antes de consultar valida que `desde` y `hasta` tengan formato `AAAA-MM` y que `desde <= hasta`; es una defensa: la validación de negocio (rango máximo, meses futuros) es del módulo H. Un alta hecha a las `2026-10-01T01:30:00Z` (30/09 22:30 en Buenos Aires) cuenta en `2026-09`.
 
 ---
 
@@ -477,7 +486,7 @@ Cambiarla no reescribe ningún pago ya registrado (regla de no retroactividad, s
 El listado de Mesa de Entrada (2.7) y el selector de Turnos comparten `construirFiltroBusquedaAlumno()`: mismo umbral de 2 caracteres, misma normalización, misma coincidencia parcial. Solo difieren en lo que devuelven (todos vs. solo activos, paginado vs. tope de 10). Si el criterio cambia, cambia para ambos.
 
 ### 3.10. Los meses de un alta se miden en la zona horaria del centro (Revisión 2)
-`createdAtAlumno` es un timestamp: agrupar por mes en UTC asignaría al mes siguiente las altas hechas de noche. `contarAlumnosNuevosPorMes()` agrupa siempre en `America/Argentina/Buenos_Aires`.
+`createdAtAlumno` es un timestamp sin zona guardado en UTC: agrupar por mes en UTC asignaría al mes siguiente las altas hechas de noche. `contarAlumnosNuevosPorMes()` agrupa siempre en `America/Argentina/Buenos_Aires`, convirtiendo primero de UTC (ver 2.8).
 
 ---
 
