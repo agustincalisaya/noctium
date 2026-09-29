@@ -13,12 +13,122 @@ vi.mock("@/components/sesion/link-protegido", async () => {
   return { LinkProtegido: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => React.createElement("a", { href, ...props }, children) };
 });
 
+describe("HU-C-18 etapa 5: Aula", () => {
+  it("muestra solo opciones del GET con turno_id, nombre y capacidad; no persiste selección antes de continuar", async () => {
+    rutas = (url) => url === "/api/turnos/aula/opciones?turno_id=turno-1" ? respuesta([aulas[0]]) : undefined;
+    await montar(); await crearTurno();
+    expect(container.querySelector("select#aula")?.textContent).toContain("Aula 1 · Capacidad 20");
+    expect(container.querySelector("select#aula")?.textContent).not.toContain("Aula 2");
+    expect(boton("Continuar a alumnos").disabled).toBe(true);
+    await seleccionarAula();
+    expect(container.querySelector("aside")?.textContent).toContain("AULASin elegir");
+    expect(llamadas("PATCH", "/aula")).toHaveLength(0);
+  });
+
+  it("data: [] muestra mensaje exacto y permite volver a Fecha/Horario", async () => {
+    rutas = (url) => url === "/api/turnos/aula/opciones?turno_id=turno-1" ? respuesta([]) : undefined;
+    await montar(); await crearTurno();
+    expect([...container.querySelectorAll('[role="status"]')].some((nodo) => nodo.textContent === "No hay aulas disponibles para este horario")).toBe(true);
+    expect(boton("Continuar a alumnos").disabled).toBe(true);
+    await pulsar(boton("Volver a fecha y horario"));
+    expect(container.querySelector("h2#titulo-fecha-horario")).not.toBeNull();
+    expect(llamadas("PATCH", "/aula")).toHaveLength(0);
+  });
+
+  it("loading, SIN_AULAS_ACTIVAS y error HTTP son estados distintos del vacío", async () => {
+    let resolver: (valor: Respuesta) => void = () => {};
+    rutas = (url) => url === "/api/turnos/aula/opciones?turno_id=turno-1"
+      ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
+    await montar(); await crearTurno();
+    expect(container.textContent).toContain("Cargando aulas disponibles");
+    expect(container.textContent).not.toContain("No hay aulas disponibles para este horario");
+    await act(async () => { resolver(respuesta(null, false, { code: "SIN_AULAS_ACTIVAS", message: "Sin aulas" })); });
+    expect(container.textContent).toContain("No hay aulas activas registradas.");
+    expect(container.textContent).not.toContain("No hay aulas disponibles para este horario");
+    rutas = (url) => url === "/api/turnos/aula/opciones?turno_id=turno-1"
+      ? respuesta(null, false, { code: "ERROR", message: "Falló la consulta de aulas" }) : undefined;
+    await pulsar(boton("Reintentar"));
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Falló la consulta de aulas");
+    expect(container.textContent).not.toContain("No hay aulas disponibles para este horario");
+    expect(llamadas("POST", "/api/turnos")).toHaveLength(1);
+  });
+
+  it("PATCH de Aula exitoso actualiza Resumen y avanza a Alumnos; Atrás conserva el Aula", async () => {
+    await montar(); await crearTurno(); await asignarAula();
+    const [patch] = llamadas("PATCH", "/api/turnos/turno-1/aula");
+    expect(JSON.parse(String(patch![1].body))).toEqual({ aula_id: "aula-1" });
+    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Agregá alumnos");
+    expect(container.querySelector("aside")?.textContent).toContain("AULAAula 1");
+    await pulsar(boton("Atrás"));
+    expect(container.querySelector<HTMLSelectElement>("select#aula")?.value).toBe("aula-1");
+    await pulsar(boton("Atrás"));
+    expect(container.querySelector("h2#titulo-fecha-horario")).not.toBeNull();
+    expect(container.querySelector("aside")?.textContent).toContain("AULAAula 1");
+    expect(llamadas("PATCH", "/aula")).toHaveLength(1);
+    expect(llamadas("PATCH", "/configuracion")).toHaveLength(0);
+  });
+
+  it("PATCH de Aula fallido conserva turnoId y selección para reintento", async () => {
+    let falla = true;
+    rutas = (url, init) => url.endsWith("/aula") && init?.method === "PATCH" && falla
+      ? (falla = false, respuesta(null, false, { message: "El aula quedó ocupada" })) : undefined;
+    await montar(); await crearTurno(); await asignarAula();
+    expect(container.querySelector("h2#titulo-paso-aula")).not.toBeNull();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("El aula quedó ocupada");
+    expect(container.querySelector<HTMLSelectElement>("select#aula")?.value).toBe("aula-1");
+    await pulsar(boton("Continuar a alumnos"));
+    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Agregá alumnos");
+    expect(llamadas("POST", "/api/turnos")).toHaveLength(1);
+  });
+
+  it("dos clicks durante el PATCH no duplican la asignación", async () => {
+    let resolver: (valor: Respuesta) => void = () => {};
+    rutas = (url, init) => url.endsWith("/aula") && init?.method === "PATCH"
+      ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
+    await montar(); await crearTurno(); await seleccionarAula();
+    act(() => { boton("Continuar a alumnos").click(); boton("Continuar a alumnos").click(); });
+    expect(llamadas("PATCH", "/aula")).toHaveLength(1);
+    await act(async () => { resolver(respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 20 })); });
+    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Agregá alumnos");
+  });
+
+  it.each([true, false])("reconfiguración con aula_desasignada=%s reconcilia Aula y vuelve a consultar opciones", async (desasignada) => {
+    rutas = (url, init) => url.endsWith("/configuracion") && init?.method === "PATCH"
+      ? respuesta({ id: "turno-1", aula_desasignada: desasignada, cupo_maximo: desasignada ? null : 20 }) : undefined;
+    await montar(); await crearTurno(); await asignarAula();
+    await pulsar(boton("Atrás")); await pulsar(boton("Atrás"));
+    await pulsar(boton("10:30"));
+    const consultasAntes = llamadas("GET", "aula/opciones?turno_id=turno-1").length;
+    await pulsar(boton("Continuar a aula"));
+    expect(llamadas("PATCH", "/configuracion")).toHaveLength(1);
+    expect(llamadas("GET", "aula/opciones?turno_id=turno-1")).toHaveLength(consultasAntes + 1);
+    expect(container.querySelector<HTMLSelectElement>("select#aula")?.value).toBe(desasignada ? "" : "aula-1");
+    expect(container.querySelector("aside")?.textContent).toContain(desasignada ? "AULASin elegir" : "AULAAula 1");
+    expect(llamadas("PATCH", "/aula")).toHaveLength(1);
+  });
+
+  it("si el GET posterior ya no incluye el aula anterior, no la presenta como vigente", async () => {
+    let consultas = 0;
+    rutas = (url, init) => url.endsWith("/configuracion") && init?.method === "PATCH"
+      ? respuesta({ id: "turno-1", aula_desasignada: false, cupo_maximo: 20 })
+      : url === "/api/turnos/aula/opciones?turno_id=turno-1"
+        ? respuesta(++consultas === 1 ? aulas : [aulas[1]]) : undefined;
+    await montar(); await crearTurno(); await asignarAula();
+    await pulsar(boton("Atrás")); await pulsar(boton("Atrás"));
+    await pulsar(boton("10:30")); await pulsar(boton("Continuar a aula"));
+    expect(container.querySelector<HTMLSelectElement>("select#aula")?.value).toBe("");
+    expect(container.querySelector("aside")?.textContent).toContain("AULASin elegir");
+    expect(boton("Continuar a alumnos").disabled).toBe(true);
+  });
+});
+
 const { default: NuevoTurnoPage } = await import("./page");
 const materias = [{ id: "materia-1", nombre: "Física", codigo: "FIS" }, { id: "materia-2", nombre: "Matemática", codigo: null }];
 const profesores = [{ id: "profesor-1", nombre: "Ana", apellido: "Pérez" }, { id: "profesor-2", nombre: "Luis", apellido: "Gómez" }];
 const fechas = [{ fecha: "2026-10-01", dia_semana: "JUEVES", franjas: [
   { hora_inicio: "09:00", hora_fin: "12:00", tramos_libres: [{ desde: "09:00", hasta: "12:00" }], inicios: ["10:00", "10:30"] },
 ] }];
+const aulas = [{ id: "aula-1", nombre: "Aula 1", capacidad: 20 }, { id: "aula-2", nombre: "Aula 2", capacidad: 30 }];
 type Respuesta = { ok: boolean; json: () => Promise<unknown> };
 const respuesta = (data: unknown, ok = true, error: unknown = null): Respuesta => ({ ok, json: async () => ({ data, error }) });
 
@@ -40,6 +150,12 @@ const elegirHorario = async () => {
   await pulsar(boton("10:00"));
 };
 const crearTurno = async () => { await irAFecha(); await elegirHorario(); await pulsar(boton("Continuar a aula")); };
+const seleccionarAula = async (id = "aula-1") => { await act(async () => {
+  const select = container.querySelector<HTMLSelectElement>("select#aula")!;
+  select.value = id;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}); };
+const asignarAula = async () => { await seleccionarAula(); await pulsar(boton("Continuar a alumnos")); };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -52,7 +168,9 @@ beforeEach(() => {
     if (url === "/api/turnos/profesores/por-materia?materia_id=materia-2") return respuesta([profesores[1]]);
     if (url.includes("/disponibilidad?")) return respuesta({ fechas });
     if (url === "/api/turnos" && init?.method === "POST") return respuesta({ id: "turno-1", estado: "PENDIENTE" });
-    if (url === "/api/turnos/turno-1/configuracion" && init?.method === "PATCH") return respuesta({ id: "turno-1", estado: "PENDIENTE" });
+    if (url === "/api/turnos/turno-1/configuracion" && init?.method === "PATCH") return respuesta({ id: "turno-1", estado: "PENDIENTE", aula_desasignada: false, cupo_maximo: null });
+    if (url === "/api/turnos/aula/opciones?turno_id=turno-1") return respuesta(aulas);
+    if (url === "/api/turnos/turno-1/aula" && init?.method === "PATCH") return respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 20, estado: "PENDIENTE" });
     return respuesta(null, false, { message: `Ruta inesperada: ${url}` });
   });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -80,6 +198,7 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     expect(container.querySelector('input[value="profesor-2"]')).toBeNull();
     expect(container.querySelector("aside")?.textContent).toContain("Física");
     expect(llamadas("POST", "/api/turnos")).toHaveLength(0);
+    expect(llamadas("GET", "/api/turnos/aula/opciones")).toHaveLength(0);
     expect(llamadas("GET", "profesores/opciones?turno_id=")).toHaveLength(0);
   });
 
@@ -127,8 +246,10 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     await crearTurno();
     const [post] = llamadas("POST", "/api/turnos");
     expect(JSON.parse(String(post![1].body))).toEqual({ materia_id: "materia-1", profesor_id: "profesor-1", fecha: "2026-10-01", hora_inicio: "10:00", duracion_min: 60 });
-    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Elegí un aula");
-    expect(container.textContent).toContain("La configuración quedó guardada como Pendiente");
+    expect(container.querySelector("h2#titulo-paso-aula")?.textContent).toBe("Elegí un aula");
+    expect(llamadas("GET", "aula/opciones?turno_id=turno-1")).toHaveLength(1);
+    expect(fetch.mock.invocationCallOrder[fetch.mock.calls.findIndex(([url, init]) => url === "/api/turnos" && init?.method === "POST")])
+      .toBeLessThan(fetch.mock.invocationCallOrder[fetch.mock.calls.findIndex(([url]) => url === "/api/turnos/aula/opciones?turno_id=turno-1")]);
     expect(setDirty).toHaveBeenLastCalledWith(false);
     expect(llamadas("PATCH", "/aula")).toHaveLength(0);
     expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
@@ -204,7 +325,7 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     expect(JSON.parse(String(patch![1].body))).toEqual({ materia_id: "materia-1", profesor_id: "profesor-1", fecha: "2026-10-01", hora_inicio: "10:30", duracion_min: 60 });
     expect(llamadas("POST", "/api/turnos")).toHaveLength(1);
     expect(setDirty).toHaveBeenLastCalledWith(false);
-    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Elegí un aula");
+    expect(container.querySelector("h2#titulo-paso-aula")?.textContent).toBe("Elegí un aula");
   });
 
   it.each(["POST", "PATCH"])("si falla %s permanece en Fecha/Horario con la selección", async (metodo) => {
@@ -235,6 +356,6 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     expect(llamadas(metodo, metodo === "POST" ? "/api/turnos" : "/configuracion")).toHaveLength(1);
     await act(async () => { resolver(respuesta({ id: "turno-1", estado: "PENDIENTE" })); });
     await esperar();
-    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Elegí un aula");
+    expect(container.querySelector("h2#titulo-paso-aula")?.textContent).toBe("Elegí un aula");
   });
 });

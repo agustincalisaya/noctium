@@ -290,3 +290,27 @@ La corrección PO de HU-C-16 sigue intacta: el alta legacy conserva POST → GET
 ### 4.3. Evidencia y estado
 
 Se agregaron pruebas de ausencia de aula, aula todavía libre, conflicto con `DISPONIBLE` y `COMPLETO`, exclusión de `PENDIENTE`/`CANCELADO` y turno propio, intervalo contiguo, validación previa fallida, campos de respuesta/evento y uso del mismo `TransactionClient`. Regresión solicitada: **96 tests OK en 6 archivos** (`turno.configuracion`, `turno.aula`, `turno.disponibilidad`, configuración legacy, ruta de opciones de Aula y ruta POST de Turnos). `npx.cmd tsc --noEmit`: **OK**. La etapa backend queda implementada; HU-C-18 aún requiere el paso 4 Aula, el paso 5 Alumnos y la regresión completa del wizard antes de declararse Done.
+
+---
+
+## 5. Etapa 5 — Aula funcional en `/turnos/nuevo`
+
+**Alcance:** después de que el paso 3 crea o modifica un `PENDIENTE`, el paso 4 consulta y asigna Aula. No se implementan todavía la carga de Alumnos ni la confirmación final; el paso 5 conserva su lugar estructural. No se modificaron backend C-16, Prisma, seed, migraciones ni C-17.
+
+### 5.1. Contratos y componentes
+
+`TurnoWizard` consulta `GET /api/turnos/aula/opciones?turno_id=<id>` exclusivamente al entrar al paso 4 con un id real, también tras reconfirmar la configuración o reintentar. La lista proviene íntegramente del servidor: el cliente no calcula capacidad ni solapamientos. Cada opción tiene `{ id, nombre, capacidad }`. Se reutiliza `SeccionAulaTurno` de C-16 para el selector, nombre, capacidad y mensaje vacío; se añadieron dos props opcionales y acotadas para el texto propio del wizard y la acción «Volver a fecha y horario». La pantalla legacy conserva sus props y comportamiento anteriores.
+
+El paso distingue carga, respuesta `200 data: []` (mensaje exacto «No hay aulas disponibles para este horario»), `SIN_AULAS_ACTIVAS` y otros errores HTTP. El vacío ofrece volver al paso 3 y reintentar. Ningún estado anterior a una consulta válida muestra falsamente el mensaje vacío. Solo una opción recibida en el GET habilita continuar.
+
+### 5.2. Persistencia, Atrás y resumen
+
+La selección del selector es local; `PATCH /api/turnos/[id]/aula` recibe `{ aula_id }` al continuar. El wizard conserva `turnoId` y bloquea un segundo envío mientras espera. Solo un PATCH exitoso guarda el aula en el estado persistido del wizard, la muestra en Resumen y avanza al paso 5. Un error deja a la persona en Aula con selección e id para reintentar. Si se vuelve desde el paso 5 y el aula guardada sigue entre las opciones del GET, continuar con esa misma aula no repite un PATCH innecesario.
+
+Atrás desde Aula solo navega: no desasigna ni modifica el turno. Si se reconfirma el paso 3, el `PATCH /configuracion` backend decide el conflicto. Con `aula_desasignada: true`, el wizard limpia el aula de Resumen y del selector; con `false`, conserva el aula guardada que conoce. En ambos casos recarga opciones con `turno_id` y solo mantiene la selección si la opción sigue figurando en el nuevo GET. Si el GET contradice la selección anterior, deja de mostrarla como vigente; la base se rige por el contrato backend, sin desasignación adicional desde cliente. Cambios de Materia o Profesor siguen aplicando las invalidaciones del paso 3 y llegan a esta misma revalidación al confirmar.
+
+**Archivos modificados:** `src/app/(dashboard)/turnos/nuevo/turno-wizard.tsx`, `src/app/(dashboard)/turnos/nuevo/turno-wizard.test.tsx`, `src/app/(dashboard)/turnos/seccion-aula-turno.tsx` y este documento.
+
+### 5.3. Evidencia y pendiente
+
+Las pruebas del wizard cubren POST → GET con id, ausencia de GET sin id, opciones y capacidad, vacío y regreso a Fecha/Horario, estados de carga/error/SIN_AULAS_ACTIVAS, PATCH exitoso o fallido, resumen, Atrás, doble envío, `aula_desasignada` true/false, nueva consulta tras reconfigurar y una opción previa que deja de figurar en el GET. La regresión C-16 confirma que su flujo legacy POST → GET con id → selección → PATCH permanece. **106 tests OK en 6 archivos** (wizard, configuración legacy, servicios de Aula y Configuración, rutas de opciones de Aula y POST de Turnos). `npx.cmd tsc --noEmit`: **OK**. Sigue pendiente la etapa 6: paso 5 Alumnos, confirmación/disponibilización y regresión final del wizard. **HU-C-18 no está Done.**

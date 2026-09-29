@@ -8,6 +8,7 @@ import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { PasoMateriaTurno, type MateriaOpcionTurno } from "../paso-materia-turno";
 import { PasoProfesorTurno, type ProfesorOpcionTurno } from "../paso-profesor-turno";
 import { PasoFechaHorarioTurno } from "../paso-fecha-horario-turno";
+import { SeccionAulaTurno, type AulaOpcion } from "../seccion-aula-turno";
 import { ProgresoTurno, type PasoTurno } from "./progreso-turno";
 import { ResumenTurno } from "./resumen-turno";
 
@@ -17,14 +18,14 @@ type SeleccionTurno = {
   duracionMin: number | null;
   fecha: string;
   horaInicio: string;
-  aulaId: string;
   alumnoIds: string[];
 };
 type ConfiguracionPersistida = Pick<SeleccionTurno, "materiaId" | "profesorId" | "duracionMin" | "fecha" | "horaInicio">;
 type ConsultaProfesores = { materiaId: string; estado: "cargando" | "listas" | "error"; opciones: ProfesorOpcionTurno[]; mensaje: string };
+type ConsultaAulas = { estado: "cargando" | "listas" | "sinAulas" | "error"; opciones: AulaOpcion[]; mensaje: string };
 type Disponibilidad = { fechas: { fecha: string; franjas: { inicios: string[] }[] }[] };
 
-const seleccionInicial: SeleccionTurno = { materiaId: "", profesorId: "", duracionMin: null, fecha: "", horaInicio: "", aulaId: "", alumnoIds: [] };
+const seleccionInicial: SeleccionTurno = { materiaId: "", profesorId: "", duracionMin: null, fecha: "", horaInicio: "", alumnoIds: [] };
 
 /** Solo se conserva una elección anterior si todavía figura entre los inicios del servidor. */
 function seleccionSigueDisponible(disponibilidad: Disponibilidad, fecha: string, hora: string) {
@@ -44,6 +45,10 @@ export function TurnoWizard() {
   const [reintentoProfesores, setReintentoProfesores] = useState(0);
   const [turnoId, setTurnoId] = useState("");
   const [configuracionPersistida, setConfiguracionPersistida] = useState<ConfiguracionPersistida | null>(null);
+  const [consultaAulas, setConsultaAulas] = useState<ConsultaAulas | null>(null);
+  const [reintentoAulas, setReintentoAulas] = useState(0);
+  const [aulaIdElegida, setAulaIdElegida] = useState("");
+  const [aulaGuardada, setAulaGuardada] = useState<AulaOpcion | null>(null);
   const [guardando, setGuardando] = useState(false);
   const guardandoRef = useRef(false);
   const [errorGuardado, setErrorGuardado] = useState("");
@@ -108,13 +113,44 @@ export function TurnoWizard() {
   }, [materiaId, reintentoProfesores]);
 
   useEffect(() => {
+    if (paso !== 4 || !turnoId) return;
+    const controlador = new AbortController();
+    const cargarAulas = async () => {
+      setConsultaAulas({ estado: "cargando", opciones: [], mensaje: "" });
+      setAulaIdElegida("");
+      try {
+        const respuesta = await fetchAutenticado(`/api/turnos/aula/opciones?turno_id=${encodeURIComponent(turnoId)}`, { cache: "no-store", signal: controlador.signal });
+        const valor = await respuesta.json().catch(() => null);
+        if (controlador.signal.aborted) return;
+        if (valor?.error?.code === "SIN_AULAS_ACTIVAS") {
+          setAulaGuardada(null);
+          setConsultaAulas({ estado: "sinAulas", opciones: [], mensaje: "" });
+          return;
+        }
+        if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? "No se pudieron cargar las aulas");
+        const opciones = valor.data as AulaOpcion[];
+        const guardada = opciones.find((aula) => aula.id === aulaGuardada?.id);
+        if (aulaGuardada && !guardada) setAulaGuardada(null);
+        setAulaIdElegida(guardada?.id ?? "");
+        setConsultaAulas({ estado: "listas", opciones, mensaje: "" });
+      } catch (error) {
+        if (!controlador.signal.aborted) setConsultaAulas({ estado: "error", opciones: [], mensaje: error instanceof Error ? error.message : "No se pudieron cargar las aulas" });
+      }
+    };
+    void cargarAulas();
+    return () => controlador.abort();
+    // Se vuelve a consultar al entrar al paso o al pedir un reintento; el aula guardada se reconcilia con esa respuesta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso, turnoId, reintentoAulas]);
+
+  useEffect(() => {
     const cambiosConfiguracion = configuracionPersistida
       ? seleccion.materiaId !== configuracionPersistida.materiaId || seleccion.profesorId !== configuracionPersistida.profesorId
         || seleccion.duracionMin !== configuracionPersistida.duracionMin || seleccion.fecha !== configuracionPersistida.fecha
         || seleccion.horaInicio !== configuracionPersistida.horaInicio
       : Boolean(seleccion.materiaId || seleccion.profesorId || seleccion.duracionMin || seleccion.fecha || seleccion.horaInicio);
-    setDirty(cambiosConfiguracion || Boolean(seleccion.aulaId || seleccion.alumnoIds.length));
-  }, [seleccion, configuracionPersistida, setDirty]);
+    setDirty(cambiosConfiguracion || Boolean((aulaIdElegida && aulaIdElegida !== aulaGuardada?.id) || seleccion.alumnoIds.length));
+  }, [seleccion, configuracionPersistida, aulaIdElegida, aulaGuardada, setDirty]);
   useEffect(() => () => setDirty(false), [setDirty]);
 
   const materia = materias.find(({ id }) => id === seleccion.materiaId);
@@ -123,7 +159,8 @@ export function TurnoWizard() {
   const profesor = profesores.find(({ id }) => id === seleccion.profesorId);
   const fechaHorario = seleccion.fecha && seleccion.horaInicio && seleccion.duracionMin
     ? `${seleccion.fecha} · ${seleccion.horaInicio} · ${seleccion.duracionMin / 60} h` : null;
-  const puedeContinuar = paso === 1 ? Boolean(materia) : paso === 2 ? Boolean(profesor) : paso === 4 ? Boolean(seleccion.aulaId) : false;
+  const aulaElegida = consultaAulas?.estado === "listas" ? consultaAulas.opciones.find((aula) => aula.id === aulaIdElegida) : undefined;
+  const puedeContinuar = paso === 1 ? Boolean(materia) : paso === 2 ? Boolean(profesor) : paso === 4 ? Boolean(turnoId && aulaElegida) : false;
 
   const cambiarMateria = (nuevaMateriaId: string) => {
     if (nuevaMateriaId === seleccion.materiaId) return;
@@ -150,10 +187,32 @@ export function TurnoWizard() {
       });
       const valor = await respuesta.json().catch(() => null);
       if (!respuesta.ok || !valor?.data?.id) throw new Error(valor?.error?.message ?? "No se pudo guardar la configuración del turno");
+      if (turnoId && (valor.data.aula_desasignada === true || (valor.data.aula_desasignada === false && valor.data.cupo_maximo === null))) {
+        setAulaGuardada(null);
+        setAulaIdElegida("");
+      }
+      setConsultaAulas(null);
       setTurnoId(valor.data.id);
       setConfiguracionPersistida({ materiaId: actual.materiaId, profesorId: actual.profesorId, duracionMin: actual.duracionMin, fecha: actual.fecha, horaInicio: actual.horaInicio });
       setPaso(4);
     } catch (error) { setErrorGuardado(error instanceof Error ? error.message : "No se pudo guardar la configuración del turno"); }
+    finally { guardandoRef.current = false; setGuardando(false); }
+  };
+
+  const confirmarAula = async () => {
+    if (guardandoRef.current || !turnoId || !aulaElegida) return;
+    if (aulaGuardada?.id === aulaElegida.id) { setPaso(5); return; }
+    guardandoRef.current = true;
+    setGuardando(true); setErrorGuardado("");
+    try {
+      const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(turnoId)}/aula`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ aula_id: aulaElegida.id }), cache: "no-store",
+      });
+      const valor = await respuesta.json().catch(() => null);
+      if (!respuesta.ok || valor?.data?.aula_id !== aulaElegida.id) throw new Error(valor?.error?.message ?? "No se pudo asignar el aula");
+      setAulaGuardada(aulaElegida);
+      setPaso(5);
+    } catch (error) { setErrorGuardado(error instanceof Error ? error.message : "No se pudo asignar el aula"); }
     finally { guardandoRef.current = false; setGuardando(false); }
   };
 
@@ -183,15 +242,24 @@ export function TurnoWizard() {
                 onVolverProfesor={retroceder} onContinuar={() => void confirmarFechaHorario()} />
                 {guardando && <p role="status">Guardando turno</p>}{errorGuardado && <p role="alert" className="text-sm text-destructive">{errorGuardado}</p>}
               </div> :
-                <section aria-labelledby="titulo-paso-pendiente" className="space-y-2"><p className="text-sm font-medium text-muted-foreground">Paso {paso} de 5</p><h2 id="titulo-paso-pendiente" className="text-xl font-semibold">{paso === 4 ? "Elegí un aula" : "Agregá alumnos"}</h2><p role="status" className="text-sm text-muted-foreground">Este paso todavía no está disponible.</p>
-                  {paso === 4 && turnoId && configuracionPersistida && <p className="text-sm text-muted-foreground">La configuración quedó guardada como Pendiente. La elección de Aula se integrará en la próxima etapa.</p>}
-                </section>}
+                paso === 4 ? <section aria-labelledby="titulo-paso-aula" className="space-y-4">
+                  <div className="space-y-1"><p className="text-sm font-medium text-muted-foreground">Paso 4 de 5</p><h2 id="titulo-paso-aula" className="text-xl font-semibold">Elegí un aula</h2><p className="text-sm text-muted-foreground">Las opciones corresponden al horario guardado del turno.</p></div>
+                  {!turnoId ? <p role="alert">Guardá primero la fecha y el horario del turno.</p> :
+                    !consultaAulas || consultaAulas.estado === "cargando" ? <p role="status">Cargando aulas disponibles</p> :
+                      consultaAulas.estado === "error" ? <div role="alert" className="space-y-2"><p>{consultaAulas.mensaje}</p><Button type="button" variant="outline" onClick={() => setReintentoAulas((valor) => valor + 1)}>Reintentar</Button></div> :
+                        <SeccionAulaTurno aulas={consultaAulas.opciones} aulaId={aulaIdElegida} aulaIdGuardada={aulaGuardada?.id ?? ""}
+                          aulaGuardadaNoDisponible={false} habilitada={!guardando} sinAulas={consultaAulas.estado === "sinAulas"}
+                          error="" onCambiar={(id) => { setAulaIdElegida(id); setErrorGuardado(""); }}
+                          onReintentar={() => setReintentoAulas((valor) => valor + 1)} onVolverHorario={retroceder} modoWizard />}
+                  {guardando && <p role="status">Guardando aula</p>}{errorGuardado && <p role="alert" className="text-sm text-destructive">{errorGuardado}</p>}
+                </section> :
+                  <section aria-labelledby="titulo-paso-pendiente" className="space-y-2"><p className="text-sm font-medium text-muted-foreground">Paso {paso} de 5</p><h2 id="titulo-paso-pendiente" className="text-xl font-semibold">Agregá alumnos</h2><p role="status" className="text-sm text-muted-foreground">Este paso todavía no está disponible.</p></section>}
         {paso !== 3 && <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <Button type="button" variant="outline" onClick={retroceder} disabled={paso === 1 || guardando}>Atrás</Button>
-          <Button type="button" onClick={() => { if (puedeContinuar && paso < 5) setPaso((paso + 1) as PasoTurno); }} disabled={cargando || Boolean(errorCarga) || !puedeContinuar || paso === 5}>{paso === 5 ? "Confirmar turno" : "Continuar"}</Button>
+          <Button type="button" onClick={() => { if (!puedeContinuar) return; if (paso === 4) void confirmarAula(); else if (paso < 5) setPaso((paso + 1) as PasoTurno); }} disabled={cargando || Boolean(errorCarga) || guardando || !puedeContinuar || paso === 5}>{paso === 5 ? "Confirmar turno" : paso === 4 ? "Continuar a alumnos" : "Continuar"}</Button>
         </div>}
       </div>
-      <ResumenTurno valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.apellido}, ${profesor.nombre}` : null, fechaHorario, aula: null, alumnos: seleccion.alumnoIds.length ? `${seleccion.alumnoIds.length} alumnos` : null }} />
+      <ResumenTurno valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.apellido}, ${profesor.nombre}` : null, fechaHorario, aula: aulaGuardada?.nombre ?? null, alumnos: seleccion.alumnoIds.length ? `${seleccion.alumnoIds.length} alumnos` : null }} />
     </div>
   </main>;
 }
