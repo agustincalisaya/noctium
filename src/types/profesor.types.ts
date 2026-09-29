@@ -87,7 +87,14 @@ export type DetalleProfesor = {
   fechaAlta: Date;
   materias: MateriaDeProfesor[];
   horarios: HorarioAtencion[];
+  /** Concurrencia optimista del modo edición (HU-D-06, `spec_modulo_D.md` §2.5). */
+  version: number;
 };
+
+/** Resultado de la modificación de identidad y contacto (HU-D-06, `spec_modulo_D.md` §2.6). */
+export type ResultadoModificarProfesor =
+  | { data: { id: string; campos_modificados: string[]; version: number }; error: null }
+  | { data: null; error: { code: string; message: string; detalles?: unknown } };
 
 /**
  * Opción de profesor activo del contrato público (`spec_modulo_D.md` §2.8,
