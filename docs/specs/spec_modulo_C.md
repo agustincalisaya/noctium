@@ -690,6 +690,7 @@ Es el mecanismo que calcula las opciones de los pasos 2 y 3 del wizard. **Cambia
 #### 2.8.1. Paso 2 — Profesores de la materia
 
 **Ruta:** `GET /api/turnos/profesores/por-materia?materia_id=`
+**Cobertura (decisión del PO, 29/09/2026):** este paso 2 no tiene AC propio en el backlog; se implementa y se prueba como tarea técnica dentro de HU-C-07 / HU-C-18, sin agregar criterios al backlog.
 
 1. Verificar `materia_id` activa (`verificarMateriaActiva()`); si no: `409 MATERIA_NO_DISPONIBLE`.
 2. Listar profesores activos asociados (`listarProfesoresActivosPorMateria()`, Módulo D). Si la lista está vacía: `404 SIN_PROFESORES_PARA_MATERIA`. **No** se filtra por horario: eso ocurre en el paso 3.
