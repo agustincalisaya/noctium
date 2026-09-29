@@ -7,9 +7,8 @@ const { turno, turnoAlumno, evento, materiaActiva, validar, dicta, opcion, horar
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { turno, turnoAlumno, $transaction: transaccion, eventoTurno: { create: evento } } }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
-vi.mock("@/server/profesores/profesor.service", () => ({
+vi.mock("@/server/profesores/profesor.publico", () => ({
   obtenerOpcionProfesorActivo: opcion, profesorActivoDictaMateria: dicta, listarProfesoresActivosPorMateria: vi.fn(), estaDentroDeHorarioAtencion: horario,
-  intervalosSeSuperponen: (a: { inicio: number; fin: number }, b: { inicio: number; fin: number }) => a.inicio < b.fin && b.inicio < a.fin,
 }));
 vi.mock("@/server/alumnos/alumno.service", () => ({ verificarAlumnoActivo: vi.fn() }));
 vi.mock("@/server/turnos/turno.validaciones", () => ({ validarConfiguracionTurno: validar, turnoSigueVigente: vi.fn() }));
@@ -20,11 +19,12 @@ const { ConfigurarTurnoSchema } = await import("./turno.schema");
 const TURNO = "ckturno00000000000000001";
 const MATERIA = "ckmateria0000000000000001";
 const PROFESOR = "ckprofesor000000000000001";
+const AULA = "ckaula000000000000000001";
 const USUARIO = "ckusuario0000000000000001";
 const input = { fecha: new Date("2026-10-01T00:00:00.000Z"), hora_inicio: "10:00", materia_id: MATERIA, profesor_id: PROFESOR, duracion_min: 60 };
 const actual = {
   estadoTurno: "PENDIENTE", fechaTurno: input.fecha, horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"), duracionMinutosTurno: 60,
-  materiaId: MATERIA, profesorId: PROFESOR, cupoMaximoTurno: 20, updatedAtTurno: new Date("2026-09-24T00:00:00.000Z"),
+  materiaId: MATERIA, profesorId: PROFESOR, aulaId: null, cupoMaximoTurno: null, updatedAtTurno: new Date("2026-09-24T00:00:00.000Z"),
 };
 const payload = (tipo: string) => evento.mock.calls.find(([{ data }]) => data.tipoEvento === tipo)?.[0].data.payloadEvento;
 
@@ -121,6 +121,65 @@ describe("HU-C-03 configurarTurno", () => {
 });
 
 describe("HU-C-03 modificarConfiguracionTurno", () => {
+  const conAula = { ...actual, aulaId: AULA, cupoMaximoTurno: 20 };
+  const nuevaFecha = new Date("2026-10-02T00:00:00.000Z");
+  const otroTurno = (estadoTurno: string, hora = "10:30") => ({
+    estadoTurno, horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`), duracionMinutosTurno: 60,
+  });
+
+  it("conserva el aula y cupo si el nuevo intervalo sigue libre, usando el mismo tx", async () => {
+    const txTurno = { findUnique: vi.fn().mockResolvedValue(conAula), findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    const tx = { turno: txTurno };
+    transaccion.mockImplementationOnce((callback: (client: typeof tx) => unknown) => callback(tx));
+
+    await expect(modificarConfiguracionTurno(TURNO, { ...input, fecha: nuevaFecha }, USUARIO)).resolves.toMatchObject({ cupo_maximo: 20, aula_desasignada: false });
+    expect(opcion).toHaveBeenCalledWith(PROFESOR, tx);
+    expect(dicta).toHaveBeenCalledWith(PROFESOR, MATERIA, tx);
+    expect(horario).toHaveBeenCalledWith(PROFESOR, nuevaFecha, "10:00", "11:00", tx);
+    expect(txTurno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ aulaId: AULA, fechaTurno: nuevaFecha, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }, idTurno: { not: TURNO } }) }));
+    expect(txTurno.updateMany).toHaveBeenCalledOnce();
+    expect(turno.findMany).not.toHaveBeenCalled();
+    expect(payload("turno:configuracion_modificada")).toMatchObject({ aula_desasignada: false });
+  });
+
+  it.each(["DISPONIBLE", "COMPLETO"])("desasigna aula superpuesta con %s dentro de la transacción", async (estado) => {
+    turno.findUnique.mockResolvedValueOnce(conAula);
+    turno.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([otroTurno(estado)]);
+    const resultado = await modificarConfiguracionTurno(TURNO, { ...input, hora_inicio: "10:30" }, USUARIO);
+    expect(resultado).toMatchObject({ hora_inicio: "10:30", cupo_maximo: null, aula_desasignada: true });
+    expect(turno.updateMany).toHaveBeenCalledTimes(2);
+    expect(turno.updateMany.mock.calls[0]![0].data).toMatchObject({ horaInicioTurno: new Date("1970-01-01T10:30:00.000Z") });
+    expect(turno.updateMany.mock.calls[1]![0]).toMatchObject({ where: { idTurno: TURNO, aulaId: AULA }, data: { aulaId: null, cupoMaximoTurno: null } });
+    expect(turno.findMany.mock.calls[1]![0].where).toMatchObject({ aulaId: AULA, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }, idTurno: { not: TURNO } });
+    expect(turno.updateMany.mock.invocationCallOrder[0]).toBeLessThan(turno.findMany.mock.invocationCallOrder[1]);
+    expect(turno.findMany.mock.invocationCallOrder[1]).toBeLessThan(turno.updateMany.mock.invocationCallOrder[1]);
+    expect(payload("turno:configuracion_modificada")).toMatchObject({ aula_desasignada: true });
+  });
+
+  it.each(["PENDIENTE", "CANCELADO"])("%s ajeno no bloquea el aula", async (estado) => {
+    turno.findUnique.mockResolvedValueOnce(conAula);
+    turno.findMany.mockImplementation(({ where }) => Promise.resolve(where.aulaId && where.estadoTurno.in.includes(estado) ? [otroTurno(estado)] : []));
+    await expect(modificarConfiguracionTurno(TURNO, input, USUARIO)).resolves.toMatchObject({ aula_desasignada: false, cupo_maximo: 20 });
+    expect(turno.findMany.mock.calls[1]![0].where.estadoTurno.in).toEqual(["DISPONIBLE", "COMPLETO"]);
+    expect(turno.updateMany).toHaveBeenCalledOnce();
+  });
+
+  it("excluye al turno propio y admite un intervalo contiguo", async () => {
+    turno.findUnique.mockResolvedValueOnce(conAula);
+    turno.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([otroTurno("DISPONIBLE", "11:00")]);
+    await expect(modificarConfiguracionTurno(TURNO, input, USUARIO)).resolves.toMatchObject({ aula_desasignada: false });
+    expect(turno.findMany.mock.calls[1]![0].where.idTurno).toEqual({ not: TURNO });
+    expect(turno.updateMany).toHaveBeenCalledOnce();
+  });
+
+  it("una validación previa fallida no modifica configuración ni aula", async () => {
+    turno.findUnique.mockResolvedValueOnce(conAula);
+    horario.mockResolvedValueOnce(false);
+    await expect(modificarConfiguracionTurno(TURNO, input, USUARIO)).rejects.toMatchObject({ code: "PROFESOR_FUERA_DE_HORARIO" });
+    expect(turno.updateMany).not.toHaveBeenCalled();
+    expect(turno.findMany).not.toHaveBeenCalled();
+  });
+
   it("lee, revalida y actualiza con el mismo TransactionClient", async () => {
     const txTurno = { findUnique: vi.fn().mockResolvedValue(actual), findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
     const tx = { turno: txTurno };
@@ -128,6 +187,7 @@ describe("HU-C-03 modificarConfiguracionTurno", () => {
     await modificarConfiguracionTurno(TURNO, input, USUARIO);
     expect(transaccion).toHaveBeenCalledOnce();
     expect(txTurno.findUnique).toHaveBeenCalledOnce();
+    expect(opcion).toHaveBeenCalledWith(PROFESOR, tx);
     expect(dicta).toHaveBeenCalledWith(PROFESOR, MATERIA, tx);
     expect(horario).toHaveBeenCalledWith(PROFESOR, input.fecha, "10:00", "11:00", tx);
     expect(txTurno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ idTurno: { not: TURNO }, profesorId: { in: [PROFESOR] } }) }));
@@ -137,15 +197,17 @@ describe("HU-C-03 modificarConfiguracionTurno", () => {
     expect(turno.findMany).not.toHaveBeenCalled();
     expect(turno.updateMany).not.toHaveBeenCalled();
   });
-  it("actualiza con la condición de estado y versión en la misma sentencia, sin tocar el cupo del aula", async () => {
+  it("actualiza con la condición de estado y versión en la misma sentencia, sin aula previa", async () => {
     const nueva = new Date("2026-10-02T00:00:00.000Z");
-    await expect(modificarConfiguracionTurno(TURNO, { ...input, fecha: nueva }, USUARIO)).resolves.toMatchObject({ cupo_maximo: 20, estado: "PENDIENTE" });
+    await expect(modificarConfiguracionTurno(TURNO, { ...input, fecha: nueva }, USUARIO)).resolves.toMatchObject({ cupo_maximo: null, estado: "PENDIENTE", aula_desasignada: false });
     const [{ where, data }] = turno.updateMany.mock.calls[0]!;
     expect(where).toMatchObject({ idTurno: TURNO, estadoTurno: "PENDIENTE", updatedAtTurno: actual.updatedAtTurno });
     expect(data).toMatchObject({ fechaTurno: nueva });
     expect(data).not.toHaveProperty("cupoMaximoTurno");
+    expect(turno.updateMany).toHaveBeenCalledOnce();
+    expect(turno.findMany).toHaveBeenCalledOnce(); // Solo consulta conflicto de Profesor.
     expect(turnoAlumno.count).not.toHaveBeenCalled();
-    expect(payload("turno:configuracion_modificada")).toMatchObject({ campos_modificados: ["fecha"] });
+    expect(payload("turno:configuracion_modificada")).toMatchObject({ campos_modificados: ["fecha"], aula_desasignada: false });
   });
   it("PATCH usa el profesor_id obligatorio del schema compartido y lo persiste", async () => {
     const otroProfesor = "ckprofesor000000000000002";

@@ -1,6 +1,5 @@
 import type { EstadoTurno, Prisma } from "@prisma/client";
-import type { IntervaloMinutos } from "@/lib/horario-atencion";
-import { intervalosSeSuperponen } from "@/server/profesores/profesor.service";
+import { intervalosSeSuperponen, type IntervaloMinutos } from "@/lib/horario-atencion";
 
 /** Solo los turnos confirmados reservan recursos (spec_modulo_C.md §3.2). */
 export const ESTADOS_AGENDADOS: EstadoTurno[] = ["DISPONIBLE", "COMPLETO"];

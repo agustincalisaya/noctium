@@ -266,3 +266,27 @@ La regresión pedida pasó: **146 tests en 10 archivos** (16 del wizard, 11 de `
 | HU-C-17 | Posterior; no bloquea. | Reutilizará Materia y Profesor; C-18 no implementa el modo masivo. |
 
 Siguen pendientes la integración completa de Aula, el paso 5 Alumnos, la finalización del wizard y `aula_desasignada: true` en `PATCH /configuracion` cuando un cambio vuelve incompatible un aula persistida. Esta etapa no simula ni desasigna el aula desde el cliente. Por ello, el regreso desde Aula llega funcionalmente hasta el nuevo PATCH del paso 3, pero todavía no cierra toda la semántica de Atrás posterior a la asignación de Aula. **HU-C-18 no está Done.**
+
+---
+
+## 4. Etapa 4 — revalidación de Aula y frontera pública D
+
+**Alcance:** el `PATCH /api/turnos/[id]/configuracion` de un `PENDIENTE` revalida un aula ya persistida contra el nuevo intervalo y la desasigna si quedó ocupada. Esta etapa es solo backend: no integra todavía el paso Aula ni Alumnos en el wizard y no cambia Prisma, seed, migraciones ni módulo D.
+
+### 4.1. Frontera y contrato
+
+`turno.service.ts` importaba `obtenerOpcionProfesorActivo`, `profesorActivoDictaMateria`, `estaDentroDeHorarioAtencion` y `listarProfesoresActivosPorMateria` desde `profesor.service.ts`. Ahora consume esos contratos desde `profesor.publico.ts`; `obtenerOpcionProfesorActivo` también recibe el `TransactionClient` de POST/PATCH. La fórmula compartida `intervalosSeSuperponen` se importa desde `lib/horario-atencion.ts` tanto en `turno.service.ts` como en `turno.disponibilidad.ts`, sin cambiar su criterio. El servicio público D ya expone las funciones necesarias y `profesorActivoDictaMateria(..., tx)` usa el `FOR SHARE` contractual. No se modificó D.
+
+La Revisión 5, R5-10, define la desasignación como `aulaId = null` y `cupoMaximoTurno = null`. Si el aula sigue válida, se conservan ambos campos. Si el turno no tenía aula, no se consulta disponibilidad de Aula. En ambos casos sin desasignación, la respuesta incluye `aula_desasignada: false`; ante conflicto, `true` y `cupo_maximo: null`. El Route Handler existente transmite el resultado del servicio en `{ data, error }` sin cambios de ruta ni mapeos HTTP. El evento `turno:configuracion_modificada` incluye `aula_desasignada` booleano y conserva los campos anteriores.
+
+### 4.2. Implementación y atomicidad
+
+**Modificados:** `src/server/turnos/turno.service.ts`, `src/server/turnos/turno.disponibilidad.ts`, `src/server/turnos/turno.configuracion.test.ts` y este documento. No se modificó `turno.aula.service.ts` ni el Route Handler.
+
+`modificarConfiguracionTurno()` mantiene la validación de Profesor y el `updateMany` condicionado por estado y `updatedAtTurno`. Luego, dentro de la **misma transacción**, consulta el aula persistida usando `aulaConTurnoSuperpuesto(tx, nuevoIntervalo, aulaId)`. El helper excluye el turno propio, consulta solo `DISPONIBLE`/`COMPLETO` y usa el criterio de intervalos semiabiertos; `PENDIENTE`, `CANCELADO` y contiguos no bloquean. Si encuentra conflicto, otro `updateMany` de la misma transacción limpia aula y cupo. Si falla una validación o una mutación, la transacción no confirma una configuración parcialmente modificada. La respuesta y el evento se construyen con el resultado confirmado.
+
+La corrección PO de HU-C-16 sigue intacta: el alta legacy conserva POST → GET de aulas con `turno_id` → selección → PATCH de Aula. Esta etapa agrega únicamente la regla para un aula **ya persistida** al cambiar configuración. La integración funcional del paso 4 en `/turnos/nuevo`, incluida la reacción del cliente a `aula_desasignada`, sigue pendiente de C-18.
+
+### 4.3. Evidencia y estado
+
+Se agregaron pruebas de ausencia de aula, aula todavía libre, conflicto con `DISPONIBLE` y `COMPLETO`, exclusión de `PENDIENTE`/`CANCELADO` y turno propio, intervalo contiguo, validación previa fallida, campos de respuesta/evento y uso del mismo `TransactionClient`. Regresión solicitada: **96 tests OK en 6 archivos** (`turno.configuracion`, `turno.aula`, `turno.disponibilidad`, configuración legacy, ruta de opciones de Aula y ruta POST de Turnos). `npx.cmd tsc --noEmit`: **OK**. La etapa backend queda implementada; HU-C-18 aún requiere el paso 4 Aula, el paso 5 Alumnos y la regresión completa del wizard antes de declararse Done.

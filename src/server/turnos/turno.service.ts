@@ -3,8 +3,8 @@ import { getParametroNumerico } from "@/server/shared/parametros";
 import type { EstadoTurno, Prisma, RolUsuario } from "@prisma/client";
 import { ServiceError } from "@/server/shared/service-error";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
-import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria } from "@/server/profesores/profesor.service";
-import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
+import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria, estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.publico";
+import { intervalosSeSuperponen } from "@/lib/horario-atencion";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { verificarAulaActiva } from "@/server/aulas/aula.publico";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
@@ -39,7 +39,7 @@ async function prepararConfiguracion(input: ConfigurarTurnoInput) {
 }
 
 async function validarProfesorConfiguracion(input: ConfigurarTurnoInput, data: Awaited<ReturnType<typeof prepararConfiguracion>>["data"], db: Prisma.TransactionClient, turnoId?: string) {
-  if (!(await obtenerOpcionProfesorActivo(input.profesor_id))) throw new ServiceError("PROFESOR_NO_ENCONTRADO", "No se encontró un profesor activo");
+  if (!(await obtenerOpcionProfesorActivo(input.profesor_id, db))) throw new ServiceError("PROFESOR_NO_ENCONTRADO", "No se encontró un profesor activo");
   if (!(await profesorActivoDictaMateria(input.profesor_id, input.materia_id, db))) throw new ServiceError("PROFESOR_NO_DICTA_MATERIA", "El profesor no dicta la materia seleccionada");
   const turno = { idTurno: turnoId, fechaTurno: data.fechaTurno, horaInicioTurno: data.horaInicioTurno, duracionMinutosTurno: data.duracionMinutosTurno };
   const intervalo = intervaloTurno(turno);
@@ -62,8 +62,8 @@ export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: st
 
 export async function modificarConfiguracionTurno(id: string, input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
-  const actual = await prisma.$transaction(async (tx) => {
-    const pendiente = await tx.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
+  const { actual, aulaDesasignada } = await prisma.$transaction(async (tx) => {
+    const pendiente = await tx.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
     if (!pendiente) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
     if (pendiente.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de configuración");
     await validarProfesorConfiguracion(input, data, tx, id);
@@ -73,7 +73,17 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
       data: { ...data, profesorId: input.profesor_id, modificadoPorUsuarioId: usuarioId },
     });
     if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
-    return pendiente;
+    const aulaDesasignada = pendiente.aulaId !== null && await aulaConTurnoSuperpuesto(tx, {
+      idTurno: id, fechaTurno: data.fechaTurno, horaInicioTurno: data.horaInicioTurno, duracionMinutosTurno: data.duracionMinutosTurno,
+    }, pendiente.aulaId);
+    if (aulaDesasignada) {
+      const desasignado = await tx.turno.updateMany({
+        where: { idTurno: id, estadoTurno: "PENDIENTE", aulaId: pendiente.aulaId },
+        data: { aulaId: null, cupoMaximoTurno: null, modificadoPorUsuarioId: usuarioId },
+      });
+      if (desasignado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    }
+    return { actual: pendiente, aulaDesasignada };
   });
   const camposModificados = [
     actual.fechaTurno.getTime() !== input.fecha.getTime() ? "fecha" : null,
@@ -82,8 +92,8 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
     actual.materiaId !== input.materia_id ? "materia_id" : null,
     actual.profesorId !== input.profesor_id ? "profesor_id" : null,
   ].filter((campo): campo is string => campo !== null);
-  await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, profesor_desasignado: false, usuario_id: usuarioId });
-  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, profesor_id: input.profesor_id, cupo_maximo: actual.cupoMaximoTurno, estado: "PENDIENTE" as const, profesor_desasignado: false };
+  await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, aula_desasignada: aulaDesasignada, profesor_desasignado: false, usuario_id: usuarioId });
+  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, profesor_id: input.profesor_id, cupo_maximo: aulaDesasignada ? null : actual.cupoMaximoTurno, estado: "PENDIENTE" as const, profesor_desasignado: false, aula_desasignada: aulaDesasignada };
 }
 
 /**
