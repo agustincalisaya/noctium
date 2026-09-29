@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { LinkProtegido } from "@/components/sesion/link-protegido";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
@@ -71,9 +71,9 @@ function opcionesDeHora(fecha: string, hoy: string, horaActual: string, parametr
   return opciones;
 }
 
-/** Sin turno (alta) lista todas las aulas activas; "sin aulas activas" no es un error de carga. */
-async function pedirAulas(turnoId?: string) {
-  const respuesta = await fetchAutenticado(`/api/turnos/aula/opciones${turnoId ? `?turno_id=${encodeURIComponent(turnoId)}` : ""}`, { cache: "no-store" });
+/** Las opciones se consultan únicamente para la configuración persistida de un turno. */
+async function pedirAulas(turnoId: string) {
+  const respuesta = await fetchAutenticado(`/api/turnos/aula/opciones?turno_id=${encodeURIComponent(turnoId)}`, { cache: "no-store" });
   const valor = await respuesta.json().catch(() => null);
   if (valor?.error?.code === "SIN_AULAS_ACTIVAS") return { aulas: [] as AulaOpcion[], sinAulas: true };
   if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? "No se pudieron cargar las aulas");
@@ -87,7 +87,7 @@ async function pedirAulas(turnoId?: string) {
  */
 export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: string }) {
   const { setDirty } = useDirtyState();
-  // Si el alta crea el turno pero falla el aula, se sigue en modo edición sobre este id.
+  // Tras el primer POST se continúa sobre el PENDIENTE, sin crear otro turno.
   const [turnoId, setTurnoId] = useState(id);
   const [campos, setCampos] = useState<Campos>(inicial);
   const [originales, setOriginales] = useState<Campos>(inicial);
@@ -95,6 +95,9 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   const [parametros, setParametros] = useState<Parametros | null>(null);
   const [turno, setTurno] = useState<Turno | null>(null);
   const [aulas, setAulas] = useState<AulaOpcion[]>([]);
+  const [estadoAulas, setEstadoAulas] = useState<"sin-consultar" | "cargando" | "listas" | "error">("sin-consultar");
+  const versionConsultaAulas = useRef(0);
+  const guardandoRef = useRef(false);
   const [sinAulas, setSinAulas] = useState(false);
   const [aulaId, setAulaId] = useState("");
   const [aulaIdOriginal, setAulaIdOriginal] = useState("");
@@ -122,10 +125,17 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
       const momentoCarga = momentoDelCentro(new Date(), configuracion.zona_horaria);
       if (id && (!respuestas[1].ok || !valores[1]?.data)) throw new Error(valores[1]?.error?.message ?? "No se pudo cargar el turno");
       const actual = id ? valores[1].data as Turno : null;
-      // Un turno ya confirmado no admite cambios: no hace falta pedir aulas.
-      const opciones = actual && actual.estado !== "PENDIENTE" ? { aulas: [], sinAulas: false } : await pedirAulas(id);
+      // En el alta todavía no hay id; en edición se consulta el intervalo persistido.
+      let opciones: Awaited<ReturnType<typeof pedirAulas>> | null = null;
+      let errorOpciones = "";
+      if (actual?.estado === "PENDIENTE") {
+        try { opciones = await pedirAulas(id!); }
+        catch (e) { errorOpciones = e instanceof Error ? e.message : "No se pudieron cargar las aulas"; }
+      }
       setMaterias(valores[0].data.materias); setParametros(configuracion); setAhora(new Date());
-      setTurno(actual); setAulas(opciones.aulas); setSinAulas(opciones.sinAulas);
+      setTurno(actual); setAulas(opciones?.aulas ?? []); setSinAulas(opciones?.sinAulas ?? false);
+      setEstadoAulas(actual?.estado === "PENDIENTE" ? errorOpciones ? "error" : "listas" : "sin-consultar");
+      setErrorAula(errorOpciones);
       if (actual) {
         const duracionVigente = configuracion.duraciones_permitidas_minutos.includes(actual.duracion_minutos);
         const duracion = duracionVigente ? String(actual.duracion_minutos) : "";
@@ -135,8 +145,8 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         setCampos({ ...cargados, duracion_min: duracion, hora_inicio: horaVigente ? actual.hora_inicio : "" });
         if (!duracionVigente) setErrores({ duracion_min: "La duración guardada ya no está permitida. Elegí otra." });
         if (!horaVigente) setAvisoHora("La hora anterior ya no es válida. Elegí otra.");
-        const seleccion = actual.aula_id && opciones.aulas.some((aula) => aula.id === actual.aula_id) ? actual.aula_id : "";
-        setAulaId(seleccion); setAulaIdOriginal(seleccion);
+        const seleccion = actual.aula_id && opciones?.aulas.some((aula) => aula.id === actual.aula_id) ? actual.aula_id : "";
+        setAulaId(seleccion); setAulaIdOriginal(actual.aula_id ?? "");
       }
     } catch (e) { setErrorCarga(e instanceof Error ? e.message : "No se pudo cargar la configuración"); }
     finally { setCargando(false); }
@@ -144,20 +154,32 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
 
   useEffect(() => { const timer = window.setTimeout(() => void cargar(), 0); return () => window.clearTimeout(timer); }, [cargar]);
 
-  // Reintento solo de las aulas: tras un alta parcial no debe perderse lo cargado.
-  const recargarAulas = async () => {
-    setErrorAula("");
+  // Reintento solo de aulas, siempre contra el turno persistido.
+  const recargarAulas = async (idConsulta = turnoId) => {
+    if (!idConsulta) return null;
+    const version = ++versionConsultaAulas.current;
+    setEstadoAulas("cargando"); setErrorAula(""); setAulas([]); setSinAulas(false);
     try {
-      const opciones = await pedirAulas(turnoId);
+      const opciones = await pedirAulas(idConsulta);
+      if (version !== versionConsultaAulas.current) return null;
       setAulas(opciones.aulas); setSinAulas(opciones.sinAulas);
       if (!opciones.aulas.some((aula) => aula.id === aulaId)) setAulaId("");
-    } catch (e) { setErrorAula(e instanceof Error ? e.message : "No se pudieron cargar las aulas"); }
+      setEstadoAulas("listas");
+      return opciones;
+    } catch (e) {
+      if (version !== versionConsultaAulas.current) return null;
+      setErrorAula(e instanceof Error ? e.message : "No se pudieron cargar las aulas");
+      setEstadoAulas("error");
+      return null;
+    }
   };
   useEffect(() => { const timer = window.setInterval(() => setAhora(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
 
   // Cambios sin guardar (HU-A-03 c2): se descartan al guardar o al salir (Cancelar).
   const configuracionCambiada = (Object.keys(campos) as (keyof Campos)[]).some((campo) => campos[campo] !== originales[campo]);
-  const sinGuardar = !resultado && (configuracionCambiada || aulaId !== aulaIdOriginal);
+  const intervaloCambiado = campos.fecha !== originales.fecha || campos.hora_inicio !== originales.hora_inicio || campos.duracion_min !== originales.duracion_min;
+  const aulaCambiada = Boolean(aulaId && aulaId !== aulaIdOriginal);
+  const sinGuardar = !resultado && (configuracionCambiada || aulaCambiada);
   useEffect(() => { setDirty(sinGuardar); }, [sinGuardar, setDirty]);
   useEffect(() => () => setDirty(false), [setDirty]);
 
@@ -168,9 +190,16 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   const horaInvalida = campos.hora_inicio && !horas.includes(campos.hora_inicio) ? "Elegí una hora de inicio válida para la fecha seleccionada" : "";
   const sinHorarios = Boolean(campos.fecha && !fechaInvalida && horas.length === 0);
   const configuracionValida = Boolean(parametros && momento && campos.fecha && !fechaInvalida && campos.duracion_min && campos.hora_inicio && !horaInvalida && campos.materia_id);
-  const puedeGuardar = configuracionValida && !guardando && (!turnoId || sinGuardar);
+  const puedeGuardar = configuracionValida && !guardando && (!turnoId || configuracionCambiada || (estadoAulas === "listas" && aulaCambiada));
+
+  const invalidarAulas = () => {
+    if (!turnoId) return;
+    versionConsultaAulas.current += 1;
+    setAulas([]); setSinAulas(false); setAulaId(""); setErrorAula(""); setEstadoAulas("sin-consultar");
+  };
 
   const cambiar = (campo: keyof Campos, valor: string) => {
+    if ((campo === "fecha" || campo === "hora_inicio" || campo === "duracion_min") && campos[campo] !== valor) invalidarAulas();
     setCampos((anterior) => ({ ...anterior, [campo]: valor }));
     setErrores((anterior) => ({ ...anterior, [campo]: undefined }));
     if (campo === "hora_inicio") setAvisoHora("");
@@ -178,6 +207,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   };
 
   const cambiarFecha = (fecha: string) => {
+    if (campos.fecha !== fecha) invalidarAulas();
     const nuevasHoras = parametros && momento ? opcionesDeHora(fecha, momento.fecha, momento.hora, parametros, duracionEfectiva(campos.duracion_min, parametros)) : [];
     if (campos.hora_inicio && !nuevasHoras.includes(campos.hora_inicio)) {
       setCampos((anterior) => ({ ...anterior, fecha, hora_inicio: "" }));
@@ -192,6 +222,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
 
   // Mismo patrón que cambiarFecha: una hora que deja de entrar se limpia con aviso.
   const cambiarDuracion = (duracion: string) => {
+    if (campos.duracion_min !== duracion) invalidarAulas();
     const nuevasHoras = parametros && momento ? opcionesDeHora(campos.fecha, momento.fecha, momento.hora, parametros, duracionEfectiva(duracion, parametros)) : [];
     if (campos.hora_inicio && !nuevasHoras.includes(campos.hora_inicio)) {
       setCampos((anterior) => ({ ...anterior, duracion_min: duracion, hora_inicio: "" }));
@@ -210,12 +241,15 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
 
   const guardar = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!puedeGuardar) return;
+    if (!puedeGuardar || guardandoRef.current) return;
+    guardandoRef.current = true;
     setErrores({}); setError(""); setErrorAula(""); setAviso(""); setGuardando(true);
     let idGuardado = turnoId;
     let profesorDesasignado = false;
     try {
       // 1) Configuración (§2.1): alta, o modificación solo si cambió.
+      const primeraPersistencia = !idGuardado;
+      const guardarNuevoIntervalo = Boolean(idGuardado && intervaloCambiado);
       if (!idGuardado || configuracionCambiada) {
         const respuesta = await fetchAutenticado(idGuardado ? `/api/turnos/${encodeURIComponent(idGuardado)}/configuracion` : "/api/turnos", {
           method: idGuardado ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...campos, duracion_min: Number(campos.duracion_min) }), cache: "no-store",
@@ -238,6 +272,21 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         }
         setOriginales(campos);
       }
+      // El aula se elige únicamente después de ver las opciones del intervalo ya persistido.
+      if (primeraPersistencia || guardarNuevoIntervalo) {
+        setAulaId("");
+        const opciones = await recargarAulas(idGuardado);
+        const aulaPersistida = guardarNuevoIntervalo && turno?.aula_id
+          ? opciones?.aulas.find((aula) => aula.id === turno.aula_id)
+          : undefined;
+        if (aulaPersistida) {
+          setAulaId(aulaPersistida.id);
+          setAulaIdOriginal(aulaPersistida.id);
+          setResultado({ id: idGuardado, fecha: campos.fecha, hora_inicio: campos.hora_inicio, hora_fin: fin,
+            aula: aulaPersistida.nombre, cupo_maximo: turno?.cupo_maximo ?? null, profesor_desasignado: profesorDesasignado });
+        }
+        return;
+      }
       // 2) Aula (§2.3): fija el cupo con su capacidad. Opcional.
       let aula = turno?.aula_id ? { nombre: turno.aula, cupo: turno.cupo_maximo } : null;
       if (aulaId && aulaId !== aulaIdOriginal) {
@@ -247,7 +296,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         const valor = await respuesta.json().catch(() => null);
         if (!respuesta.ok || !valor?.data) {
           setErrorAula(valor?.error?.message ?? "No se pudo asignar el aula");
-          if (!turnoId) setAviso("El turno ya quedó guardado como Pendiente, sin aula. Podés elegir otra aula ahora o asignarla más tarde.");
+          setAviso("El turno ya quedó guardado como Pendiente, sin aula. Podés elegir otra aula ahora o asignarla más tarde.");
           return;
         }
         aula = { nombre: aulas.find(({ id: otra }) => otra === aulaId)?.nombre ?? "", cupo: valor.data.cupo_maximo };
@@ -255,7 +304,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
       }
       setResultado({ id: idGuardado, fecha: campos.fecha, hora_inicio: campos.hora_inicio, hora_fin: fin, aula: aula?.nombre ?? null, cupo_maximo: aula?.cupo ?? null, profesor_desasignado: profesorDesasignado });
     } catch { setError("No se pudo guardar el turno. Intentá nuevamente."); }
-    finally { setGuardando(false); }
+    finally { guardandoRef.current = false; setGuardando(false); }
   };
 
   const enlace = "underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -286,11 +335,15 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
       <div className="space-y-1"><label htmlFor="hora" className="text-sm font-medium">Hora de inicio *</label><select id="hora" required value={campos.hora_inicio} onChange={(e) => cambiar("hora_inicio", e.target.value)} disabled={!campos.fecha || Boolean(fechaInvalida) || horas.length === 0} aria-invalid={Boolean(errores.hora_inicio || horaInvalida || sinHorarios)} aria-describedby={errores.hora_inicio || horaInvalida || sinHorarios ? "hora-error" : avisoHora ? "hora-aviso" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"><option value="">Seleccioná una hora</option>{horas.map((hora) => <option key={hora} value={hora}>{hora}</option>)}</select>{avisoHora && !horaInvalida && <p id="hora-aviso" role="status" className="text-sm text-warning-foreground">{avisoHora}</p>}{(errores.hora_inicio || horaInvalida || sinHorarios) && <p id="hora-error" role="alert" className="text-sm text-destructive">{errores.hora_inicio || horaInvalida || "No hay horarios de inicio válidos para esta fecha"}</p>}{fechaInvalida === "El centro no atiende el día seleccionado" && <p className="text-sm text-muted-foreground">No se ofrecen horarios en días no operativos.</p>}</div>
       <p className="text-sm">Hora de finalización: <strong aria-live="polite">{fin}</strong> <span className="text-muted-foreground">(calculada automáticamente; solo lectura)</span></p>
       <div className="space-y-1"><label htmlFor="materia" className="text-sm font-medium">Materia *</label><select id="materia" required value={campos.materia_id} onChange={(e) => cambiar("materia_id", e.target.value)} aria-invalid={Boolean(errores.materia_id)} aria-describedby={errores.materia_id ? "materia-error" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná una materia</option>{materias.map((materia) => <option key={materia.id} value={materia.id}>{materia.nombre}{materia.codigo ? ` (${materia.codigo})` : ""}</option>)}</select><p id="materia-error" className="text-sm text-destructive">{errores.materia_id}</p></div>
-      <SeccionAulaTurno aulas={aulas} aulaId={aulaId} aulaIdGuardada={aulaIdOriginal} aulaGuardadaNoDisponible={aulaGuardadaNoDisponible} habilitada={configuracionValida} sinAulas={sinAulas} error={errorAula}
-        onCambiar={(valor) => { setAulaId(valor); setErrorAula(""); setAviso(""); setError(""); }} onReintentar={() => void recargarAulas()} />
+      {!turnoId ? null : intervaloCambiado ? <p role="status" className="border-t border-border pt-5 text-sm text-muted-foreground">Guardá la configuración para consultar aulas para el nuevo horario.</p>
+        : estadoAulas === "cargando" ? <p role="status" className="border-t border-border pt-5">Cargando aulas disponibles</p>
+          : estadoAulas === "error" ? <div role="alert" className="space-y-2 border-t border-border pt-5"><p>{errorAula}</p><Button type="button" variant="outline" onClick={() => void recargarAulas()}>Reintentar</Button></div>
+            : estadoAulas === "sin-consultar" ? <div className="space-y-2 border-t border-border pt-5"><Button type="button" variant="outline" onClick={() => void recargarAulas()}>Consultar aulas</Button></div>
+              : <SeccionAulaTurno aulas={aulas} aulaId={aulaId} aulaIdGuardada={aulaIdOriginal} aulaGuardadaNoDisponible={aulaGuardadaNoDisponible} habilitada={configuracionValida && !guardando} sinAulas={sinAulas} error={errorAula}
+                onCambiar={(valor) => { setAulaId(valor); setErrorAula(""); setAviso(""); setError(""); }} onReintentar={() => void recargarAulas()} />}
       {aviso && <p role="status" className="rounded-md bg-warning p-3 text-sm text-warning-foreground">{aviso}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!puedeGuardar}>{guardando ? "Guardando…" : turnoId ? "Guardar cambios" : "Guardar turno"}</Button><Link className={buttonVariants({ variant: "outline" })} href={retorno} prefetch={false}>Cancelar</Link></div>
+      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!puedeGuardar}>{guardando ? "Guardando…" : turnoId ? "Guardar cambios" : "Guardar turno"}</Button>{turnoId && !turno?.aula_id && !aulaId && !configuracionCambiada && !intervaloCambiado && estadoAulas !== "cargando" && <Button type="button" variant="outline" onClick={() => setResultado({ id: turnoId, fecha: campos.fecha, hora_inicio: campos.hora_inicio, hora_fin: fin, aula: null, cupo_maximo: null })}>Dejar sin aula por ahora</Button>}<Link className={buttonVariants({ variant: "outline" })} href={retorno} prefetch={false}>Cancelar</Link></div>
     </form>}
   </main>;
 }
