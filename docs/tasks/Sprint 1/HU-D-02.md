@@ -52,7 +52,7 @@ No se procede a la implementación (sección 4 en adelante) hasta recibir el OK 
 **Fuera de alcance de esta task (explícito):**
 - Crear, vincular o modificar la cuenta (`Usuario`) del profesor, incluido su email de login (punto 3).
 - Dirección del profesor (`direccionProfesor` existe en el schema, pero los criterios de HU-D-02 solo piden teléfono y email).
-- Eventos de dominio / `AuditLog` (punto 6).
+- Tabla de eventos separada (se usa Regla N.° 2, patrón a: columnas de auditoría).
 - HU-D-03 (materias), HU-D-04 (horarios) y HU-D-05 (listado y detalle completo). La ficha de esta HU deja la estructura (`FichaSeccion`, `FichaDatos`, `FichaEncabezado`) para que esas HU agreguen sus secciones.
 - Modificación de identidad o baja lógica del profesor.
 
@@ -94,7 +94,7 @@ Implementación frontend + backend conforme a `spec_modulo_D.md` §2.2, con las 
 
 **Fuera de alcance de esta task** (no implementar bajo ninguna circunstancia):
 - Ningún cambio sobre `Usuario` (§1 punto 3).
-- Emisión de eventos de dominio / `AuditLog` (§1 punto 6).
+- Tabla de eventos separada (aplica Regla N.° 2, patrón a: columnas de auditoría).
 - Materias, horarios, listado o detalle completo del profesor (HU-D-03/04/05).
 
 ### 3.1. Archivos creados

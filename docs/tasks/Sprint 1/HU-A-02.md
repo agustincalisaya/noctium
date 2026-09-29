@@ -147,7 +147,7 @@ No hay eventos nuevos en esta task. La renovación de sesión y los `403 SIN_PER
 
 ### Nivel 3 — BD / TablePlus
 - Verificar filas sembradas en `RolPermiso` tras la migración/seed (contenido sujeto al punto abierto de 4.3).
-- Verificar en `AuditLog` que ningún evento espurio se generó por una renovación de sesión o un `403` (esta task no define eventos — confirmar que efectivamente no aparece nada nuevo ahí).
+- Verificar en `EventoSeguridad` (Regla N.° 2, patrón b) que ningún evento espurio se generó por una renovación de sesión o un `403` (esta task no define eventos — confirmar que efectivamente no aparece nada nuevo ahí).
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y capa de datos; captura del aviso de expiración próxima y de su desaparición tras "Continuar sesión"; captura del comportamiento del navegador (botón Atrás / URL directa) sobre una ruta protegida después de vencida la sesión, mostrando el redirect a `/login` sin datos residuales.
 

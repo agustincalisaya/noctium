@@ -86,7 +86,7 @@ No se procede a la implementación (sección 4 en adelante) hasta recibir el OK 
 - Cargar materias u horario dentro del alta: solo se ofrecen como acciones posteriores.
 - Cambios en `horarios/nuevo/page.tsx` y `registrar-horario-form.tsx` (punto 8), en la pantalla de contacto (punto 10) y en la ficha.
 - Verificación de email al salir del campo (`onBlur`) en el alta: la unicidad del email se verifica al confirmar, igual que en HU-D-02.
-- Eventos de dominio / `AuditLog`.
+- Tabla de eventos separada (se usa Regla N.° 2, patrón a: columnas de auditoría).
 
 ---
 

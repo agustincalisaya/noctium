@@ -6,7 +6,7 @@ const { tx, turnoLectura, evento, vigente, materiaActiva, aulaActiva, hayAulas, 
   aulaActiva: vi.fn(), hayAulas: vi.fn(), existe: vi.fn(), listarAulas: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn((callback) => callback(tx)), turno: { findUnique: turnoLectura }, eventoTurno: { create: evento } } }));
-vi.mock("@/server/aulas/aula.service", () => ({ verificarAulaActiva: aulaActiva, hayAulasActivas: hayAulas, existeAula: existe, listarAulasActivasParaTurno: listarAulas }));
+vi.mock("@/server/aulas/aula.publico", () => ({ verificarAulaActiva: aulaActiva, hayAulasActivas: hayAulas, existeAula: existe, listarAulasActivasParaTurno: listarAulas }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
 vi.mock("@/server/turnos/turno.validaciones", () => ({ turnoSigueVigente: vigente }));
 vi.mock("@/server/profesores/profesor.service", () => ({

@@ -117,7 +117,7 @@ El alta no toca ninguna tabla relacionada a `Turno` bajo ninguna circunstancia (
 ### 4.5. Eventos de dominio
 
 **Archivo:** `lib/events/event-types.ts` — agregar `aula:creada` si no está ya declarado desde la spec.
-**Listener de auditoría:** handler en `audit-log.listener.ts`, patrón `void registrarAuditLog(...)` — nunca `await`.
+**Trazabilidad (Regla N.° 2, patrón a):** columnas de auditoría en la propia entidad (`createdAtAula`, `creadoPorUsuarioId`), persistidas en la misma operación.
 
 Payload: `aula_id, nombre, capacidad, usuario_id` — emitido después del `COMMIT`, nunca dentro de la transacción.
 
@@ -160,7 +160,7 @@ Payload: `aula_id, nombre, capacidad, usuario_id` — emitido después del `COMM
 - Verificar la fila creada en `Aula` (`nombre`, `nombre_normalizado`, `capacidad`, `is_active: true`, `created_by`).
 - Verificar que el constraint único de `nombre_normalizado` existe efectivamente en el schema.
 - Si se confirmó aplicar la collation `natural_es` en esta task (punto abierto de la sección 1): verificar que la columna `nombre` de `Aula` quedó con esa collation desde la creación.
-- Verificar en `AuditLog` que `aula:creada` quedó encadenado con hash SHA-256 intacto.
+- Verificar columnas de auditoría (`createdAtAula`, `creadoPorUsuarioId`) en la tabla `Aula` según Regla N.° 2 (patrón a).
 - Verificar en `RolPermiso` que `aulas:crear` quedó sembrado para el rol Gerente únicamente.
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y capa de datos; capturas del formulario de alta en sus estados (normal, error de duplicado, cargando, y del botón Cancelar).

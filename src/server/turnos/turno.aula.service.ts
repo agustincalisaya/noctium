@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { verificarAulaActiva, listarAulasActivasParaTurno, hayAulasActivas, existeAula } from "@/server/aulas/aula.service";
+import { verificarAulaActiva, listarAulasActivasParaTurno, hayAulasActivas, existeAula } from "@/server/aulas/aula.publico";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { emitirEventoTurno } from "./turno.service";

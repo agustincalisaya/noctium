@@ -113,7 +113,7 @@ Consulta indexada por `jti` (ya único por definición de schema). No es una con
 
 Se emite después de que `cerrarSesion()` resuelve (paso 3 de 4.2), tanto si el `INSERT` de `TokenRevocado` se completó en el momento como si quedó en el camino del respaldo por vencimiento natural — el cierre de sesión desde la perspectiva del usuario ya ocurrió (cookie eliminada) independientemente de ese detalle interno.
 
-**Listener de auditoría:** agregar el handler en `audit-log.listener.ts`, patrón `void registrarAuditLog(...)` — nunca `await`.
+**Auditoría (Regla N.° 2, patrón b):** registro directo y síncrono en `EventoSeguridad` (tipo `LOGOUT`).
 
 ---
 
@@ -147,7 +147,7 @@ Se emite después de que `cerrarSesion()` resuelve (paso 3 de 4.2), tanto si el 
 
 ### Nivel 3 — BD / TablePlus
 - Verificar la fila creada en `TokenRevocado` tras un logout (`jti`, `usuario_id`, `expira_en`, `created_at`).
-- Verificar en `AuditLog` que `sesion:cierre` quedó encadenado con hash SHA-256 intacto, continuando la cadena de los eventos de HU-A-01 (login) sin romperla.
+- Verificar en `EventoSeguridad` (Regla N.° 2, patrón b) que el evento `LOGOUT` quedó registrado de forma directa y síncrona.
 
 **Evidencia esperada:** Postman + SQL para el contrato de API y capa de datos; captura del flujo de logout (botón → diálogo de confirmación si hay cambios sin guardar → redirect a `/login` con el mensaje de éxito); captura del comportamiento del navegador (botón Atrás / URL directa) inmediatamente después del logout.
 
