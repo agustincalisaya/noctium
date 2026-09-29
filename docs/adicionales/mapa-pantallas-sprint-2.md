@@ -1,6 +1,6 @@
 # Mapa de Pantallas — Sprint 2
 
-**Objetivo de este documento:** antes de redactar los tasks SDD de cada HU, fijar a qué pantalla pertenece cada una. Evita el error de Sprint 1 (HU-B-01/02/03 y HU-D-01/02/03/04 tratadas como pantallas independientes cuando los criterios de aceptación indicaban un mismo flujo — ver `docs/tasks/Sprint 1/AUDITORIA-tasks-sesion-materias-aulas.md` y la conversación de PO que originó este mapa).
+**Objetivo de este documento:** antes de redactar los tasks SDD de cada HU, fijar a qué pantalla pertenece cada una. Evita el error de Sprint 1 (HU-B-01/02/03 y HU-D-01/02/03/04 tratadas como pantallas independientes cuando los criterios de aceptación indicaban un mismo flujo — ese caso no se documentó por separado; el contexto está resumido en `docs/adicionales/guia-pantallas-referencia-sprint-2.md` §1).
 
 **Regla de uso:** cuando se redacte el task de una HU, su sección 5 (Frontend) debe indicar la pantalla de esta tabla, **no** inventar una ruta nueva. Si el task cree que necesita una ruta distinta a la aquí indicada, es una señal para volver a este documento y discutirlo con el equipo antes de escribir código.
 
