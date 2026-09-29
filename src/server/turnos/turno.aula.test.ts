@@ -5,7 +5,7 @@ const { tx, turnoLectura, evento, vigente, materiaActiva, aulaActiva, hayAulas, 
   turnoLectura: vi.fn(), evento: vi.fn(), vigente: vi.fn(), materiaActiva: vi.fn(),
   aulaActiva: vi.fn(), hayAulas: vi.fn(), existe: vi.fn(), listarAulas: vi.fn(),
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn((callback) => callback(tx)), turno: { findUnique: turnoLectura }, eventoTurno: { create: evento } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn((callback) => callback(tx)), turno: { findUnique: turnoLectura, findMany: tx.turno.findMany }, eventoTurno: { create: evento } } }));
 vi.mock("@/server/aulas/aula.publico", () => ({ verificarAulaActiva: aulaActiva, hayAulasActivas: hayAulas, existeAula: existe, listarAulasActivasParaTurno: listarAulas }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
 vi.mock("@/server/turnos/turno.validaciones", () => ({ turnoSigueVigente: vigente }));
@@ -29,7 +29,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   tx.turno.findUnique.mockReset()
     .mockImplementation(async ({ select }) => select.updatedAtTurno ? { estadoTurno: "PENDIENTE", updatedAtTurno: new Date("2026-09-24T00:00:00.000Z") } : turno);
-  tx.turno.findMany.mockResolvedValue([]);
+  tx.turno.findMany.mockReset().mockResolvedValue([]);
+  turnoLectura.mockResolvedValue(null);
   tx.turno.updateMany.mockResolvedValue({ count: 1 });
   vigente.mockReturnValue(true); materiaActiva.mockResolvedValue({ idMateria: turno.materiaId });
   aulaActiva.mockResolvedValue({ idAula: AULA, capacidadAula: 30 }); hayAulas.mockResolvedValue(true); existe.mockResolvedValue(true);
@@ -91,9 +92,10 @@ describe("HU-C-15 §2.3 listarOpcionesAulaTurno", () => {
     await expect(listarOpcionesAulaTurno()).resolves.toEqual([{ id: AULA, nombre: "Aula 1", capacidad: 10 }]);
     expect(turnoLectura).not.toHaveBeenCalled();
     expect(listarAulas).toHaveBeenCalledWith(1);
+    expect(tx.turno.findMany).not.toHaveBeenCalled();
   });
   it("con turno exige PENDIENTE y usa los alumnos ya cargados como capacidad mínima", async () => {
-    turnoLectura.mockResolvedValueOnce({ estadoTurno: "PENDIENTE", _count: { alumnos: 4 } });
+    turnoLectura.mockResolvedValueOnce({ ...turno, estadoTurno: "PENDIENTE", _count: { alumnos: 4 } });
     await listarOpcionesAulaTurno(TURNO);
     expect(listarAulas).toHaveBeenCalledWith(4);
     turnoLectura.mockResolvedValueOnce({ estadoTurno: "COMPLETO", _count: { alumnos: 1 } });
@@ -104,5 +106,55 @@ describe("HU-C-15 §2.3 listarOpcionesAulaTurno", () => {
   it("informa SIN_AULAS_ACTIVAS", async () => {
     hayAulas.mockResolvedValueOnce(false);
     await expect(listarOpcionesAulaTurno()).rejects.toMatchObject({ code: "SIN_AULAS_ACTIVAS" });
+  });
+});
+
+describe("HU-C-16 opciones de aula sin conflictos horarios", () => {
+  const OTRA = "ckaula0000000000000000002";
+  const aulas = [{ id: AULA, nombre: "Aula 1", capacidad: 10 }, { id: OTRA, nombre: "Aula 2", capacidad: 30 }];
+  const horario = (hora: string, duracion: number) => ({ horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`), duracionMinutosTurno: duracion });
+
+  beforeEach(() => {
+    hayAulas.mockResolvedValue(true);
+    listarAulas.mockResolvedValue(aulas);
+    turnoLectura.mockResolvedValue({ ...turno, estadoTurno: "PENDIENTE", duracionMinutosTurno: 120 });
+  });
+
+  it("conserva aulas sin conflictos y excluye las ocupadas por DISPONIBLE o COMPLETO", async () => {
+    tx.turno.findMany.mockImplementation(({ where }) => where.aulaId === AULA
+      ? [{ ...horario("10:30", 60) }] : [{ ...horario("11:00", 60) }]);
+    await expect(listarOpcionesAulaTurno(TURNO)).resolves.toEqual([]);
+    expect(tx.turno.findMany).toHaveBeenCalledTimes(2);
+    for (const [consulta] of tx.turno.findMany.mock.calls) {
+      expect(consulta.where).toMatchObject({ idTurno: { not: TURNO }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } });
+    }
+    tx.turno.findMany.mockImplementation(({ where }) => where.aulaId === AULA ? [horario("10:30", 60)] : []);
+    await expect(listarOpcionesAulaTurno(TURNO)).resolves.toEqual([aulas[1]]);
+  });
+
+  it("PENDIENTE, CANCELADO y el propio turno no bloquean; un turno adyacente tampoco", async () => {
+    const ocupantes = [
+      { idTurno: "pendiente", aulaId: AULA, estadoTurno: "PENDIENTE", ...horario("10:30", 60) },
+      { idTurno: "cancelado", aulaId: AULA, estadoTurno: "CANCELADO", ...horario("10:30", 60) },
+      { idTurno: TURNO, aulaId: AULA, estadoTurno: "DISPONIBLE", ...horario("10:30", 60) },
+      { idTurno: "adyacente", aulaId: AULA, estadoTurno: "COMPLETO", ...horario("12:00", 60) },
+    ];
+    tx.turno.findMany.mockImplementation(({ where }) => ocupantes
+      .filter((ocupante) => ocupante.aulaId === where.aulaId && ocupante.idTurno !== where.idTurno.not && where.estadoTurno.in.includes(ocupante.estadoTurno)));
+    await expect(listarOpcionesAulaTurno(TURNO)).resolves.toEqual(aulas);
+  });
+
+  it("mantiene el filtro de capacidad mínima antes de verificar disponibilidad", async () => {
+    turnoLectura.mockResolvedValueOnce({ ...turno, estadoTurno: "PENDIENTE", _count: { alumnos: 12 } });
+    listarAulas.mockResolvedValueOnce([aulas[1]]);
+    await expect(listarOpcionesAulaTurno(TURNO)).resolves.toEqual([aulas[1]]);
+    expect(listarAulas).toHaveBeenCalledWith(12);
+    expect(tx.turno.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.turno.findMany.mock.calls[0]![0].where.aulaId).toBe(OTRA);
+  });
+
+  it("si todas las aulas elegibles están ocupadas devuelve [] sin error", async () => {
+    tx.turno.findMany.mockResolvedValue([horario("11:30", 30)]);
+    await expect(listarOpcionesAulaTurno(TURNO)).resolves.toEqual([]);
   });
 });
