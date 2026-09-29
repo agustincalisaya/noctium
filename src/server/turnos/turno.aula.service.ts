@@ -18,18 +18,22 @@ function validarIntervalo(turno: { horaInicioTurno: Date; duracionMinutosTurno: 
 /**
  * Sin `turnoId` (alta, el turno todavía no existe) lista todas las aulas
  * activas: sin cupo previo, cualquiera sirve. Con `turnoId` exige PENDIENTE y
- * descarta las que no alcanzan a los alumnos ya cargados (§2.3 paso 3).
+ * descarta las que no alcanzan a los alumnos ya cargados (§2.3 paso 3) o
+ * están ocupadas en el intervalo del turno.
  */
 export async function listarOpcionesAulaTurno(turnoId?: string) {
-  let inscriptos = 0;
-  if (turnoId) {
-    const turno = await prisma.turno.findUnique({ where: { idTurno: turnoId }, select: { estadoTurno: true, _count: { select: { alumnos: true } } } });
-    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-    if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "El turno ya está confirmado");
-    inscriptos = turno._count.alumnos;
-  }
+  const turno = turnoId ? await prisma.turno.findUnique({
+    where: { idTurno: turnoId },
+    select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, _count: { select: { alumnos: true } } },
+  }) : null;
+  if (turnoId && !turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+  if (turno && turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "El turno ya está confirmado");
   if (!(await hayAulasActivas())) throw new ServiceError("SIN_AULAS_ACTIVAS", "No hay aulas activas registradas");
-  return listarAulasActivasParaTurno(Math.max(1, inscriptos));
+  const aulas = await listarAulasActivasParaTurno(Math.max(1, turno?._count.alumnos ?? 0));
+  if (!turno) return aulas;
+
+  const ocupadas = await Promise.all(aulas.map((aula) => aulaConTurnoSuperpuesto(prisma, turno, aula.id)));
+  return aulas.filter((_, indice) => !ocupadas[indice]);
 }
 
 /**

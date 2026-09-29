@@ -92,6 +92,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     await completarConfiguracion();
     expect(seccion.disabled).toBe(false);
     expect(container.textContent).toContain("Cupo máximo: —");
+    expect(campo<HTMLSelectElement>("#aula").options[1]!.textContent).toBe("Aula 1 · Capacidad 10");
     await escribir(campo<HTMLSelectElement>("#aula"), "aula-1");
     expect(container.textContent).toContain("Cupo máximo: 10 alumnos");
     expect(setDirty).toHaveBeenLastCalledWith(true);
@@ -166,8 +167,19 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     rutas = (url) => url.startsWith("/api/turnos/aula/opciones") ? respuesta(null, false, { code: "SIN_AULAS_ACTIVAS", message: "No hay aulas activas registradas" }) : undefined;
     await montar();
     await completarConfiguracion();
-    expect(container.textContent).toContain("No hay aulas activas registradas. Podés guardar el turno sin aula y asignarla más tarde.");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("No hay aulas activas registradas. Podés guardar el turno sin aula y asignarla más tarde.");
+    expect(container.textContent).not.toContain("No hay aulas disponibles para este horario");
     expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(false);
+  });
+
+  it("data: [] muestra el mensaje contractual de disponibilidad sin confundirlo con SIN_AULAS_ACTIVAS", async () => {
+    rutas = (url) => url.startsWith("/api/turnos/aula/opciones") ? respuesta([]) : undefined;
+    await montar("turno-1");
+    expect(fetch.mock.calls.map(([url]) => url)).toContain("/api/turnos/aula/opciones?turno_id=turno-1");
+    expect([...container.querySelectorAll('[role="status"]')].some((elemento) => elemento.textContent === "No hay aulas disponibles para este horario")).toBe(true);
+    expect(container.textContent).not.toContain("No hay aulas activas registradas");
+    expect(campo<HTMLSelectElement>("#aula")).toBeNull();
+    expect([...container.querySelectorAll("button")].some((boton) => boton.textContent === "Reintentar")).toBe(true);
   });
 });
 
