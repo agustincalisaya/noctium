@@ -6,7 +6,7 @@
 | Sprint | 2 |
 | Responsable | Iván |
 | SP estimado | 2 |
-| Estado | Implementación y validación automatizada listas para PR apilada sobre HU-C-12; revalidar visualmente el último ajuste de tamaño de tarjetas |
+| Estado | PR borrador #118 apilada sobre HU-C-12; revalidar visualmente el último ajuste de tamaño de tarjetas |
 | Contrato | docs/specs/spec_modulo_C.md §2.14.1; docs/specs/spec_modulo_A.md §2.4; docs/specs/spec_modulo_B.md §2.8; docs/specs/spec_modulo_E.md §2.4 |
 | Backlog | docs/tasks/Sprint 2/HU-Sprint-2.md §20 |
 | Pantalla | docs/adicionales/mapa-pantallas-sprint-2.md §2; pantallas de referencia Sprint 2, págs. 25–26 |
@@ -120,4 +120,4 @@ La pantalla debe revisarse en navegador de escritorio y móvil contra las págin
 - [x] Evidencia automatizada de Unit, API y BD documentada.
 - [x] Checks locales de CI completados y registrados.
 - [x] Verificación con cancelación real de HU-C-05 marcada Bloqueada por dependencia externa; estados cancelados sí cubiertos por fixture PostgreSQL.
-- [x] Diff local revisado y listo para que Iván lo compruebe antes de publicar una PR.
+- [x] Diff revisado y PR borrador #118 publicada sobre la rama de HU-C-12; cambiar la base a `develop` cuando se integre el PR #116.
