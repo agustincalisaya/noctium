@@ -23,6 +23,14 @@ export function turnoSigueVigente(fecha: Date, horaInicio: Date): boolean {
   return diaTurno > ahora.fecha || (diaTurno === ahora.fecha && horaTurno > ahora.hora);
 }
 
+/** Spec C §2.15 paso 1: fecha + hora_inicio >= ahora, a precisión de minuto. */
+export function turnoNoHaComenzado(fecha: Date, horaInicio: Date, ahora: Date = new Date()): boolean {
+  const horaActual = horaLocal(ahora);
+  const diaTurno = fecha.toISOString().slice(0, 10);
+  const horaTurno = horaInicio.toISOString().slice(11, 16);
+  return diaTurno > horaActual.fecha || (diaTurno === horaActual.fecha && horaTurno >= horaActual.hora);
+}
+
 export async function parametrosConfiguracionTurno() {
   const claves = ["granularidad_turno_minutos", "dias_operativos", "horario_operativo_desde", "horario_operativo_hasta", "anticipacion_maxima_dias"];
   const filas = await prisma.parametroSistema.findMany({ where: { clave: { in: claves } } });
