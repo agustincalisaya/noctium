@@ -1,6 +1,6 @@
 import type { RolUsuario } from "@prisma/client";
 import { listarPagosDeTurno } from "@/server/pagos/pago.publico";
-import { obtenerClaseDictadaDeTurno } from "@/server/historial/historial.publico";
+import { obtenerClaseDictadaDeTurno, profesorAtendioAlumno } from "@/server/historial/historial.publico";
 import type { TurnoDetalle } from "@/types/turno.types";
 import { calcularAccionesHabilitadas, type CapacidadesAcciones } from "@/server/turnos/turno.acciones";
 import { obtenerTurno } from "@/server/turnos/turno.service";
@@ -12,7 +12,7 @@ import { obtenerTurno } from "@/server/turnos/turno.service";
  * `turno.publico.ts`, para no crear ciclos con los módulos que consumen Turnos.
  */
 
-export type CapacidadesDetalle = CapacidadesAcciones & { verPagos: boolean };
+export type CapacidadesDetalle = CapacidadesAcciones & { verPagos: boolean; verHistorial: boolean };
 
 export type ResultadoDetalleTurno =
   | { resultado: "ok"; turno: TurnoDetalle }
@@ -33,6 +33,11 @@ export async function obtenerDetalleTurno(
     capacidades.verPagos && usuario.rol !== "PROFESOR" ? listarPagosDeTurno(turno.id) : undefined,
     obtenerClaseDictadaDeTurno(turno.id),
   ]);
+  const alumnos = await Promise.all(turno.alumnos.map(async (alumno) => ({
+    ...alumno,
+    puede_ver_historial: capacidades.verHistorial && (usuario.rol !== "PROFESOR"
+      || (turno.profesor_id !== null && await profesorAtendioAlumno(turno.profesor_id, alumno.id))),
+  })));
   const acciones_habilitadas = calcularAccionesHabilitadas({
     estado: turno.estado,
     fecha: new Date(`${turno.fecha}T00:00:00.000Z`),
@@ -50,6 +55,7 @@ export async function obtenerDetalleTurno(
     resultado: "ok",
     turno: {
       ...turno,
+      alumnos,
       ...(pagos === undefined ? {} : { pagos }),
       clase_dictada: claseDictada ? { id: claseDictada.id, registrada_en: claseDictada.registrada_en } : null,
       acciones_habilitadas,

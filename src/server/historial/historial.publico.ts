@@ -22,3 +22,16 @@ export async function obtenerClaseDictadaDeTurno(
       }
     : null;
 }
+
+/** `true` cuando ese profesor registró una clase a la que asistió el alumno. */
+export async function profesorAtendioAlumno(
+  profesorId: string,
+  alumnoId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<boolean> {
+  const inscripcion = await db.claseDictadaAlumno.findFirst({
+    where: { alumnoId, clase: { is: { profesorId } } },
+    select: { alumnoId: true },
+  });
+  return inscripcion !== null;
+}

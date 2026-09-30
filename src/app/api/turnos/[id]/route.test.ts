@@ -35,10 +35,10 @@ describe("HU-C-09 GET /api/turnos/[id]", () => {
   it("calcula las capacidades opcionales como booleanos y pasa un único instante al servicio", async () => {
     await consultar();
     expect(tienePermiso.mock.calls.map(([accion]) => accion).sort()).toEqual(
-      ["clases:registrar", "pagos:crear", "pagos:leer", "turnos:cancelar", "turnos:priorizar", "turnos:reprogramar"],
+      ["clases:registrar", "historial:leer", "pagos:crear", "pagos:leer", "turnos:cancelar", "turnos:priorizar", "turnos:reprogramar"],
     );
     expect(obtenerDetalleTurno).toHaveBeenCalledExactlyOnceWith("turno-1", sesion.user, {
-      capacidades: { verPagos: true, cancelar: true, reprogramar: true, priorizar: true, registrarPago: true, registrarClase: false },
+      capacidades: { verPagos: true, verHistorial: true, cancelar: true, reprogramar: true, priorizar: true, registrarPago: true, registrarClase: false },
       ahora: expect.any(Date),
     });
   });
