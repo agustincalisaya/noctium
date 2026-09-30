@@ -4,6 +4,7 @@ import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
 export const ListarTurnosQuerySchema = z.object({
   pagina: z.coerce.number().int().positive().default(1),
   por_pagina: z.coerce.number().int().positive().max(20).optional(),
+  q: z.string().trim().max(100).optional(), // HU-C-02; profesor_id y .strict() los agrega HU-C-08
 });
 
 // Revisión 4 (§2.1): duraciones que Mesa de Entradas puede elegir. Cambiar el

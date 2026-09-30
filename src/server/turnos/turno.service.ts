@@ -10,7 +10,8 @@ import { verificarAulaActiva } from "@/server/aulas/aula.publico";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
 import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
-import type { AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
+import { construirFiltroBusquedaTurno } from "./turno.busqueda";
+import type { AgregarAlumnoTurnoInput,AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -287,15 +288,27 @@ function presentar(turno: TurnoConRelaciones) {
   };
 }
 
-export async function listarTurnos(pagina: number, porPaginaSolicitado: number | undefined, usuario: { id: string; rol: RolUsuario }) {
+/**
+ * Filtros opcionales del listado (spec_modulo_C.md §2.7). Cada uno se suma
+ * con AND al alcance base (desde hoy + rol): HU-C-08 agrega `profesor_id`
+ * acá sin cambiar la firma de listarTurnos().
+ */
+export type FiltrosListadoTurnos = { q?: string };
+
+export async function listarTurnos(pagina: number, porPaginaSolicitado: number | undefined, usuario: { id: string; rol: RolUsuario }, filtros: FiltrosListadoTurnos = {}) {
   const configurado = await getParametroNumerico("paginacion_limite_default", 10);
   const porPagina = porPaginaSolicitado ?? Math.min(20, Math.max(1, Math.trunc(configurado)));
   const partes = new Intl.DateTimeFormat("en-US", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const parte = (tipo: string) => partes.find(({ type }) => type === tipo)!.value;
   const inicioHoy = new Date(`${parte("year")}-${parte("month")}-${parte("day")}T00:00:00.000Z`);
-  const where = {
+  // Sin filtros el `where` es el de HU-C-01; la búsqueda (HU-C-02) mantiene el
+  // mismo alcance de fechas y rol. count y findMany usan el mismo `where`, así
+  // el total y la paginación son los del resultado filtrado.
+  const condiciones = [construirFiltroBusquedaTurno(filtros.q)].filter((condicion) => condicion !== undefined);
+  const where: Prisma.TurnoWhereInput = {
     fechaTurno: { gte: inicioHoy },
     ...(usuario.rol === "PROFESOR" ? { profesor: { is: { usuarioId: usuario.id } } } : {}),
+    ...(condiciones.length ? { AND: condiciones } : {}),
   };
   const total = await prisma.turno.count({ where });
   const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
