@@ -1,5 +1,5 @@
-import { TurnoConfiguracion } from "../turno-configuracion";
+import { TurnoWizard } from "./turno-wizard";
 
 export default function NuevoTurnoPage() {
-  return <TurnoConfiguracion retorno="/turnos" />;
+  return <TurnoWizard />;
 }

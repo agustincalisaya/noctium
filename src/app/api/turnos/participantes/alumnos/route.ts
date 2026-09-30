@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
-import { buscarAlumnosActivos } from "@/server/alumnos/alumno.service";
+import { buscarAlumnosActivos } from "@/server/alumnos/alumno.publico";
 
 export const GET = withPermission("turnos:asignar_participantes", async (req) => {
   const query = new URL(req.url).searchParams.get("q")?.trim() ?? "";

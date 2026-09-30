@@ -11,6 +11,7 @@ import { SeccionAulaTurno, type AulaOpcion } from "./seccion-aula-turno";
 import type { Turno } from "@/types/turno.types";
 
 type Materia = { id: string; nombre: string; codigo: string | null };
+type ProfesorLegacy = { id: string; nombre: string; apellido: string };
 type Parametros = { zona_horaria: string; duraciones_permitidas_minutos: number[]; granularidad_minutos: number; dias_operativos: string[]; apertura: string; cierre: string; anticipacion_maxima_dias: number };
 // `duracion_min` vacío = sin elegir (Revisión 4: sin valor preseleccionado).
 type Campos = { fecha: string; duracion_min: string; hora_inicio: string; materia_id: string };
@@ -92,6 +93,9 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   const [campos, setCampos] = useState<Campos>(inicial);
   const [originales, setOriginales] = useState<Campos>(inicial);
   const [materias, setMaterias] = useState<Materia[]>([]);
+  const [profesoresLegacy, setProfesoresLegacy] = useState<ProfesorLegacy[]>([]);
+  const [profesorIdLegacy, setProfesorIdLegacy] = useState("");
+  const [avisoProfesoresLegacy, setAvisoProfesoresLegacy] = useState("");
   const [parametros, setParametros] = useState<Parametros | null>(null);
   const [turno, setTurno] = useState<Turno | null>(null);
   const [aulas, setAulas] = useState<AulaOpcion[]>([]);
@@ -132,10 +136,20 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         try { opciones = await pedirAulas(id!); }
         catch (e) { errorOpciones = e instanceof Error ? e.message : "No se pudieron cargar las aulas"; }
       }
+      let profesores: ProfesorLegacy[] = [];
+      let avisoProfesores = "";
+      if (actual?.estado === "PENDIENTE" && !actual.profesor_id) {
+        const respuestaProfesores = await fetchAutenticado(`/api/turnos/profesores/opciones?turno_id=${encodeURIComponent(id!)}`, { cache: "no-store" });
+        const valorProfesores = await respuestaProfesores.json().catch(() => null);
+        if (valorProfesores?.error?.code === "SIN_PROFESORES_PARA_MATERIA") avisoProfesores = "No hay profesores activos asociados a esta materia";
+        else if (!respuestaProfesores.ok || !Array.isArray(valorProfesores?.data)) avisoProfesores = valorProfesores?.error?.message ?? "No se pudieron cargar los profesores";
+        else profesores = valorProfesores.data;
+      }
       setMaterias(valores[0].data.materias); setParametros(configuracion); setAhora(new Date());
       setTurno(actual); setAulas(opciones?.aulas ?? []); setSinAulas(opciones?.sinAulas ?? false);
       setEstadoAulas(actual?.estado === "PENDIENTE" ? errorOpciones ? "error" : "listas" : "sin-consultar");
       setErrorAula(errorOpciones);
+      setProfesoresLegacy(profesores); setProfesorIdLegacy(actual?.profesor_id ?? ""); setAvisoProfesoresLegacy(avisoProfesores);
       if (actual) {
         const duracionVigente = configuracion.duraciones_permitidas_minutos.includes(actual.duracion_minutos);
         const duracion = duracionVigente ? String(actual.duracion_minutos) : "";
@@ -176,7 +190,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   useEffect(() => { const timer = window.setInterval(() => setAhora(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
 
   // Cambios sin guardar (HU-A-03 c2): se descartan al guardar o al salir (Cancelar).
-  const configuracionCambiada = (Object.keys(campos) as (keyof Campos)[]).some((campo) => campos[campo] !== originales[campo]);
+  const configuracionCambiada = (Object.keys(campos) as (keyof Campos)[]).some((campo) => campos[campo] !== originales[campo]) || Boolean(turno && profesorIdLegacy !== (turno.profesor_id ?? ""));
   const intervaloCambiado = campos.fecha !== originales.fecha || campos.hora_inicio !== originales.hora_inicio || campos.duracion_min !== originales.duracion_min;
   const aulaCambiada = Boolean(aulaId && aulaId !== aulaIdOriginal);
   const sinGuardar = !resultado && (configuracionCambiada || aulaCambiada);
@@ -190,7 +204,8 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   const horaInvalida = campos.hora_inicio && !horas.includes(campos.hora_inicio) ? "Elegí una hora de inicio válida para la fecha seleccionada" : "";
   const sinHorarios = Boolean(campos.fecha && !fechaInvalida && horas.length === 0);
   const configuracionValida = Boolean(parametros && momento && campos.fecha && !fechaInvalida && campos.duracion_min && campos.hora_inicio && !horaInvalida && campos.materia_id);
-  const puedeGuardar = configuracionValida && !guardando && (!turnoId || configuracionCambiada || (estadoAulas === "listas" && aulaCambiada));
+  const puedeGuardar = configuracionValida && !guardando && (!turnoId || configuracionCambiada || (estadoAulas === "listas" && aulaCambiada))
+    && (!turno || !configuracionCambiada || Boolean(profesorIdLegacy));
 
   const invalidarAulas = () => {
     if (!turnoId) return;
@@ -252,7 +267,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
       const guardarNuevoIntervalo = Boolean(idGuardado && intervaloCambiado);
       if (!idGuardado || configuracionCambiada) {
         const respuesta = await fetchAutenticado(idGuardado ? `/api/turnos/${encodeURIComponent(idGuardado)}/configuracion` : "/api/turnos", {
-          method: idGuardado ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...campos, duracion_min: Number(campos.duracion_min) }), cache: "no-store",
+          method: idGuardado ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...campos, duracion_min: Number(campos.duracion_min), ...(idGuardado && profesorIdLegacy ? { profesor_id: profesorIdLegacy } : {}) }), cache: "no-store",
         });
         const valor = await respuesta.json().catch(() => null);
         if (!respuesta.ok) {
@@ -271,6 +286,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
           window.history.replaceState(null, "", `/turnos/${encodeURIComponent(idGuardado)}/configuracion?volver=${encodeURIComponent(retorno)}`);
         }
         setOriginales(campos);
+        if (turno && profesorIdLegacy !== (turno.profesor_id ?? "")) setTurno({ ...turno, profesor_id: profesorIdLegacy });
       }
       // El aula se elige únicamente después de ver las opciones del intervalo ya persistido.
       if (primeraPersistencia || guardarNuevoIntervalo) {
@@ -335,6 +351,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
       <div className="space-y-1"><label htmlFor="hora" className="text-sm font-medium">Hora de inicio *</label><select id="hora" required value={campos.hora_inicio} onChange={(e) => cambiar("hora_inicio", e.target.value)} disabled={!campos.fecha || Boolean(fechaInvalida) || horas.length === 0} aria-invalid={Boolean(errores.hora_inicio || horaInvalida || sinHorarios)} aria-describedby={errores.hora_inicio || horaInvalida || sinHorarios ? "hora-error" : avisoHora ? "hora-aviso" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"><option value="">Seleccioná una hora</option>{horas.map((hora) => <option key={hora} value={hora}>{hora}</option>)}</select>{avisoHora && !horaInvalida && <p id="hora-aviso" role="status" className="text-sm text-warning-foreground">{avisoHora}</p>}{(errores.hora_inicio || horaInvalida || sinHorarios) && <p id="hora-error" role="alert" className="text-sm text-destructive">{errores.hora_inicio || horaInvalida || "No hay horarios de inicio válidos para esta fecha"}</p>}{fechaInvalida === "El centro no atiende el día seleccionado" && <p className="text-sm text-muted-foreground">No se ofrecen horarios en días no operativos.</p>}</div>
       <p className="text-sm">Hora de finalización: <strong aria-live="polite">{fin}</strong> <span className="text-muted-foreground">(calculada automáticamente; solo lectura)</span></p>
       <div className="space-y-1"><label htmlFor="materia" className="text-sm font-medium">Materia *</label><select id="materia" required value={campos.materia_id} onChange={(e) => cambiar("materia_id", e.target.value)} aria-invalid={Boolean(errores.materia_id)} aria-describedby={errores.materia_id ? "materia-error" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná una materia</option>{materias.map((materia) => <option key={materia.id} value={materia.id}>{materia.nombre}{materia.codigo ? ` (${materia.codigo})` : ""}</option>)}</select><p id="materia-error" className="text-sm text-destructive">{errores.materia_id}</p></div>
+      {id && turno && !turno.profesor_id && <div className="space-y-1"><label htmlFor="profesor-legacy" className="text-sm font-medium">Profesor para modificar la configuración *</label><select id="profesor-legacy" value={profesorIdLegacy} onChange={(e) => { setProfesorIdLegacy(e.target.value); setError(""); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná un profesor</option>{profesoresLegacy.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>{avisoProfesoresLegacy && <p role="status" className="text-sm text-warning-foreground">{avisoProfesoresLegacy}</p>}<p className="text-sm text-muted-foreground">Este turno anterior no tiene profesor. Para cambiar fecha, hora, duración o materia, elegí uno disponible. Podés asignar el aula sin modificar esos datos.</p></div>}
       {!turnoId ? null : intervaloCambiado ? <p role="status" className="border-t border-border pt-5 text-sm text-muted-foreground">Guardá la configuración para consultar aulas para el nuevo horario.</p>
         : estadoAulas === "cargando" ? <p role="status" className="border-t border-border pt-5">Cargando aulas disponibles</p>
           : estadoAulas === "error" ? <div role="alert" className="space-y-2 border-t border-border pt-5"><p>{errorAula}</p><Button type="button" variant="outline" onClick={() => void recargarAulas()}>Reintentar</Button></div>

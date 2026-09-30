@@ -68,6 +68,7 @@ beforeEach(() => {
     const propia = rutas(url, init);
     if (propia) return propia;
     if (url === "/api/turnos/configuracion") return respuesta(CONFIGURACION);
+    if (url === "/api/turnos/profesores/opciones?turno_id=turno-1") return respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Pérez" }]);
     if (url.startsWith("/api/turnos/aula/opciones")) return respuesta(AULAS);
     if (url === "/api/turnos" && init?.method === "POST") return respuesta({ id: "turno-nuevo", fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", cupo_maximo: null, estado: "PENDIENTE" });
     if (url.endsWith("/aula") && init?.method === "PATCH") {
@@ -180,10 +181,12 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
       ? respuesta(++consultas === 1 ? AULAS : [AULAS[0]]) : undefined;
     await montar("turno-1");
     await escribir(campo<HTMLSelectElement>("#hora"), "10:30");
+    await escribir(campo<HTMLSelectElement>("#profesor-legacy"), "profesor-1");
     expect(container.querySelector("#aula")).toBeNull();
     await enviar();
     expect(consultas).toBe(2);
-    expect(llamadas("PATCH", "/api/turnos/turno-1/configuracion")).toHaveLength(1);
+    const [patchConfiguracion] = llamadas("PATCH", "/api/turnos/turno-1/configuracion");
+    expect(JSON.parse(String(patchConfiguracion![1].body)).profesor_id).toBe("profesor-1");
     expect(llamadas("PATCH", "/api/turnos/turno-1/aula")).toHaveLength(0);
     expect(llamadas("POST", "/api/turnos")).toHaveLength(0);
     expect(container.textContent).toContain("Aula 1 · Cupo máximo: 10");
@@ -196,6 +199,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
       ? respuesta(++consultas === 1 ? AULAS : [AULAS[1]]) : undefined;
     await montar("turno-1");
     await escribir(campo<HTMLSelectElement>("#hora"), "10:30");
+    await escribir(campo<HTMLSelectElement>("#profesor-legacy"), "profesor-1");
     await enviar();
     expect(campo<HTMLSelectElement>("#aula").value).toBe("");
     expect(container.textContent).not.toContain("Aula 1 · Capacidad 10");
@@ -216,6 +220,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
       ? respuesta(null, false, { message: "No se pudo actualizar la configuración" }) : undefined;
     await montar("turno-1");
     await escribir(campo<HTMLSelectElement>("#hora"), "10:30");
+    await escribir(campo<HTMLSelectElement>("#profesor-legacy"), "profesor-1");
     await enviar();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("No se pudo actualizar la configuración");
     expect(llamadas("GET", "/api/turnos/aula/opciones?turno_id=turno-1")).toHaveLength(1);
@@ -376,11 +381,22 @@ describe("HU-C-03 Revisión 4: duración configurable", () => {
     expect(container.textContent).toContain("Hora de finalización: 12:00");
     expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(true);
     await elegirDuracion(180);
+    expect(campo<HTMLButtonElement>('button[type="submit"]').disabled).toBe(true);
+    await escribir(campo<HTMLSelectElement>("#profesor-legacy"), "profesor-1");
     await enviar();
     const [patch] = llamadas("PATCH", "/api/turnos/turno-1/configuracion");
-    expect(JSON.parse(String(patch![1].body))).toEqual({ fecha: "2026-10-01", duracion_min: 180, hora_inicio: "10:00", materia_id: "materia-1" });
+    expect(JSON.parse(String(patch![1].body))).toEqual({ fecha: "2026-10-01", duracion_min: 180, hora_inicio: "10:00", materia_id: "materia-1", profesor_id: "profesor-1" });
     expect(llamadas("GET", "/api/turnos/aula/opciones?turno_id=turno-1")).toHaveLength(2);
     expect(container.textContent).toContain("2026-10-01 · 10:00–13:00 · Aula 1");
     expect(container.querySelector('a[href*="/participantes"]')).not.toBeNull();
+  });
+
+  it("en edición de un PENDIENTE con profesor reenvía profesor_id al PATCH compartido", async () => {
+    rutas = (url) => url === "/api/turnos/turno-1" ? respuesta({ ...PENDIENTE, profesor_id: "profesor-1" }) : undefined;
+    await montar("turno-1");
+    await elegirDuracion(120);
+    await enviar();
+    const [patch] = llamadas("PATCH", "/api/turnos/turno-1/configuracion");
+    expect(JSON.parse(String(patch![1].body))).toMatchObject({ materia_id: "materia-1", profesor_id: "profesor-1", duracion_min: 120 });
   });
 });
