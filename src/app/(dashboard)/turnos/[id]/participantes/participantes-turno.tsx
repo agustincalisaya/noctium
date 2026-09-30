@@ -8,7 +8,7 @@ import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { BuscadorAlumnos, etiquetaAlumno } from "../../buscador-alumnos";
 import { EstadoTurnoBadge } from "../../estado-turno-badge";
-import type { Turno } from "../../turno.types";
+import type { Turno } from "@/types/turno.types";
 
 type Profesor = { id: string; nombre: string; apellido: string };
 /** Mismo formato que `Turno.alumnos`: `nombre` ya es "Apellido, Nombre". */
