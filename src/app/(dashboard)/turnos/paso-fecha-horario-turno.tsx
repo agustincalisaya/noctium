@@ -136,12 +136,12 @@ export function PasoFechaHorarioTurno({ materiaId, profesorId, profesorNombre, d
                       return <button key={dia.fecha} type="button" data-fecha={dia.fecha} data-estado={estado} aria-pressed={seleccionado}
                         aria-label={`${fechaLegible(dia.fecha, true)}, ${dia.seleccionable ? "con horarios libres" : conHorario ? "con horario sin bloques libres" : "sin horarios"}`}
                         disabled={!dia.en_rango || !conHorario} onClick={() => verDia(dia)}
-                        className={`aspect-square rounded-md text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${seleccionado ? "bg-primary font-semibold text-primary-foreground" : dia.seleccionable ? "bg-success/20 font-semibold text-foreground hover:bg-success/30" : conHorario ? "border border-border text-muted-foreground hover:bg-muted" : "text-muted-foreground/70"}`}>
+                        className={`aspect-square rounded-md text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${seleccionado ? "bg-primary font-semibold text-primary-foreground" : dia.seleccionable ? "border border-success-foreground/25 bg-success font-semibold text-success-foreground hover:brightness-95" : conHorario ? "border border-border text-muted-foreground hover:bg-muted" : "text-muted-foreground/70"}`}>
                         {dia.numero}
                       </button>;
                     })}
                   </div>
-                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><i className="size-3 rounded-sm border border-success bg-success/20" />Con horarios libres</span><span className="flex items-center gap-1.5"><i className="size-3 rounded-sm bg-primary" />Seleccionado</span></div>
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground"><span className="flex items-center gap-1.5"><i className="size-3 rounded-sm border border-success-foreground/25 bg-success" />Con horarios libres</span><span className="flex items-center gap-1.5"><i className="size-3 rounded-sm bg-primary" />Seleccionado</span></div>
                 </div>
                 <div className="min-w-0 space-y-4 border-t border-border pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0">
                   {!diaVista ? <p className="text-sm text-muted-foreground">Elegí un día marcado en el calendario para ver los horarios.</p> : <>

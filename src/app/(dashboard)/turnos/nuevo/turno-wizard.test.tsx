@@ -478,7 +478,7 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     expect(container.querySelector('input[value="profesor-1"]')).not.toBeNull();
     expect(container.querySelector('input[value="profesor-2"]')).toBeNull();
     expect(container.querySelector("h2#titulo-paso-profesor")?.textContent).toBe("Elegí el profesor");
-    expect(container.textContent).toContain("Martes 16:00–20:00");
+    expect(container.textContent.replaceAll("\u00a0", " ")).toContain("Martes: 16:00–20:00");
     expect(container.textContent).not.toContain("Paso 2 de 5");
     expect([...container.querySelectorAll('nav[aria-label="Progreso del nuevo turno"] li')].map((paso) => paso.getAttribute("data-estado")))
       .toEqual(["completado", "actual", "futuro", "futuro", "futuro"]);

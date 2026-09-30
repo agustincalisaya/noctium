@@ -73,6 +73,9 @@ describe("Paso 3 agenda y calendario", () => {
     expect(container.textContent).toContain("Seleccionado");
     expect(container.querySelector<HTMLButtonElement>('button[aria-label="Mes anterior"]')?.disabled).toBe(true);
     expect(dia("2026-10-01").dataset.estado).toBe("libre");
+    expect(dia("2026-10-01").className).toContain("bg-success");
+    expect(dia("2026-10-01").className).toContain("text-success-foreground");
+    expect(container.querySelector('i.bg-success')).not.toBeNull();
     expect(dia("2026-10-02").dataset.estado).toBe("sin-libres");
     expect(dia("2026-10-03").disabled).toBe(true);
     await pulsar(container.querySelector('button[aria-label="Mes siguiente"]')!);
