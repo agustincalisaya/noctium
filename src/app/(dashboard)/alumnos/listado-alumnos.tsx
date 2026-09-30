@@ -2,21 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/shared/pagination";
+import { CampoBusqueda, ESPERA_AVISO_CARGA_MS, ESPERA_BUSQUEDA_MS } from "@/components/shared/campo-busqueda";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { terminoBusqueda } from "@/lib/busqueda-texto";
 import { parametrosListadoAlumnos } from "@/lib/alumno-listado";
 import type { ListadoAlumnos as DatosListado } from "@/types/alumno.types";
 import { AvisoErrorAlumnos } from "./aviso-error-alumnos";
 
-/** Espera desde la última tecla antes de buscar (spec_modulo_B.md §2.7). */
-export const ESPERA_BUSQUEDA_MS = 300;
-/** Demora de la respuesta a partir de la cual se muestra el spinner del input. */
-export const ESPERA_AVISO_CARGA_MS = 300;
+// Las esperas viven con el campo compartido (HU-C-02 las reutiliza); se
+// reexportan para no cambiar la interfaz de este módulo.
+export { ESPERA_AVISO_CARGA_MS, ESPERA_BUSQUEDA_MS };
 
 /**
  * Listado de alumnos con búsqueda (HU-B-04 + HU-B-05, spec_modulo_B.md §2.7).
@@ -112,29 +110,17 @@ export function ListadoAlumnos({
   const { items, paginacion } = resultado.datos;
   // Si el texto volvió al término de los datos en pantalla, esos datos valen.
   const mostrarError = error && q !== resultado.q;
-  const claseIcono = "pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground";
 
   return (
     <div className="space-y-4">
-      <div className="relative">
-        {/* Mismo lugar y tamaño que la lupa: el aviso no mueve el layout. */}
-        {buscandoLento ? (
-          <Loader2 className={cn(claseIcono, "animate-spin")} aria-hidden data-buscando="" />
-        ) : (
-          <Search className={claseIcono} aria-hidden />
-        )}
-        {buscandoLento && <span role="status" className="sr-only">Buscando alumnos</span>}
-        <Input
-          type="search"
-          value={texto}
-          onChange={(event) => setTexto(event.target.value)}
-          placeholder="Ej.: juan perez, 42…"
-          aria-label="Buscar alumno"
-          autoComplete="off"
-          maxLength={100}
-          className="pl-9"
-        />
-      </div>
+      <CampoBusqueda
+        valor={texto}
+        onCambiar={setTexto}
+        placeholder="Ej.: juan perez, 42…"
+        etiqueta="Buscar alumno"
+        buscando={buscandoLento}
+        textoBuscando="Buscando alumnos"
+      />
 
       {mostrarError ? (
         <AvisoErrorAlumnos onReintentar={() => void cargar(q)} />

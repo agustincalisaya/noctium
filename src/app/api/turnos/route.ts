@@ -9,7 +9,7 @@ export const GET = withPermission("turnos:leer", async (req) => {
   if (!parsed.success) {
     return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Parámetros inválidos", detalles: parsed.error.flatten() } }, { status: 400 });
   }
-  const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user);
+  const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user, { q: parsed.data.q });
   return NextResponse.json({ data, error: null });
 });
 
