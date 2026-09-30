@@ -1,8 +1,8 @@
 import type { RolUsuario } from "@prisma/client";
 import { listarPagosDeTurno } from "@/server/pagos/pago.publico";
 import type { TurnoDetalle } from "@/types/turno.types";
-import { calcularAccionesHabilitadas, type CapacidadesAcciones } from "./turno.acciones";
-import { obtenerTurno } from "./turno.service";
+import { calcularAccionesHabilitadas, type CapacidadesAcciones } from "@/server/turnos/turno.acciones";
+import { obtenerTurno } from "@/server/turnos/turno.service";
 
 /**
  * Ensamblador del detalle de turno (HU-C-09, spec_modulo_C.md §2.4). Es el

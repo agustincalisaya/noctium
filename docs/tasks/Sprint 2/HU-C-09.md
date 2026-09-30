@@ -170,7 +170,7 @@ La pantalla sigue siendo `/turnos/[id]` y el componente actual se rearma según 
 | Zona | Contenido |
 |---|---|
 | **Migas** | `Turnos / {materia} · {dd/mm}` (usar el componente `Breadcrumb` compartido) |
-| **Título** | `{materia}` + etiqueta de estado (`EstadoTurnoBadge`, DESIGN §6.5). Subtítulo: `{día} {d} de {mes} de {año} · {HH:mm}–{HH:mm} · {aula} · {profesor}` (ej. «Martes 6 de octubre de 2026 · 16:00–17:00 · Aula 3 · Laura Méndez»); `Sin asignar` donde falte aula o profesor |
+| **Título** | `{materia}` + etiqueta de estado (`EstadoTurnoBadge`, DESIGN §6.5). Subtítulo: `{día} {d} de {mes} de {año} · {HH:mm}–{HH:mm} · {aula} · {profesor}` (ej. «Martes 6 de octubre de 2026 · 16:00–17:00 · Aula 3 · Méndez, Laura»); `Sin asignar` donde falte aula o profesor (el sistema usa «Apellido, Nombre»; el mockup usa orden natural en sus datos de ejemplo) |
 | **Acciones** (arriba a la derecha) | Área reservada. Hito 3: «Reprogramar», «Asignar prioridad», «Cancelar turno». Cada botón aparece solo si su clave está en `acciones_habilitadas` **y** existen su endpoint y su modal |
 | **Tarjeta «Datos del turno»** (grilla de 3 columnas, etiquetas en mayúsculas) | MATERIA · PROFESOR · AULA · FECHA (`dd/mm/aaaa`) · HORA DE INICIO–FIN · DURACIÓN («1 hora», «2 horas») · CUPO MÁXIMO («6 alumnos») · ESTADO · PRIORIDAD · CREADO (`dd/mm/aaaa`) · CREADO POR (email; `null` → «Sin registrar») |
 | **Tarjeta «Alumnos inscriptos · N de M»** | Una fila por alumno, con iniciales y nombre; se conserva «Quitar» por fila (HU-C-04) y «Agregar alumno» va en el encabezado de la tarjeta. Cupo sin asignar → «Sin asignar» en lugar de «N de M». Lista vacía con cupo asignado → «El turno no tiene alumnos inscriptos.». Hito 2: «Ver historial» como enlace de texto al final de la fila |
