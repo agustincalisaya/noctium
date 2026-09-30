@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetch } = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/lib/fetch-autenticado", () => ({ fetchAutenticado: fetch }));
+vi.mock("@/components/sesion/link-protegido", async () => {
+  const React = await import("react");
+  return { LinkProtegido: ({ href, children, prefetch, ...props }: { href: string; children: React.ReactNode; prefetch?: boolean }) => { void prefetch; return React.createElement("a", { href, ...props }, children); } };
+});
 vi.mock("next/link", async () => {
   const React = await import("react");
   return { default: ({ href, children, prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => {
@@ -116,7 +120,7 @@ describe("HU-C-01 interfaz", () => {
     expect(container.textContent).toContain("Pérez, Juan");
     expect(container.textContent).toContain("Disponible");
     expect(container.textContent).toContain("mesa@example.com");
-    expect(container.textContent).toContain("Fecha de creación");
+    expect([...container.querySelectorAll("dt")].find((elemento) => elemento.textContent === "Creado")?.nextElementSibling?.textContent).toBe("24/09/2026");
     const estado = [...container.querySelectorAll("dt")].find((elemento) => elemento.textContent === "Estado")?.nextElementSibling?.querySelector("span");
     expect(estado?.textContent).toBe("Disponible");
     expect(estado?.className).toContain("bg-success");
@@ -146,7 +150,7 @@ describe("HU-C-01 interfaz", () => {
     await esperar();
     expect(enlace("Modificar configuración o aula")?.getAttribute("href")).toBe(`/turnos/turno-1/configuracion${volver}`);
     expect(enlace("Asignar profesor y alumnos")?.getAttribute("href")).toBe(`/turnos/turno-1/participantes${volver}`);
-    expect(cupo()).toBe("10");
+    expect(cupo()).toBe("10 alumnos");
     expect(container.querySelector('a[href*="/aula"]')).toBeNull();
   });
 });

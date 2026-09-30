@@ -62,8 +62,8 @@ describe("HU-C-01 listado y detalle", () => {
 
   it("el detalle conserva alumnos, estado y usuario creador", async () => {
     const resultado = await obtenerTurno("turno-DISPONIBLE", mesa);
-    expect(resultado).toMatchObject({ estado: "DISPONIBLE", alumnos_inscriptos: "3/5", creado_en: "2026-09-24T12:00:00.000Z", creado_por: "mesa@example.com" });
-    expect(resultado?.alumnos).toHaveLength(3);
+    expect(resultado).toMatchObject({ resultado: "ok", turno: { estado: "DISPONIBLE", alumnos_inscriptos: "3/5", creado_en: "2026-09-24T12:00:00.000Z", creado_por: "mesa@example.com" } });
+    expect(resultado.resultado === "ok" && resultado.turno.alumnos).toHaveLength(3);
   });
 });
 
