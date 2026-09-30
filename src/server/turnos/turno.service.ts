@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
-import type { EstadoTurno, Prisma, RolUsuario } from "@prisma/client";
+import type { EstadoTurno, Prisma, PrioridadTurno, RolUsuario } from "@prisma/client";
 import { ServiceError } from "@/server/shared/service-error";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria, estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.publico";
@@ -14,7 +14,7 @@ import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validacion
 import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
 import { construirFiltroBusquedaTurno } from "./turno.busqueda";
-import type { AgregarAlumnoTurnoInput,AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
+import type { ActualizarPrioridadInput, AgregarAlumnoTurnoInput,AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -391,4 +391,30 @@ export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUs
   if (!turno) return { resultado: usuario.rol === "PROFESOR" ? "sin_permiso" : "no_encontrado" };
   const creadoPor = turno.creadoPorUsuarioId ? await obtenerEmailDeUsuario(turno.creadoPorUsuarioId) : null;
   return { resultado: "ok", turno: { ...presentar(turno), creado_por: creadoPor } };
+}
+
+/** HU-C-10: bloqueo y cambio condicional en una transacción; evento tras el commit. */
+export async function actualizarPrioridadTurno(id: string, input: ActualizarPrioridadInput, usuarioId: string) {
+  const resultado = await prisma.$transaction(async (tx) => {
+    const [turno] = await tx.$queryRaw<{ idTurno: string; estadoTurno: EstadoTurno; prioridadTurno: PrioridadTurno }[]>`
+      SELECT "idTurno", "estadoTurno", "prioridadTurno"
+      FROM "turnos" WHERE "idTurno" = ${id} FOR UPDATE
+    `;
+    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+    if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "Un turno cancelado no admite cambios de prioridad");
+    if (turno.prioridadTurno === input.prioridad) return { anterior: turno.prioridadTurno, sinCambios: true };
+
+    const actualizado = await tx.turno.updateMany({
+      where: { idTurno: id, estadoTurno: { not: "CANCELADO" } },
+      data: { prioridadTurno: input.prioridad, modificadoPorUsuarioId: usuarioId },
+    });
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    return { anterior: turno.prioridadTurno, sinCambios: false };
+  });
+
+  if (resultado.sinCambios) return { id, prioridad: input.prioridad, sin_cambios: true as const };
+  await emitirEventoTurno("turno:prioridad_actualizada", id, usuarioId, {
+    turno_id: id, prioridad_anterior: resultado.anterior, prioridad_nueva: input.prioridad, usuario_id: usuarioId,
+  });
+  return { id, prioridad: input.prioridad };
 }
