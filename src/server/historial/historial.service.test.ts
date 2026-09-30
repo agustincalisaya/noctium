@@ -19,12 +19,12 @@ const mesa = { id: "mesa-1", rol: "MESA_ENTRADA" as const };
 const registroClase = {
   total: 2n, materias_disponibles: ["materia-1"], tipo: "CLASE_DICTADA" as const,
   fecha: new Date("2026-09-28T00:00:00.000Z"), materia_id: "materia-1", profesor_id: "profesor-1",
-  nota: null, turno_id: "turno-1", registro_id: "clase-1",
+  nota: null, observaciones: null, turno_id: "turno-1", registro_id: "clase-1",
 };
 const registroExamen = {
   total: 2n, materias_disponibles: ["materia-1"], tipo: "EXAMEN" as const,
   fecha: new Date("2026-09-30T00:00:00.000Z"), materia_id: "materia-1", profesor_id: null,
-  nota: "8.5", turno_id: null, registro_id: "examen-1",
+  nota: "8.5", observaciones: "Parcial de cinemática", turno_id: null, registro_id: "examen-1",
 };
 
 beforeEach(() => {
@@ -45,7 +45,7 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
       alumno: { id: "alumno-1", nombre_completo: "Acosta, Emilia" },
       materias_disponibles: [{ id: "materia-1", nombre: "Programación I" }],
       items: [
-        { tipo: "EXAMEN", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5" },
+        { tipo: "EXAMEN", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5", observaciones: "Parcial de cinemática" },
         { tipo: "CLASE_DICTADA", fecha: "2026-09-28", materia: { id: "materia-1", nombre: "Programación I" }, profesor: "Acuña, Sergio", turno_id: "turno-1" },
       ],
       paginacion: { total: 2, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
