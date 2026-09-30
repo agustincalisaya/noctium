@@ -9,6 +9,8 @@ import { PasoMateriaTurno, type MateriaOpcionTurno } from "../paso-materia-turno
 import { PasoProfesorTurno, type ProfesorOpcionTurno } from "../paso-profesor-turno";
 import { PasoFechaHorarioTurno } from "../paso-fecha-horario-turno";
 import { SeccionAulaTurno, type AulaOpcion } from "../seccion-aula-turno";
+import { PasoAlumnosTurno, type AlumnoSeleccionadoTurno } from "../paso-alumnos-turno";
+import { EstadoTurnoBadge } from "../estado-turno-badge";
 import { ProgresoTurno, type PasoTurno } from "./progreso-turno";
 import { ResumenTurno } from "./resumen-turno";
 
@@ -18,14 +20,14 @@ type SeleccionTurno = {
   duracionMin: number | null;
   fecha: string;
   horaInicio: string;
-  alumnoIds: string[];
+  alumnos: AlumnoSeleccionadoTurno[];
 };
 type ConfiguracionPersistida = Pick<SeleccionTurno, "materiaId" | "profesorId" | "duracionMin" | "fecha" | "horaInicio">;
 type ConsultaProfesores = { materiaId: string; estado: "cargando" | "listas" | "error"; opciones: ProfesorOpcionTurno[]; mensaje: string };
 type ConsultaAulas = { estado: "cargando" | "listas" | "sinAulas" | "error"; opciones: AulaOpcion[]; mensaje: string };
 type Disponibilidad = { fechas: { fecha: string; franjas: { inicios: string[] }[] }[] };
 
-const seleccionInicial: SeleccionTurno = { materiaId: "", profesorId: "", duracionMin: null, fecha: "", horaInicio: "", alumnoIds: [] };
+const seleccionInicial: SeleccionTurno = { materiaId: "", profesorId: "", duracionMin: null, fecha: "", horaInicio: "", alumnos: [] };
 
 /** Solo se conserva una elección anterior si todavía figura entre los inicios del servidor. */
 function seleccionSigueDisponible(disponibilidad: Disponibilidad, fecha: string, hora: string) {
@@ -49,6 +51,9 @@ export function TurnoWizard() {
   const [reintentoAulas, setReintentoAulas] = useState(0);
   const [aulaIdElegida, setAulaIdElegida] = useState("");
   const [aulaGuardada, setAulaGuardada] = useState<AulaOpcion | null>(null);
+  const [cupoMaximo, setCupoMaximo] = useState<number | null>(null);
+  const [resultadoFinal, setResultadoFinal] = useState<"DISPONIBLE" | "COMPLETO" | null>(null);
+  const [errorAlumno, setErrorAlumno] = useState<{ id: string; mensaje: string } | null>(null);
   const [guardando, setGuardando] = useState(false);
   const guardandoRef = useRef(false);
   const [errorGuardado, setErrorGuardado] = useState("");
@@ -124,13 +129,14 @@ export function TurnoWizard() {
         if (controlador.signal.aborted) return;
         if (valor?.error?.code === "SIN_AULAS_ACTIVAS") {
           setAulaGuardada(null);
+          setCupoMaximo(null);
           setConsultaAulas({ estado: "sinAulas", opciones: [], mensaje: "" });
           return;
         }
         if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? "No se pudieron cargar las aulas");
         const opciones = valor.data as AulaOpcion[];
         const guardada = opciones.find((aula) => aula.id === aulaGuardada?.id);
-        if (aulaGuardada && !guardada) setAulaGuardada(null);
+        if (aulaGuardada && !guardada) { setAulaGuardada(null); setCupoMaximo(null); }
         setAulaIdElegida(guardada?.id ?? "");
         setConsultaAulas({ estado: "listas", opciones, mensaje: "" });
       } catch (error) {
@@ -149,8 +155,8 @@ export function TurnoWizard() {
         || seleccion.duracionMin !== configuracionPersistida.duracionMin || seleccion.fecha !== configuracionPersistida.fecha
         || seleccion.horaInicio !== configuracionPersistida.horaInicio
       : Boolean(seleccion.materiaId || seleccion.profesorId || seleccion.duracionMin || seleccion.fecha || seleccion.horaInicio);
-    setDirty(cambiosConfiguracion || Boolean((aulaIdElegida && aulaIdElegida !== aulaGuardada?.id) || seleccion.alumnoIds.length));
-  }, [seleccion, configuracionPersistida, aulaIdElegida, aulaGuardada, setDirty]);
+    setDirty(!resultadoFinal && (cambiosConfiguracion || Boolean((aulaIdElegida && aulaIdElegida !== aulaGuardada?.id) || seleccion.alumnos.length)));
+  }, [seleccion, configuracionPersistida, aulaIdElegida, aulaGuardada, resultadoFinal, setDirty]);
   useEffect(() => () => setDirty(false), [setDirty]);
 
   const materia = materias.find(({ id }) => id === seleccion.materiaId);
@@ -160,7 +166,8 @@ export function TurnoWizard() {
   const fechaHorario = seleccion.fecha && seleccion.horaInicio && seleccion.duracionMin
     ? `${seleccion.fecha} · ${seleccion.horaInicio} · ${seleccion.duracionMin / 60} h` : null;
   const aulaElegida = consultaAulas?.estado === "listas" ? consultaAulas.opciones.find((aula) => aula.id === aulaIdElegida) : undefined;
-  const puedeContinuar = paso === 1 ? Boolean(materia) : paso === 2 ? Boolean(profesor) : paso === 4 ? Boolean(turnoId && aulaElegida) : false;
+  const puedeContinuar = paso === 1 ? Boolean(materia) : paso === 2 ? Boolean(profesor) : paso === 4 ? Boolean(turnoId && aulaElegida)
+    : paso === 5 ? Boolean(turnoId && aulaGuardada && cupoMaximo && seleccion.alumnos.length > 0 && seleccion.alumnos.length <= cupoMaximo) : false;
 
   const cambiarMateria = (nuevaMateriaId: string) => {
     if (nuevaMateriaId === seleccion.materiaId) return;
@@ -189,6 +196,7 @@ export function TurnoWizard() {
       if (!respuesta.ok || !valor?.data?.id) throw new Error(valor?.error?.message ?? "No se pudo guardar la configuración del turno");
       if (turnoId && (valor.data.aula_desasignada === true || (valor.data.aula_desasignada === false && valor.data.cupo_maximo === null))) {
         setAulaGuardada(null);
+        setCupoMaximo(null);
         setAulaIdElegida("");
       }
       setConsultaAulas(null);
@@ -211,8 +219,31 @@ export function TurnoWizard() {
       const valor = await respuesta.json().catch(() => null);
       if (!respuesta.ok || valor?.data?.aula_id !== aulaElegida.id) throw new Error(valor?.error?.message ?? "No se pudo asignar el aula");
       setAulaGuardada(aulaElegida);
+      setCupoMaximo(valor.data.cupo_maximo);
       setPaso(5);
     } catch (error) { setErrorGuardado(error instanceof Error ? error.message : "No se pudo asignar el aula"); }
+    finally { guardandoRef.current = false; setGuardando(false); }
+  };
+
+  const confirmarParticipantes = async () => {
+    if (guardandoRef.current || resultadoFinal || !puedeContinuar || !turnoId) return;
+    guardandoRef.current = true;
+    setGuardando(true); setErrorGuardado(""); setErrorAlumno(null);
+    try {
+      const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(turnoId)}/participantes`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alumno_ids: seleccion.alumnos.map(({ id }) => id) }), cache: "no-store",
+      });
+      const valor = await respuesta.json().catch(() => null);
+      if (!respuesta.ok || !["DISPONIBLE", "COMPLETO"].includes(valor?.data?.estado)) {
+        const mensaje = valor?.error?.message ?? "No se pudo confirmar el turno";
+        const alumnoId = valor?.error?.detalles?.alumno_id;
+        if (typeof alumnoId === "string" && seleccion.alumnos.some(({ id }) => id === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
+        else setErrorGuardado(mensaje);
+        return;
+      }
+      setResultadoFinal(valor.data.estado);
+    } catch { setErrorGuardado("No se pudo confirmar el turno. Intentá nuevamente."); }
     finally { guardandoRef.current = false; setGuardando(false); }
   };
 
@@ -229,7 +260,8 @@ export function TurnoWizard() {
     <ProgresoTurno paso={paso} />
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
-        {cargando ? <p role="status">Cargando materias</p> : errorCarga ? <div role="alert" className="space-y-3"><p>{errorCarga}</p><Button type="button" variant="outline" onClick={() => void cargarMaterias()}>Reintentar</Button></div> :
+        {resultadoFinal ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turno confirmado</h2><p className="flex items-center gap-2">Estado: <EstadoTurnoBadge estado={resultadoFinal} /></p><p>Profesor, aula y {seleccion.alumnos.length} {seleccion.alumnos.length === 1 ? "alumno" : "alumnos"} confirmados.</p></div> :
+          cargando ? <p role="status">Cargando materias</p> : errorCarga ? <div role="alert" className="space-y-3"><p>{errorCarga}</p><Button type="button" variant="outline" onClick={() => void cargarMaterias()}>Reintentar</Button></div> :
           paso === 1 ? <PasoMateriaTurno materias={materias} materiaId={seleccion.materiaId} onSeleccionar={cambiarMateria} /> :
             paso === 2 ? <PasoProfesorTurno profesores={profesores} profesorId={seleccion.profesorId} onSeleccionar={cambiarProfesor}
               cargando={!consultaVigente || consultaVigente.estado === "cargando"} error={consultaVigente?.estado === "error" ? consultaVigente.mensaje : ""}
@@ -253,13 +285,18 @@ export function TurnoWizard() {
                           onReintentar={() => setReintentoAulas((valor) => valor + 1)} onVolverHorario={retroceder} modoWizard />}
                   {guardando && <p role="status">Guardando aula</p>}{errorGuardado && <p role="alert" className="text-sm text-destructive">{errorGuardado}</p>}
                 </section> :
-                  <section aria-labelledby="titulo-paso-pendiente" className="space-y-2"><p className="text-sm font-medium text-muted-foreground">Paso {paso} de 5</p><h2 id="titulo-paso-pendiente" className="text-xl font-semibold">Agregá alumnos</h2><p role="status" className="text-sm text-muted-foreground">Este paso todavía no está disponible.</p></section>}
-        {paso !== 3 && <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <div className="space-y-4">{!aulaGuardada || !cupoMaximo ? <p role="alert">Asigná un aula antes de confirmar el turno.</p> :
+                    <PasoAlumnosTurno alumnos={seleccion.alumnos} cupo={cupoMaximo} bloqueado={guardando} errorAlumno={errorAlumno}
+                      onAgregar={(alumno) => { setSeleccion((anterior) => ({ ...anterior, alumnos: [...anterior.alumnos, alumno] })); setErrorAlumno(null); setErrorGuardado(""); }}
+                      onQuitar={(id) => { setSeleccion((anterior) => ({ ...anterior, alumnos: anterior.alumnos.filter((alumno) => alumno.id !== id) })); setErrorAlumno(null); setErrorGuardado(""); }} />}
+                    {guardando && <p role="status">Confirmando turno</p>}{errorGuardado && <p role="alert" className="text-sm text-destructive">{errorGuardado}</p>}
+                  </div>}
+        {!resultadoFinal && paso !== 3 && <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <Button type="button" variant="outline" onClick={retroceder} disabled={paso === 1 || guardando}>Atrás</Button>
-          <Button type="button" onClick={() => { if (!puedeContinuar) return; if (paso === 4) void confirmarAula(); else if (paso < 5) setPaso((paso + 1) as PasoTurno); }} disabled={cargando || Boolean(errorCarga) || guardando || !puedeContinuar || paso === 5}>{paso === 5 ? "Confirmar turno" : paso === 4 ? "Continuar a alumnos" : "Continuar"}</Button>
+          <Button type="button" onClick={() => { if (!puedeContinuar) return; if (paso === 5) void confirmarParticipantes(); else if (paso === 4) void confirmarAula(); else setPaso((paso + 1) as PasoTurno); }} disabled={cargando || Boolean(errorCarga) || guardando || !puedeContinuar}>{paso === 5 ? "Confirmar turno" : paso === 4 ? "Continuar a alumnos" : "Continuar"}</Button>
         </div>}
       </div>
-      <ResumenTurno valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.apellido}, ${profesor.nombre}` : null, fechaHorario, aula: aulaGuardada?.nombre ?? null, alumnos: seleccion.alumnoIds.length ? `${seleccion.alumnoIds.length} alumnos` : null }} />
+      <ResumenTurno valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.apellido}, ${profesor.nombre}` : null, fechaHorario, aula: aulaGuardada?.nombre ?? null, alumnos: seleccion.alumnos.length ? `${seleccion.alumnos.length} ${seleccion.alumnos.length === 1 ? "alumno" : "alumnos"}` : null }} />
     </div>
   </main>;
 }

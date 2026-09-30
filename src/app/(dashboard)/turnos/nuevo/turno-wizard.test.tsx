@@ -57,7 +57,7 @@ describe("HU-C-18 etapa 5: Aula", () => {
     await montar(); await crearTurno(); await asignarAula();
     const [patch] = llamadas("PATCH", "/api/turnos/turno-1/aula");
     expect(JSON.parse(String(patch![1].body))).toEqual({ aula_id: "aula-1" });
-    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Agregá alumnos");
+    expect(container.querySelector("h2#titulo-paso-alumnos")?.textContent).toBe("Agregá alumnos");
     expect(container.querySelector("aside")?.textContent).toContain("AULAAula 1");
     await pulsar(boton("Atrás"));
     expect(container.querySelector<HTMLSelectElement>("select#aula")?.value).toBe("aula-1");
@@ -77,7 +77,7 @@ describe("HU-C-18 etapa 5: Aula", () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("El aula quedó ocupada");
     expect(container.querySelector<HTMLSelectElement>("select#aula")?.value).toBe("aula-1");
     await pulsar(boton("Continuar a alumnos"));
-    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Agregá alumnos");
+    expect(container.querySelector("h2#titulo-paso-alumnos")?.textContent).toBe("Agregá alumnos");
     expect(llamadas("POST", "/api/turnos")).toHaveLength(1);
   });
 
@@ -89,7 +89,7 @@ describe("HU-C-18 etapa 5: Aula", () => {
     act(() => { boton("Continuar a alumnos").click(); boton("Continuar a alumnos").click(); });
     expect(llamadas("PATCH", "/aula")).toHaveLength(1);
     await act(async () => { resolver(respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 20 })); });
-    expect(container.querySelector("h2#titulo-paso-pendiente")?.textContent).toBe("Agregá alumnos");
+    expect(container.querySelector("h2#titulo-paso-alumnos")?.textContent).toBe("Agregá alumnos");
   });
 
   it.each([true, false])("reconfiguración con aula_desasignada=%s reconcilia Aula y vuelve a consultar opciones", async (desasignada) => {
@@ -122,6 +122,86 @@ describe("HU-C-18 etapa 5: Aula", () => {
   });
 });
 
+describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
+  it("busca en el endpoint real, agrega varios localmente y permite quitar sin PATCH temprano", async () => {
+    await montar(); await crearTurno(); await asignarAula();
+    expect(boton("Confirmar turno").disabled).toBe(true);
+    await agregarAlumno(); await agregarAlumno(alumnos[1]);
+    expect(llamadas("GET", "/api/turnos/participantes/alumnos?q=Juan")).toHaveLength(1);
+    expect(container.textContent).toContain("(2/20)");
+    expect(container.querySelector("aside")?.textContent).toContain("ALUMNOS2 alumnos");
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
+    await pulsar(container.querySelector('button[aria-label="Quitar a López, Juan"]')!);
+    expect(container.textContent).toContain("(1/20)");
+    expect(container.querySelector("aside")?.textContent).toContain("ALUMNOS1 alumno");
+  });
+
+  it("detiene la carga local al alcanzar el cupo informado por PATCH Aula", async () => {
+    rutas = (url, init) => url.endsWith("/aula") && init?.method === "PATCH"
+      ? respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 1, estado: "PENDIENTE" }) : undefined;
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    expect(container.textContent).toContain("(1/1)");
+    expect(container.querySelector<HTMLInputElement>("#alumno-busqueda-wizard")?.disabled).toBe(true);
+    expect(container.textContent).toContain("El turno alcanzó su cupo máximo");
+  });
+
+  it("confirma con alumno_ids sin profesor_id y muestra DISPONIBLE sin repetir PATCH", async () => {
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    await pulsar(boton("Confirmar turno"));
+    expect(JSON.parse(String(llamadas("PATCH", "/participantes")[0]![1].body))).toEqual({ alumno_ids: ["alumno-1"] });
+    expect(container.textContent).toContain("Turno confirmado");
+    expect(container.textContent).toContain("Disponible");
+    expect(boton("Confirmar turno")).toBeUndefined();
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
+    expect(setDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it("usa el estado COMPLETO devuelto por backend", async () => {
+    rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
+      ? respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "COMPLETO" }) : undefined;
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    await pulsar(boton("Confirmar turno"));
+    expect(container.textContent).toContain("Completo");
+  });
+
+  it.each(["ALUMNO_NO_DISPONIBLE", "TURNO_SIN_AULA"])("error %s conserva selección y PENDIENTE", async (codigo) => {
+    rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
+      ? respuesta(null, false, { code: codigo, message: codigo === "TURNO_SIN_AULA" ? "Asigná un aula antes de confirmar el turno" : "El alumno ya tiene otro turno", detalles: codigo === "ALUMNO_NO_DISPONIBLE" ? { alumno_id: "alumno-1" } : undefined }) : undefined;
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    await pulsar(boton("Confirmar turno"));
+    expect(container.querySelector("h2#titulo-paso-alumnos")).not.toBeNull();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(codigo === "TURNO_SIN_AULA" ? "Asigná un aula" : "El alumno ya tiene otro turno");
+    expect(container.textContent).toContain("López, Juan");
+    expect(llamadas("POST", "/api/turnos")).toHaveLength(1);
+  });
+
+  it("doble click envía un solo PATCH de participantes", async () => {
+    let resolver: (valor: Respuesta) => void = () => {};
+    rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
+      ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    act(() => { boton("Confirmar turno").click(); boton("Confirmar turno").click(); });
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
+    expect(container.querySelector<HTMLInputElement>("#alumno-busqueda-wizard")?.disabled).toBe(true);
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Quitar a López, Juan"]')?.disabled).toBe(true);
+    await act(async () => { resolver(respuesta({ id: "turno-1", estado: "DISPONIBLE" })); });
+    expect(container.textContent).toContain("Turno confirmado");
+  });
+
+  it("Atrás y cambio de Aula conservan alumnos locales sin confirmar", async () => {
+    rutas = (url, init) => url.endsWith("/aula") && init?.method === "PATCH" && JSON.parse(String(init.body)).aula_id === "aula-2"
+      ? respuesta({ id: "turno-1", aula_id: "aula-2", cupo_maximo: 30, estado: "PENDIENTE" }) : undefined;
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    await pulsar(boton("Atrás"));
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
+    await seleccionarAula("aula-2");
+    await pulsar(boton("Continuar a alumnos"));
+    expect(container.textContent).toContain("López, Juan");
+    expect(container.querySelector("aside")?.textContent).toContain("AULAAula 2");
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
+  });
+});
+
 const { default: NuevoTurnoPage } = await import("./page");
 const materias = [{ id: "materia-1", nombre: "Física", codigo: "FIS" }, { id: "materia-2", nombre: "Matemática", codigo: null }];
 const profesores = [{ id: "profesor-1", nombre: "Ana", apellido: "Pérez" }, { id: "profesor-2", nombre: "Luis", apellido: "Gómez" }];
@@ -129,6 +209,7 @@ const fechas = [{ fecha: "2026-10-01", dia_semana: "JUEVES", franjas: [
   { hora_inicio: "09:00", hora_fin: "12:00", tramos_libres: [{ desde: "09:00", hasta: "12:00" }], inicios: ["10:00", "10:30"] },
 ] }];
 const aulas = [{ id: "aula-1", nombre: "Aula 1", capacidad: 20 }, { id: "aula-2", nombre: "Aula 2", capacidad: 30 }];
+const alumnos = [{ id: "alumno-1", nombre: "Juan", apellido: "López", dni: "30123456" }, { id: "alumno-2", nombre: "Ana", apellido: "Paz", dni: "30987654" }];
 type Respuesta = { ok: boolean; json: () => Promise<unknown> };
 const respuesta = (data: unknown, ok = true, error: unknown = null): Respuesta => ({ ok, json: async () => ({ data, error }) });
 
@@ -156,6 +237,12 @@ const seleccionarAula = async (id = "aula-1") => { await act(async () => {
   select.dispatchEvent(new Event("change", { bubbles: true }));
 }); };
 const asignarAula = async () => { await seleccionarAula(); await pulsar(boton("Continuar a alumnos")); };
+const buscarAlumno = async (texto: string) => {
+  const input = container.querySelector<HTMLInputElement>("#alumno-busqueda-wizard")!;
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, texto); input.dispatchEvent(new Event("input", { bubbles: true })); });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 280)); });
+};
+const agregarAlumno = async (alumno = alumnos[0]) => { await buscarAlumno(alumno.nombre); await pulsar(boton(`${alumno.apellido}, ${alumno.nombre} · DNI ${alumno.dni}`)); };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -171,6 +258,8 @@ beforeEach(() => {
     if (url === "/api/turnos/turno-1/configuracion" && init?.method === "PATCH") return respuesta({ id: "turno-1", estado: "PENDIENTE", aula_desasignada: false, cupo_maximo: null });
     if (url === "/api/turnos/aula/opciones?turno_id=turno-1") return respuesta(aulas);
     if (url === "/api/turnos/turno-1/aula" && init?.method === "PATCH") return respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 20, estado: "PENDIENTE" });
+    if (url.startsWith("/api/turnos/participantes/alumnos?q=")) return respuesta(alumnos.filter((alumno) => alumno.nombre.toLowerCase().includes(decodeURIComponent(url.split("q=")[1]!).toLowerCase())));
+    if (url === "/api/turnos/turno-1/participantes" && init?.method === "PATCH") return respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "DISPONIBLE" });
     return respuesta(null, false, { message: `Ruta inesperada: ${url}` });
   });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);

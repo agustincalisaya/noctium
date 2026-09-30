@@ -314,3 +314,42 @@ Atrás desde Aula solo navega: no desasigna ni modifica el turno. Si se reconfir
 ### 5.3. Evidencia y pendiente
 
 Las pruebas del wizard cubren POST → GET con id, ausencia de GET sin id, opciones y capacidad, vacío y regreso a Fecha/Horario, estados de carga/error/SIN_AULAS_ACTIVAS, PATCH exitoso o fallido, resumen, Atrás, doble envío, `aula_desasignada` true/false, nueva consulta tras reconfigurar y una opción previa que deja de figurar en el GET. La regresión C-16 confirma que su flujo legacy POST → GET con id → selección → PATCH permanece. **106 tests OK en 6 archivos** (wizard, configuración legacy, servicios de Aula y Configuración, rutas de opciones de Aula y POST de Turnos). `npx.cmd tsc --noEmit`: **OK**. Sigue pendiente la etapa 6: paso 5 Alumnos, confirmación/disponibilización y regresión final del wizard. **HU-C-18 no está Done.**
+
+---
+
+## 6. Etapa 6 — Alumnos y confirmación final
+
+**Alcance:** el wizard individual de `/turnos/nuevo` completa el paso 5 y confirma el `PENDIENTE` con el endpoint existente `PATCH /api/turnos/[id]/participantes`. HU-C-17, Prisma, seed y migraciones quedan fuera. Las pantallas legacy de configuración y participantes permanecen.
+
+### 6.1. Contrato backend y compatibilidad
+
+Antes, `AsignarParticipantesTurnoSchema` exigía `{ alumno_ids, profesor_id }` y el servicio dependía siempre del profesor enviado. Según Revisión 5 §2.2, `profesor_id` es ahora opcional. El profesor efectivo es el enviado o el `profesorId` persistido; si faltan ambos responde `409 TURNO_SIN_PROFESOR` con «Elegí un profesor antes de confirmar el turno». Un profesor explícito distinto puede reemplazar al anterior mientras el turno sea `PENDIENTE`; para uno nuevo se conserva `SIN_PROFESORES_PARA_MATERIA` si no hay ningún asociado activo. En todos los casos se revalidan profesor activo (`404 PROFESOR_NO_ENCONTRADO`), relación con materia mediante `profesorActivoDictaMateria(..., tx)` y `FOR SHARE`, horario de atención y ausencia de superposición. El profesor persistido no se reescribe innecesariamente. Respuesta y eventos conservan `profesor_id` con el id efectivo.
+
+La confirmación sigue en una transacción: valida turno `PENDIENTE`, materia activa, aula y cupo, cada alumno activo, conflictos de profesor/alumnos/aula con turnos `DISPONIBLE`/`COMPLETO`, reemplaza `TurnoAlumno` y transiciona a `COMPLETO` si se alcanzó el cupo o a `DISPONIBLE` en caso contrario. Usa el mismo `TransactionClient` en las revalidaciones críticas. `verificarAlumnoActivo` se consume desde `alumno.publico.ts`; sus errores `ALUMNO_NO_ENCONTRADO` y `ALUMNO_INACTIVO` conservan `detalles.alumno_id`. La ruta de búsqueda usa la frontera pública B y el Route Handler de participantes traduce los nuevos 404; no se creó otro endpoint. La pantalla legacy consulta y envía `profesor_id` explícito solo para un PENDIENTE antiguo sin profesor. Los PENDIENTES que ya lo tienen envían solamente `alumno_ids`.
+
+### 6.2. Paso 5 y navegación
+
+`PasoAlumnosTurno` reutiliza `BuscadorAlumnos`, su GET `/api/turnos/participantes/alumnos?q=`, la etiqueta «Apellido, Nombre» y la presentación de alumnos/cupo del flujo existente. Mantiene la selección en el padre; agregar o quitar no persiste. El cupo proviene del `PATCH /aula` exitoso. Resumen muestra la cantidad progresivamente. Atrás a Aula conserva alumnos y aula sin escribir; cambiar Aula también conserva los alumnos locales, con control de cupo en UI y validación final del backend. El botón Confirmar requiere al menos un alumno y envía solo `{ alumno_ids: [...] }`; durante el PATCH bloquea doble envío y cambios en la selección. Un error mantiene paso, `turnoId` y alumnos; `ALUMNO_NO_DISPONIBLE` señala el alumno correspondiente y `TURNO_SIN_AULA` se muestra sin avanzar. El éxito utiliza el estado `DISPONIBLE`/`COMPLETO` recibido, muestra confirmación final y ya no ofrece otro PATCH.
+
+**Archivos modificados:** `src/server/turnos/turno.schema.ts`, `turno.service.ts`, `turno.participantes.test.ts`, `src/app/api/turnos/[id]/participantes/route.ts`, `src/app/api/turnos/participantes/alumnos/route.ts`, `src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.tsx` y su test, `src/app/(dashboard)/turnos/nuevo/turno-wizard.tsx` y su test. **Nuevo:** `src/app/(dashboard)/turnos/paso-alumnos-turno.tsx`.
+
+### 6.3. Evidencia y estado por criterio
+
+La regresión completa solicitada pasó: **203 tests en 12 archivos**, incluidos 33 del wizard, 24 del servicio de participantes y 9 de la pantalla legacy; `npx.cmd tsc --noEmit` pasó. Los tests cubren profesor persistido u omitido, compatibilidad explícita, profesor inactivo/desvinculado/fuera de horario/ocupado, aula ausente/ocupada, alumnos inválidos/ocupados, estados finales, contrato de cupo, mismo `tx`, búsqueda, selección, Atrás, errores, payload mínimo y doble envío. La confirmación final revalida lo ofrecido por HU-C-07 en el paso 3: **AC4 de C-07 queda cubierto funcionalmente**.
+
+| Criterio HU-C-18 | Estado tras etapa 6 |
+|---|---|
+| AC1: cinco pasos en orden | Implementado en `/turnos/nuevo`; POST al confirmar paso 3, PATCH de Aula en 4 y PATCH de participantes en 5. |
+| AC2: reglas C-03/C-15 en sus nuevos pasos | Implementado, con las validaciones existentes y Aula por `turno_id`. |
+| AC3: Profesor separado de Alumnos | Implementado; profesor queda persistido desde paso 3 y se revalida al confirmar sin reenviarlo. |
+| AC4: Atrás e invalidaciones | Implementado para alta nueva: conserva selecciones al navegar, reconsulta Profesor/disponibilidad, consume `aula_desasignada` y conserva alumnos locales. |
+| AC5: C-03/C-04/C-15 permanecen Done | Contratos adaptados aquí; pantallas legacy conservadas y regresadas. |
+| AC6: estructura compartida con C-17 | Materia y Profesor siguen siendo componentes reutilizables; el modo masivo posterior pertenece a C-17. |
+
+**Estado:** implementación funcional propia de HU-C-18 completa y verificada con tests automatizados; pendiente revisión de esta etapa por el equipo y validación visual/manual del flujo completo antes de declarar la HU Done. La navegación nueva para reabrir PENDIENTES desde listado/detalle continúa fuera del alcance aprobado; el flujo legacy permanece disponible.
+
+### 6.4. Corrección del gate final de Etapa 6
+
+La revisión previa al commit detectó que `PATCH /api/turnos/[id]/participantes` respondía `400 VALIDACION` ante un payload inválido, mientras §2.2 exige `400 VALIDATION_ERROR`. Se corrigió únicamente ese código, conservando el shape `{ data, error }` y los demás mapeos. El nuevo `src/app/api/turnos/[id]/participantes/route.test.ts` prueba `alumno_ids: []`, IDs duplicados, el payload mínimo y nueve códigos de error del servicio con sus HTTP 404/409.
+
+Se agregó `src/server/turnos/turno.participantes.pg.test.ts` siguiendo el gate existente `DATABASE_URL === HU_C15_TEST_DATABASE_URL`. En un PostgreSQL temporal aislado, el test crea un `PENDIENTE` con profesor y participante previos; llama directamente al servicio con un profesor nuevo e IDs de alumno duplicados para provocar `P2002` en `createMany`, luego del `updateMany` del turno y del `deleteMany` de vínculos. Una lectura posterior, fuera de la transacción, confirma profesor anterior, participante anterior, estado `PENDIENTE` y ausencia de eventos. La llamada directa evita intencionalmente el schema HTTP, que ya rechaza duplicados. El test real pasó **1/1** con las migraciones vigentes aplicadas solo al contenedor temporal, retirado al terminar; no se tocó `noctium_dev`, Prisma, seed ni archivos de migración. La regresión focal de ruta, servicio, wizard y pantalla legacy pasó **78 tests en 4 archivos**; TypeScript y whitespace verificados. El resultado histórico de 203 tests de §6.3 corresponde a la ejecución anterior a esta corrección.
