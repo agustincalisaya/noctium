@@ -35,6 +35,19 @@ export async function obtenerNombreVisible(usuarioId: string, rol: RolUsuario): 
 }
 
 /**
+ * Servicio público de Módulo A (`spec_modulo_A.md` §2.5): email de la cuenta,
+ * sin exponer el hash ni otros campos. `null` si la cuenta no existe; el
+ * consumidor decide qué mostrar (Turnos: `creado_por`, spec C §2.4).
+ */
+export async function obtenerEmailDeUsuario(usuarioId: string): Promise<string | null> {
+  const usuario = await prisma.usuario.findUnique({
+    where: { idUsuario: usuarioId },
+    select: { emailUsuario: true },
+  });
+  return usuario?.emailUsuario ?? null;
+}
+
+/**
  * Crea una cuenta (`Usuario`) con credenciales ya hasheadas (HU-B-08,
  * Decisión Resuelta 2 de `docs/tasks/Sprint 1/HU-B-08.md` §0). Recibe
  * `passwordHash` ya calculado — el hasheo (`hashPassword()` de

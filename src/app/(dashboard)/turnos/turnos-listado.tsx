@@ -7,9 +7,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { CampoBusqueda, ESPERA_AVISO_CARGA_MS, ESPERA_BUSQUEDA_MS } from "@/components/shared/campo-busqueda";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { terminoBusqueda } from "@/lib/busqueda-texto";
-import { urlListadoTurnos } from "@/lib/turno-listado";
+import { urlContinuar, urlListadoTurnos } from "@/lib/turno-listado";
 import { EstadoTurnoBadge } from "./estado-turno-badge";
-import { urlContinuar, type TurnosData } from "./turno.types";
+import type { TurnosData } from "@/types/turno.types";
 
 /**
  * Qué se le pide a la API. `motivo` distingue la búsqueda (actualiza la URL

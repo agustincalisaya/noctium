@@ -8,6 +8,8 @@ import { intervalosSeSuperponen } from "@/lib/horario-atencion";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { listarIdsAlumnosActivos, obtenerAlumnosBasicos, verificarAlumnoActivo as verificarAlumnoActivoPublico } from "@/server/alumnos/alumno.publico";
 import { verificarAulaActiva } from "@/server/aulas/aula.publico";
+import { obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
+import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
 import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
@@ -352,6 +354,7 @@ function presentar(turno: TurnoConRelaciones) {
     aula_id: turno.aulaId,
     aula_capacidad: turno.aula?.capacidadAula ?? null,
     estado: turno.estadoTurno,
+    prioridad: turno.prioridadTurno,
     creado_en: turno.createdAtTurno.toISOString(),
     actualizado_en: turno.updatedAtTurno.toISOString(),
     creado_por_id: turno.creadoPorUsuarioId,
@@ -396,15 +399,28 @@ export async function listarTurnos(pagina: number, porPaginaSolicitado: number |
   };
 }
 
-export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUsuario }) {
-  const turno = await prisma.turno.findFirst({
-    where: { idTurno: id, ...(usuario.rol === "PROFESOR" ? { profesor: { is: { usuarioId: usuario.id } } } : {}) },
-    include: turnoInclude,
-  });
-  if (!turno) return null;
-  const [responsable, modificador] = await Promise.all([
-    turno.creadoPorUsuarioId ? prisma.usuario.findUnique({ where: { idUsuario: turno.creadoPorUsuarioId }, select: { emailUsuario: true } }) : null,
-    turno.modificadoPorUsuarioId ? prisma.usuario.findUnique({ where: { idUsuario: turno.modificadoPorUsuarioId }, select: { emailUsuario: true } }) : null,
-  ]);
-  return { ...presentar(turno), creado_por: responsable?.emailUsuario ?? turno.creadoPorUsuarioId ?? "Sin registrar", modificado_por: modificador?.emailUsuario ?? turno.modificadoPorUsuarioId ?? "Sin registrar" };
+export type ResultadoObtenerTurno =
+  | { resultado: "ok"; turno: ReturnType<typeof presentar> & { creado_por: string | null } }
+  | { resultado: "sin_permiso" }
+  | { resultado: "no_encontrado" };
+
+/**
+ * Detalle base (spec_modulo_C.md §2.4, HU-C-09). Para el Profesor, la ficha
+ * sale de la sesión (Módulo D) y la consulta filtra por id y profesor en el
+ * mismo `where`: un turno ajeno, un id inexistente o una cuenta sin ficha dan
+ * el mismo `sin_permiso`, sin revelar si el turno existe. Mesa de Entrada y
+ * Gerente ven cualquier turno (`no_encontrado` si no existe). `creado_por` es
+ * el email vía Módulo A, o `null`; nunca el id como respaldo.
+ */
+export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUsuario }): Promise<ResultadoObtenerTurno> {
+  let alcance: Prisma.TurnoWhereInput = {};
+  if (usuario.rol === "PROFESOR") {
+    const propio = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    if (!propio) return { resultado: "sin_permiso" };
+    alcance = { profesorId: propio.id };
+  }
+  const turno = await prisma.turno.findFirst({ where: { idTurno: id, ...alcance }, include: turnoInclude });
+  if (!turno) return { resultado: usuario.rol === "PROFESOR" ? "sin_permiso" : "no_encontrado" };
+  const creadoPor = turno.creadoPorUsuarioId ? await obtenerEmailDeUsuario(turno.creadoPorUsuarioId) : null;
+  return { resultado: "ok", turno: { ...presentar(turno), creado_por: creadoPor } };
 }
