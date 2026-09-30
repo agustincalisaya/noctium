@@ -51,3 +51,29 @@ describe("HU-C-03 validarConfiguracionTurno con duración variable (Revisión 4)
     await expect(validarConfiguracionTurno(configuracion("10:00", 90))).rejects.toMatchObject({ code: "DURACION_NO_PERMITIDA" });
   });
 });
+
+const { turnoNoHaComenzado, turnoSigueVigente } = await import("./turno.validaciones");
+
+describe("spec C §2.15 turnoNoHaComenzado (fecha + hora_inicio >= ahora, a minuto, Buenos Aires)", () => {
+  // Turno del 01/10/2026 a las 10:00 locales = 13:00 UTC (UTC-3, sin horario de verano).
+  const fecha = new Date("2026-10-01T00:00:00.000Z");
+  const horaInicio = new Date("1970-01-01T10:00:00.000Z");
+
+  it.each([
+    ["1 minuto antes del inicio", "2026-10-01T12:59:00.000Z", true, true],
+    ["el mismo minuto del inicio", "2026-10-01T13:00:00.000Z", true, false],
+    ["el mismo minuto, a los 59 segundos", "2026-10-01T13:00:59.999Z", true, false],
+    ["1 minuto después del inicio", "2026-10-01T13:01:00.000Z", false, false],
+  ])("%s: no comenzó = %s; turnoSigueVigente sigue estricto = %s", (_caso, ahora, noComenzo, vigente) => {
+    vi.setSystemTime(new Date(ahora));
+    expect(turnoNoHaComenzado(fecha, horaInicio)).toBe(noComenzo);
+    expect(turnoSigueVigente(fecha, horaInicio)).toBe(vigente);
+  });
+
+  it("compara contra la fecha local y no la UTC al cruzar la medianoche", () => {
+    // 01/10 00:30 UTC = 30/09 21:30 en Buenos Aires: un turno del 30/09 a las 21:30 no comenzó.
+    vi.setSystemTime(new Date("2026-10-01T00:30:00.000Z"));
+    expect(turnoNoHaComenzado(new Date("2026-09-30T00:00:00.000Z"), new Date("1970-01-01T21:30:00.000Z"))).toBe(true);
+    expect(turnoNoHaComenzado(new Date("2026-09-30T00:00:00.000Z"), new Date("1970-01-01T21:29:00.000Z"))).toBe(false);
+  });
+});

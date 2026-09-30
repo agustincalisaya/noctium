@@ -23,8 +23,9 @@ function importaciones(ruta: string): Importacion[] {
   return encontradas;
 }
 
-// De "@/server/" solo se permite el service del propio módulo (ruta exacta)
-// y "@/server/shared/*". Sin rutas relativas (Regla N.° 11).
+// Se rechazan imports hacia servicios de otros módulos; de "@/server/" solo se permite
+// el service propio (ruta exacta) y "@/server/shared/*". La Regla N.° 11 exige alias
+// para tipos, actions y services; el helper local "./turno.validaciones" está permitido.
 const PUBLICOS = [
   {
     ruta: "server/alumnos/alumno.publico.ts",
@@ -44,6 +45,10 @@ const PUBLICOS = [
   {
     ruta: "server/pagos/forma-pago.publico.ts",
     permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
+  {
+    ruta: "server/turnos/turno.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma", "./turno.validaciones"],
   },
 ];
 
@@ -84,6 +89,14 @@ describe("aislamiento de los .publico.ts (Regla N.° 3)", () => {
     [2, "@/server/materias/materia.service"],
     [2, "@/server/pagos/forma-pago.service"],
     [2, "./forma-pago.service"],
+    [3, "@/server/turnos/turno.service"],
+    [3, "./turno.service"],
+    [3, "@/server/turnos/turno.validaciones"],
+    [3, "@/server/aulas/aula.publico"],
+    [3, "@/server/materias/materia.service"],
+    [3, "@/server/alumnos/alumno.publico"],
+    [3, "./turno.disponibilidad"],
+    [3, "../aulas/aula.service"],
   ])("rechaza en el público %i el import %s", (indice, especificador) => {
     const { permitidos } = PUBLICOS[indice]!;
     const imports = [...importaciones(PUBLICOS[indice]!.ruta), { especificador, soloTipo: false }];
