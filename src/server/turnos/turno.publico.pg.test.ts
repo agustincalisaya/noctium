@@ -354,3 +354,136 @@ describe.skipIf(!habilitada)("turno.publico: PostgreSQL real aislado", () => {
     ]);
   });
 });
+
+const { emitirEventosTurno } = await import("./turno.publico");
+
+describe.skipIf(!habilitada)("emitirEventosTurno: PostgreSQL real aislado", () => {
+  const dbEventos = habilitada ? new PrismaClient() : null;
+  const prefijoEventos = `pgevt${Date.now().toString(36)}${randomUUID().slice(0, 6)}`;
+  const materiaEventos = `${prefijoEventos}-m`;
+  const aulaEventos = [0, 1].map((n) => `${prefijoEventos}-a${n}`);
+  const alumnoEventos = [0, 1, 2].map((n) => `${prefijoEventos}-s${n}`);
+  const usuarioEventos = `${prefijoEventos}-usuario`;
+
+  async function crearTurnoEventos(sufijo: string, opciones: {
+    estado: EstadoTurno; fecha: Date; aulaId: string; cupo: number; alumnoIds?: string[];
+  }) {
+    const id = `${prefijoEventos}-t-${sufijo}`;
+    await dbEventos!.turno.create({
+      data: {
+        idTurno: id, fechaTurno: opciones.fecha, horaInicioTurno: hora("10:00"), duracionMinutosTurno: 60,
+        cupoMaximoTurno: opciones.cupo, materiaId: materiaEventos, aulaId: opciones.aulaId, estadoTurno: "PENDIENTE",
+      },
+    });
+    if (opciones.alumnoIds?.length) {
+      await dbEventos!.turnoAlumno.createMany({
+        data: opciones.alumnoIds.map((alumnoId) => ({ turnoId: id, alumnoId })),
+      });
+    }
+    if (opciones.estado !== "PENDIENTE") {
+      await dbEventos!.turno.update({ where: { idTurno: id }, data: { estadoTurno: opciones.estado } });
+    }
+    return id;
+  }
+
+  beforeAll(async () => {
+    await dbEventos!.materia.create({
+      data: { idMateria: materiaEventos, nombreMateria: materiaEventos, nombreNormalizadaMateria: materiaEventos },
+    });
+    for (const idAula of aulaEventos) {
+      await dbEventos!.aula.create({
+        data: { idAula, nombreAula: idAula, nombreNormalizadaAula: idAula, capacidadAula: 4 },
+      });
+    }
+    for (let n = 0; n < alumnoEventos.length; n++) {
+      await dbEventos!.alumno.create({
+        data: {
+          idAlumno: alumnoEventos[n], nombreAlumno: "Prueba", apellidoAlumno: String(n),
+          nombreNormalizadoAlumno: "prueba", apellidoNormalizadoAlumno: String(n),
+          dniAlumno: `${prefijoEventos}-dni-a${n}`, fechaNacimientoAlumno: dia(2000, 1, 1),
+        },
+      });
+    }
+  });
+
+  afterAll(async () => {
+    try {
+      if (dbEventos) {
+        await dbEventos.eventoTurno.deleteMany({ where: { turnoId: { startsWith: prefijoEventos } } });
+        await dbEventos.turno.deleteMany({ where: { idTurno: { startsWith: prefijoEventos } } });
+        await dbEventos.alumno.deleteMany({ where: { idAlumno: { startsWith: prefijoEventos } } });
+        await dbEventos.aula.deleteMany({ where: { idAula: { startsWith: prefijoEventos } } });
+        await dbEventos.materia.deleteMany({ where: { idMateria: { startsWith: prefijoEventos } } });
+      }
+    } finally {
+      await dbEventos?.$disconnect();
+    }
+  });
+
+  it("después del COMMIT registra un cupo_actualizado por turno futuro y un evento por transición", async () => {
+    const pendiente = await crearTurnoEventos("pendiente", {
+      estado: "PENDIENTE", fecha: diaRelativo(30), aulaId: aulaEventos[0], cupo: 4,
+    });
+    const disponible = await crearTurnoEventos("disponible", {
+      estado: "DISPONIBLE", fecha: diaRelativo(31), aulaId: aulaEventos[0], cupo: 4,
+      alumnoIds: [alumnoEventos[0], alumnoEventos[1]],
+    });
+    const completo = await crearTurnoEventos("completo", {
+      estado: "COMPLETO", fecha: diaRelativo(32), aulaId: aulaEventos[0], cupo: 1, alumnoIds: [alumnoEventos[2]],
+    });
+    const pasado = await crearTurnoEventos("pasado", {
+      estado: "DISPONIBLE", fecha: diaRelativo(-30), aulaId: aulaEventos[0], cupo: 4,
+    });
+    const ids = [pendiente, disponible, completo, pasado];
+
+    const ajuste = await dbEventos!.$transaction((tx) =>
+      ajustarCuposPorCapacidadDeAula(aulaEventos[0], 2, usuarioEventos, tx));
+    if (!ajuste.ok) throw new Error("Se esperaba un ajuste exitoso");
+    expect(await dbEventos!.eventoTurno.count({ where: { turnoId: { in: ids } } })).toBe(0);
+    await emitirEventosTurno(ajuste.eventos);
+
+    const filas = await dbEventos!.eventoTurno.findMany({
+      where: { turnoId: { in: ids } },
+      select: { tipoEvento: true, turnoId: true, usuarioId: true, payloadEvento: true },
+    });
+    const cupo = (turnoId: string, anterior: number) => ({
+      tipoEvento: "turno:cupo_actualizado", turnoId, usuarioId: usuarioEventos,
+      payloadEvento: { turno_id: turnoId, aula_id: aulaEventos[0], cupo_anterior: anterior, cupo_nuevo: 2, usuario_id: usuarioEventos },
+    });
+    expect(filas).toHaveLength(5);
+    expect(filas).toEqual(expect.arrayContaining([
+      cupo(pendiente, 4), cupo(disponible, 4), cupo(completo, 1),
+      {
+        tipoEvento: "turno:completado", turnoId: disponible, usuarioId: usuarioEventos,
+        payloadEvento: { turno_id: disponible, alumno_ids: [alumnoEventos[0], alumnoEventos[1]], cupo_maximo: 2, usuario_id: usuarioEventos },
+      },
+      {
+        tipoEvento: "turno:disponible_nuevamente", turnoId: completo, usuarioId: usuarioEventos,
+        payloadEvento: { turno_id: completo, alumno_id_liberado: null, usuario_id: usuarioEventos },
+      },
+    ]));
+    expect(filas.some(({ turnoId }) => turnoId === pasado)).toBe(false);
+  });
+
+  it("un ajuste con ok: false revierte la transacción y no inserta filas", async () => {
+    const id = await crearTurnoEventos("conflicto", {
+      estado: "DISPONIBLE", fecha: diaRelativo(33), aulaId: aulaEventos[1], cupo: 4,
+      alumnoIds: [alumnoEventos[0], alumnoEventos[1]],
+    });
+    const antes = await dbEventos!.turno.findUniqueOrThrow({ where: { idTurno: id } });
+    // Mismo flujo que modificarAula(): la emisión va después del COMMIT y un throw en el callback no llega a ella.
+    const modificarAula = async () => {
+      const eventos = await dbEventos!.$transaction(async (tx) => {
+        await tx.aula.update({ where: { idAula: aulaEventos[1] }, data: { capacidadAula: 1 } });
+        const ajuste = await ajustarCuposPorCapacidadDeAula(aulaEventos[1], 1, usuarioEventos, tx);
+        if (!ajuste.ok) throw new Error("CAPACIDAD_MENOR_A_INSCRIPTOS");
+        return ajuste.eventos;
+      });
+      await emitirEventosTurno(eventos);
+    };
+    await expect(modificarAula()).rejects.toThrow("CAPACIDAD_MENOR_A_INSCRIPTOS");
+    expect(await dbEventos!.turno.findUniqueOrThrow({ where: { idTurno: id } })).toEqual(antes);
+    expect((await dbEventos!.aula.findUniqueOrThrow({ where: { idAula: aulaEventos[1] } })).capacidadAula).toBe(4);
+    expect(await dbEventos!.eventoTurno.count({ where: { turnoId: id } })).toBe(0);
+  });
+});

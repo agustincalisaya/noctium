@@ -221,3 +221,157 @@ describe("contarTurnosPorMes", () => {
     await expect(contarTurnosPorMes("2026-01", "2026-03")).resolves.toEqual([]);
   });
 });
+
+const { emitirEventosTurno } = await import("./turno.publico");
+type EventoTurnoPendiente = import("./turno.publico").EventoTurnoPendiente;
+const createMany = vi.fn();
+Object.assign(db.eventoTurno, { createMany });
+
+const filaTurnoAula = (idTurno: string, estadoTurno: string, cupoMaximoTurno: number, hora = "10:00") => ({
+  idTurno, estadoTurno, cupoMaximoTurno,
+  fechaTurno: new Date("2026-09-28T00:00:00.000Z"), horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`),
+});
+
+describe("emitirEventosTurno", () => {
+  const eventos: EventoTurnoPendiente[] = [
+    {
+      tipoEvento: "turno:cupo_actualizado", turnoId: "t1",
+      payloadEvento: { turno_id: "t1", aula_id: aulaId, cupo_anterior: null, cupo_nuevo: 3, usuario_id: "u1" },
+    },
+    {
+      tipoEvento: "turno:completado", turnoId: "t2",
+      payloadEvento: { turno_id: "t2", alumno_ids: ["a", "b"], cupo_maximo: 2, usuario_id: "u2" },
+    },
+    {
+      tipoEvento: "turno:disponible_nuevamente", turnoId: "t3",
+      payloadEvento: { turno_id: "t3", alumno_id_liberado: null, usuario_id: "u3" },
+    },
+  ];
+
+  it("inserta los tres tipos con un único createMany, una fila por evento y en el mismo orden", async () => {
+    const otroDb = { eventoTurno: { createMany: vi.fn().mockResolvedValue({ count: 3 }) } };
+    await expect(emitirEventosTurno(eventos, otroDb as never)).resolves.toBeUndefined();
+    expect(otroDb.eventoTurno.createMany).toHaveBeenCalledTimes(1);
+    expect(otroDb.eventoTurno.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          tipoEvento: "turno:cupo_actualizado", turnoId: "t1", usuarioId: "u1",
+          payloadEvento: { turno_id: "t1", aula_id: aulaId, cupo_anterior: null, cupo_nuevo: 3, usuario_id: "u1" },
+        },
+        {
+          tipoEvento: "turno:completado", turnoId: "t2", usuarioId: "u2",
+          payloadEvento: { turno_id: "t2", alumno_ids: ["a", "b"], cupo_maximo: 2, usuario_id: "u2" },
+        },
+        {
+          tipoEvento: "turno:disponible_nuevamente", turnoId: "t3", usuarioId: "u3",
+          payloadEvento: { turno_id: "t3", alumno_id_liberado: null, usuario_id: "u3" },
+        },
+      ],
+    });
+    const { data } = otroDb.eventoTurno.createMany.mock.calls[0]![0];
+    expect(Object.keys(data[0]).sort()).toEqual(["payloadEvento", "tipoEvento", "turnoId", "usuarioId"]);
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("con un arreglo vacío no toca la base", async () => {
+    const otroDb = { eventoTurno: { createMany: vi.fn() } };
+    await expect(emitirEventosTurno([], otroDb as never)).resolves.toBeUndefined();
+    await expect(emitirEventosTurno([])).resolves.toBeUndefined();
+    expect(otroDb.eventoTurno.createMany).not.toHaveBeenCalled();
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it("sin db usa el prisma global", async () => {
+    createMany.mockResolvedValue({ count: 1 });
+    await emitirEventosTurno([eventos[0]!]);
+    expect(createMany).toHaveBeenCalledTimes(1);
+    expect(createMany.mock.calls[0]![0].data).toHaveLength(1);
+  });
+
+  it("si createMany rechaza, rechaza con el mismo error", async () => {
+    const error = new Error("fallo de escritura");
+    createMany.mockRejectedValue(error);
+    await expect(emitirEventosTurno(eventos)).rejects.toBe(error);
+  });
+
+  it("acepta sin cast los eventos de un ajuste real DISPONIBLE → COMPLETO", async () => {
+    db.$queryRaw.mockResolvedValue([filaTurnoAula("t-disponible", "DISPONIBLE", 4)]);
+    db.turnoAlumno.findMany.mockResolvedValue([
+      { turnoId: "t-disponible", alumnoId: "a" }, { turnoId: "t-disponible", alumnoId: "b" },
+    ]);
+    createMany.mockResolvedValue({ count: 2 });
+    const ajuste = await ajustarCuposPorCapacidadDeAula(aulaId, 2, usuarioId, tx);
+    if (!ajuste.ok) throw new Error("Se esperaba un ajuste exitoso");
+    await emitirEventosTurno(ajuste.eventos);
+    expect(createMany.mock.calls[0]![0].data).toEqual([
+      {
+        tipoEvento: "turno:cupo_actualizado", turnoId: "t-disponible", usuarioId,
+        payloadEvento: { turno_id: "t-disponible", aula_id: aulaId, cupo_anterior: 4, cupo_nuevo: 2, usuario_id: usuarioId },
+      },
+      {
+        tipoEvento: "turno:completado", turnoId: "t-disponible", usuarioId,
+        payloadEvento: { turno_id: "t-disponible", alumno_ids: ["a", "b"], cupo_maximo: 2, usuario_id: usuarioId },
+      },
+    ]);
+  });
+});
+
+describe("ajustarCuposPorCapacidadDeAula: frontera de turno futuro (>= ahora, a minuto, Buenos Aires)", () => {
+  // Turno de hoy 28/09/2026 a las 10:00 locales = 13:00 UTC (UTC-3, sin horario de verano).
+  it.each([
+    ["1 minuto antes del inicio", "2026-09-28T12:59:00.000Z", 1],
+    ["el mismo minuto del inicio", "2026-09-28T13:00:00.000Z", 1],
+    ["el mismo minuto, a los 59 segundos", "2026-09-28T13:00:59.999Z", 1],
+    ["1 minuto después del inicio", "2026-09-28T13:01:00.000Z", 0],
+  ])("%s ajusta %i turno(s)", async (_caso, ahora, esperados) => {
+    vi.setSystemTime(new Date(ahora));
+    db.$queryRaw.mockResolvedValue([filaTurnoAula("hoy", "DISPONIBLE", 4)]);
+    await expect(ajustarCuposPorCapacidadDeAula(aulaId, 3, usuarioId, tx))
+      .resolves.toMatchObject({ ok: true, turnos_actualizados: esperados });
+    expect(db.turno.updateMany).toHaveBeenCalledTimes(esperados);
+  });
+
+  it("usa el mismo instante para turnos equivalentes aunque cambie el minuto durante el filtro", async () => {
+    vi.setSystemTime(new Date("2026-09-28T13:00:58.000Z"));
+    const primero = filaTurnoAula("primero", "DISPONIBLE", 4);
+    const segundo = filaTurnoAula("segundo", "DISPONIBLE", 4);
+    const fecha = segundo.fechaTurno;
+    let lecturas = 0;
+    Object.defineProperty(segundo, "fechaTurno", {
+      get() {
+        if (++lecturas === 1) vi.setSystemTime(new Date("2026-09-28T13:01:00.000Z"));
+        return fecha;
+      },
+    });
+    db.$queryRaw.mockImplementation(async () => {
+      // Simula la espera hasta que FOR UPDATE devuelve las filas bloqueadas.
+      vi.setSystemTime(new Date("2026-09-28T13:00:59.999Z"));
+      return [primero, segundo];
+    });
+
+    const ajuste = await ajustarCuposPorCapacidadDeAula(aulaId, 3, usuarioId, tx);
+    expect(ajuste).toMatchObject({ ok: true, turnos_actualizados: 2 });
+    expect(db.turno.updateMany.mock.calls.map(([{ where }]) => where.idTurno)).toEqual(["primero", "segundo"]);
+    expect(lecturas).toBeGreaterThan(0);
+  });
+
+  it("toma el instante después de esperar los locks", async () => {
+    vi.setSystemTime(new Date("2026-09-28T13:00:59.999Z"));
+    db.$queryRaw.mockImplementation(async () => {
+      vi.setSystemTime(new Date("2026-09-28T13:01:00.000Z"));
+      return [filaTurnoAula("hoy", "DISPONIBLE", 4)];
+    });
+
+    await expect(ajustarCuposPorCapacidadDeAula(aulaId, 3, usuarioId, tx))
+      .resolves.toEqual({ ok: true, turnos_actualizados: 0, eventos: [] });
+    expect(db.turno.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("bloquearTurnoParaOperacion conserva el criterio estricto: en el mismo minuto ya está vencido", async () => {
+    vi.setSystemTime(new Date("2026-09-28T13:00:00.000Z"));
+    db.$queryRaw.mockResolvedValue([{
+      ...filaTurnoAula(turnoId, "DISPONIBLE", 4), duracionMinutosTurno: 60, materiaId: "m", profesorId: null, aulaId,
+    }]);
+    await expect(bloquearTurnoParaOperacion(turnoId, tx)).resolves.toMatchObject({ vencido: true });
+  });
+});
