@@ -278,6 +278,20 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     expect(container.querySelector("aside")?.textContent).toContain("Sin elegir");
   });
 
+  it("mantiene loading, muestra el error de configuración y permite reintentar", async () => {
+    let resolver: (valor: Respuesta) => void = () => {};
+    let intentos = 0;
+    rutas = (url) => url === "/api/turnos/configuracion" && ++intentos === 1
+      ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
+    await montar();
+    expect(container.textContent).toContain("Cargando materias");
+    await act(async () => { resolver(respuesta(null, false, { message: "Falló la configuración" })); });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Falló la configuración");
+    await pulsar(boton("Reintentar"));
+    expect(container.querySelector("h2#titulo-paso-materia")?.textContent).toBe("Elegí una materia");
+    expect(llamadas("GET", "/api/turnos/configuracion")).toHaveLength(2);
+  });
+
   it("Materia avanza a Profesor sin persistir; por-materia muestra solo las opciones recibidas", async () => {
     rutas = (url) => url.endsWith("por-materia?materia_id=materia-1") ? respuesta([profesores[0]]) : undefined;
     await montar();

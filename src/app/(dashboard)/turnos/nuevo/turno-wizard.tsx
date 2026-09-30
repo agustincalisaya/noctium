@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
@@ -35,6 +35,15 @@ function seleccionSigueDisponible(disponibilidad: Disponibilidad, fecha: string,
   return Boolean(dia && (!hora || dia.franjas.some((franja) => franja.inicios.includes(hora))));
 }
 
+async function obtenerConfiguracionTurno() {
+  const respuesta = await fetchAutenticado("/api/turnos/configuracion", { cache: "no-store" });
+  const valor = await respuesta.json().catch(() => null);
+  if (!respuesta.ok || !Array.isArray(valor?.data?.materias) || !Array.isArray(valor?.data?.parametros?.duraciones_permitidas_minutos)) {
+    throw new Error(valor?.error?.message ?? "No se pudo cargar la configuración del turno");
+  }
+  return { materias: valor.data.materias as MateriaOpcionTurno[], duraciones: valor.data.parametros.duraciones_permitidas_minutos as number[] };
+}
+
 export function TurnoWizard() {
   const { setDirty } = useDirtyState();
   const [paso, setPaso] = useState<PasoTurno>(1);
@@ -43,6 +52,7 @@ export function TurnoWizard() {
   const [duracionesPermitidas, setDuracionesPermitidas] = useState<number[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
+  const [reintentoMaterias, setReintentoMaterias] = useState(0);
   const [consultaProfesores, setConsultaProfesores] = useState<ConsultaProfesores | null>(null);
   const [reintentoProfesores, setReintentoProfesores] = useState(0);
   const [turnoId, setTurnoId] = useState("");
@@ -58,21 +68,25 @@ export function TurnoWizard() {
   const guardandoRef = useRef(false);
   const [errorGuardado, setErrorGuardado] = useState("");
 
-  const cargarMaterias = useCallback(async () => {
-    setCargando(true); setErrorCarga("");
-    try {
-      const respuesta = await fetchAutenticado("/api/turnos/configuracion", { cache: "no-store" });
-      const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok || !Array.isArray(valor?.data?.materias) || !Array.isArray(valor?.data?.parametros?.duraciones_permitidas_minutos)) {
-        throw new Error(valor?.error?.message ?? "No se pudo cargar la configuración del turno");
-      }
-      setMaterias(valor.data.materias);
-      setDuracionesPermitidas(valor.data.parametros.duraciones_permitidas_minutos);
-    } catch (error) { setErrorCarga(error instanceof Error ? error.message : "No se pudo cargar la configuración del turno"); }
-    finally { setCargando(false); }
-  }, []);
+  useEffect(() => {
+    let vigente = true;
+    void obtenerConfiguracionTurno()
+      .then(({ materias, duraciones }) => {
+        if (!vigente) return;
+        setMaterias(materias);
+        setDuracionesPermitidas(duraciones);
+      })
+      .catch((error) => {
+        if (vigente) setErrorCarga(error instanceof Error ? error.message : "No se pudo cargar la configuración del turno");
+      })
+      .finally(() => { if (vigente) setCargando(false); });
+    return () => { vigente = false; };
+  }, [reintentoMaterias]);
 
-  useEffect(() => { void cargarMaterias(); }, [cargarMaterias]);
+  const reintentarMaterias = () => {
+    setCargando(true); setErrorCarga("");
+    setReintentoMaterias((valor) => valor + 1);
+  };
 
   const materiaId = seleccion.materiaId;
   useEffect(() => {
@@ -261,7 +275,7 @@ export function TurnoWizard() {
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
         {resultadoFinal ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turno confirmado</h2><p className="flex items-center gap-2">Estado: <EstadoTurnoBadge estado={resultadoFinal} /></p><p>Profesor, aula y {seleccion.alumnos.length} {seleccion.alumnos.length === 1 ? "alumno" : "alumnos"} confirmados.</p></div> :
-          cargando ? <p role="status">Cargando materias</p> : errorCarga ? <div role="alert" className="space-y-3"><p>{errorCarga}</p><Button type="button" variant="outline" onClick={() => void cargarMaterias()}>Reintentar</Button></div> :
+          cargando ? <p role="status">Cargando materias</p> : errorCarga ? <div role="alert" className="space-y-3"><p>{errorCarga}</p><Button type="button" variant="outline" onClick={reintentarMaterias}>Reintentar</Button></div> :
           paso === 1 ? <PasoMateriaTurno materias={materias} materiaId={seleccion.materiaId} onSeleccionar={cambiarMateria} /> :
             paso === 2 ? <PasoProfesorTurno profesores={profesores} profesorId={seleccion.profesorId} onSeleccionar={cambiarProfesor}
               cargando={!consultaVigente || consultaVigente.estado === "cargando"} error={consultaVigente?.estado === "error" ? consultaVigente.mensaje : ""}
