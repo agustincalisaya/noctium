@@ -18,25 +18,29 @@ export function FichaEncabezado({
   nombre,
   apellido,
   dni,
+  email,
   activo,
   puedeEditar,
+  modoHistorial = false,
 }: {
   alumnoId: string;
   nombre: string;
   apellido: string;
   dni: string;
+  email?: string | null;
   activo: boolean;
   puedeEditar: boolean;
+  modoHistorial?: boolean;
 }) {
   return (
     <header className="space-y-1">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">
-          {apellido}, {nombre}
+          {modoHistorial ? `${nombre} ${apellido}` : `${apellido}, ${nombre}`}
         </h1>
-        <Badge variant={activo ? "success" : "muted"}>{activo ? "Activo" : "Inactivo"}</Badge>
+        {!modoHistorial && <Badge variant={activo ? "success" : "muted"}>{activo ? "Activo" : "Inactivo"}</Badge>}
       </div>
-      <p className="text-sm text-muted-foreground">DNI {dni}</p>
+      <p className="text-sm text-muted-foreground">DNI {dni}{email ? ` · ${email}` : ""}</p>
       {puedeEditar && (
         <Link
           href={`/alumnos/${alumnoId}/editar`}

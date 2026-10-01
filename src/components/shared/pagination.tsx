@@ -17,6 +17,10 @@ export function Pagination({
   total,
   buildHref,
   siempreVisible = false,
+  mostrarRango = false,
+  mostrarNumeros = false,
+  porPagina = 10,
+  onPageChange,
 }: {
   paginaActual: number;
   totalPaginas: number;
@@ -29,24 +33,40 @@ export function Pagination({
    * (HU-D-05). Por defecto, con una sola página no se renderiza nada.
    */
   siempreVisible?: boolean;
+  /** Presentación compacta del historial: «Mostrando X–Y de N». */
+  mostrarRango?: boolean;
+  /** Presenta botones numerados con elipsis además de Anterior/Siguiente. */
+  mostrarNumeros?: boolean;
+  porPagina?: number;
+  /** Si se indica, pagina en el cliente; por defecto conserva enlaces de navegación. */
+  onPageChange?: (pagina: number) => void;
 }) {
   if (totalPaginas === 0 || (totalPaginas === 1 && !siempreVisible)) return null;
 
   const hayAnterior = paginaActual > 1;
   const haySiguiente = paginaActual < totalPaginas;
+  const desde = total === undefined || total === 0 ? 0 : (paginaActual - 1) * porPagina + 1;
+  const hasta = total === undefined ? 0 : Math.min(paginaActual * porPagina, total);
+  const paginas = mostrarNumeros ? paginasVisibles(paginaActual, totalPaginas) : [];
 
   return (
-    <nav className="flex items-center justify-between gap-4 pt-2" aria-label="Paginación">
+    <nav className="flex flex-wrap items-center justify-between gap-3 pt-2" aria-label="Paginación">
       <span className="text-sm text-muted-foreground">
-        Página {paginaActual} de {totalPaginas}
-        {total !== undefined && ` · ${total} en total`}
+        {mostrarRango && total !== undefined
+          ? `Mostrando ${desde}–${hasta} de ${total}`
+          : <>Página {paginaActual} de {totalPaginas}{total !== undefined && ` · ${total} en total`}</>}
       </span>
       <div className="flex items-center gap-2">
-        <PaginationLink href={hayAnterior ? buildHref(paginaActual - 1) : null} aria-label="Página anterior">
+        <PaginationLink href={hayAnterior ? buildHref(paginaActual - 1) : null} onClick={hayAnterior && onPageChange ? () => onPageChange(paginaActual - 1) : undefined} aria-label="Página anterior">
           <ChevronLeft className="size-4" aria-hidden />
           Anterior
         </PaginationLink>
-        <PaginationLink href={haySiguiente ? buildHref(paginaActual + 1) : null} aria-label="Página siguiente">
+        {mostrarNumeros && <div className="flex items-center gap-1">
+          {paginas.map((pagina, i) => pagina === null
+            ? <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground" aria-hidden>…</span>
+            : <PageButton key={pagina} pagina={pagina} actual={pagina === paginaActual} onClick={onPageChange ? () => onPageChange(pagina) : undefined} href={onPageChange ? undefined : buildHref(pagina)} />)}
+        </div>}
+        <PaginationLink href={haySiguiente ? buildHref(paginaActual + 1) : null} onClick={haySiguiente && onPageChange ? () => onPageChange(paginaActual + 1) : undefined} aria-label="Página siguiente">
           Siguiente
           <ChevronRight className="size-4" aria-hidden />
         </PaginationLink>
@@ -58,11 +78,13 @@ export function Pagination({
 function PaginationLink({
   href,
   children,
+  onClick,
   ...props
-}: { href: string | null; children: ReactNode } & HTMLAttributes<HTMLElement>) {
+}: { href: string | null; children: ReactNode; onClick?: () => void } & HTMLAttributes<HTMLElement>) {
   const className = cn(buttonVariants({ variant: "outline", size: "sm" }));
 
   if (!href) {
+    if (onClick) return <button type="button" className={className} onClick={onClick} {...props}>{children}</button>;
     return (
       <span className={cn(className, "pointer-events-none opacity-50")} aria-disabled="true" {...props}>
         {children}
@@ -70,9 +92,39 @@ function PaginationLink({
     );
   }
 
+  if (onClick) return <button type="button" className={className} onClick={onClick} {...props}>{children}</button>;
+
   return (
     <Link href={href} className={className} {...props}>
       {children}
     </Link>
   );
+}
+
+function paginasVisibles(actual: number, total: number): (number | null)[] {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  const candidatas = [...new Set([1, actual - 1, actual, actual + 1, total])]
+    .filter((pagina) => pagina >= 1 && pagina <= total)
+    .sort((a, b) => a - b);
+  return candidatas.flatMap((pagina, i) => i > 0 && pagina - (candidatas[i - 1] ?? pagina) > 1
+    ? [null, pagina]
+    : [pagina]);
+}
+
+function PageButton({
+  pagina,
+  actual,
+  href,
+  onClick,
+}: {
+  pagina: number;
+  actual: boolean;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const className = buttonVariants({ variant: actual ? "default" : "outline", size: "sm" });
+  const props = { className, "aria-label": `Página ${pagina}`, ...(actual ? { "aria-current": "page" as const } : {}) };
+  return onClick
+    ? <button type="button" onClick={onClick} {...props}>{pagina}</button>
+    : <Link href={href ?? "#"} {...props}>{pagina}</Link>;
 }

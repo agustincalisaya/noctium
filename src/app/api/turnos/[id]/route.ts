@@ -8,15 +8,16 @@ import { obtenerDetalleTurno, type CapacidadesDetalle } from "@/server/turnos/tu
  * §4.1). Al Profesor no se le consulta `pagos:leer`: nunca recibe datos de pago.
  */
 async function capacidadesDelDetalle(rol: RolUsuario): Promise<CapacidadesDetalle> {
-  const [verPagos, cancelar, reprogramar, priorizar, registrarPago, registrarClase] = await Promise.all([
+  const [verPagos, verHistorial, cancelar, reprogramar, priorizar, registrarPago, registrarClase] = await Promise.all([
     rol === "PROFESOR" ? false : tienePermiso("pagos:leer"),
+    tienePermiso("historial:leer"),
     tienePermiso("turnos:cancelar"),
     tienePermiso("turnos:reprogramar"),
     tienePermiso("turnos:priorizar"),
     tienePermiso("pagos:crear"),
     tienePermiso("clases:registrar"),
   ]);
-  return { verPagos, cancelar, reprogramar, priorizar, registrarPago, registrarClase };
+  return { verPagos, verHistorial, cancelar, reprogramar, priorizar, registrarPago, registrarClase };
 }
 
 export const GET = withPermission("turnos:leer", async (req, ctx) => {
