@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { AvisoErrorAlumnos } from "./aviso-error-alumnos";
 
 /**
  * Boundary de error del segmento `/alumnos` (criterio de aceptación 6,
@@ -10,12 +10,5 @@ import { Button } from "@/components/ui/button";
  * completa — mismo patrón que `materias/error.tsx` (HU-L-02).
  */
 export default function ErrorAlumnos({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-md border border-border bg-card p-12 text-center">
-      <p className="text-sm text-destructive">No se pudo cargar la información de alumnos</p>
-      <Button variant="outline" size="sm" onClick={reset}>
-        Reintentar
-      </Button>
-    </div>
-  );
+  return <AvisoErrorAlumnos onReintentar={reset} />;
 }

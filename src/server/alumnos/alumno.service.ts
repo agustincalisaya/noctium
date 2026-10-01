@@ -2,7 +2,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
-import type { DetalleAlumno, FichaAlumno } from "@/types/alumno.types";
+import { construirFiltroBusquedaAlumno } from "@/server/alumnos/alumno.busqueda";
+import {
+  listarFormasPagoActivas as listarFormasPagoActivasDeCatalogo,
+  obtenerFormaPago,
+  verificarFormaPagoActiva as verificarFormaPagoActivaDeCatalogo,
+} from "@/server/pagos/forma-pago.publico";
+import type { DetalleAlumno, FichaAlumno, ListadoAlumnos } from "@/types/alumno.types";
 import type {
   ContactoAlumnoInput,
   FormaPagoPreferidaInput,
@@ -109,19 +115,16 @@ export async function obtenerFichaAlumno(alumnoId: string): Promise<FichaAlumno 
   };
 }
 
-/** Consulta acotada para el autocompletado de HU-C-04. */
+/**
+ * Consulta acotada para el autocompletado de HU-C-04. Usa el mismo filtro
+ * que el listado (HU-B-05, spec_modulo_B.md §3.9); solo difiere en que
+ * devuelve activos y como máximo 10.
+ */
 export async function buscarAlumnosActivos(query: string) {
-  const termino = normalizarTexto(query.trim());
-  if (termino.length < 2) return [];
+  const filtro = construirFiltroBusquedaAlumno(query);
+  if (!filtro) return [];
   const alumnos = await prisma.alumno.findMany({
-    where: {
-      activoAlumno: true,
-      OR: [
-        { nombreNormalizadoAlumno: { contains: termino } },
-        { apellidoNormalizadoAlumno: { contains: termino } },
-        { dniAlumno: { contains: query.trim() } },
-      ],
-    },
+    where: { activoAlumno: true, ...filtro },
     orderBy: [{ apellidoNormalizadoAlumno: "asc" }, { nombreNormalizadoAlumno: "asc" }, { idAlumno: "asc" }],
     take: 10,
     select: { idAlumno: true, nombreAlumno: true, apellidoAlumno: true, dniAlumno: true },
@@ -141,11 +144,10 @@ export async function verificarAlumnoActivo(alumnoId: string, db: Prisma.Transac
  * necesita esta verificación.
  */
 async function verificarFormaPagoActiva(tx: Prisma.TransactionClient, formaPagoId: string): Promise<void> {
-  const formaPago = await tx.formaPago.findUnique({
-    where: { idFormaPago: formaPagoId },
-    select: { activaFormaPago: true },
-  });
-  if (!formaPago || !formaPago.activaFormaPago) {
+  // El catálogo es del Módulo I (Regla N.° 3): se consulta por su contrato
+  // público. Inexistente e inactiva siguen dando el mismo error.
+  const formaPago = await verificarFormaPagoActivaDeCatalogo(formaPagoId, tx);
+  if (!formaPago) {
     throw new ServiceError("FORMA_PAGO_NO_DISPONIBLE", MENSAJES.FORMA_PAGO_NO_DISPONIBLE);
   }
 }
@@ -247,14 +249,20 @@ export async function actualizarContactoAlumno(
  * acento-insensitivo) con `dniAlumno` como segundo criterio de desempate
  * estable — sin este segundo criterio, dos alumnos con el mismo apellido y
  * nombre normalizado podrían cambiar de orden entre páginas.
+ *
+ * Búsqueda (HU-B-05, spec_modulo_B.md §2.7): `q` se traduce a un `where`
+ * que usan tanto el conteo como la página, así el total y las páginas son
+ * los del resultado filtrado. El orden no cambia (sin relevancia).
  */
-export async function listarAlumnos(query: ListarAlumnosQuery) {
+export async function listarAlumnos(query: ListarAlumnosQuery): Promise<ListadoAlumnos> {
   const { pagina, por_pagina: porPagina } = query;
+  const where = construirFiltroBusquedaAlumno(query.q);
 
-  const total = await prisma.alumno.count();
+  const total = await prisma.alumno.count({ where });
   const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
 
   const alumnos = await prisma.alumno.findMany({
+    where,
     orderBy: [
       { apellidoNormalizadoAlumno: "asc" },
       { nombreNormalizadoAlumno: "asc" },
@@ -285,8 +293,8 @@ export async function listarAlumnos(query: ListarAlumnosQuery) {
 
 /**
  * Detalle completo del alumno (HU-B-04, spec_modulo_B.md §2.4): identidad +
- * contacto + forma de pago preferida (nombre resuelto vía `include`, no
- * solo el id) + estado + fecha de alta. Separada de `obtenerFichaAlumno()`
+ * contacto + forma de pago preferida (nombre resuelto vía el contrato
+ * público de Pagos, no solo el id) + estado + fecha de alta. Separada de `obtenerFichaAlumno()`
  * (HU-B-02) a propósito — esa función alimenta el formulario de contacto y
  * no necesita forma de pago ni fecha de alta (Nota de alcance, HU-B-04 §1
  * punto 6).
@@ -298,12 +306,16 @@ export async function listarAlumnos(query: ListarAlumnosQuery) {
 export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlumno> {
   const alumno = await prisma.alumno.findUnique({
     where: { idAlumno: alumnoId },
-    include: { formaPagoPreferida: { select: { nombreFormaPago: true } } },
   });
 
   if (!alumno) {
     throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
   }
+
+  // Nombre histórico: se muestra aunque la forma de pago ya esté inactiva.
+  const formaPagoPreferida = alumno.formaPagoPreferidaId
+    ? await obtenerFormaPago(alumno.formaPagoPreferidaId)
+    : null;
 
   return {
     id: alumno.idAlumno,
@@ -315,7 +327,7 @@ export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlu
     is_active: alumno.activoAlumno,
     telefono: alumno.telefonoAlumno,
     email: alumno.emailAlumno,
-    forma_pago_preferida: alumno.formaPagoPreferida?.nombreFormaPago ?? null,
+    forma_pago_preferida: formaPagoPreferida?.nombre ?? null,
     // HU-B-03: id crudo, para precargar el <select> por id (el nombre no
     // sirve para eso — y una preferencia que quedó inactiva desde que se
     // guardó de todas formas necesita su id real, no solo el texto).
@@ -332,13 +344,7 @@ export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlu
  * filtro).
  */
 export async function listarFormasPagoActivas() {
-  const formasPago = await prisma.formaPago.findMany({
-    where: { activaFormaPago: true },
-    orderBy: { nombreFormaPago: "asc" },
-    select: { idFormaPago: true, nombreFormaPago: true },
-  });
-
-  return formasPago.map((fp) => ({ id: fp.idFormaPago, nombre: fp.nombreFormaPago }));
+  return listarFormasPagoActivasDeCatalogo();
 }
 
 /**

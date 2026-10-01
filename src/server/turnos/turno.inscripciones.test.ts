@@ -10,7 +10,7 @@ const { tx, evento, vigente, activo } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn((callback) => callback(tx)), eventoTurno: { create: evento } } }));
 vi.mock("@/server/alumnos/alumno.service", () => ({ verificarAlumnoActivo: activo }));
-vi.mock("@/server/profesores/profesor.service", () => ({
+vi.mock("@/server/profesores/profesor.publico", () => ({
   profesorActivoDictaMateria: vi.fn(), listarProfesoresActivosPorMateria: vi.fn(), estaDentroDeHorarioAtencion: vi.fn(),
   intervalosSeSuperponen: (a: { inicio: number; fin: number }, b: { inicio: number; fin: number }) => a.inicio < b.fin && b.inicio < a.fin,
 }));

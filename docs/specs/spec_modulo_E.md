@@ -136,7 +136,7 @@ model ClaseDictadaAlumno {
 **Server Action equivalente:** — (solo Route Handler; el módulo no define `actions.ts`, ver §1)
 **Servicio:** `src/server/historial/resultado-examen.service.ts` → `registrarResultadoExamen()`, `listarOpcionesExamen()`
 **Permiso requerido:** `examenes:registrar`
-**Presentación:** `Dialog` «Registrar resultado de examen» (mismo literal que el AC1 de HU-E-06) sobre el tab "Historial académico" de la ficha del alumno; al abrirlo pide `GET …/examenes/opciones` para poblar el selector de Materia y la escala; toast "Resultado registrado correctamente".
+**Presentación:** `Dialog` «Registrar resultado de examen» (mismo literal que el AC1 de HU-E-06) sobre el tab "Historial académico" de la ficha del alumno; al abrirlo pide `GET …/examenes/opciones` para poblar el selector de Materia y la escala; incluye Observaciones opcionales; toast "Resultado registrado correctamente".
 
 ```typescript
 // src/server/historial/resultado-examen.schema.ts
@@ -147,9 +147,12 @@ export const RegistrarResultadoExamenSchema = z.object({
   // a punto antes de enviar, igual que el monto en spec_modulo_I.md §2.4. La regex admite hasta 3 dígitos enteros
   // («100.0»); el rango lo rechaza el servicio con NOTA_FUERA_DE_RANGO.
   nota: z.string().trim().regex(/^\d{1,3}(\.\d)?$/, "La nota debe ser un número con hasta 1 decimal"),
+  observaciones: z.string().trim().optional(), // texto libre opcional que aparece debajo del examen en el historial
 }).strict();
 export type RegistrarResultadoExamenInput = z.infer<typeof RegistrarResultadoExamenSchema>;
 ```
+
+`observaciones` es opcional; se recorta al guardar y una cadena vacía se persiste como `NULL`. El campo se almacena como texto en `ResultadoExamen` mediante una migración aditiva. No reemplaza ni modifica la nota.
 
 **Comportamiento esperado (`registrarResultadoExamen`), en `prisma.$transaction`:**
 1. **Alcance y alumno.** Si el rol es `PROFESOR`: `profesorAtendioAlumno(profesorEfectivo.id, alumnoId)` (§2.4); si es `false` (o el usuario no tiene ficha de profesor): `403 SIN_PERMISO`, antes de consultar la existencia. Luego `verificarAlumnoActivo(alumnoId)` (Módulo B, `spec_modulo_B.md` §2.8): `404 ALUMNO_NO_ENCONTRADO` si la ficha no existe, `409 ALUMNO_INACTIVO` si está inactiva.
@@ -158,6 +161,7 @@ export type RegistrarResultadoExamenInput = z.infer<typeof RegistrarResultadoExa
 4. **Nota (AC2):** dentro del rango `[nota_minima, nota_maxima]` de `ParametroSistema` (valores `1` y `10`; **Ratificado por el PO (29/09/2026) — Q7d**). Fuera de rango: `422 NOTA_FUERA_DE_RANGO`, mensaje "La nota debe estar entre {min} y {max}".
 5. **Varios resultados por materia (AC3):** nunca se reemplaza el anterior; siempre se **inserta un registro nuevo** (recuperatorios, parciales).
 6. No calcula promedio ni condición (AC5).
+7. `observaciones`, si se informa, se persiste con el resultado y se muestra debajo de su materia en el historial (HU-E-05); si no se informa, no aparece texto adicional.
 
 **Modelo (nuevo en `schema.prisma`):**
 ```prisma
@@ -167,6 +171,7 @@ model ResultadoExamen {
   materiaId               String
   fechaExamen             DateTime @db.Date
   notaExamen              Decimal  @db.Decimal(4, 1)
+  observaciones           String?  @db.Text
   createdAtResultadoExamen DateTime @default(now())    // Regla N.° 2, opción (a)
   creadoPorUsuarioId      String?
   alumno  Alumno  @relation(fields: [alumnoId], references: [idAlumno])
@@ -179,7 +184,7 @@ Sin `updatedAt...`: no se actualiza (§3.1).
 
 **Parámetros nuevos** (`ParametroSistema`): `nota_minima = 1`, `nota_maxima = 10`.
 
-**Respuesta `201 Created`:** `{ "data": { "id": "cuid", "alumno_id": "cuid", "materia_id": "cuid", "fecha_examen": "2026-09-27", "nota": "8.5" }, "error": null }`
+**Respuesta `201 Created`:** `{ "data": { "id": "cuid", "alumno_id": "cuid", "materia_id": "cuid", "fecha_examen": "2026-09-27", "nota": "8.5", "observaciones": "Parcial de funciones" }, "error": null }`. Sin observaciones devuelve `"observaciones": null`.
 
 **Errores esperados:** `400` (validación) · `403 SIN_PERMISO` · `404 ALUMNO_NO_ENCONTRADO` · `409 ALUMNO_INACTIVO` · `409 MATERIA_NO_CURSADA` · `422 NOTA_FUERA_DE_RANGO`.
 
@@ -216,7 +221,7 @@ export const HistorialQuerySchema = z.object({
 2. Combinar en **una sola consulta** los dos tipos de registro y paginarla (`$queryRaw` parametrizado con `UNION ALL`, ordenado por `fecha` descendente y `createdAt` descendente como desempate): las **clases dictadas** en las que el alumno figura en `ClaseDictadaAlumno` y sus **resultados de examen**. Paginar cada tipo por separado y mezclarlos rompería el orden. Filtro opcional `materia_id` (AC3).
    - **Materias del filtro (AC3):** la misma respuesta trae `materias_disponibles`, las materias distintas que aparecen en el historial del alumno, calculadas **sin aplicar** `materia_id`. No hay recorte por rol más allá del alcance sobre alumnos (ver convenciones): el Profesor que puede abrir a un alumno ve todo su historial, así que sus `materias_disponibles` son las de todo el historial del alumno y resueltas con `obtenerMateriasPorIds()`. El filtro no depende de `GET /alumnos/[id]/examenes/opciones`, que exige `examenes:registrar` y el Gerente no lo tiene.
 3. Con la página ya resuelta, completar nombres en lote con los servicios públicos: `obtenerMateriasPorIds()` (Módulo L) y `obtenerNombresProfesores()` (Módulo D). Este módulo no consulta esas tablas.
-4. Cada clase dictada: `fecha`, `materia`, `profesor`, `turno_id`. Cada examen: `fecha`, `materia`, `nota` (AC2). El campo `tipo` (`"CLASE_DICTADA" | "EXAMEN"`) permite que la UI los distinga **con texto o ícono, no solo color**.
+4. Cada clase dictada: `fecha`, `materia`, `profesor`, `turno_id`. Cada examen: `fecha`, `materia`, `nota` y `observaciones` (AC2 y mockup, observaciones nullable). La UI presenta las observaciones debajo de la materia cuando existan. El campo `tipo` (`"CLASE_DICTADA" | "EXAMEN"`) permite que la UI los distinga **con texto o ícono, no solo color**.
 5. Sin registros: `200` con `items: []`; la UI muestra "Este alumno todavía no tiene historial académico" (AC4).
 6. **Solo consulta:** las altas viven en sus propios puntos de entrada (2.1 y 2.2), no acá (AC5).
 
@@ -227,7 +232,7 @@ export const HistorialQuerySchema = z.object({
     "alumno": { "id": "cuid", "nombre_completo": "Pérez, Ana" },
     "materias_disponibles": [{ "id": "cuid", "nombre": "Matemática" }],
     "items": [
-      { "tipo": "EXAMEN", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" }, "nota": "8.5" },
+      { "tipo": "EXAMEN", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" }, "nota": "8.5", "observaciones": "Parcial de funciones" },
       { "tipo": "CLASE_DICTADA", "fecha": "2026-09-25", "materia": { "id": "cuid", "nombre": "Matemática" }, "profesor": "Giménez, Laura", "turno_id": "seed-turno-26" }
     ],
     "paginacion": { "total": 2, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 10 }

@@ -18,8 +18,8 @@ function formatearFechaCalendario(fecha: Date): string {
   }).format(fecha);
 }
 
-/** Instante (fecha de alta): se formatea en la hora de Argentina. */
-function formatearFechaAlta(fecha: Date): string {
+/** Instante (fecha de alta): se formatea en la hora de Argentina. También lo usa el modo edición (HU-D-06). */
+export function formatearFechaAlta(fecha: Date): string {
   return new Intl.DateTimeFormat("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",
     day: "numeric",

@@ -62,7 +62,48 @@ describe("HU-C-01 listado y detalle", () => {
 
   it("el detalle conserva alumnos, estado y usuario creador", async () => {
     const resultado = await obtenerTurno("turno-DISPONIBLE", mesa);
-    expect(resultado).toMatchObject({ estado: "DISPONIBLE", alumnos_inscriptos: "3/5", creado_en: "2026-09-24T12:00:00.000Z", creado_por: "mesa@example.com" });
-    expect(resultado?.alumnos).toHaveLength(3);
+    expect(resultado).toMatchObject({ resultado: "ok", turno: { estado: "DISPONIBLE", alumnos_inscriptos: "3/5", creado_en: "2026-09-24T12:00:00.000Z", creado_por: "mesa@example.com" } });
+    expect(resultado.resultado === "ok" && resultado.turno.alumnos).toHaveLength(3);
+  });
+});
+
+describe("HU-C-02 búsqueda en el listado", () => {
+  const base = { fechaTurno: { gte: new Date("2026-09-24T00:00:00.000Z") } };
+  const orderBy = [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }];
+
+  it.each([["sin filtros", undefined], ["con filtros vacíos", {}], ["con q de un carácter", { q: "a" }], ["con q en blanco", { q: "   " }]])(
+    "%s el where es el de HU-C-01", async (_caso, filtros) => {
+      await listarTurnos(1, undefined, mesa, filtros);
+      expect(turno.count).toHaveBeenCalledWith({ where: base });
+      expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: base, orderBy }));
+    });
+
+  it("con q, count y findMany reciben el mismo where con la búsqueda y el orden original", async () => {
+    await listarTurnos(1, undefined, mesa, { q: "sofia matematica" });
+    const where = turno.count.mock.calls[0][0].where;
+    expect(where).toMatchObject({ ...base, AND: [{ AND: [expect.objectContaining({ OR: expect.any(Array) }), expect.objectContaining({ OR: expect.any(Array) })] }] });
+    expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where, orderBy }));
+  });
+
+  it("para el rol PROFESOR la búsqueda se suma a su alcance", async () => {
+    await listarTurnos(1, undefined, { id: "usuario-prof", rol: "PROFESOR" }, { q: "fisica" });
+    const where = turno.count.mock.calls[0][0].where;
+    expect(where.profesor).toEqual({ is: { usuarioId: "usuario-prof" } });
+    expect(where.fechaTurno).toEqual(base.fechaTurno);
+    expect(where.AND).toHaveLength(1);
+  });
+
+  it("el total y las páginas salen del conteo filtrado", async () => {
+    turno.count.mockResolvedValue(5);
+    const resultado = await listarTurnos(9, undefined, mesa, { q: "rossi" });
+    expect(resultado.paginacion).toEqual({ total: 5, pagina_actual: 3, total_paginas: 3, por_pagina: 2 });
+    expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 4, take: 2 }));
+  });
+
+  it("sin coincidencias devuelve la página 1 vacía", async () => {
+    turno.count.mockResolvedValue(0);
+    turno.findMany.mockResolvedValue([]);
+    const resultado = await listarTurnos(3, undefined, mesa, { q: "mendez" });
+    expect(resultado).toEqual({ items: [], paginacion: { total: 0, pagina_actual: 1, total_paginas: 0, por_pagina: 2 } });
   });
 });

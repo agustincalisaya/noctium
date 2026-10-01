@@ -6,7 +6,7 @@
 | Sprint | 2 |
 | Responsable | Iván |
 | SP estimado | 2 |
-| Estado | PR borrador #118 apilada sobre HU-C-12; revalidar visualmente el último ajuste de tamaño de tarjetas |
+| Estado | PR #118 actualizada sobre HU-C-12; integración, PostgreSQL y Playwright aprobados en escritorio y móvil |
 | Contrato | docs/specs/spec_modulo_C.md §2.14.1; docs/specs/spec_modulo_A.md §2.4; docs/specs/spec_modulo_B.md §2.8; docs/specs/spec_modulo_E.md §2.4 |
 | Backlog | docs/tasks/Sprint 2/HU-Sprint-2.md §20 |
 | Pantalla | docs/adicionales/mapa-pantallas-sprint-2.md §2; pantallas de referencia Sprint 2, págs. 25–26 |
@@ -110,14 +110,29 @@ La pantalla debe revisarse en navegador de escritorio y móvil contra las págin
 - **Dependencia HU-C-05:** `origin/develop` está en `beda994` y no contiene el servicio/ruta de cancelación; tampoco existe una rama remota HU-C-05. La consulta y el estado CANCELADO se verificaron con fixtures PostgreSQL, pero queda bloqueada la comprobación usando una cancelación generada por HU-C-05.
 - **Historial E:** no había una implementación del helper público en el código. Esta task implementa y prueba `obtenerClaseDictadaDeTurno()` según E §2.4; al integrar HU-E-01, revisar que conserve la misma firma y reutilizar este helper.
 
+### Actualización y comprobación de integración (01/10/2026)
+
+- Se integró la rama actualizada de HU-C-12, que incorpora `origin/develop` en `66966ab`. Se resolvieron los conflictos de imports de Turnos y el helper de Historial, conservando el archivo oficial completo de HU-E-01, incluida `profesorAtendioAlumno()`.
+- La comparación del helper de Historial confirma la misma firma y resultado público. C-13 consume la implementación oficial para `clase_dictada`; ya no mantiene una variante del helper en esta PR.
+- `npm test`: **1.302 aprobadas** y 59 PostgreSQL omitidas por su guarda. Ejecutadas explícitamente contra una base nueva aislada `noctium_test`: **59 PostgreSQL aprobadas** (12 suites), incluida la prueba con rollback de C-13 y las de cancelación/reprogramación.
+- `npm run lint`, `npx prisma generate`, `npm run build` (Next.js 16.3.8/Turbopack) y `npx tsc --noEmit` después del build: aprobados.
+- **Playwright con sesiones y datos reales:** solo aparecen las relaciones del alumno autenticado, con 12 próximos y 3 anteriores en los fixtures iniciales. La primera página muestra 10 tarjetas y la segunda 2; después de una inscripción real, 10 y 3. Cambiar de pestaña vuelve a página 1. Los estados vacíos de ambas pestañas y los parámetros inválidos se comprobaron.
+- **HU-C-05 resuelta:** se canceló un turno por su endpoint real con sesión de Mesa; la relación del alumno se conserva y la tarjeta de Próximos muestra `Cancelado`. El fixture cancelado anterior conserva la presentación atenuada.
+- **HU-C-06:** el endpoint real reprogramó un turno de 10:00 a 11:00, y la API/lista propia mostraron 11:00–12:00 al recargar.
+- **HU-E-01:** Mesa registró una clase ya terminada mediante su endpoint real (`201`); Anteriores mostró la etiqueta `Clase dictada` usando el helper oficial de Historial.
+- **HU-C-12 y HU-C-17:** Playwright completó la inscripción en un turno generado por el servicio real de la rama C-17, combinado únicamente en un checkout temporal. C-13 conservó el aviso “Te inscribiste correctamente / El pago se abona en el centro” y agregó el turno propio completo. La PR no incluye archivos de C-17.
+- **Presentación y navegación:** capturas revisadas de escritorio 1440 × 1000 y móvil 390 × 844; sin desborde horizontal, menú móvil y paginación funcionales, sin excepciones JavaScript. Se conservaron los tamaños de las tarjetas ya aprobados.
+- Fixtures de Playwright retirados y base temporal de suites eliminada; sin reset ni reseed de la base del usuario. Evidencia y capturas conservadas en el reporte local.
+- **Orden de integración:** revisar primero #116 y después #118. #118 sigue apilada sobre la rama de C-12 para mostrar únicamente su alcance. Una vez integrada #116, cambiar la base de #118 a `develop` antes de borrar la rama de C-12, para ejecutar sus workflows de CI y conservar la PR abierta.
+
 ## 7. Checklist de Definition of Done
 
 - [x] Task SDD revisada y relevamiento/archivos aprobados por Iván antes de implementar.
 - [x] Etiqueta “Clase dictada” y contrato clase_dictada implementados usando el servicio público de E §2.4.
 - [x] GET protegido por turnos:leer_propios; identidad derivada de la sesión.
 - [x] Servicio cumple separación temporal, orden, estados, totales y paginación según §2.14.1.
-- [x] Pantalla implementada según mapa/spec; accesos de HU-C-12 y banner preservados. Ajuste de tamaño aplicado a partir de la captura revisada con Iván; confirmar el resultado final localmente.
+- [x] Pantalla implementada según mapa/spec; accesos de HU-C-12 y banner preservados. Ajuste de tamaño aprobado y revalidado con Playwright en escritorio y móvil.
 - [x] Evidencia automatizada de Unit, API y BD documentada.
 - [x] Checks locales de CI completados y registrados.
-- [x] Verificación con cancelación real de HU-C-05 marcada Bloqueada por dependencia externa; estados cancelados sí cubiertos por fixture PostgreSQL.
+- [x] Verificación real de HU-C-05, HU-C-06 y HU-E-01 con sesión de Mesa y consulta propia del alumno.
 - [x] Diff revisado y PR borrador #118 publicada sobre la rama de HU-C-12; cambiar la base a `develop` cuando se integre el PR #116.

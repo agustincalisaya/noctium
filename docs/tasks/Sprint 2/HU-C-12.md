@@ -6,7 +6,7 @@
 | Sprint | 2 |
 | Responsable | Iván |
 | SP estimado | 3 |
-| Estado | Implementación local revalidada y lista para PR; pendiente integración con HU-C-17 y comparación del helper de Alumno con el PR 0' de Lautaro. |
+| Estado | PR #116 actualizada con develop; helper oficial de Alumno integrado y Playwright aprobado, incluida compatibilidad con la rama de HU-C-17. |
 | Contrato | `docs/specs/spec_modulo_C.md` §2.5, §2.14.2 y §3.7; `docs/specs/spec_modulo_B.md` §2.8; `docs/specs/spec_modulo_A.md` §2.4 |
 | Backlog | `docs/tasks/Sprint 2/HU-Sprint-2.md` §19 |
 | Pantalla | `docs/adicionales/mapa-pantallas-sprint-2.md` §2 |
@@ -119,14 +119,27 @@ Registrar como **bloqueado** cualquier criterio que no pueda comprobarse por una
 - **UI y limpieza:** Playwright comprobó selección, resumen con aula, navegación de regreso y banner de éxito. A 390 × 844 px verificó los enlaces “Mis turnos” y “Solicitar turno” y ausencia de desborde horizontal. Eliminé las dos relaciones y eventos creados por estas pruebas, además de los fixtures de las suites PostgreSQL, y confirmé que los cupos del seed volvieran a sus valores previos; no se hizo reset ni reseed.
 - **Pendiente externo:** HU-C-17 sigue sin estar en `develop`, por lo que la comprobación con un turno generado por esa implementación sigue bloqueada. También falta comparar el helper local con el PR 0' de Lautaro. La pantalla “Mis turnos” continúa limitada al destino y al aviso; el listado de HU-C-13 queda fuera de alcance.
 
+### Actualización y comprobación de integración (01/10/2026)
+
+- Se integró `origin/develop` en `66966ab` (incluye HU-C-05, HU-C-06, HU-C-18 y HU-E-01). Se resolvieron los conflictos en Sidebar, `alumno.publico.ts` y `turno.service.ts`, conservando la configuración actual del wizard y las validaciones de los servicios públicos de Profesor.
+- El helper mínimo de Alumno se sustituyó por el archivo oficial de `develop`. `obtenerAlumnoDeUsuario(usuarioId, db?)` conserva exactamente `{ id, activo } | null`; la comparación con el PR 0' queda resuelta.
+- Se corrigió una aserción PostgreSQL heredada de HU-C-04: el helper público actual rechaza una ficha inactiva con `ALUMNO_INACTIVO` y conserva `detalles.alumno_id`. No se cambió el comportamiento del servicio para acomodar la prueba.
+- `npm test`: **1.287 aprobadas**, 58 PostgreSQL omitidas por su guarda. Las **58 PostgreSQL** se ejecutaron por separado y pasaron en una base nueva `noctium_test`, dentro del contenedor aislado de pruebas, incluyendo reservas, participantes, cancelación y reprogramación.
+- `npm run lint`, `npx prisma generate`, `npm run build` (Next.js 16.3.8/Turbopack) y `npx tsc --noEmit` después del build: aprobados.
+- **Playwright con aplicación de producción y sesiones reales:** selección Materia → Profesor → Horario, aula informativa, resumen, inscripción desde móvil y regreso con el aviso de éxito. La base confirmó la identidad de sesión, el evento con `origen: AUTOSERVICIO` y la transición del último cupo a `COMPLETO`.
+- **Integración HU-C-17:** se creó un checkout temporal de C-12/C-13 combinado con `origin/feature/HU-C-17` en `2937a5b`, sin incorporar esos cambios a esta PR. Su servicio real de vista previa y confirmación generó un turno `DISPONIBLE` 0/1; Playwright lo encontró e inscribió al alumno hasta 1/1 `COMPLETO`. La compatibilidad queda comprobada; la integración de HU-C-17 en `develop` sigue pendiente del equipo.
+- **Concurrencia y revalidación:** dos sesiones reales disputaron un último cupo; solo una obtuvo `200`, la otra `409`, con una sola relación persistida. Un `alumno_id` ajeno en el body no alteró la identidad. Cancelar un turno después de seleccionarlo produjo `409`, un mensaje visible y recarga de opciones sin insertar la inscripción.
+- **Presentación:** 1440 × 1000 y 390 × 844, sin desborde horizontal; menú móvil, acceso a ambos flujos, botones y paginación comprobados. Sin excepciones JavaScript; el `409` del caso de conflicto es esperado.
+- Las capturas y el reporte de comprobaciones se guardaron como evidencia local. Se retiraron los fixtures creados para Playwright y se eliminó la base temporal de suites; no se hizo reset ni reseed de la base del usuario.
+
 ## 7. Definition of Done
 
 - [x] Relevamiento de §0 revisado y aprobado por Iván.
 - [x] Contrato de opciones y ruta de pantalla confirmados por Iván.
-- [x] Contrato público de Alumno disponible localmente; pendiente comparar con PR 0' de Lautaro al integrar.
+- [x] Contrato público de Alumno oficial integrado y comparado con la implementación inicial.
 - [x] Backend y frontend cumplen los seis criterios del backlog y la spec §2.14.2 con los turnos locales disponibles.
 - [x] HU-C-04 mantiene su comportamiento, comprobado con regresión.
 - [x] Evidencia unitario, API, base de datos y UI documentada.
-- [ ] Integración con un turno generado por HU-C-17 comprobada cuando esté disponible (**bloqueada por dependencia externa**).
+- [x] Inscripción con un turno generado por la rama real de HU-C-17 comprobada en un checkout temporal; su merge en `develop` queda a cargo del equipo.
 - [x] Navegación “Mis turnos” / “Solicitar turno” y regreso con el aviso de éxito implementados; el listado HU-C-13 completo queda fuera de este task.
 - [x] Diff local acotado a HU-C-12, revalidado y preparado para una PR dirigida a `develop`.

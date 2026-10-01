@@ -72,11 +72,11 @@ HU-C-18 es dueña del orden Materia → Profesor → Fecha y Horario → Aula �
 4. **Estado `CANCELADO`:** §2.3 pide `409 TURNO_CANCELADO`; el servicio actual agrupa cualquier estado distinto de `PENDIENTE` como `TURNO_YA_DISPONIBLE`. Confirmar si esa corrección se incluye al cerrar C-16 o se tramita como ajuste independiente de §2.3.
 5. **Pregunta concreta de alcance:** ¿se acepta que C-16 cierre el filtrado del GET y el mensaje del estado vacío, dejando para C-18 el uso obligatorio de `turno_id` en el alta y el botón real «Volver al paso 3»? De lo contrario, C-16 tendría que cambiar la secuencia de persistencia de la pantalla fusionada, trabajo que el backlog asigna a C-18.
 
-**Estado final de la sección 0:** relevamiento revisado y aprobado. La tabla y los hallazgos anteriores conservan el estado observado **antes** de implementar backend. La decisión posterior fue corregir AC1 en C-16, limitar AC3 al mensaje en esta HU, y dejar la navegación y el cuarto paso a HU-C-18. Se aprobó conservar `turno_id` opcional y no corregir `TURNO_CANCELADO` en esta etapa. La etapa backend ya fue implementada y aprobada; se documenta abajo.
+**Estado final de la sección 0:** relevamiento revisado y aprobado. La tabla y los hallazgos anteriores conservan el estado observado **antes** de implementar backend. La decisión posterior fue corregir AC1 en C-16, limitar AC3 al mensaje en esta HU, y dejar la navegación y el cuarto paso a HU-C-18. Se aprobó conservar `turno_id` opcional y no corregir `TURNO_CANCELADO` en esta etapa. La etapa backend ya fue implementada y aprobada; se documenta abajo. **Actualización histórica:** el PO rechazó después que AC1 quedara satisfecho solo en backend; la revalidación del 29/09/2026 se registra en §8 y supera esa reducción de alcance.
 
 ---
 
-## 1. Nota de alcance aprobado
+## 1. Nota de alcance aprobado, superada para AC1 por la revalidación PO
 
 - **AC1:** C-16 corrige el filtrado de aulas ocupadas en las opciones consultadas con `turno_id`.
 - **AC2:** nombre/número y capacidad ya estaban cubiertos por HU-C-15; se preservan.
@@ -84,7 +84,7 @@ HU-C-18 es dueña del orden Materia → Profesor → Fecha y Horario → Aula �
 - **AC4:** la revalidación al asignar/confirmar ya estaba implementada por HU-C-15; se verificó con los tests existentes y no se reimplementó.
 - **AC5:** el cuarto paso y el reordenamiento completo del wizard pertenecen a HU-C-18.
 
-El modo sin `turno_id` sigue siendo contractual. No se cambia la secuencia del alta fusionada ni se adelanta la integración del wizard de HU-C-18.
+El modo sin `turno_id` sigue siendo contractual. La decisión previa de no cambiar la secuencia del alta fusionada quedó **superada para AC1** por el rechazo del PO: la corrección de §8 persiste el PENDIENTE antes de consultar aulas. No se adelanta la integración del wizard de HU-C-18.
 
 ## 2. Historia de usuario
 
@@ -92,7 +92,7 @@ El modo sin `turno_id` sigue siendo contractual. No se cambia la secuencia del a
 
 ## 3. Alcance de esta task
 
-La etapa backend aprobada completa el filtrado de `GET /api/turnos/aula/opciones?turno_id=` sin cambiar su ruta, permiso, forma de respuesta ni modo sin id. La etapa frontend implementada se limita al mensaje exacto de AC3. No incluye el reordenamiento del wizard, la navegación entre pasos, cambios de Prisma/schema, seed, migraciones ni contratos del módulo K.
+La etapa backend aprobada completa el filtrado de `GET /api/turnos/aula/opciones?turno_id=` sin cambiar su ruta, permiso, forma de respuesta ni modo sin id. La etapa frontend inicial implementó el mensaje exacto de AC3. Tras el rechazo PO de AC1, la corrección de §8 adapta el alta real para crear el PENDIENTE y consultar aulas únicamente con su id. No incluye el reordenamiento del wizard, la navegación entre pasos, cambios de Prisma/schema, seed, migraciones ni contratos del módulo K.
 
 ## 4. Contrato backend e implementación realizada
 
@@ -139,7 +139,7 @@ La prueba de componente verifica el texto renderizado; no se realizó verificaci
 
 | Criterio | Estado actual |
 |---|---|
-| AC1 | **Backend satisfecho** para el GET con `turno_id`. La integración completa del wizard queda para HU-C-18. |
+| AC1 | **Backend y pantalla real de alta satisfechos**: el POST crea el PENDIENTE, el GET posterior usa su `turno_id` y solo entonces se ofrecen aulas filtradas. La integración del wizard de HU-C-18 sigue separada. |
 | AC2 | **Satisfecho** por HU-C-15; preservado. |
 | AC3 | **Parcial en el alcance conjunto del backlog:** mensaje exacto implementado y probado en C-16; navegación al paso Fecha y Horario pendiente de HU-C-18. |
 | AC4 | **Satisfecho** por HU-C-15; verificado, sin reimplementación. |
@@ -153,10 +153,40 @@ La prueba de componente verifica el texto renderizado; no se realizó verificaci
 ### Definition of Done de C-16
 
 - [x] Relevamiento revisado y aprobado antes de implementar.
-- [x] AC1 backend: opciones con `turno_id` filtradas por disponibilidad, sin duplicar la regla de superposición.
+- [x] AC1 backend y alta real: opciones con `turno_id` filtradas por disponibilidad, sin duplicar la regla de superposición.
 - [x] AC2 y AC4 preservados desde HU-C-15.
 - [x] AC3 dentro del alcance aprobado de C-16: mensaje exacto y distinción de `SIN_AULAS_ACTIVAS`.
 - [x] Tests específicos frontend/backend y TypeScript aprobados.
 - [x] Revisión de esta etapa frontend por el equipo.
 
-**Estado final: la implementación propia de HU-C-16 quedó revisada y aprobada.** La navegación real al paso Fecha y Horario de AC3 y Aula como cuarto paso de AC5 se implementarán en nuestra HU-C-18. Es una separación deliberada de alcance entre C-16 y C-18, no un bloqueo externo. Las divergencias de `turno_id` opcional y `TURNO_CANCELADO` permanecen documentadas arriba.
+**Estado de la implementación previa:** quedó revisada y aprobada técnicamente, pero el PO rechazó CA1 en el alta real. La reducción de alcance que lo difería a C-18 quedó superada por la corrección de §8. La navegación real al paso Fecha y Horario de AC3 y Aula como cuarto paso de AC5 siguen perteneciendo a HU-C-18. Las divergencias de `turno_id` opcional y `TURNO_CANCELADO` permanecen documentadas arriba.
+
+## 8. Revalidación PO 29/09/2026
+
+### 8.1. Rechazo, causa y alcance corregido
+
+El PO rechazó CA1: en `/turnos/nuevo`, `turno-configuracion.tsx` consultaba aulas sin `turno_id` antes del POST. Ese modo contractual devuelve todas las aulas activas y por eso mostraba aulas ocupadas; el PATCH posterior detectaba el conflicto recién al asignar. La aprobación previa del filtrado backend no bastaba para la pantalla usada. Se adopta la alternativa A aprobada: **persistir configuración como PENDIENTE → obtener `turno_id` → consultar `GET /api/turnos/aula/opciones?turno_id=<id>` → mostrar las opciones filtradas → asignar con el PATCH existente**. El modo sin id permanece en el contrato HTTP, pero el alta ya no lo consume.
+
+### 8.2. Implementación y estados
+
+Archivos modificados: `src/app/(dashboard)/turnos/turno-configuracion.tsx`, `turno-configuracion.test.tsx` y este documento. En alta, la sección Aula no muestra opciones antes del primer guardado; ese guardado solo crea el PENDIENTE y carga las aulas con el id recibido, sin ejecutar PATCH de aula. El id se conserva en estado y en la URL para continuar en modo edición sin repetir el POST. La selección posterior usa el PATCH existente, cuya revalidación de CA4 permanece intacta. También puede dejarse el PENDIENTE sin aula, como antes.
+
+La UI distingue sin consulta previa, carga, `200 data: []`, `SIN_AULAS_ACTIVAS` y error HTTP. El texto de CA3, «No hay aulas disponibles para este horario», se muestra solo después de un GET válido con id y `data: []`; mantiene «Reintentar». `SIN_AULAS_ACTIVAS` conserva su mensaje propio. Un error de carga permite reintentar con el id persistido.
+
+Si cambia fecha, hora o duración, se invalidan y ocultan las opciones anteriores y se limpia la elección local. Se persiste primero el nuevo intervalo mediante `PATCH /configuracion`; recién después se vuelve a consultar `GET /aula/opciones?turno_id=<mismo id>`. No se hace PATCH de aula con una selección previa. En edición, la carga inicial sigue consultando con el id existente.
+
+### 8.3. Evidencia y límites
+
+Los tests frontend verifican ausencia de GET sin id, orden POST → GET → PATCH posterior, oferta exclusiva de aulas devueltas, estado de carga, `data: []`, `SIN_AULAS_ACTIVAS`, error y reintento, conflicto 409 al asignar, edición existente e invalidación/recarga para cambios de fecha, hora y duración. Tests específicos de pantalla y Aula: **35 OK en 3 archivos** (15 de pantalla, 13 de servicio y 7 de ruta). Regresión de configuración: **22 OK** en `turno.configuracion.test.ts`; no existe `src/app/api/turnos/route.test.ts` en esta rama. `npx.cmd tsc --noEmit`: **OK**. El backend de Aula, Route Handler, Prisma, schema, seed, migraciones y módulos Profesor/Alumno no se modificaron.
+
+**CA1:** corregido en la pantalla real; pendiente de revisión de esta reapertura. **CA2–CA5:** se conservan los resultados aceptados por PO. HU-C-18 sigue siendo dueña del wizard y de la regla futura de desasignar automáticamente un aula persistida si un cambio de intervalo la vuelve incompatible. Esta corrección oculta y recarga las opciones tras persistir, pero no implementa esa desasignación ni la presenta como resuelta.
+
+### 8.4. Corrección de regresión detectada en revisión
+
+La revisión final detectó que la edición de un PENDIENTE con aula persistida perdía la continuación al cambiar fecha, hora o duración: tras `PATCH /configuracion` y el GET filtrado, la pantalla retornaba al formulario aunque la misma aula siguiera disponible. Ahora se compara el aula persistida con las opciones de la nueva consulta. Si sigue incluida, se restaura como selección vigente y se muestra la continuación sin `PATCH /aula` adicional. Si ya no figura, no se restaura ni se ofrece continuación: la persona debe elegir una de las aulas nuevas y guardarla mediante el PATCH existente. Un error de `PATCH /configuracion` no dispara un GET para valores aún no persistidos ni restaura opciones obsoletas.
+
+Se agregó una protección inmediata frente a dos envíos mientras la primera solicitud sigue pendiente, para que el alta no cree dos PENDIENTES antes de que React refleje el estado de guardado. La secuencia POST → GET con id → selección → PATCH de aula del alta permanece igual. La corrección modifica únicamente `turno-configuracion.tsx`, sus tests y este documento; no cambia backend ni contratos.
+
+Evidencia de esta corrección: **61 tests aprobados en 4 archivos** (19 de pantalla, 13 del servicio de Aula, 7 de la ruta de opciones y 22 de configuración); **`npx.cmd tsc --noEmit` aprobado**. Los tests nuevos cubren aula persistida que sigue disponible, aula que deja de estar disponible, fallo del PATCH de configuración y doble envío durante el POST.
+
+El aula persistida **no se desasigna automáticamente en base** cuando deja de estar disponible para el nuevo intervalo. Esa regla sigue pendiente de HU-C-18 y está separada de la corrección de navegación de C-16.

@@ -11,6 +11,7 @@ import {
   validarIntervaloHorario,
 } from "@/lib/horario-atencion";
 import { ServiceError } from "@/server/shared/service-error";
+import { MENSAJE_CONTACTO_REQUERIDO } from "@/server/shared/contacto.schema";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
 import { clavesOrdenProfesor, formatearApellidoNombre } from "@/lib/profesor-listado";
@@ -18,6 +19,7 @@ import type {
   AltaProfesorInput,
   ContactoProfesorInput,
   ListarProfesoresQuery,
+  ModificarProfesorInput,
 } from "@/server/profesores/profesor.schema";
 import type {
   DetalleProfesor,
@@ -163,8 +165,9 @@ export async function crearProfesor(
  * cuenta. La cuenta propia del profesor (si tiene) queda excluida; sin
  * cuenta vinculada, cualquier coincidencia bloquea. Comparación
  * case-insensitive porque emailUsuario no garantiza estar guardado en
- * minúsculas. La usan el alta (`crearProfesor`) y la edición del contacto
- * (`actualizarContactoProfesor`), dentro de sus transacciones.
+ * minúsculas. La usan el alta (`crearProfesor`), la edición del contacto
+ * (`actualizarContactoProfesor`) y la modificación de la ficha
+ * (`modificarProfesor`, HU-D-06), dentro de sus transacciones.
  */
 async function verificarEmailNoAsociadoAOtraCuenta(
   tx: Prisma.TransactionClient,
@@ -263,6 +266,11 @@ export async function actualizarContactoProfesor(
         telefonoProfesor: input.telefono ?? null,
         emailProfesor: input.email ?? null,
         modificadoPorUsuarioId: usuarioModificadorId,
+        // HU-D-06 (D-06-5): el contacto también lo edita el modo edición de
+        // la ficha, así que este cambio invalida la `version` que tenga
+        // abierta otra pestaña — su guardado da CONFLICTO_EDICION_CONCURRENTE
+        // en vez de pisar el contacto nuevo. Mismo UPDATE, misma transacción.
+        version: { increment: 1 },
         // updatedAtProfesor lo actualiza Prisma (@updatedAt).
       },
       select: { idProfesor: true, telefonoProfesor: true, emailProfesor: true },
@@ -274,6 +282,158 @@ export async function actualizarContactoProfesor(
       email: actualizado.emailProfesor,
     };
   });
+}
+
+/**
+ * Modificación de identidad y contacto del profesor (HU-D-06,
+ * `spec_modulo_D.md` §2.6 y §3.7). `input` ya llegó validado y normalizado
+ * por `construirModificarProfesorSchema()` en la capa delgada; en `input`,
+ * un campo ausente no se toca y, en contacto, `null` quita ese medio.
+ * `usuarioModificadorId` es la sesión ya autorizada con `profesores:editar`
+ * (este servicio no chequea permisos).
+ *
+ * Todo corre en una única `$transaction`:
+ * 1. Existencia (activo o inactivo: §2.6 solo exige que exista).
+ * 2. Diff contra los valores actuales (criterio 3): solo entran al UPDATE
+ *    los campos cuyo valor cambia. Sin cambios, no escribe ni sube `version`.
+ * 3. DNI, si cambió: unicidad contra todos los demás profesores, activos e
+ *    inactivos, excluyendo la propia ficha (criterio 2). El catch de P2002
+ *    cierra la ventana de dos guardados simultáneos.
+ * 4. Contacto (N-2), solo si el input trae `telefono` o `email`: si el
+ *    profesor tenía algún medio, el estado resultante no puede quedar vacío;
+ *    un email nuevo no puede pertenecer a otra cuenta.
+ * 5. Claves de orden del listado, si cambió nombre o apellido.
+ * 6. `updateMany` condicionado a `version` (Regla N.° 7): `count === 0` es
+ *    una edición concurrente (otra pestaña, o un cambio de contacto por la
+ *    pantalla de HU-D-02, que también incrementa `version`).
+ *
+ * Nunca escribe `Usuario` (el email de contacto y el de la cuenta son
+ * independientes, §2.6 paso 7), materias, horarios ni el estado (criterio 5).
+ */
+export async function modificarProfesor(
+  profesorId: string,
+  input: ModificarProfesorInput,
+  usuarioModificadorId: string,
+): Promise<{ id: string; campos_modificados: string[]; version: number }> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const actual = await tx.profesor.findUnique({
+        where: { idProfesor: profesorId },
+        select: {
+          usuarioId: true,
+          nombreProfesor: true,
+          apellidoProfesor: true,
+          dniProfesor: true,
+          fechaNacimientoProfesor: true,
+          generoProfesor: true,
+          telefonoProfesor: true,
+          emailProfesor: true,
+          version: true,
+        },
+      });
+      if (!actual) {
+        throw new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
+      }
+
+      const data: Prisma.ProfesorUpdateManyMutationInput = {};
+      const camposModificados: string[] = [];
+
+      if (input.nombre !== undefined && input.nombre !== actual.nombreProfesor) {
+        data.nombreProfesor = input.nombre;
+        camposModificados.push("nombre");
+      }
+      if (input.apellido !== undefined && input.apellido !== actual.apellidoProfesor) {
+        data.apellidoProfesor = input.apellido;
+        camposModificados.push("apellido");
+      }
+      if (input.dni !== undefined && input.dni !== actual.dniProfesor) {
+        data.dniProfesor = input.dni;
+        camposModificados.push("dni");
+      }
+      if (
+        input.fechaNacimiento !== undefined &&
+        input.fechaNacimiento.getTime() !== actual.fechaNacimientoProfesor.getTime()
+      ) {
+        data.fechaNacimientoProfesor = input.fechaNacimiento;
+        camposModificados.push("fechaNacimiento");
+      }
+      if (input.genero !== undefined && input.genero !== actual.generoProfesor) {
+        data.generoProfesor = input.genero;
+        camposModificados.push("genero");
+      }
+      if (input.telefono !== undefined && input.telefono !== actual.telefonoProfesor) {
+        data.telefonoProfesor = input.telefono;
+        camposModificados.push("telefono");
+      }
+      if (input.email !== undefined && input.email !== actual.emailProfesor) {
+        data.emailProfesor = input.email;
+        camposModificados.push("email");
+      }
+
+      if (camposModificados.length === 0) {
+        return { id: profesorId, campos_modificados: [], version: actual.version };
+      }
+
+      if (data.dniProfesor !== undefined) {
+        const duplicado = await tx.profesor.findFirst({
+          where: { dniProfesor: input.dni, NOT: { idProfesor: profesorId } },
+          select: { idProfesor: true },
+        });
+        if (duplicado) {
+          throw new ServiceError("DNI_DUPLICADO", "Ya existe un profesor registrado con ese DNI");
+        }
+      }
+
+      if (input.telefono !== undefined || input.email !== undefined) {
+        const teniaContacto = actual.telefonoProfesor !== null || actual.emailProfesor !== null;
+        const telefonoResultante = input.telefono === undefined ? actual.telefonoProfesor : input.telefono;
+        const emailResultante = input.email === undefined ? actual.emailProfesor : input.email;
+        if (teniaContacto && telefonoResultante === null && emailResultante === null) {
+          throw new ServiceError("CONTACTO_REQUERIDO", MENSAJE_CONTACTO_REQUERIDO);
+        }
+      }
+
+      if (typeof data.emailProfesor === "string") {
+        await verificarEmailNoAsociadoAOtraCuenta(tx, data.emailProfesor, actual.usuarioId);
+      }
+
+      if (data.nombreProfesor !== undefined || data.apellidoProfesor !== undefined) {
+        Object.assign(
+          data,
+          clavesOrdenProfesor({
+            nombre: input.nombre ?? actual.nombreProfesor,
+            apellido: input.apellido ?? actual.apellidoProfesor,
+          }),
+        );
+      }
+
+      const { count } = await tx.profesor.updateMany({
+        where: { idProfesor: profesorId, version: input.version },
+        // updatedAtProfesor lo actualiza Prisma (@updatedAt).
+        data: { ...data, version: { increment: 1 }, modificadoPorUsuarioId: usuarioModificadorId },
+      });
+      if (count === 0) {
+        throw new ServiceError(
+          "CONFLICTO_EDICION_CONCURRENTE",
+          "La ficha fue modificada por otro usuario. Recargá para ver los datos actuales.",
+        );
+      }
+
+      return { id: profesorId, campos_modificados: camposModificados, version: input.version + 1 };
+    });
+  } catch (error) {
+    // Mismo filtro que crearProfesor(): solo un P2002 sobre dniProfesor es
+    // un DNI duplicado; cualquier otro error se propaga.
+    const esConflictoDeDni =
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      (error.meta?.target as string[] | undefined)?.includes("dniProfesor");
+
+    if (esConflictoDeDni) {
+      throw new ServiceError("DNI_DUPLICADO", "Ya existe un profesor registrado con ese DNI");
+    }
+    throw error;
+  }
 }
 
 /**
@@ -750,6 +910,7 @@ export async function obtenerDetalleProfesor(profesorId: string): Promise<Detall
       emailProfesor: true,
       activoProfesor: true,
       createdAtProfesor: true,
+      version: true,
     },
   });
   if (!profesor) return null;
@@ -772,5 +933,6 @@ export async function obtenerDetalleProfesor(profesorId: string): Promise<Detall
     fechaAlta: profesor.createdAtProfesor,
     materias,
     horarios,
+    version: profesor.version,
   };
 }

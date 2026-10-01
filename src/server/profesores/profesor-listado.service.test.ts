@@ -162,6 +162,7 @@ describe("obtenerDetalleProfesor (criterio 3)", () => {
       emailProfesor: null,
       activoProfesor: true,
       createdAtProfesor: alta,
+      version: 2,
     } as never);
     vi.mocked(prisma.profesorMateria.findMany).mockResolvedValue([
       { materia: { idMateria: "m1", nombreMateria: "Física", codigoMateria: "FIS101", activaMateria: true } },
@@ -187,6 +188,8 @@ describe("obtenerDetalleProfesor (criterio 3)", () => {
       fechaAlta: alta,
       materias: [{ id: "m1", nombre: "Física", codigo: "FIS101", activa: true }],
       horarios: [{ id: "h1", diaSemana: "LUNES", horaInicio: "08:00", horaFin: "10:00" }],
+      // HU-D-06: `version` para precargar el modo edición (spec §2.5).
+      version: 2,
     });
   });
 });

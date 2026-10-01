@@ -49,10 +49,12 @@ function filaTurno({
   alumnos = [["Pérez", "Ana"]],
   aula = "Aula 2" as string | null,
   estado = "DISPONIBLE",
+  prioridad = "NORMAL",
 } = {}) {
   return {
     idTurno: id,
     estadoTurno: estado,
+    prioridadTurno: prioridad,
     fechaTurno: new Date(`${fecha}T00:00:00.000Z`),
     horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`),
     duracionMinutosTurno: duracion,
@@ -102,6 +104,7 @@ describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
       materia: "Matemática",
       aula: "Aula 2",
       estado: "DISPONIBLE",
+      prioridad: "NORMAL",
     });
   });
 
@@ -111,6 +114,12 @@ describe("listarTurnosAgendadosDeProfesor (criterios 3 y 4)", () => {
     const [evento] = await listarTurnosAgendadosDeProfesor("ckprofesor", new Date(), new Date());
 
     expect(evento!.estado).toBe("COMPLETO");
+  });
+
+  it("propaga prioridad Alta al evento del profesor", async () => {
+    vi.mocked(prisma.turno.findMany).mockResolvedValue([filaTurno({ prioridad: "ALTA" })] as never);
+    const [evento] = await listarTurnosAgendadosDeProfesor("ckprofesor", new Date(), new Date());
+    expect(evento?.prioridad).toBe("ALTA");
   });
 
   it("no incluye un PENDIENTE aunque ya tenga profesor, alumnos y aula asignados", async () => {
@@ -265,10 +274,12 @@ function filaTurnoMateria({
   cupo = 5 as number | null,
   aula = "Aula 2" as string | null,
   estado = "DISPONIBLE",
+  prioridad = "NORMAL",
 } = {}) {
   return {
     idTurno: id,
     estadoTurno: estado,
+    prioridadTurno: prioridad,
     fechaTurno: new Date("2026-09-22T00:00:00.000Z"),
     horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`),
     duracionMinutosTurno: duracion,
@@ -335,10 +346,11 @@ describe("listarTurnosAgendadosDeMateria (HU-J-02 criterios 2 y 3)", () => {
       cupo: 5,
       aula: "Aula 2",
       estado: "DISPONIBLE",
+      prioridad: "NORMAL",
     });
     const args = vi.mocked(prisma.turno.findMany).mock.calls[0]![0]!;
     expect(args.select).not.toHaveProperty("alumnos");
-    expect(args.select).toMatchObject({ cupoMaximoTurno: true, _count: { select: { alumnos: true } } });
+    expect(args.select).toMatchObject({ prioridadTurno: true, cupoMaximoTurno: true, _count: { select: { alumnos: true } } });
   });
 
   it("DISPONIBLE sin alumnos es 0/cupo; COMPLETO es cupo/cupo; '—' sin aula ni profesor", async () => {

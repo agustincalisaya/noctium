@@ -12,6 +12,8 @@ import {
   Library,
   BadgeCheck,
   CalendarPlus2,
+  Wallet,
+  BarChart3,
   type LucideIcon 
 } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
@@ -75,6 +77,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
   ],
   GERENTE: [
     {
+      label: "Gestión",
+      icon: BarChart3,
+      items: [{ label: "Indicadores", href: "/gerente", icon: BarChart3 }],
+    },
+    {
       label: "Calendario",
       icon: CalendarDays,
       items: [
@@ -95,6 +102,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
       items: [
         { label: "Listado", href: "/aulas", icon: ListOrdered },
       ],
+    },
+    {
+      label: "Formas de pago",
+      icon: Wallet,
+      items: [{ label: "Listado", href: "/formas-pago", icon: ListOrdered }],
     },
   ],
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
