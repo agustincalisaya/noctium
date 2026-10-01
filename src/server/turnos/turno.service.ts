@@ -11,7 +11,7 @@ import { verificarAulaActiva } from "@/server/aulas/aula.publico";
 import { obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
 import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
-import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
+import { alumnosConTurnoSuperpuesto, aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
 import { construirFiltroBusquedaTurno } from "./turno.busqueda";
 import type { ActualizarPrioridadInput, AgregarAlumnoTurnoInput,AsignarParticipantesTurnoInput, ConfigurarTurnoInput } from "./turno.schema";
@@ -116,12 +116,8 @@ async function alumnoConTurnoSuperpuesto(
   intervalo: { inicio: number; fin: number },
   alumnoIds: string[],
 ) {
-  const otros = await tx.turno.findMany({
-    where: { idTurno: { not: turnoId }, fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: alumnoIds } } } },
-    select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: alumnoIds } }, select: { alumnoId: true } } },
-  });
-  const ocupados = idsAlumnosOcupados(otros, intervalo);
-  return alumnoIds.find((alumnoId) => ocupados.has(alumnoId)) ?? null;
+  const turno = { idTurno: turnoId, fechaTurno, horaInicioTurno: new Date(Date.UTC(1970, 0, 1, 0, intervalo.inicio)), duracionMinutosTurno: intervalo.fin - intervalo.inicio };
+  return (await alumnosConTurnoSuperpuesto(tx, turno, alumnoIds))[0] ?? null;
 }
 
 // `detalles.alumno_id` identifica el recurso no disponible (HU-C-04 c8) sin
