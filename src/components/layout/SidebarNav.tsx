@@ -25,6 +25,8 @@ export interface SidebarNavSection {
   label: string;
   icon: ReactNode;
   items: SidebarNavItem[];
+  collapsible?: boolean;
+  hideItemIcons?: boolean;
 }
 
 /**
@@ -251,6 +253,27 @@ export function SidebarNav({ secciones }: { secciones: SidebarNavEntrada[] }) {
               );
             }
 
+            if (seccion.collapsible === false) {
+              return (
+                <div key={seccion.label} className="space-y-1">
+                  <p className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/80">
+                    {seccion.label}
+                  </p>
+                  <div className="space-y-1">
+                    {seccion.items.map((item) => (
+                      <ItemLink
+                        key={item.href}
+                        item={item}
+                        activo={item.href === hrefActivo}
+                        hideIcon={seccion.hideItemIcons}
+                        onNavigate={cerrarMobile}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
             const abierta = estaAbierta(seccionesAbiertas, seccion.label, seccionActiva);
 
             return (
@@ -273,6 +296,7 @@ export function SidebarNav({ secciones }: { secciones: SidebarNavEntrada[] }) {
                       key={item.href}
                       item={item}
                       activo={item.href === hrefActivo}
+                      hideIcon={seccion.hideItemIcons}
                       onNavigate={cerrarMobile}
                     />
                   ))}
@@ -303,11 +327,13 @@ function ItemLink({
   item,
   activo,
   soloIcono,
+  hideIcon,
   onNavigate,
 }: {
   item: SidebarNavItem;
   activo: boolean;
   soloIcono?: boolean;
+  hideIcon?: boolean;
   onNavigate: () => void;
 }) {
   return (
@@ -324,7 +350,7 @@ function ItemLink({
           : "border-transparent text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
       )}
     >
-      {item.icon}
+      {(!hideIcon || soloIcono) && item.icon}
       {!soloIcono && <span className="truncate">{item.label}</span>}
     </LinkProtegido>
   );
