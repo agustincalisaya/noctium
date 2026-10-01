@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cupo, diaMes, duracion, fechaCorta, fechaDeInstante, fechaLarga, iniciales, monto } from "./turno-detalle";
+import { cupo, diaAbreviadoYFecha, diaMes, duracion, fechaCorta, fechaDeInstante, fechaLarga, iniciales, monto } from "./turno-detalle";
 
 describe("formatos del detalle de turno (mockup pág. 5)", () => {
   it("fechas de calendario sin correr el día", () => {
@@ -34,4 +34,12 @@ describe("formatos del detalle de turno (mockup pág. 5)", () => {
     "monto %s → %s", (valor, esperado) => {
       expect(monto(valor)).toBe(esperado);
     });
+});
+
+describe("diaAbreviadoYFecha (HU-C-05, mockup pág. 8)", () => {
+  it("formatea día abreviado y dd/mm sin correr la fecha de calendario", () => {
+    expect(diaAbreviadoYFecha("2026-10-06")).toBe("Mar 06/10");
+    expect(diaAbreviadoYFecha("2026-10-04")).toBe("Dom 04/10");
+    expect(diaAbreviadoYFecha("2026-10-03")).toBe("Sáb 03/10");
+  });
 });
