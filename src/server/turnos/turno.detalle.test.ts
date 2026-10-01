@@ -1,16 +1,19 @@
 import type { RolUsuario } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { turno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno } = vi.hoisted(() => ({
+const { turno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno, obtenerClaseDictadaDeTurno, profesorAtendioAlumno } = vi.hoisted(() => ({
   turno: { findFirst: vi.fn() },
   obtenerOpcionProfesorDeUsuario: vi.fn(),
   obtenerEmailDeUsuario: vi.fn(),
   listarPagosDeTurno: vi.fn(),
+  obtenerClaseDictadaDeTurno: vi.fn(),
+  profesorAtendioAlumno: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { turno } }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorDeUsuario }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario }));
 vi.mock("@/server/pagos/pago.publico", () => ({ listarPagosDeTurno }));
+vi.mock("@/server/historial/historial.publico", () => ({ obtenerClaseDictadaDeTurno, profesorAtendioAlumno }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: vi.fn() }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: vi.fn() }));
 vi.mock("@/server/profesores/profesor.service", () => ({ profesorActivoDictaMateria: vi.fn(), estaDentroDeHorarioAtencion: vi.fn(), intervalosSeSuperponen: vi.fn(), listarProfesoresActivosPorMateria: vi.fn() }));
@@ -22,8 +25,8 @@ const { obtenerDetalleTurno } = await import("./turno.detalle");
 const MESA = { id: "usuario-mesa", rol: "MESA_ENTRADA" as const };
 const GERENTE = { id: "usuario-gerente", rol: "GERENTE" as const };
 const PROFESOR = { id: "usuario-prof", rol: "PROFESOR" as const };
-const CAPACIDADES_MESA = { verPagos: true, cancelar: true, reprogramar: true, priorizar: true, registrarPago: true, registrarClase: true };
-const CAPACIDADES_GERENTE = { verPagos: true, cancelar: false, reprogramar: false, priorizar: false, registrarPago: false, registrarClase: false };
+const CAPACIDADES_MESA = { verPagos: true, verHistorial: true, cancelar: true, reprogramar: true, priorizar: true, registrarPago: true, registrarClase: true };
+const CAPACIDADES_GERENTE = { verPagos: true, verHistorial: true, cancelar: false, reprogramar: false, priorizar: false, registrarPago: false, registrarClase: false };
 const CAPACIDADES_PROFESOR = { ...CAPACIDADES_GERENTE, verPagos: false, registrarClase: true };
 // Antes del inicio (16:00 del 06/10/2026 en Buenos Aires).
 const AHORA = new Date("2026-10-06T12:00:00.000-03:00");
@@ -56,6 +59,8 @@ beforeEach(() => {
   obtenerEmailDeUsuario.mockResolvedValue("mesa@centro.com");
   obtenerOpcionProfesorDeUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Méndez, Laura" });
   listarPagosDeTurno.mockResolvedValue([PAGO]);
+  obtenerClaseDictadaDeTurno.mockResolvedValue(null);
+  profesorAtendioAlumno.mockResolvedValue(false);
 });
 
 describe("HU-C-09 alcance por rol (AC2)", () => {
@@ -135,7 +140,7 @@ describe("HU-C-09 campos del detalle (AC1)", () => {
     turno.findFirst.mockResolvedValue(registro({ cupo: 30, alumnos: 25 }));
     const resultado = await ok();
     expect(resultado.alumnos).toHaveLength(25);
-    expect(resultado.alumnos[0]).toEqual({ id: "alumno-0", nombre: "Pérez, Ana 0", dni: "30000000" });
+    expect(resultado.alumnos[0]).toEqual({ id: "alumno-0", nombre: "Pérez, Ana 0", dni: "30000000", puede_ver_historial: true });
     expect(resultado.alumnos_inscriptos).toBe("25/30");
   });
 
@@ -197,8 +202,8 @@ describe("HU-C-09 acciones_habilitadas", () => {
     expect((await ok()).acciones_habilitadas).toEqual([]);
   });
 
-  it("registrar_clase no se emite mientras E no publique la clase dictada (hito 2)", async () => {
+  it("registrar_clase se emite para Mesa cuando el turno terminó y aún no tiene clase dictada", async () => {
     const despues = await obtenerDetalleTurno("turno-1", MESA, { capacidades: CAPACIDADES_MESA, ahora: new Date("2026-10-06T18:00:00.000-03:00") });
-    expect(despues.resultado === "ok" && despues.turno.acciones_habilitadas).toEqual(["prioridad", "registrar_pago"]);
+    expect(despues.resultado === "ok" && despues.turno.acciones_habilitadas).toEqual(["prioridad", "registrar_pago", "registrar_clase"]);
   });
 });

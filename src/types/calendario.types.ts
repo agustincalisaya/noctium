@@ -1,4 +1,5 @@
 import type { DiaDeSemana, ParametrosGrilla } from "@/lib/calendario-semana";
+import type { PrioridadTurno } from "@/types/turno.types";
 
 /**
  * Datos comunes a todo turno `DISPONIBLE` o `COMPLETO` en el calendario
@@ -14,6 +15,7 @@ export type EventoCalendarioBase = {
   hora_fin: string;
   aula: string;
   estado: "DISPONIBLE" | "COMPLETO";
+  prioridad: PrioridadTurno;
 };
 
 /**

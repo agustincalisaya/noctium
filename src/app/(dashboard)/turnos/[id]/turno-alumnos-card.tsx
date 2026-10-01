@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { iniciales } from "@/lib/turno-detalle";
@@ -62,6 +63,7 @@ export function TurnoAlumnosCard({ turno, gestionable, onCambio }: { turno: Turn
           </span>
           {gestionable && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
         </div>
+        {alumno.puede_ver_historial && <Link className="ml-11 inline-flex text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/alumnos/${encodeURIComponent(alumno.id)}?tab=historial&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
         {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
       </li>;
     })}</ul>}

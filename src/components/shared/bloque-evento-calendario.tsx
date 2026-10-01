@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { CalendarCheck, Users, type LucideIcon } from "lucide-react";
+import { CalendarCheck, Flag, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { EventoCalendarioBase } from "@/types/calendario.types";
+import { ETIQUETA_PRIORIDAD_TURNO, type PrioridadTurno } from "@/types/turno.types";
 
 type Estado = EventoCalendarioBase["estado"];
 
@@ -33,6 +34,7 @@ export function BloqueEventoCalendario({
   horaInicio,
   horaFin,
   estado,
+  prioridad,
   lineas,
   descripcion,
   estilo,
@@ -42,6 +44,7 @@ export function BloqueEventoCalendario({
   horaInicio: string;
   horaFin: string;
   estado: Estado;
+  prioridad: PrioridadTurno;
   /** La primera va destacada; el resto, en texto secundario. */
   lineas: string[];
   /** Descripción completa, sin horario ni estado (se agregan acá). */
@@ -53,7 +56,8 @@ export function BloqueEventoCalendario({
   const horario = `${horaInicio}–${horaFin}`;
   const etiquetaEstado = ETIQUETA_ESTADO[estado];
   const IconoEstado = ICONO_ESTADO[estado];
-  const completa = `${horario} · ${descripcion} · ${etiquetaEstado}`;
+  const etiquetaPrioridad = prioridad === "NORMAL" ? "" : ` · Prioridad ${ETIQUETA_PRIORIDAD_TURNO[prioridad]}`;
+  const completa = `${horario} · ${descripcion} · ${etiquetaEstado}${etiquetaPrioridad}`;
 
   return (
     <Link
@@ -71,6 +75,12 @@ export function BloqueEventoCalendario({
           {etiquetaEstado}
         </Badge>
       </span>
+      {prioridad !== "NORMAL" && (
+        <Badge variant="outline" className={cn("w-fit gap-1 border-transparent px-1.5 py-0", prioridad === "ALTA" ? "bg-warning text-warning-foreground" : "bg-destructive text-card")}>
+          <Flag className="size-3" aria-hidden />
+          {ETIQUETA_PRIORIDAD_TURNO[prioridad]}
+        </Badge>
+      )}
       {lineas.map((linea, i) => (
         <span key={i} className={cn("truncate", i === 0 ? "font-medium" : "text-muted-foreground")}>
           {linea}
