@@ -2,17 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { ETIQUETA_DIA, horaAMinutos, minutosAHora, type DiaSemanaValor } from "@/lib/horario-atencion";
 import { iniciosPosibles } from "@/server/turnos/turno.disponibilidad";
-import { PasoMateriaTurno, type MateriaOpcionTurno } from "../paso-materia-turno";
-import { PasoProfesorTurno, type ProfesorOpcionTurno } from "../paso-profesor-turno";
-import { SeccionAulaTurno, type AulaOpcion } from "../seccion-aula-turno";
-import { fechaLegible } from "../paso-fecha-horario-turno";
-import { PASOS_TURNO_RECURRENTES, ProgresoTurno, type PasoTurno } from "./progreso-turno";
-import { ResumenTurno } from "./resumen-turno";
+import { type MateriaOpcionTurno } from "../paso-materia-turno";
+import { type ProfesorOpcionTurno } from "../paso-profesor-turno";
+import { type AulaOpcion } from "../seccion-aula-turno";
 
 type Franja = { horario_id: string; dia_semana: DiaSemanaValor; hora_inicio: string; hora_fin: string };
 type Payload = { materia_id: string; profesor_id: string; horario_id: string; duracion_min: number; hora_inicio: string; aula_id: string; fecha_desde: string; fecha_hasta: string };
@@ -23,9 +21,8 @@ type Consulta<T> = { estado: "cargando" | "listas" | "error" | "sinAulas"; opcio
 
 type Props = {
   materias: MateriaOpcionTurno[]; materiaId: string; profesorId: string;
-  profesores: ProfesorOpcionTurno[]; profesoresPorMateria: Record<string, number>;
+  profesores: ProfesorOpcionTurno[];
   cargandoMaterias: boolean; errorMaterias: string; onReintentarMaterias: () => void;
-  cargandoConteos: boolean; errorConteos: string; onReintentarConteos: () => void;
   cargandoProfesores: boolean; errorProfesores: string; mensajeProfesores: string; onReintentarProfesores: () => void;
   onSeleccionarMateria: (id: string) => void; onSeleccionarProfesor: (id: string) => void;
   duracionesPermitidas: number[]; granularidadMin: number | null;
@@ -33,9 +30,9 @@ type Props = {
 };
 
 const MENSAJES_CONFLICTO: Record<Motivo, string> = {
-  TURNO_EXISTENTE: "Ya existe un turno de esta materia y profesor en esa fecha",
+  TURNO_EXISTENTE: "Profesor con otro turno",
   AULA_OCUPADA: "Aula ocupada",
-  PROFESOR_OCUPADO: "El profesor ya tiene un turno en esa fecha",
+  PROFESOR_OCUPADO: "Profesor con otro turno",
 };
 const ORDEN_DIAS: DiaSemanaValor[] = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO"];
 
@@ -45,27 +42,52 @@ function hoyDelCentro() {
   return `${valor("year")}-${valor("month")}-${valor("day")}`;
 }
 
-function FechasVistaPrevia({ vista, horaInicio, duracionMin }: { vista: VistaPrevia; horaInicio: string; duracionMin: number }) {
+function fechaCompacta(fecha: string) {
+  const dia = new Intl.DateTimeFormat("es-AR", { weekday: "short", timeZone: "UTC" })
+    .format(new Date(`${fecha}T00:00:00.000Z`)).replace(".", "");
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
+}
+
+function TablaVistaPrevia({ vista, horaInicio, duracionMin, diaSemana, aulaNombre, materiaNombre, profesorNombre }: {
+  vista: VistaPrevia; horaInicio: string; duracionMin: number; diaSemana: DiaSemanaValor;
+  aulaNombre: string; materiaNombre: string; profesorNombre: string;
+}) {
+  const cantidadConflictos = vista.fechas.filter(({ estado }) => estado === "CONFLICTO").length;
+  const horario = `${horaInicio}–${minutosAHora(horaAMinutos(horaInicio) + duracionMin)}`;
   return <div className="space-y-4">
-    <p className="text-sm font-medium">{vista.cantidad} {vista.cantidad === 1 ? "fecha" : "fechas"} en el rango.</p>
-    {vista.fechas_omitidas_vencidas > 0 && <p role="status" className="rounded-md bg-warning p-3 text-sm text-warning-foreground">{vista.fechas_omitidas_vencidas} {vista.fechas_omitidas_vencidas === 1 ? "fecha de hoy vencida fue omitida" : "fechas vencidas fueron omitidas"}.</p>}
-    <p role="status" className={`rounded-md p-3 text-sm ${vista.hay_conflictos ? "bg-warning text-warning-foreground" : "bg-success text-success-foreground"}`}>
-      {vista.hay_conflictos ? "Hay conflictos. Revisá las fechas antes de generar otra vista previa." : "Todas las fechas están disponibles para generar."}
+    <p className="text-sm leading-6 text-muted-foreground">
+      <strong className="text-foreground">{vista.cantidad} {vista.cantidad === 1 ? "turno" : "turnos"}</strong>
+      {` · ${ETIQUETA_DIA[diaSemana].toLocaleLowerCase("es-AR")} ${horario} · ${aulaNombre} · ${materiaNombre} con ${profesorNombre} · estado inicial Disponible, 0 alumnos`}
     </p>
-    <ol className="space-y-2" aria-label="Fechas de la vista previa">
-      {vista.fechas.map((ocurrencia) => <li key={ocurrencia.fecha} className={`rounded-lg border p-3 text-sm ${ocurrencia.estado === "CONFLICTO" ? "border-warning bg-warning/30" : "border-border bg-card"}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2"><span><strong>{fechaLegible(ocurrencia.fecha)}</strong><span className="ml-2 tabular-nums text-muted-foreground">{horaInicio}–{minutosAHora(horaAMinutos(horaInicio) + duracionMin)}</span></span><span className={ocurrencia.estado === "CONFLICTO" ? "font-semibold text-destructive" : "font-semibold text-success-foreground"}>{ocurrencia.estado}</span></div>
-        {ocurrencia.motivos.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">{ocurrencia.motivos.map((motivo) => <li key={motivo}>{MENSAJES_CONFLICTO[motivo] ?? motivo}</li>)}</ul>}
-      </li>)}
-    </ol>
+    {vista.fechas_omitidas_vencidas > 0 && <p role="status" className="rounded-md bg-warning p-3 text-sm text-warning-foreground">{vista.fechas_omitidas_vencidas} {vista.fechas_omitidas_vencidas === 1 ? "fecha de hoy vencida fue omitida" : "fechas vencidas fueron omitidas"}.</p>}
+    {vista.hay_conflictos && <div role="status" className="flex gap-3 rounded-md bg-warning px-4 py-3 text-sm text-warning-foreground">
+      <CircleAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+      <p><strong>{cantidadConflictos} {cantidadConflictos === 1 ? "fecha tiene" : "fechas tienen"} conflicto.</strong> Elegí otra aula para todo el rango o acotá las fechas, y volvé a pedir la vista previa. No se genera ningún turno hasta resolver todos los conflictos.</p>
+    </div>}
+    <div className="overflow-x-auto rounded-md border border-border">
+      <table className="w-full min-w-[620px] border-collapse text-left text-sm" aria-label="Fechas de la vista previa">
+        <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground"><tr>
+          <th scope="col" className="px-3 py-3 font-medium">FECHA</th>
+          <th scope="col" className="px-3 py-3 font-medium">HORARIO</th>
+          <th scope="col" className="px-3 py-3 font-medium">AULA</th>
+          <th scope="col" className="px-3 py-3 font-medium">DISPONIBILIDAD</th>
+        </tr></thead>
+        <tbody>{vista.fechas.map((ocurrencia) => <tr key={ocurrencia.fecha} className={`border-b border-border last:border-b-0 ${ocurrencia.estado === "CONFLICTO" ? "bg-warning/20" : "bg-card"}`}>
+          <td className="whitespace-nowrap px-3 py-3 font-medium"><time dateTime={ocurrencia.fecha}>{fechaCompacta(ocurrencia.fecha)}</time></td>
+          <td className="whitespace-nowrap px-3 py-3 tabular-nums">{horario}</td>
+          <td className="px-3 py-3">{aulaNombre}</td>
+          <td className="px-3 py-3"><div className="flex flex-wrap gap-1.5">{ocurrencia.estado === "OK"
+            ? <span className="rounded-full bg-success px-2.5 py-1 text-xs font-medium text-success-foreground">Libre</span>
+            : ocurrencia.motivos.map((motivo) => <span key={motivo} className="rounded-full border border-destructive/50 bg-card px-2.5 py-1 text-xs font-medium text-destructive">{MENSAJES_CONFLICTO[motivo]}</span>)}</div></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
   </div>;
 }
 
 export function TurnoRecurrente(props: Props) {
   const { setDirty } = useDirtyState();
   const { onBusyChange } = props;
-  const [paso, setPaso] = useState<PasoTurno>(1);
-  const [pasoMaximo, setPasoMaximo] = useState<PasoTurno>(1);
   const [consultaFranjas, setConsultaFranjas] = useState<Consulta<Franja> | null>(null);
   const [reintentoFranjas, setReintentoFranjas] = useState(0);
   const [franjaId, setFranjaId] = useState("");
@@ -129,7 +151,6 @@ export function TurnoRecurrente(props: Props) {
   }, [props.materiaId, props.profesorId, reintentoFranjas]);
 
   useEffect(() => {
-    if (paso !== 4) return;
     const controlador = new AbortController();
     const cargar = async () => {
       setConsultaAulas({ estado: "cargando", opciones: [], mensaje: "" });
@@ -148,26 +169,20 @@ export function TurnoRecurrente(props: Props) {
     };
     void cargar();
     return () => controlador.abort();
-    // Al volver a Aula se comprueba que la selección siga activa.
+    // Al cargar o reintentar se comprueba que la selección siga activa.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paso, reintentoAulas]);
+  }, [reintentoAulas]);
 
   const invalidarPreview = () => { setPreview(null); setConflictosRecalculados(null); setError(""); };
-  const limpiarDesdeFranja = () => { setFranjaId(""); setDuracionMin(null); setHoraInicio(""); setAulaId(""); setFechaDesde(""); setFechaHasta(""); setConsultaFranjas(null); setConsultaAulas(null); invalidarPreview(); };
+  const limpiarDesdeFranja = () => { setFranjaId(""); setDuracionMin(null); setHoraInicio(""); setAulaId(""); setFechaDesde(""); setFechaHasta(""); setConsultaFranjas(null); invalidarPreview(); };
   const elegirMateria = (id: string) => {
     if (id === props.materiaId || solicitudRef.current) return;
-    limpiarDesdeFranja(); setPasoMaximo(1); props.onSeleccionarMateria(id);
+    limpiarDesdeFranja(); props.onSeleccionarMateria(id);
   };
   const elegirProfesor = (id: string) => {
     if (id === props.profesorId || solicitudRef.current) return;
-    limpiarDesdeFranja(); setPasoMaximo(2); props.onSeleccionarProfesor(id);
+    limpiarDesdeFranja(); props.onSeleccionarProfesor(id);
   };
-  const seleccionarPaso = (destino: PasoTurno) => {
-    if (destino === paso || destino > pasoMaximo || solicitudRef.current || resultado) return;
-    setPaso(destino);
-  };
-  const retroceder = () => { if (paso > 1) seleccionarPaso((paso - 1) as PasoTurno); };
-
   const generarPreview = async () => {
     if (!payload || solicitudRef.current || resultado) return;
     const claveSolicitud = clave;
@@ -199,47 +214,81 @@ export function TurnoRecurrente(props: Props) {
     finally { solicitudRef.current = false; props.onBusyChange(false); setSolicitando(null); }
   };
 
-  const puedeAvanzar = paso === 1 ? Boolean(materia) : paso === 2 ? Boolean(profesor)
-    : paso === 3 ? Boolean(franja && duracionMin && inicios.includes(horaInicio))
-      : paso === 4 ? Boolean(aula && fechaDesde && fechaHasta && fechaDesde >= hoy && fechaHasta >= fechaDesde) : false;
-
-  return <>
-    <ProgresoTurno paso={paso} pasoMaximoHabilitado={pasoMaximo} onPasoSeleccionado={seleccionarPaso} nombres={PASOS_TURNO_RECURRENTES} />
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
-        {resultado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turnos generados</h2><p>Se {resultado.cantidad === 1 ? "generó 1 turno" : `generaron ${resultado.cantidad} turnos`} correctamente.</p><p>Estado inicial: Disponible, 0 alumnos por turno.</p><Link href="/turnos" className="inline-block text-sm font-semibold underline underline-offset-2">Ver turnos</Link></div> :
-          props.cargandoMaterias ? <p role="status">Cargando materias</p> : props.errorMaterias ? <div role="alert" className="space-y-3"><p>{props.errorMaterias}</p><Button type="button" variant="outline" onClick={props.onReintentarMaterias}>Reintentar</Button></div> :
-          paso === 1 ? <PasoMateriaTurno materias={props.materias} materiaId={props.materiaId} onSeleccionar={elegirMateria}
-            profesoresPorMateria={props.profesoresPorMateria} cargandoConteos={props.cargandoConteos} errorConteos={props.errorConteos} onReintentarConteos={props.onReintentarConteos} /> :
-            paso === 2 ? <PasoProfesorTurno profesores={props.profesores} profesorId={props.profesorId} materiaNombre={materia?.nombre ?? ""} onSeleccionar={elegirProfesor}
-              cargando={props.cargandoProfesores} error={props.errorProfesores} mensajeVacio={props.mensajeProfesores} onReintentar={props.onReintentarProfesores} /> :
-              paso === 3 ? <section aria-labelledby="titulo-franja-recurrente" className="space-y-6">
-                <div><h2 id="titulo-franja-recurrente" className="text-xl font-semibold">Elegí la franja y el horario</h2><p className="text-sm text-muted-foreground">Cada turno se generará en el mismo día y horario de la franja elegida.</p></div>
-                {!consultaFranjas || consultaFranjas.estado === "cargando" ? <p role="status">Cargando franjas recurrentes</p> : consultaFranjas.estado === "error" ? <div role="alert" className="space-y-2"><p>{consultaFranjas.mensaje}</p><Button type="button" variant="outline" onClick={() => setReintentoFranjas((valor) => valor + 1)}>Reintentar</Button></div> : franjas.length === 0 ? <p role="status">Este profesor no tiene horarios de atención registrados</p> :
-                  <fieldset className="grid gap-2 sm:grid-cols-2"><legend className="mb-2 text-sm font-medium">Franja recurrente</legend>{[...franjas].sort((a, b) => ORDEN_DIAS.indexOf(a.dia_semana) - ORDEN_DIAS.indexOf(b.dia_semana) || a.hora_inicio.localeCompare(b.hora_inicio)).map((opcion) => <label key={opcion.horario_id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3.5 focus-within:ring-2 focus-within:ring-ring ${franjaId === opcion.horario_id ? "border-primary bg-accent" : "border-border hover:bg-accent"}`}><input type="radio" name="franja_recurrente" value={opcion.horario_id} checked={franjaId === opcion.horario_id} onChange={() => { if (franjaId === opcion.horario_id) return; setFranjaId(opcion.horario_id); setHoraInicio(""); setPasoMaximo(3); invalidarPreview(); }} className="h-4 w-4 accent-primary" /><span className="text-sm font-medium">{ETIQUETA_DIA[opcion.dia_semana]}: <span className="tabular-nums">{opcion.hora_inicio}–{opcion.hora_fin}</span></span></label>)}</fieldset>}
-                <fieldset className="space-y-2"><legend className="text-sm font-medium">Duración</legend><div className="flex flex-wrap gap-2">{props.duracionesPermitidas.filter((valor) => [60, 120, 180].includes(valor)).map((valor) => <label key={valor} className={`cursor-pointer rounded-lg border px-4 py-2 text-sm focus-within:ring-2 focus-within:ring-ring ${duracionMin === valor ? "border-primary bg-accent font-medium" : "border-border hover:bg-accent"}`}><input type="radio" name="duracion_recurrente" value={valor} checked={duracionMin === valor} onChange={() => { if (duracionMin === valor) return; const nuevos = franja && props.granularidadMin ? iniciosPosibles({ inicio: horaAMinutos(franja.hora_inicio), fin: horaAMinutos(franja.hora_fin) }, valor, props.granularidadMin).map(minutosAHora) : []; setDuracionMin(valor); if (!nuevos.includes(horaInicio)) setHoraInicio(""); setPasoMaximo(3); invalidarPreview(); }} className="sr-only" />{valor} min</label>)}</div></fieldset>
-                <fieldset className="space-y-2"><legend className="text-sm font-medium">Hora de inicio</legend>{!props.granularidadMin ? <p role="alert" className="text-sm text-destructive">No se pudo obtener la granularidad horaria del centro.</p> : inicios.length === 0 ? <p className="text-sm text-muted-foreground">Elegí una franja y una duración que quepa completa.</p> : <div className="flex flex-wrap gap-2">{inicios.map((inicio) => <label key={inicio} className={`cursor-pointer rounded-lg border px-3 py-2 text-sm tabular-nums focus-within:ring-2 focus-within:ring-ring ${horaInicio === inicio ? "border-primary bg-primary font-medium text-primary-foreground" : "border-border hover:bg-accent"}`}><input type="radio" name="hora_recurrente" value={inicio} checked={horaInicio === inicio} onChange={() => { if (horaInicio === inicio) return; setHoraInicio(inicio); setPasoMaximo(3); invalidarPreview(); }} className="sr-only" />{inicio}–{minutosAHora(horaAMinutos(inicio) + (duracionMin ?? 0))}</label>)}</div>}</fieldset>
-              </section> : paso === 4 ? <section aria-labelledby="titulo-aula-rango" className="space-y-6">
-                <div><h2 id="titulo-aula-rango" className="text-xl font-semibold">Elegí el aula y el rango</h2><p className="text-sm text-muted-foreground">Una misma aula se usará en todas las fechas. La disponibilidad se comprueba en la vista previa.</p></div>
-                {!consultaAulas || consultaAulas.estado === "cargando" ? <p role="status">Cargando aulas activas</p> : consultaAulas.estado === "error" ? <div role="alert" className="space-y-2"><p>{consultaAulas.mensaje}</p><Button type="button" variant="outline" onClick={() => setReintentoAulas((valor) => valor + 1)}>Reintentar</Button></div> : <SeccionAulaTurno aulas={aulas} aulaId={aulaId} aulaIdGuardada="" aulaGuardadaNoDisponible={false} habilitada sinAulas={consultaAulas.estado === "sinAulas"} error="" modoWizard mensajeVacio="No hay aulas activas registradas." onReintentar={() => setReintentoAulas((valor) => valor + 1)} onCambiar={(id) => { if (id === aulaId) return; setAulaId(id); setPasoMaximo(4); invalidarPreview(); }} />}
-                <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-1 text-sm font-medium">Desde<input type="date" aria-label="Desde" min={hoy} value={fechaDesde} onChange={(evento) => { setFechaDesde(evento.target.value); setPasoMaximo(4); invalidarPreview(); }} className="block h-10 w-full rounded-md border border-input bg-background px-3 font-normal" /></label><label className="space-y-1 text-sm font-medium">Hasta<input type="date" aria-label="Hasta" min={fechaDesde || hoy} value={fechaHasta} onChange={(evento) => { setFechaHasta(evento.target.value); setPasoMaximo(4); invalidarPreview(); }} className="block h-10 w-full rounded-md border border-input bg-background px-3 font-normal" /></label></div>
-                <p className="text-sm text-muted-foreground">Podés generar hasta 6 meses calendario y 40 turnos. El rango se envía tal como lo elegiste.</p>
-              </section> : <section aria-labelledby="titulo-vista-recurrente" className="space-y-5">
-                <div><h2 id="titulo-vista-recurrente" className="text-xl font-semibold">Vista previa de la generación</h2><p className="text-sm text-muted-foreground">{franja ? `${ETIQUETA_DIA[franja.dia_semana]}, ${horaInicio}–${minutosAHora(horaAMinutos(horaInicio) + (duracionMin ?? 0))}` : ""} · {fechaDesde && fechaHasta ? `${fechaLegible(fechaDesde)} al ${fechaLegible(fechaHasta)}` : ""}</p></div>
-                <Button type="button" variant="outline" disabled={!payload || Boolean(solicitando)} onClick={() => void generarPreview()}>{solicitando === "preview" ? "Generando vista previa" : "Generar vista previa"}</Button>
-                {vistaActual ? <FechasVistaPrevia vista={vistaActual.data} horaInicio={horaInicio} duracionMin={duracionMin ?? 0} /> : conflictosRecalculados ? <div className="space-y-3"><h3 className="font-semibold">Conflictos recalculados al confirmar</h3><FechasVistaPrevia vista={conflictosRecalculados} horaInicio={horaInicio} duracionMin={duracionMin ?? 0} /></div> : <p className="text-sm text-muted-foreground">Generá la vista previa para revisar todas las fechas antes de confirmar.</p>}
-                {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-              </section>}
-        {!resultado && <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-          <Button type="button" variant="outline" onClick={retroceder} disabled={paso === 1 || Boolean(solicitando)}>Atrás</Button>
-          {paso === 5 ? <Button type="button" onClick={() => void confirmar()} disabled={!puedeConfirmar}>{solicitando === "confirmacion" ? "Generando turnos" : "Confirmar generación"}</Button>
-            : <Button type="button" disabled={!puedeAvanzar || Boolean(solicitando)} onClick={() => { if (!puedeAvanzar) return; setPasoMaximo((actual) => Math.max(actual, paso + 1) as PasoTurno); setPaso((paso + 1) as PasoTurno); }}>{paso === 1 ? "Continuar a profesor" : paso === 2 ? "Continuar a franja" : paso === 3 ? "Continuar a aula y rango" : "Continuar a vista previa"}</Button>}
+  const bloqueado = Boolean(solicitando || resultado);
+  const puedeGenerarPreview = Boolean(payload && fechaDesde >= hoy && fechaHasta >= fechaDesde && !bloqueado);
+  const campo = "block h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
+  const datosTabla = { horaInicio, duracionMin: duracionMin ?? 0, diaSemana: franja?.dia_semana ?? "LUNES" as DiaSemanaValor,
+    aulaNombre: aula?.nombre ?? "", materiaNombre: materia?.nombre ?? "",
+    profesorNombre: profesor ? `${profesor.nombre} ${profesor.apellido}` : "" };
+  return <div className="grid items-start gap-5 xl:grid-cols-[440px_minmax(0,1fr)]">
+    <section data-testid="configuracion-recurrente" aria-label="Configuración recurrente" className="min-w-0 space-y-7 rounded-xl border border-border bg-card p-6 text-card-foreground">
+      <section aria-labelledby="titulo-materia-profesor" className="space-y-4">
+        <h2 id="titulo-materia-profesor" className="text-sm font-semibold tracking-wide text-muted-foreground">MATERIA Y PROFESOR</h2>
+        <div className="space-y-2"><label htmlFor="materia-recurrente" className="text-sm font-medium">Materia</label>
+          <select id="materia-recurrente" className={campo} value={props.materiaId} disabled={bloqueado || props.cargandoMaterias || Boolean(props.errorMaterias)} onChange={(e) => elegirMateria(e.target.value)}>
+            <option value="">Seleccioná una materia</option>{props.materias.map((m) => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+          </select>
+          {props.cargandoMaterias && <p role="status">Cargando materias</p>}
+          {props.errorMaterias && <div role="alert"><p>{props.errorMaterias}</p><Button type="button" variant="outline" onClick={props.onReintentarMaterias}>Reintentar</Button></div>}
+        </div>
+        <div className="space-y-2"><label htmlFor="profesor-recurrente" className="text-sm font-medium">Profesor</label>
+          <select id="profesor-recurrente" className={campo} value={props.profesorId} disabled={bloqueado || !materia || props.cargandoProfesores || Boolean(props.errorProfesores)} onChange={(e) => elegirProfesor(e.target.value)}>
+            <option value="">Seleccioná un profesor</option>{props.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre} {p.apellido}</option>)}
+          </select>
+          {materia && props.cargandoProfesores && <p role="status">Cargando profesores</p>}
+          {materia && props.errorProfesores && <div role="alert"><p>{props.errorProfesores}</p><Button type="button" variant="outline" onClick={props.onReintentarProfesores}>Reintentar</Button></div>}
+          {materia && !props.cargandoProfesores && !props.errorProfesores && props.profesores.length === 0 && <p className="text-sm text-muted-foreground">{props.mensajeProfesores}</p>}
+        </div>
+      </section>
+      <hr className="border-border" />
+      <section aria-labelledby="titulo-franja-horario" className="space-y-4">
+        <h2 id="titulo-franja-horario" className="text-sm font-semibold tracking-wide text-muted-foreground">FRANJA Y HORARIO</h2>
+        <div className="space-y-2"><label htmlFor="franja-recurrente" className="text-sm font-medium">Franja horaria del profesor</label>
+          <select id="franja-recurrente" className={campo} value={franjaId} disabled={bloqueado || !profesor || consultaFranjas?.estado !== "listas"} onChange={(e) => { if (franjaId === e.target.value) return; setFranjaId(e.target.value); setHoraInicio(""); invalidarPreview(); }}>
+            <option value="">Seleccioná una franja</option>{[...franjas].sort((a,b) => ORDEN_DIAS.indexOf(a.dia_semana) - ORDEN_DIAS.indexOf(b.dia_semana) || a.hora_inicio.localeCompare(b.hora_inicio)).map((f) => <option key={f.horario_id} value={f.horario_id}>{ETIQUETA_DIA[f.dia_semana]}: {f.hora_inicio}–{f.hora_fin}</option>)}
+          </select>
+          {profesor && (!consultaFranjas || consultaFranjas.estado === "cargando") && <p role="status">Cargando franjas recurrentes</p>}
+          {profesor && consultaFranjas?.estado === "error" && <div role="alert"><p>{consultaFranjas.mensaje}</p><Button type="button" variant="outline" onClick={() => setReintentoFranjas((n) => n + 1)}>Reintentar</Button></div>}
+          {profesor && consultaFranjas?.estado === "listas" && franjas.length === 0 && <p role="status">Este profesor no tiene horarios de atención registrados</p>}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <fieldset disabled={bloqueado || !franja} className="space-y-2"><legend className="text-sm font-medium">Duración</legend>
+            <div className="flex rounded-md border border-input bg-muted p-1">{props.duracionesPermitidas.filter((n) => [60,120,180].includes(n)).map((n) => <label key={n} className={`flex-1 cursor-pointer rounded px-2 py-2 text-center text-sm focus-within:ring-2 focus-within:ring-ring ${duracionMin === n ? "bg-card font-semibold shadow-xs" : "text-muted-foreground hover:text-foreground"}`}><input type="radio" name="duracion_recurrente" value={n} checked={duracionMin === n} onChange={() => { if (duracionMin === n) return; const nuevos = franja && props.granularidadMin ? iniciosPosibles({ inicio: horaAMinutos(franja.hora_inicio), fin: horaAMinutos(franja.hora_fin) }, n, props.granularidadMin).map(minutosAHora) : []; setDuracionMin(n); if (!nuevos.includes(horaInicio)) setHoraInicio(""); invalidarPreview(); }} className="sr-only" />{n / 60} h</label>)}</div>
+          </fieldset>
+          <div className="space-y-2"><label htmlFor="hora-recurrente" className="text-sm font-medium">Hora de inicio</label><select id="hora-recurrente" className={campo} value={horaInicio} disabled={bloqueado || inicios.length === 0} onChange={(e) => { if (horaInicio === e.target.value) return; setHoraInicio(e.target.value); invalidarPreview(); }}><option value="">Seleccioná una hora</option>{inicios.map((inicio) => <option key={inicio} value={inicio}>{inicio}</option>)}</select></div>
+        </div>
+        {!props.granularidadMin && <p role="alert" className="text-sm text-destructive">No se pudo obtener la granularidad horaria del centro.</p>}
+      </section>
+      <hr className="border-border" />
+      <section aria-labelledby="titulo-aula-fechas" className="space-y-4">
+        <h2 id="titulo-aula-fechas" className="text-sm font-semibold tracking-wide text-muted-foreground">AULA Y FECHAS</h2>
+        <div className="space-y-2"><label htmlFor="aula-recurrente" className="text-sm font-medium">Aula</label><p className="text-sm text-muted-foreground">Se usa la misma aula en todas las fechas.</p>
+          <select id="aula-recurrente" className={campo} value={aulaId} disabled={bloqueado || consultaAulas?.estado !== "listas"} onChange={(e) => { if (aulaId === e.target.value) return; setAulaId(e.target.value); invalidarPreview(); }}><option value="">Seleccioná un aula</option>{aulas.map((a) => <option key={a.id} value={a.id}>{a.nombre} · Capacidad {a.capacidad}</option>)}</select>
+          {(!consultaAulas || consultaAulas.estado === "cargando") && <p role="status">Cargando aulas activas</p>}
+          {consultaAulas?.estado === "sinAulas" && <p role="status">No hay aulas activas registradas.</p>}
+          {consultaAulas?.estado === "error" && <div role="alert"><p>{consultaAulas.mensaje}</p><Button type="button" variant="outline" onClick={() => setReintentoAulas((n) => n + 1)}>Reintentar</Button></div>}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-2 text-sm font-medium">Desde<input type="date" aria-label="Desde" min={hoy} value={fechaDesde} disabled={bloqueado} onChange={(e) => { setFechaDesde(e.target.value); invalidarPreview(); }} className={campo} /></label>
+          <label className="space-y-2 text-sm font-medium">Hasta<input type="date" aria-label="Hasta" min={fechaDesde || hoy} value={fechaHasta} disabled={bloqueado} onChange={(e) => { setFechaHasta(e.target.value); invalidarPreview(); }} className={campo} /></label>
+        </div>
+        <p className="text-sm text-muted-foreground">Máximo 6 meses calendario y 40 turnos.</p>
+      </section>
+      <Button type="button" variant="outline" className="h-10 w-full" disabled={!puedeGenerarPreview} onClick={() => void generarPreview()}>{solicitando === "preview" ? "Generando vista previa" : "Ver vista previa"}</Button>
+    </section>
+    <aside data-testid="vista-previa-recurrente" aria-labelledby="titulo-vista-recurrente" className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
+      <h2 id="titulo-vista-recurrente" className="text-xl font-semibold">Vista previa</h2>
+      {resultado ? <div role="status" className="mt-5 space-y-3 rounded-md bg-success p-5 text-success-foreground"><h3 className="text-lg font-semibold">Turnos generados</h3><p>Se {resultado.cantidad === 1 ? "generó 1 turno" : `generaron ${resultado.cantidad} turnos`} correctamente.</p><p>Estado inicial: Disponible, 0 alumnos por turno.</p><Link href="/turnos" className="inline-block text-sm font-semibold underline underline-offset-2">Ver turnos</Link></div> :
+        <div className="mt-5 space-y-5">
+          {vistaActual ? <><TablaVistaPrevia vista={vistaActual.data} {...datosTabla} />
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              {vistaActual.data.hay_conflictos && <p className="text-sm text-muted-foreground">Resolvé los conflictos para habilitar la generación.</p>}
+              <Button type="button" className="sm:ml-auto" disabled={!puedeConfirmar} onClick={() => void confirmar()}>{solicitando === "confirmacion" ? "Generando turnos" : `Confirmar generación (${vistaActual.data.cantidad} ${vistaActual.data.cantidad === 1 ? "turno" : "turnos"})`}</Button>
+            </div></> :
+            conflictosRecalculados ? <div className="space-y-3"><h3 className="font-semibold">Conflictos recalculados al confirmar</h3><TablaVistaPrevia vista={conflictosRecalculados} {...datosTabla} /></div> :
+            <p className="rounded-lg border border-dashed border-border bg-muted/30 px-5 py-10 text-center text-sm leading-6 text-muted-foreground">Completá la configuración y tocá Ver vista previa para ver las fechas que se van a generar y si alguna tiene el aula ocupada.</p>}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </div>}
-      </div>
-      <ResumenTurno modo="recurrente" valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.nombre} ${profesor.apellido}` : null,
-        franja: franja ? `${ETIQUETA_DIA[franja.dia_semana]} ${franja.hora_inicio}–${franja.hora_fin}` : null,
-        duracion: duracionMin ? `${duracionMin} min` : null, hora: horaInicio ? `${horaInicio}–${minutosAHora(horaAMinutos(horaInicio) + (duracionMin ?? 0))}` : null,
-        aula: aula?.nombre ?? null, rango: fechaDesde && fechaHasta ? `${fechaLegible(fechaDesde)} – ${fechaLegible(fechaHasta)}` : null }} />
-    </div>
-  </>;
+    </aside>
+  </div>;
 }
