@@ -243,11 +243,11 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).toBeNull();
   });
 
-  it("habilita Asignar prioridad y Cancelar turno; conserva pendientes las acciones de C-06/I-01/E-01", async () => {
+  it("acciones en el orden de la pág. 5 (Reprogramar · Asignar prioridad · Cancelar turno); I-01/E-01 siguen pendientes", async () => {
     await montar();
     const botones = [...container.querySelectorAll("header button")].map((elemento) => elemento.textContent);
-    expect(botones).toEqual(["Asignar prioridad", "Cancelar turno"]);
-    for (const accion of ["Descartar", "Reprogramar", "Registrar pago", "Registrar clase dictada"]) {
+    expect(botones).toEqual(["Reprogramar", "Asignar prioridad", "Cancelar turno"]);
+    for (const accion of ["Descartar", "Registrar pago", "Registrar clase dictada"]) {
       expect([...container.querySelectorAll("button, a")].some((elemento) => elemento.textContent === accion)).toBe(false);
     }
     fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
@@ -259,6 +259,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
   it("HU-C-05 AC2: un PENDIENTE ofrece «Descartar» y nunca «Cancelar turno»", async () => {
     fetch.mockResolvedValue(respuesta(detalle({ estado: "PENDIENTE", acciones_habilitadas: ["descartar", "prioridad"] })));
     await montar();
+    expect([...container.querySelectorAll("header button")].some((b) => b.textContent === "Reprogramar")).toBe(false);
     const botones = [...container.querySelectorAll("header button")].map((elemento) => elemento.textContent);
     expect(botones).toEqual(["Asignar prioridad", "Descartar"]);
   });
@@ -295,6 +296,18 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector("header")?.textContent).toContain("Cancelado");
     expect(container.querySelectorAll("header button")).toHaveLength(0);
     expect(texto()).toContain("Pérez, Juan");
+  });
+
+  it("HU-C-06 AC1: «Reprogramar» abre el Dialog de la pág. 9 y carga las opciones de la fecha actual", async () => {
+    await montar();
+    fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { fecha: "2026-10-06", duracion_min: 60, tope_fecha: "2026-10-31",
+      inicios: [{ hora_inicio: "16:00", hora_fin: "17:00", actual: true }, { hora_inicio: "17:00", hora_fin: "18:00", actual: false }] }, error: null }) });
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Reprogramar") as HTMLButtonElement).click());
+    await esperar();
+    expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/reprogramacion/opciones?fecha=2026-10-06", expect.objectContaining({ cache: "no-store" }));
+    const dialogo = document.querySelector('[role="dialog"]')!;
+    expect(dialogo.textContent).toContain("Reprogramar turno");
+    expect(dialogo.textContent).toContain("Profesor (Méndez, Laura), aula y duración se mantienen.");
   });
 
   it("403 del Profesor: muestra el mensaje neutro y las migas sin datos del turno", async () => {

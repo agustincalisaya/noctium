@@ -55,3 +55,12 @@ export type AgregarAlumnoTurnoInput = z.infer<typeof AgregarAlumnoTurnoSchema>;
 
 export const AsignarAulaTurnoSchema = z.object({ aula_id: z.cuid() });
 export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
+
+/** HU-C-06: solo fecha y hora de inicio. */
+export const ReprogramarTurnoSchema = z.object({
+  fecha: fechaCalendarioValidaSchema,
+  hora_inicio: ConfigurarTurnoSchema.shape.hora_inicio,
+}).strict();
+export type ReprogramarTurnoInput = z.infer<typeof ReprogramarTurnoSchema>;
+
+export const OpcionesReprogramacionQuerySchema = z.object({ fecha: fechaCalendarioValidaSchema }).strict();

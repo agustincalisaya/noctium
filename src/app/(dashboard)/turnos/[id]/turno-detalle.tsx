@@ -12,6 +12,7 @@ import { TurnoClaseCard } from "./turno-clase-card";
 import { TurnoPagoCard } from "./turno-pago-card";
 import { AsignarPrioridadDialog } from "./asignar-prioridad-dialog";
 import { CancelarTurnoDialog } from "./cancelar-turno-dialog";
+import { ReprogramarTurnoDialog } from "./reprogramar-turno-dialog";
 import { diaAbreviadoYFecha } from "@/lib/turno-detalle";
 
 /**
@@ -24,6 +25,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
   const [prioridadAbierta, setPrioridadAbierta] = useState(false);
+  const [reprogramacionAbierta, setReprogramacionAbierta] = useState(false);
   const [cancelacion, setCancelacion] = useState<"cancelar" | "descartar" | null>(null);
   const cargar = useCallback(async (recarga = false) => {
     if (!recarga) setCargando(true);
@@ -42,7 +44,10 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
   const gestionable = puedeGestionarAlumnos && (turnoActual?.estado === "DISPONIBLE" || turnoActual?.estado === "COMPLETO");
 
   return <main className="mx-auto w-full min-w-0 max-w-5xl space-y-5 p-6">
-    <TurnoDetalleEncabezado turno={turnoActual} retorno={retorno} onAsignarPrioridad={() => setPrioridadAbierta(true)} onCancelar={setCancelacion} />
+    <TurnoDetalleEncabezado turno={turnoActual} retorno={retorno} onReprogramar={() => setReprogramacionAbierta(true)} onAsignarPrioridad={() => setPrioridadAbierta(true)} onCancelar={setCancelacion} />
+    {reprogramacionAbierta && turnoActual?.acciones_habilitadas.includes("reprogramar") && <ReprogramarTurnoDialog
+      turno={turnoActual} onCerrar={() => setReprogramacionAbierta(false)} onCambio={() => cargar(true)}
+    />}
     {prioridadAbierta && turnoActual?.acciones_habilitadas.includes("prioridad") && <AsignarPrioridadDialog
       turnoId={turnoActual.id} prioridadActual={turnoActual.prioridad} onCerrar={() => setPrioridadAbierta(false)} onCambio={() => cargar(true)}
     />}

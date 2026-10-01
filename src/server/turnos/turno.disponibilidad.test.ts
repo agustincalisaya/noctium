@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { calcularTramosLibres, iniciosPosibles } from "./turno.disponibilidad";
+import { describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
+import { alumnosConTurnoSuperpuesto, calcularTramosLibres, iniciosPosibles } from "./turno.disponibilidad";
 
 const franja = { inicio: 600, fin: 840 }; // 10:00–14:00
 
@@ -68,5 +69,23 @@ describe("HU-C-07 iniciosPosibles", () => {
     expect(iniciosPosibles(franja, 60, 0)).toEqual([]);
     expect(iniciosPosibles(franja, 60.5, 30)).toEqual([]);
     expect(iniciosPosibles(franja, 60, 30.5)).toEqual([]);
+  });
+});
+
+describe("HU-C-06 alumnosConTurnoSuperpuesto", () => {
+  const turno = { idTurno: "propio", fechaTurno: new Date("2026-10-07T00:00:00.000Z"), horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"), duracionMinutosTurno: 120 };
+  const otro = (inicio: string, alumnos: string[]) => ({ horaInicioTurno: new Date(`1970-01-01T${inicio}:00.000Z`), duracionMinutosTurno: 60, alumnos: alumnos.map((alumnoId) => ({ alumnoId })) });
+
+  it("devuelve todos los alumnos ocupados en el orden pedido, ignora contiguos y excluye el propio turno", async () => {
+    const findMany = vi.fn().mockResolvedValue([otro("11:00", ["c", "a"]), otro("12:00", ["b"])]);
+    const db = { turno: { findMany } } as unknown as Prisma.TransactionClient;
+    await expect(alumnosConTurnoSuperpuesto(db, turno, ["a", "b", "c"])).resolves.toEqual(["a", "c"]);
+    expect(findMany.mock.calls[0][0].where).toMatchObject({ idTurno: { not: "propio" }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } });
+  });
+
+  it("sin alumnos no consulta", async () => {
+    const findMany = vi.fn();
+    await expect(alumnosConTurnoSuperpuesto({ turno: { findMany } } as unknown as Prisma.TransactionClient, turno, [])).resolves.toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
   });
 });
