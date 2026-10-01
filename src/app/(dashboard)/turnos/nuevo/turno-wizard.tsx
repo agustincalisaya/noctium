@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
@@ -51,6 +52,7 @@ async function obtenerConfiguracionTurno() {
 }
 
 export function TurnoWizard() {
+  const router = useRouter();
   const { setDirty } = useDirtyState();
   const [modo, setModo] = useState<"individual" | "recurrente">("individual");
   const [recurrenteOcupado, setRecurrenteOcupado] = useState(false);
@@ -343,19 +345,17 @@ export function TurnoWizard() {
     <header className="space-y-3">
       <Breadcrumb tramos={[{ etiqueta: "Turnos", href: "/turnos" }, { etiqueta: "Nuevo turno" }]} />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1"><h1 className="text-3xl font-semibold tracking-tight">Nuevo turno</h1><p className="text-sm text-muted-foreground">{modo === "individual" ? "Materia → Profesor → Fecha y horario → Aula → Alumnos." : "Materia → Profesor → Franja y horario → Aula y rango → Vista previa."}</p></div>
+        <div className="space-y-1"><h1 className="text-3xl font-semibold tracking-tight">Nuevo turno</h1><p className="text-sm text-muted-foreground">{modo === "individual" ? "Materia → Profesor → Fecha y horario → Aula → Alumnos." : "Genera turnos recurrentes a partir de una franja horaria del profesor. Estado inicial Disponible. 0 alumnos."}</p></div>
         <div role="group" aria-label="Tipo de creación de turnos" className="inline-flex max-w-full gap-1 rounded-lg border border-border bg-muted p-1">
-          <button type="button" aria-pressed={modo === "individual"} disabled={guardando || recurrenteOcupado} onClick={() => setModo("individual")} className={`rounded-md px-4 py-2 text-sm font-medium ${modo === "individual" ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Generar un turno</button>
+          <button type="button" aria-pressed={modo === "individual"} disabled={guardando || recurrenteOcupado} onClick={() => setModo("individual")} className={`rounded-md px-4 py-2 text-sm font-medium ${modo === "individual" ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Turno individual</button>
           <button type="button" aria-pressed={modo === "recurrente"} disabled={guardando || recurrenteOcupado} onClick={() => setModo("recurrente")} className={`rounded-md px-4 py-2 text-sm font-medium ${modo === "recurrente" ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Generar varios turnos</button>
         </div>
       </div>
     </header>
 
     {modo === "recurrente" ? <TurnoRecurrente materias={materias} materiaId={seleccion.materiaId} profesorId={seleccion.profesorId}
-      profesores={profesores} profesoresPorMateria={consultaConteos?.cantidades ?? {}}
+      profesores={profesores}
       cargandoMaterias={cargando} errorMaterias={errorCarga} onReintentarMaterias={reintentarMaterias}
-      cargandoConteos={!consultaConteos} errorConteos={consultaConteos?.estado === "error" ? consultaConteos.mensaje : ""}
-      onReintentarConteos={() => { setConsultaConteos(null); setReintentoConteos((valor) => valor + 1); }}
       cargandoProfesores={!consultaVigente || consultaVigente.estado === "cargando"} errorProfesores={consultaVigente?.estado === "error" ? consultaVigente.mensaje : ""}
       mensajeProfesores={consultaVigente?.mensaje ?? "No hay profesores asociados a esta materia"} onReintentarProfesores={() => setReintentoProfesores((valor) => valor + 1)}
       onSeleccionarMateria={cambiarMateriaRecurrente} onSeleccionarProfesor={cambiarProfesorRecurrente}
@@ -363,7 +363,7 @@ export function TurnoWizard() {
     <ProgresoTurno paso={paso} pasoMaximoHabilitado={pasoMaximoHabilitado} onPasoSeleccionado={seleccionarPaso} />
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
-        {resultadoFinal ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turno confirmado</h2><p className="flex items-center gap-2">Estado: <EstadoTurnoBadge estado={resultadoFinal} /></p><p>Profesor, aula y {seleccion.alumnos.length} {seleccion.alumnos.length === 1 ? "alumno" : "alumnos"} confirmados.</p></div> :
+        {resultadoFinal ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turno confirmado</h2><p>Turno creado correctamente.</p><p className="flex items-center gap-2">Estado: <EstadoTurnoBadge estado={resultadoFinal} /></p><p>Profesor, aula y {seleccion.alumnos.length} {seleccion.alumnos.length === 1 ? "alumno" : "alumnos"} confirmados.</p><Button type="button" onClick={() => router.push("/turnos")}>Ver listado de turnos</Button></div> :
           cargando ? <p role="status">Cargando materias</p> : errorCarga ? <div role="alert" className="space-y-3"><p>{errorCarga}</p><Button type="button" variant="outline" onClick={reintentarMaterias}>Reintentar</Button></div> :
           paso === 1 ? <PasoMateriaTurno materias={materias} materiaId={seleccion.materiaId} onSeleccionar={cambiarMateria}
             profesoresPorMateria={consultaConteos?.cantidades ?? {}} cargandoConteos={!consultaConteos}

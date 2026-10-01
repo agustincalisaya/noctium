@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
-const { fetch, setDirty } = vi.hoisted(() => ({ fetch: vi.fn(), setDirty: vi.fn() }));
+const { fetch, setDirty, push } = vi.hoisted(() => ({ fetch: vi.fn(), setDirty: vi.fn(), push: vi.fn() }));
 vi.mock("@/lib/fetch-autenticado", () => ({ fetchAutenticado: fetch }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/components/sesion/dirty-state-context", () => ({ useDirtyState: () => ({ dirty: false, setDirty, confirmarSalida: (salir: () => void) => salir() }) }));
 vi.mock("@/components/sesion/link-protegido", async () => {
   const React = await import("react");
@@ -189,13 +190,21 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
 
   it("confirma con alumno_ids sin profesor_id y muestra DISPONIBLE sin repetir PATCH", async () => {
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    expect(boton("Ver listado de turnos")).toBeUndefined();
+    expect(container.textContent).not.toContain("Turno creado correctamente.");
     await pulsar(boton("Crear turno"));
     expect(JSON.parse(String(llamadas("PATCH", "/participantes")[0]![1].body))).toEqual({ alumno_ids: ["alumno-1"] });
     expect(container.textContent).toContain("Turno confirmado");
+    expect(container.textContent).toContain("Turno creado correctamente.");
     expect(container.textContent).toContain("Disponible");
     expect(boton("Crear turno")).toBeUndefined();
+    expect(boton("Ver listado de turnos")).toBeDefined();
+    expect(push).not.toHaveBeenCalled();
     expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
     expect(setDirty).toHaveBeenLastCalledWith(false);
+    await pulsar(boton("Ver listado de turnos"));
+    expect(push).toHaveBeenCalledExactlyOnceWith("/turnos");
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
   });
 
   it("usa el estado COMPLETO devuelto por backend", async () => {
