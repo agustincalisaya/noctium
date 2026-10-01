@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /home/polentita/noctium
+
+ ✓ src/server/pagos/pago.schema.test.ts (31 tests) 22ms
+ ✓ src/server/pagos/pago.service.test.ts (17 tests) 53ms
+ ✓ src/app/api/pagos/route.test.ts (16 tests) 58ms
+ ✓ src/app/(dashboard)/turnos/[id]/turno-detalle.test.tsx (29 tests) 2579ms
+   ✓ HU-C-09 detalle de turno (mockup pág. 5) > HU-C-05 AC1: «Cancelar turno» abre el AlertDialog con el texto literal, el resumen y el aviso N-3  507ms
+
+ Test Files  4 passed (4)
+      Tests  93 passed (93)
+   Start at  02:38:35
+   Duration  4.88s (transform 746ms, setup 0ms, collect 1.74s, tests 2.71s, environment 969ms, prepare 595ms)
+

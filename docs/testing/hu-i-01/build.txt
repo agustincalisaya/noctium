@@ -1,0 +1,120 @@
+
+> noctium@0.1.0 build
+> next build --webpack
+
+▲ Next.js 16.3.8 (webpack)
+- Environments: .env
+✓ Running next.config.ts took 31ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 17.7s
+  Running TypeScript ...
+  Finished TypeScript in 5.2s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/28) ...
+  Generating static pages using 7 workers (7/28)
+  Generating static pages using 7 workers (14/28)
+  Generating static pages using 7 workers (21/28)
+✓ Generating static pages using 7 workers (28/28) in 410ms
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /alumno
+├ ƒ /alumno/turnos/solicitar
+├ ƒ /alumnos
+├ ƒ /alumnos/[id]
+├ ƒ /alumnos/[id]/contacto
+├ ƒ /alumnos/[id]/editar
+├ ƒ /alumnos/[id]/forma-pago
+├ ƒ /alumnos/nueva
+├ ƒ /api/alumnos
+├ ƒ /api/alumnos/[id]
+├ ƒ /api/alumnos/[id]/contacto
+├ ƒ /api/alumnos/[id]/examenes
+├ ƒ /api/alumnos/[id]/examenes/opciones
+├ ƒ /api/alumnos/[id]/forma-pago
+├ ƒ /api/alumnos/[id]/historial
+├ ƒ /api/aulas
+├ ƒ /api/aulas/[id]
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/auth/autorregistro
+├ ƒ /api/auth/autorregistro/reenviar-codigo
+├ ƒ /api/auth/autorregistro/verificar-codigo
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/ping
+├ ƒ /api/calendario/materia/[materiaId]
+├ ƒ /api/calendario/profesor/[profesorId]
+├ ƒ /api/formas-pago
+├ ƒ /api/formas-pago/opciones
+├ ƒ /api/indicadores
+├ ƒ /api/materias
+├ ƒ /api/materias/[id]
+├ ƒ /api/pagos
+├ ƒ /api/pagos/opciones
+├ ƒ /api/profesores
+├ ƒ /api/profesores/[id]
+├ ƒ /api/profesores/[id]/horarios
+├ ƒ /api/profesores/[id]/materias
+├ ƒ /api/profesores/[id]/materias/[materiaId]/turnos-futuros
+├ ƒ /api/turnos
+├ ƒ /api/turnos/[id]
+├ ƒ /api/turnos/[id]/alumnos
+├ ƒ /api/turnos/[id]/alumnos/[alumnoId]
+├ ƒ /api/turnos/[id]/aula
+├ ƒ /api/turnos/[id]/cancelacion
+├ ƒ /api/turnos/[id]/clase-dictada
+├ ƒ /api/turnos/[id]/configuracion
+├ ƒ /api/turnos/[id]/inscripcion
+├ ƒ /api/turnos/[id]/participantes
+├ ƒ /api/turnos/[id]/prioridad
+├ ƒ /api/turnos/[id]/reprogramacion
+├ ƒ /api/turnos/[id]/reprogramacion/opciones
+├ ƒ /api/turnos/aula/opciones
+├ ƒ /api/turnos/configuracion
+├ ƒ /api/turnos/inscripcion/opciones
+├ ƒ /api/turnos/participantes/alumnos
+├ ƒ /api/turnos/participantes/alumnos/opciones
+├ ƒ /api/turnos/profesores/[profesorId]/agenda-wizard
+├ ƒ /api/turnos/profesores/[profesorId]/disponibilidad
+├ ƒ /api/turnos/profesores/opciones
+├ ƒ /api/turnos/profesores/opciones-wizard
+├ ƒ /api/turnos/profesores/por-materia
+├ ƒ /api/turnos/propios
+├ ƒ /aulas
+├ ƒ /aulas/[id]
+├ ƒ /aulas/nueva
+├ ƒ /calendario
+├ ƒ /calendario/materia
+├ ƒ /calendario/profesor
+├ ƒ /formas-pago
+├ ƒ /gerente
+├ ƒ /home
+├ ƒ /login
+├ ƒ /materias
+├ ƒ /materias/[id]
+├ ƒ /materias/nueva
+├ ƒ /mesa-entrada
+├ ƒ /profesor
+├ ƒ /profesores
+├ ƒ /profesores/[id]
+├ ƒ /profesores/[id]/contacto
+├ ƒ /profesores/[id]/materias
+├ ƒ /profesores/horarios/nuevo
+├ ƒ /profesores/nuevo
+├ ƒ /registro
+├ ƒ /sin-permiso
+├ ƒ /turnos
+├ ƒ /turnos/[id]
+├ ƒ /turnos/[id]/configuracion
+├ ƒ /turnos/[id]/participantes
+└ ƒ /turnos/nuevo
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

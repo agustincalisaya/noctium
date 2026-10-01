@@ -1,0 +1,338 @@
+
+> noctium@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /home/polentita/noctium
+
+ ✓ src/app/(dashboard)/alumnos/listado-alumnos.test.tsx (11 tests) 449ms
+ ✓ src/app/(dashboard)/turnos/paso-fecha-horario-turno.test.tsx (8 tests) 1031ms
+   ✓ Paso 3 agenda y calendario > consulta solo agenda-wizard sin rango hardcodeado ni POST/PATCH y muestra duración elegida  425ms
+ ✓ src/app/(dashboard)/turnos/turnos-listado.test.tsx (18 tests) 1953ms
+   ✓ HU-C-01 interfaz > muestra estado textual, ocupación y navega al paso faltante (aula antes que participantes) conservando retorno  348ms
+   ✓ HU-C-05 listado: Descartar y etiqueta Cancelado > con turnos:cancelar ofrece Descartar solo en PENDIENTE y recarga la misma página y búsqueda  395ms
+ ✓ src/app/(dashboard)/profesores/[id]/editar-materias.test.tsx (12 tests) 2151ms
+   ✓ HU-D-07 selector de materias en el modo edición > AC1: asociadas tildadas y habilitadas, activas disponibles, inactiva asociada con etiqueta  363ms
+   ✓ HU-D-07 modal «Ver turnos» > muestra el mensaje con N y la lista con fecha, hora, aula, cupo, estado y link en pestaña nueva  578ms
+   ✓ HU-D-07 modal «Ver turnos» > pagina de a 10 y pide la página siguiente  338ms
+ ✓ src/app/(dashboard)/turnos/turno-configuracion.test.tsx (20 tests) 4248ms
+   ✓ HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3) > en alta carga configuración sin consultar ni ofrecer aulas antes del POST  314ms
+   ✓ HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3) > si el aula falla después de crear el turno, no lo vuelve a crear y reintenta solo el aula  422ms
+   ✓ HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3) > al cambiar fecha oculta las aulas anteriores y recarga tras guardar el intervalo  386ms
+   ✓ HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3) > al cambiar hora oculta las aulas anteriores y recarga tras guardar el intervalo  306ms
+ ✓ src/app/(dashboard)/turnos/[id]/turno-detalle.test.tsx (29 tests) 4271ms
+   ✓ HU-C-09 detalle de turno (mockup pág. 5) > migas «Turnos / {materia} · {dd/mm}» con el enlace al listado conservando retorno  408ms
+   ✓ HU-C-09 detalle de turno (mockup pág. 5) > HU-C-05 AC1: «Cancelar turno» abre el AlertDialog con el texto literal, el resumen y el aviso N-3  369ms
+   ✓ HU-C-09 detalle de turno (mockup pág. 5) > HU-C-05 AC3/AC5: al confirmar cancela, recarga el mismo detalle y muestra «Cancelado» sin acciones  405ms
+   ✓ HU-C-09 detalle de turno (mockup pág. 5) > HU-C-06 AC1: «Reprogramar» abre el Dialog de la pág. 9 y carga las opciones de la fecha actual  420ms
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH
+Received `false` for a non-boolean attribute `prefetch`.
+
+If you want to write it to the DOM, pass a string instead: prefetch="false" or prefetch={value.toString()}.
+
+If you used to conditionally omit it with prefetch={condition && value}, pass prefetch={condition ? value : undefined} instead.
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+ ✓ src/app/(dashboard)/formas-pago/formas-pago-interactivas.test.tsx (15 tests) 2346ms
+   ✓ modal Nueva forma de pago > abre con título, texto de apoyo, un solo campo Nombre y los dos botones  857ms
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > muestra exactamente el mensaje cuando la materia no tiene profesores activos
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > muestra exactamente el mensaje cuando la materia no tiene profesores activos
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > muestra exactamente el mensaje cuando la materia no tiene profesores activos
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > distingue cuando ningún profesor está disponible en ese horario (§2.6)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > distingue cuando ningún profesor está disponible en ese horario (§2.6)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > distingue cuando ningún profesor está disponible en ese horario (§2.6)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > sin aula no ofrece el formulario y lleva a asignarla (TURNO_SIN_AULA)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > sin aula no ofrece el formulario y lleva a asignarla (TURNO_SIN_AULA)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > sin aula no ofrece el formulario y lleva a asignarla (TURNO_SIN_AULA)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > deshabilita el buscador al alcanzar el cupo e informa el motivo
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > deshabilita el buscador al alcanzar el cupo e informa el motivo
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > deshabilita el buscador al alcanzar el cupo e informa el motivo
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > quitar un alumno antes de confirmar lo saca del envío
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > quitar un alumno antes de confirmar lo saca del envío
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > quitar un alumno antes de confirmar lo saca del envío
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > quitar un alumno antes de confirmar lo saca del envío
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > marca el alumno en conflicto con el mensaje del servidor
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > marca el alumno en conflicto con el mensaje del servidor
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > marca el alumno en conflicto con el mensaje del servidor
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > marca el alumno en conflicto con el mensaje del servidor
+The current testing environment is not configured to support act(...)
+The current testing environment is not configured to support act(...)
+
+stderr | src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx > HU-C-04 formulario > marca el alumno en conflicto con el mensaje del servidor
+The current testing environment is not configured to support act(...)
+
+ ✓ src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.test.tsx (9 tests) 817ms
+   ✓ HU-C-04 formulario > precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH  328ms
+ ✓ src/app/(dashboard)/profesores/nuevo/nuevo-profesor-form.test.tsx (9 tests) 638ms
+ ✓ src/app/(dashboard)/turnos/[id]/reprogramar-turno-dialog.test.tsx (11 tests) 3396ms
+   ✓ HU-C-06 Dialog «Reprogramar turno» (mockup pág. 9) > AC1: textos del mockup, fecha actual precargada y horas desde el endpoint de opciones  1219ms
+   ✓ HU-C-06 Dialog «Reprogramar turno» (mockup pág. 9) > AC3: reprograma, informa «Turno reprogramado correctamente» y recarga el detalle  307ms
+   ✓ HU-C-06 Dialog «Reprogramar turno» (mockup pág. 9) > 409 de estado (p. ej. cancelado mientras tanto): toast de error, cierra y recarga  313ms
+ ✓ src/app/(dashboard)/alumnos/nueva/alumno-form.test.tsx (8 tests) 461ms
+ ✓ src/app/(dashboard)/turnos/nuevo/turno-wizard.test.tsx (44 tests) 9211ms
+   ✓ HU-C-18 etapa 5: Aula > muestra solo opciones del GET con turno_id, nombre y capacidad; no persiste selección antes de continuar  595ms
+   ✓ HU-C-18 etapa 5: Aula > data: [] muestra mensaje exacto y permite volver a Fecha/Horario  324ms
+   ✓ HU-C-18 etapa 5: Aula > PATCH de Aula exitoso actualiza Resumen y avanza a Alumnos; Atrás conserva el Aula  365ms
+   ✓ HU-C-18 etapa 5: Aula > reconfiguración con aula_desasignada=true reconcilia Aula y vuelve a consultar opciones  395ms
+   ✓ HU-C-18 etapa 6: Alumnos y confirmación > reintenta errores de la lectura preventiva sin permitir confirmar  527ms
+   ✓ HU-C-18 etapa 3: Materia, Profesor, Fecha y horario > desde Fecha y horario vuelve a Materia o Profesor sin limpiar ni persistir  324ms
+   ✓ HU-C-18 etapa 3: Materia, Profesor, Fecha y horario > el stepper aplica las mismas invalidaciones al cambiar Profesor o Materia  339ms
+   ✓ HU-C-18 etapa 3: Materia, Profesor, Fecha y horario > tras volver desde Aula confirma paso 3 mediante PATCH, sin otro POST  310ms
+ ✓ src/components/shared/evento-calendario-materia.test.tsx (5 tests) 321ms
+ ✓ src/app/(dashboard)/gerente/indicadores-client.test.tsx (4 tests) 1469ms
+   ✓ IndicadoresClient > carga el rango del servidor y muestra ambos indicadores  833ms
+ ✓ src/app/(dashboard)/turnos/[id]/cancelar-turno-dialog.test.tsx (12 tests) 1831ms
+   ✓ HU-C-05 AlertDialog de cancelación (mockup pág. 8) > AC1: título y texto literal con el resumen del turno; botones Volver / Cancelar turno  1042ms
+ ✓ src/components/indicadores/grafico-mensual.test.tsx (3 tests) 364ms
+ ✓ src/app/(dashboard)/profesores/horarios/nuevo/registrar-horario-form.test.tsx (2 tests) 352ms
+ ✓ src/server/calendario/calendario.service.test.ts (39 tests) 137ms
+ ✓ src/components/shared/grilla-mensual.test.tsx (4 tests) 712ms
+   ✓ GrillaMensual > muestra LUN a DOM y un link por día de la grilla, que abre la vista día conservando el profesor  415ms
+ ✓ src/server/alumnos/autorregistro.service.test.ts (34 tests) 83ms
+ ↓ src/server/turnos/turno.publico.pg.test.ts (11 tests | 11 skipped)
+ ✓ src/server/turnos/turno.profesor.test.ts (36 tests) 145ms
+ ✓ src/server/turnos/turno.publico.test.ts (28 tests) 128ms
+ ✓ src/app/(dashboard)/turnos/paso-profesor-turno.test.tsx (1 test) 169ms
+ ✓ src/server/aulas/aula.modificar.test.ts (33 tests) 205ms
+ ✓ src/server/turnos/turno.configuracion.test.ts (35 tests) 163ms
+ ✓ src/app/(dashboard)/turnos/[id]/asignar-prioridad-dialog.test.tsx (3 tests) 1150ms
+   ✓ HU-C-10 Dialog del mockup, página 10 > muestra los tres niveles y precarga la prioridad vigente  842ms
+ ✓ src/server/turnos/turno.participantes.test.ts (24 tests) 200ms
+ ✓ src/server/profesores/profesor.modificar.test.ts (31 tests) 73ms
+ ↓ src/server/turnos/turno.reprogramacion.pg.test.ts (9 tests | 9 skipped)
+ ↓ src/server/turnos/turno.reservas.pg.test.ts (9 tests | 9 skipped)
+ ✓ src/server/profesores/profesor.materias.test.ts (26 tests) 82ms
+ ✓ src/server/turnos/turno.reprogramacion.test.ts (38 tests) 240ms
+ ✓ src/server/turnos/turno.detalle.test.ts (28 tests) 124ms
+ ✓ src/server/turnos/turno.aula.test.ts (13 tests) 44ms
+ ✓ src/server/profesores/profesor.publico.test.ts (24 tests) 61ms
+ ↓ src/server/turnos/turno.cancelacion.pg.test.ts (7 tests | 7 skipped)
+ ✓ src/server/profesores/profesor-alta.test.ts (24 tests) 109ms
+ ✓ src/server/profesores/profesor.service.test.ts (12 tests) 87ms
+ ✓ src/server/turnos/turno.inscripciones.test.ts (13 tests) 42ms
+ ✓ src/lib/calendario-vistas.test.ts (17 tests) 32ms
+ ✓ src/server/materias/materia.modificar.test.ts (19 tests) 43ms
+ ✓ src/server/turnos/turno.autoservicio.test.ts (11 tests) 296ms
+ ✓ src/lib/horario-atencion.test.ts (25 tests) 62ms
+ ✓ src/server/profesores/profesor-listado.service.test.ts (8 tests) 23ms
+ ✓ src/lib/calendario-semana.test.ts (16 tests) 154ms
+ ✓ src/server/alumnos/alumno.publico.test.ts (23 tests) 38ms
+ ✓ src/server/turnos/turno.acciones.test.ts (26 tests) 88ms
+ ✓ src/server/turnos/turno.validaciones.test.ts (16 tests) 105ms
+ ✓ src/server/historial/resultado-examen.service.test.ts (7 tests) 106ms
+ ✓ src/server/pagos/pago.service.test.ts (17 tests) 107ms
+ ✓ src/server/pagos/forma-pago.service.test.ts (12 tests) 30ms
+ ✓ src/server/historial/clase-dictada.service.test.ts (7 tests) 44ms
+ ✓ src/server/turnos/turno.listado.test.ts (11 tests) 140ms
+ ↓ src/server/turnos/turno.propios.pg.test.ts (1 test | 1 skipped)
+ ✓ src/server/publico.aislamiento.test.ts (41 tests) 87ms
+ ✓ src/server/alumnos/alumno.forma-pago.test.ts (9 tests) 61ms
+ ✓ src/app/api/formas-pago/route.test.ts (15 tests) 123ms
+ ✓ src/server/profesores/actions.modificar.test.ts (12 tests) 120ms
+ ✓ src/server/turnos/turno.busqueda.test.ts (17 tests) 69ms
+ ✓ src/server/turnos/turno.cancelacion.test.ts (11 tests) 66ms
+ ✓ src/app/api/profesores/[id]/materias/route.test.ts (15 tests) 83ms
+ ✓ src/server/pagos/pago.publico.test.ts (7 tests) 43ms
+ ✓ src/server/historial/historial.service.test.ts (4 tests) 67ms
+ ↓ src/server/profesores/profesor.publico.pg.test.ts (3 tests | 3 skipped)
+ ↓ src/server/pagos/pago.service.pg.test.ts (5 tests | 5 skipped)
+ ✓ src/server/profesores/actions.materias.test.ts (9 tests) 33ms
+ ✓ src/server/turnos/turno.propios.test.ts (4 tests) 62ms
+ ✓ src/server/alumnos/alumno.schema.autorregistro.test.ts (14 tests) 43ms
+ ✓ src/app/(dashboard)/profesores/horarios/nuevo/page.test.tsx (9 tests) 23ms
+ ✓ src/app/api/pagos/route.test.ts (16 tests) 89ms
+ ↓ src/server/pagos/forma-pago.service.pg.test.ts (6 tests | 6 skipped)
+ ✓ src/server/turnos/turno.disponibilidad.test.ts (17 tests) 33ms
+ ✓ src/app/api/turnos/[id]/reprogramacion/route.test.ts (22 tests) 135ms
+ ✓ src/lib/profesor-listado.test.ts (8 tests) 39ms
+ ✓ src/app/api/turnos/profesores/[profesorId]/disponibilidad/route.test.ts (14 tests) 79ms
+ ✓ src/server/alumnos/alumno.busqueda.test.ts (17 tests) 42ms
+ ↓ src/server/turnos/turno.participantes.pg.test.ts (1 test | 1 skipped)
+ ↓ src/server/pagos/pago.publico.pg.test.ts (3 tests | 3 skipped)
+ ✓ src/app/api/turnos/profesores/[profesorId]/agenda-wizard/route.test.ts (14 tests) 148ms
+ ✓ src/app/api/turnos/propios/route.test.ts (9 tests) 58ms
+ ✓ src/app/(dashboard)/profesores/actions.test.ts (5 tests) 76ms
+ ↓ src/server/alumnos/alumno.publico.pg.test.ts (3 tests | 3 skipped)
+ ✓ src/server/pagos/forma-pago.publico.test.ts (10 tests) 55ms
+ ✓ src/app/api/turnos/[id]/route.test.ts (6 tests) 41ms
+ ✓ src/server/turnos/turno.prioridad.test.ts (7 tests) 52ms
+ ✓ src/app/api/indicadores/route.test.ts (7 tests) 172ms
+ ✓ src/server/alumnos/alumno.listado.test.ts (9 tests) 33ms
+ ✓ src/server/turnos/turno.schema.test.ts (23 tests) 27ms
+ ✓ src/app/api/profesores/[id]/materias/[materiaId]/turnos-futuros/route.test.ts (10 tests) 52ms
+ ↓ src/server/turnos/turno.prioridad.pg.test.ts (2 tests | 2 skipped)
+ ✓ src/server/turnos/turno.opciones-alumnos.test.ts (6 tests) 111ms
+ ✓ src/app/api/turnos/[id]/reprogramacion/opciones/route.test.ts (13 tests) 130ms
+ ✓ src/app/api/turnos/profesores/opciones-wizard/route.test.ts (7 tests) 95ms
+ ✓ src/app/api/turnos/profesores/por-materia/route.test.ts (8 tests) 47ms
+ ✓ src/app/api/turnos/[id]/participantes/route.test.ts (12 tests) 67ms
+ ✓ src/app/api/turnos/route.test.ts (6 tests) 77ms
+ ✓ src/server/indicadores/indicadores.schema.test.ts (8 tests) 101ms
+ ✓ src/server/pagos/forma-pago.schema.test.ts (10 tests) 34ms
+ ✓ src/app/api/turnos/participantes/alumnos/opciones/route.test.ts (9 tests) 125ms
+ ✓ src/server/shared/fecha.test.ts (17 tests) 21ms
+ ✓ src/app/api/turnos/aula/opciones/route.test.ts (7 tests) 99ms
+ ↓ src/server/pagos/forma-pago.publico.pg.test.ts (4 tests | 4 skipped)
+ ✓ src/app/api/turnos/[id]/cancelacion/route.test.ts (10 tests) 45ms
+ ✓ src/app/api/turnos/[id]/prioridad/route.test.ts (9 tests) 64ms
+ ✓ src/server/pagos/pago.schema.test.ts (31 tests) 37ms
+ ✓ src/server/indicadores/indicadores.service.test.ts (3 tests) 75ms
+ ✓ src/lib/turno-detalle.test.ts (15 tests) 65ms
+ ✓ src/server/profesores/profesor.schema.test.ts (7 tests) 22ms
+ ✓ src/server/usuarios/usuario.service.test.ts (3 tests) 28ms
+ ✓ src/server/historial/historial.publico.test.ts (2 tests) 17ms
+ ✓ src/server/shared/texto.test.ts (9 tests) 36ms
+ ✓ src/server/usuarios/usuario.email.test.ts (3 tests) 16ms
+ ✓ src/lib/filtrar-materias.test.ts (5 tests) 10ms
+ ✓ src/server/shared/password.schema.test.ts (7 tests) 79ms
+ ✓ src/lib/busqueda-texto.test.ts (11 tests) 36ms
+ ✓ src/lib/turno-listado.test.ts (3 tests) 16ms
+ ✓ src/lib/alumno-listado.test.ts (3 tests) 9ms
+ ✓ src/app/(dashboard)/formas-pago/page.test.tsx (3 tests) 18ms
+
+ Test Files  106 passed | 13 skipped (119)
+      Tests  1469 passed | 64 skipped (1533)
+   Start at  02:26:20
+   Duration  35.10s (transform 12.51s, setup 0ms, collect 68.50s, tests 44.02s, environment 36.59s, prepare 31.57s)
+

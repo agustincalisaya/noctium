@@ -1,0 +1,46 @@
+          idPago           |    turnoId    |         alumnoId          | apellidoAlumno | nombreAlumno | monto_exacto | nombreFormaPago | fechaPago  |      createdAtPago      |    creadoPorUsuarioId     
+---------------------------+---------------+---------------------------+----------------+--------------+--------------+-----------------+------------+-------------------------+---------------------------
+ cmup3gj810001jmgackt457fr | T-0602        | cmup22i860008jmpoljilgimk | Domínguez      | Lara         | 0.45         | Transferencia   | 2026-10-01 | 2026-10-01 05:29:04.849 | cmup1v3ua0001jmc8vy6y2ew8
+ cmup2kpwp0003jm8itpau6tld | T-0602        | cmup22i860008jmpoljilgimk | Domínguez      | Lara         | 15.35        | Efectivo        | 2026-10-01 | 2026-10-01 05:04:20.521 | cmup1v3ua0001jmc8vy6y2ew8
+ cmup2742l0004jmst2regnyg4 | T-0602        | cmup22i810004jmpo0yd0ucy0 | Ponce          | Bautista     | 10.25        | Débito          | 2026-10-01 | 2026-10-01 04:53:45.693 | cmup1v3ua0001jmc8vy6y2ew8
+ cmup25wom0002jmste2x460zv | seed-turno-02 | cmup1v3w0001gjmc8qm4bf9ix | Acosta         | Emilia       | 12.50        | Transferencia   | 2026-10-01 | 2026-10-01 04:52:49.462 | cmup1v3ua0001jmc8vy6y2ew8
+ cbb7148538d13630d5d65ea76 | seed-turno-02 | cmup1v3w2001ijmc86xkbcduv | Gómez          | Santiago     | 6000.00      | Débito          | 2026-10-01 | 2026-10-01 04:44:25.909 | cmup1v3ua0001jmc8vy6y2ew8
+ cca6d708ffccb87dfecc2d32b | seed-turno-02 | cmup1v3w0001gjmc8qm4bf9ix | Acosta         | Emilia       | 2500.50      | Efectivo        | 2026-10-01 | 2026-10-01 04:44:25.908 | cmup1v3ua0001jmc8vy6y2ew8
+ c45dcbed5ebbbb2f71c3e4eb6 | seed-turno-02 | cmup1v3w0001gjmc8qm4bf9ix | Acosta         | Emilia       | 3500.00      | Transferencia   | 2026-10-01 | 2026-10-01 04:44:25.906 | cmup1v3ua0001jmc8vy6y2ew8
+ cmup22i8s000ajmpojigput75 | T-0602        | cmup22i810004jmpo0yd0ucy0 | Ponce          | Bautista     | 12000.00     | Efectivo        | 2026-09-24 | 2026-09-24 12:00:00     | cmup1v3ua0001jmc8vy6y2ew8
+ cmup22i8w000cjmpo9n66hz2x | T-0602        | cmup22i860008jmpoljilgimk | Domínguez      | Lara         | 6000.00      | Transferencia   | 2026-09-24 | 2026-09-24 11:00:00     | cmup1v3ua0001jmc8vy6y2ew8
+(9 rows)
+
+    turnoId    |         alumnoId          | pagos | total_exacto 
+---------------+---------------------------+-------+--------------
+ T-0602        | cmup22i810004jmpo0yd0ucy0 |     2 |     12010.25
+ T-0602        | cmup22i860008jmpoljilgimk |     3 |      6015.80
+ seed-turno-02 | cmup1v3w0001gjmc8qm4bf9ix |     3 |      6013.00
+ seed-turno-02 | cmup1v3w2001ijmc86xkbcduv |     1 |      6000.00
+(4 rows)
+
+          idPago           |         alumnoId          | activoAlumno | sigue_inscripto 
+---------------------------+---------------------------+--------------+-----------------
+ c45dcbed5ebbbb2f71c3e4eb6 | cmup1v3w0001gjmc8qm4bf9ix | t            | t
+ cca6d708ffccb87dfecc2d32b | cmup1v3w0001gjmc8qm4bf9ix | t            | t
+ cmup25wom0002jmste2x460zv | cmup1v3w0001gjmc8qm4bf9ix | t            | t
+ cbb7148538d13630d5d65ea76 | cmup1v3w2001ijmc86xkbcduv | t            | t
+ cmup22i8s000ajmpojigput75 | cmup22i810004jmpo0yd0ucy0 | t            | t
+ cmup2742l0004jmst2regnyg4 | cmup22i810004jmpo0yd0ucy0 | t            | t
+ cmup22i8w000cjmpo9n66hz2x | cmup22i860008jmpoljilgimk | t            | t
+ cmup2kpwp0003jm8itpau6tld | cmup22i860008jmpoljilgimk | t            | t
+ cmup3gj810001jmgackt457fr | cmup22i860008jmpoljilgimk | t            | t
+(9 rows)
+
+    column_name     |          data_type          | numeric_precision | numeric_scale 
+--------------------+-----------------------------+-------------------+---------------
+ idPago             | text                        |                   |              
+ turnoId            | text                        |                   |              
+ alumnoId           | text                        |                   |              
+ montoPago          | numeric                     |                11 |             2
+ formaPagoId        | text                        |                   |              
+ fechaPago          | date                        |                   |              
+ createdAtPago      | timestamp without time zone |                   |              
+ creadoPorUsuarioId | text                        |                   |              
+(8 rows)
+

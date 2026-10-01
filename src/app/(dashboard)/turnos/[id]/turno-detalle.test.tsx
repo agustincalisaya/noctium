@@ -35,8 +35,8 @@ const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: as
 let root: Root;
 let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean } = {}) => {
-  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} />));
+const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarPago?: boolean } = {}) => {
+  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarPago={props.puedeRegistrarPago ?? false} />));
   await esperar();
 };
 const valor = (etiqueta: string) => [...container.querySelectorAll("dt")].find((dt) => dt.textContent === etiqueta)?.nextElementSibling?.textContent;
@@ -97,10 +97,10 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     }
   });
 
-  it("layout del mockup: datos y alumnos a la izquierda; «Pago» en la columna fija de la derecha", async () => {
+  it("layout del mockup: datos y alumnos a la izquierda; «Pago» a la derecha en proporción 2:1", async () => {
     await montar();
     const grilla = container.querySelector('section[aria-labelledby="datos-turno-titulo"]')!.parentElement!.parentElement!;
-    expect(grilla.className).toContain("lg:grid-cols-[minmax(0,1fr)_300px]");
+    expect(grilla.className).toContain("lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]");
     const [izquierda, derecha] = [...grilla.children];
     expect([...izquierda!.querySelectorAll("section")].map((s) => s.getAttribute("aria-labelledby"))).toEqual(["datos-turno-titulo", "inscripciones-titulo"]);
     expect(derecha!.tagName).toBe("ASIDE");
@@ -218,7 +218,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector('button[aria-label^="Quitar"]')).toBeNull();
   });
 
-  it("tarjeta «Pago»: pagos registrados con alumno, fecha · forma y monto, sin total", async () => {
+  it("tarjeta «Pago»: pagos registrados con alumno, fecha · forma, monto y total exacto del PDF", async () => {
     await montar();
     const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
     expect(tarjeta.querySelector("h2")?.textContent).toBe("Pago");
@@ -226,7 +226,23 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect([...tarjeta.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
       "Gómez, Lucía02/10/2026 · Transferencia$ 12.000", "Pérez, Juan01/10/2026 · Efectivo$ 15.000,50",
     ]);
-    expect(texto()).not.toMatch(/total/i);
+    expect(tarjeta.textContent).toContain("Total registrado$ 27.000,50");
+  });
+
+  it("HU-I-01 ofrece registro solo con permiso y elegibilidad; conserva la lectura en un turno cancelado", async () => {
+    await montar({ puedeRegistrarPago: true });
+    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Registrar pago")).toBe(true);
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    await act(async () => root.unmount()); root = createRoot(container);
+    await montar({ puedeRegistrarPago: true });
+    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Registrar pago")).toBe(false);
+    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
+  });
+
+  it("HU-I-01 deshabilita registro cuando no hay inscriptos", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ alumnos: [], acciones_habilitadas: [] })));
+    await montar({ puedeRegistrarPago: true });
+    expect(([...container.querySelectorAll("button")].find((b) => b.textContent === "Registrar pago") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("tarjeta «Pago» vacía → «Ninguno todavía.»", async () => {

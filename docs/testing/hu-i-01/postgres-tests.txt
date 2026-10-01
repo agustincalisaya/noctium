@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/polentita/noctium
+
+ ✓ src/server/pagos/pago.publico.pg.test.ts (3 tests) 190ms
+ ✓ src/server/pagos/pago.service.pg.test.ts (5 tests) 374ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts (11 tests) 715ms
+
+ Test Files  3 passed (3)
+      Tests  19 passed (19)
+   Start at  02:26:58
+   Duration  3.35s (transform 394ms, setup 0ms, collect 910ms, tests 1.28s, environment 1ms, prepare 378ms)
+
