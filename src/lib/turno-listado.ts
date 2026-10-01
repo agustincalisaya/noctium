@@ -7,7 +7,7 @@ import type { Turno } from "@/types/turno.types";
  * página se conserven al ir y volver. A diferencia del listado de alumnos,
  * siempre incluye `pagina` y `orden`: es el formato de `retorno` que ya
  * aceptan los pasos de un turno pendiente (`volver` que empiece con
- * "/turnos?"). HU-C-08 suma acá `profesor_id`.
+ * "/turnos?"). HU-C-08 suma `profesor_id` (filtro por profesor).
  */
 /** Siguiente paso de un turno PENDIENTE (HU-C-01 c3, Revisión 3): primero aula, después profesor y alumnos. */
 export function urlContinuar(turno: Pick<Turno, "id" | "aula_id">, retorno: string) {
@@ -16,9 +16,10 @@ export function urlContinuar(turno: Pick<Turno, "id" | "aula_id">, retorno: stri
   return `/turnos/${encodeURIComponent(turno.id)}/${paso}?volver=${encodeURIComponent(retorno)}`;
 }
 
-export function urlListadoTurnos({ q, pagina }: { q?: string; pagina: number }): string {
+export function urlListadoTurnos({ q, pagina, profesorId }: { q?: string; pagina: number; profesorId?: string }): string {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
+  if (profesorId) params.set("profesor_id", profesorId);
   params.set("pagina", String(pagina));
   params.set("orden", "fecha_hora_asc");
   return `/turnos?${params}`;
