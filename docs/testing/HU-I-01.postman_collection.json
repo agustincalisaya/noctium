@@ -1,0 +1,675 @@
+{
+  "info": {
+    "name": "Noctium HU-I-01 Registrar pago",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar SOLO en base aislada. Autenticar desde la UI y usar las cookies de sesión. Completar alumno_id (inscripto), fecha_pago (hoy en Argentina) y fixtures desde opciones/BD. Los dos últimos requests requieren cambiar o limpiar sesión. No contiene credenciales ni altera pagos existentes."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "turno_id",
+      "value": "seed-turno-02"
+    },
+    {
+      "key": "alumno_id",
+      "value": ""
+    },
+    {
+      "key": "forma_pago_id",
+      "value": "formapago-efectivo"
+    },
+    {
+      "key": "fecha_pago",
+      "value": ""
+    },
+    {
+      "key": "alumno_no_inscripto_id",
+      "value": "c123456789012345678901234"
+    },
+    {
+      "key": "forma_inactiva_id",
+      "value": ""
+    },
+    {
+      "key": "turno_pendiente_id",
+      "value": "seed-turno-11"
+    },
+    {
+      "key": "turno_cancelado_id",
+      "value": "seed-turno-09"
+    }
+  ],
+  "item": [
+    {
+      "name": "Opciones del turno (sesión Mesa)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/pagos/opciones?turno_id={{turno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Formas activas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/formas-pago/opciones"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Registrar pago",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Segundo parcial independiente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"0.10\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Monto cero",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"0\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(body.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Falta alumno",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(body.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fecha inválida",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"2026-02-31\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(body.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fecha futura",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"2099-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código FECHA_PAGO_FUTURA\", () => pm.expect(body.error.code).to.eql(\"FECHA_PAGO_FUTURA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Campos extra",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\",\n  \"cbu\": \"123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(body.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Turno inexistente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"hu-i-01-inexistente\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código TURNO_NO_ENCONTRADO\", () => pm.expect(body.error.code).to.eql(\"TURNO_NO_ENCONTRADO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno no inscripto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_no_inscripto_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código ALUMNO_NO_INSCRIPTO\", () => pm.expect(body.error.code).to.eql(\"ALUMNO_NO_INSCRIPTO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Forma inexistente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"c123456789012345678901234\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código FORMA_PAGO_NO_ENCONTRADA\", () => pm.expect(body.error.code).to.eql(\"FORMA_PAGO_NO_ENCONTRADA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Forma inactiva (fixture aislada)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_inactiva_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código FORMA_PAGO_NO_DISPONIBLE\", () => pm.expect(body.error.code).to.eql(\"FORMA_PAGO_NO_DISPONIBLE\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Turno pendiente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_pendiente_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código TURNO_NO_ADMITE_PAGO\", () => pm.expect(body.error.code).to.eql(\"TURNO_NO_ADMITE_PAGO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Turno cancelado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_cancelado_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código TURNO_NO_ADMITE_PAGO\", () => pm.expect(body.error.code).to.eql(\"TURNO_NO_ADMITE_PAGO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Falta turno en query",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/pagos/opciones"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(body.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ver persistencia (sesión Mesa/Gerente)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión (limpiar cookies antes)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SESION_INVALIDA\", () => pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin permiso (sesión Gerente/Profesor)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_id\": \"{{turno_id}}\",\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"forma_pago_id\": \"{{forma_pago_id}}\",\n  \"monto\": \"1500.50\",\n  \"fecha_pago\": \"{{fecha_pago}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
