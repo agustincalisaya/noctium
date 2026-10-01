@@ -282,3 +282,17 @@ Sin cambios en `prisma/schema.prisma`, migraciones, seed, trigger, `turno.accion
 - Integración con el commit aprobado de I-01 en el encabezado compartido (§8).
 - Falla preexistente de b), para su dueño.
 - `CAMBIO_GUARDADO_SIN_TRAZA`: propuesta de la sesión no supervisada, ligada al 500 posterior al commit en la emisión de eventos (D-5); a evaluar por el SM en un ticket aparte.
+
+---
+
+## 11. Ajuste visual del listado tras integrar `develop` — 30/09/2026
+
+**Relevamiento autorizado:** rama `feature/HU-C-05_cancelar-turno`, HEAD `bfa90cf`, árbol limpio al inicio. En `turnos-listado.tsx`, la celda Acciones aplicaba `whitespace-nowrap` a «Ver detalle», «Continuar configuración» y «Descartar» como una sola línea. Su ancho comprimía otras columnas a 1440 px y partía la fecha. El mockup del listado (`Noctium pantallas Sprint 2.pdf`, pág. 3) presenta fecha y horario en una línea; es anterior a la acción «Descartar» aprobada en spec C §2.10, por lo que no define la disposición de tres acciones. La spec C §2.4 exige conservar las tres según estado y permisos. No requiere cambios de contrato ni de backend.
+
+**Ajuste aplicado:** fecha y horario con `whitespace-nowrap`; dentro de Acciones, un contenedor `flex flex-wrap` con separaciones horizontal y vertical, manteniendo cada texto completo. Se conservan el orden «Ver detalle» → «Continuar configuración» → «Descartar», los `href`, el botón, las condiciones de permiso/estado, `min-w-190` y `overflow-x-auto` de la tabla. No se ocultan columnas ni se agrega menú.
+
+**Verificación:** ruta temporal de navegador que montó el componente real `TurnosListado`, con respuesta de `GET /api/turnos` sustituida en memoria por tres registros de prueba `PENDIENTE`, `DISPONIBLE` y `CANCELADO`. No se escribieron datos de prueba en PostgreSQL; la ruta temporal se retiró después de las capturas. Chrome headless a 1440 × 900 muestra fecha y hora completas y las tres acciones del pendiente distribuidas en dos líneas. A 1024 × 900, fecha y hora siguen completas; el extremo derecho se alcanza mediante el scroll horizontal de la tabla y muestra las tres acciones, además de «Ver detalle» para Disponible y Cancelado. La captura del extremo derecho se tomó con un estilo **solo del fixture** que posicionó el scroll al final; ese estilo no existe en producción.
+
+**Evidencia:** [1440 px](evidencia-HU-C-05/listado-1440.png), [1024 px, inicio de tabla](evidencia-HU-C-05/listado-1024.png), [1024 px, extremo derecho](evidencia-HU-C-05/listado-1024-acciones.png). `npx eslint 'src/app/(dashboard)/turnos/turnos-listado.tsx'`: sin errores. `npx tsc --noEmit`: sin errores. `npm test -- 'src/app/(dashboard)/turnos/turnos-listado.test.tsx'`: 18/18 casos aprobados. No se modificaron tests porque el cambio es únicamente de distribución visual; las pruebas existentes cubren presencia, permisos y comportamiento de las acciones.
+
+**Texto para reemplazar el pendiente visual del PR:** «Corregida y verificada la compresión del listado de turnos tras sumar “Descartar”. A 1440 px, fecha y horario permanecen en una línea y las acciones de un Pendiente se distribuyen dentro de su celda. A 1024 px, la tabla conserva el scroll horizontal y permite acceder a todas las acciones. Verificado en Chrome con datos aislados para Pendiente, Disponible y Cancelado; capturas en `docs/tasks/Sprint 2/evidencia-HU-C-05/`. ESLint, TypeScript y los 18 tests del listado pasan.»
