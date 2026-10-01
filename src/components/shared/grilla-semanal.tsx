@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ETIQUETA_DIA } from "@/lib/horario-atencion";
 import {
+  ETIQUETA_DIA_CORTA,
   asignarCarriles,
   formatearFechaCorta,
   franjasDeLaGrilla,
@@ -16,9 +17,9 @@ const ALTO_FRANJA_REM = 3;
 type EventoEnGrilla = { fecha: string; hora_inicio: string; hora_fin: string };
 
 /**
- * Grilla semanal de solo lectura (HU-J-01; pensada para reutilizarse en
- * HU-J-02): una columna por día operativo y una fila por franja del
- * horario operativo. Cada evento se posiciona por su hora de inicio y
+ * Grilla horaria de solo lectura (HU-J-01, reutilizada por HU-J-02 y por la
+ * vista día de HU-J-03 con un solo día): una columna por día y una fila por
+ * franja del horario operativo. Cada evento se posiciona por su hora de inicio y
  * ocupa su intervalo completo; los que se superponen se muestran uno al
  * lado del otro (`spec_modulo_J.md` §3.3). Qué muestra cada evento lo
  * decide quien la usa (`renderEvento`).
@@ -51,28 +52,34 @@ export function GrillaSemanal<T extends EventoEnGrilla>({
           return (
             <div
               key={fecha}
-              className={cn(
-                "border-b border-l border-border px-2 py-2 text-center text-sm",
-                esHoy ? "bg-secondary text-secondary-foreground" : "bg-muted text-muted-foreground",
-              )}
+              className="flex items-center justify-center gap-1.5 border-b border-l border-border bg-muted px-2 py-1.5 text-muted-foreground"
               aria-current={esHoy ? "date" : undefined}
+              title={`${ETIQUETA_DIA[dia]} ${formatearFechaCorta(fecha)}`}
             >
-              <span className="font-medium">{ETIQUETA_DIA[dia]}</span>{" "}
-              <span className="tabular-nums">{formatearFechaCorta(fecha)}</span>
+              <span className="text-xs font-medium">{ETIQUETA_DIA_CORTA[dia]}</span>
+              {/* Hoy: número en un círculo del acento, con texto Grafito (DESIGN.md §4). */}
+              <span
+                className={cn(
+                  "inline-flex size-7 items-center justify-center rounded-full font-mono text-sm tabular-nums",
+                  esHoy ? "bg-brand-accent font-semibold text-foreground" : "text-foreground",
+                )}
+              >
+                {Number(fecha.slice(8, 10))}
+              </span>
               {esHoy && <span className="sr-only"> (hoy)</span>}
             </div>
           );
         })}
 
-        {/* Columna de horas */}
+        {/* Columna de horas: etiqueta en las horas en punto, filas por granularidad */}
         <div className="sticky left-0 z-10 bg-card" aria-hidden>
           {franjas.map((franja) => (
             <div
               key={franja}
-              className="border-t border-border px-2 pt-0.5 text-right text-xs tabular-nums text-muted-foreground first:border-t-0"
+              className="border-t border-border px-2 pt-0.5 text-right font-mono text-xs tabular-nums text-muted-foreground first:border-t-0"
               style={{ height: `${ALTO_FRANJA_REM}rem` }}
             >
-              {franja}
+              {franja.endsWith(":00") ? franja : null}
             </div>
           ))}
         </div>

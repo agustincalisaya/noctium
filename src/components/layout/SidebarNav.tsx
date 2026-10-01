@@ -27,6 +27,21 @@ export interface SidebarNavSection {
   items: SidebarNavItem[];
 }
 
+/**
+ * Ítem de primer nivel, sin desplegable (p. ej. "Calendario", HU-J-03).
+ * `prefijoActivo` permite marcarlo activo en todas las rutas de su área
+ * (por defecto, solo `href` y sus descendientes).
+ */
+export interface SidebarNavEnlace extends SidebarNavItem {
+  prefijoActivo?: string;
+}
+
+export type SidebarNavEntrada = SidebarNavSection | SidebarNavEnlace;
+
+function esEnlace(entrada: SidebarNavEntrada): entrada is SidebarNavEnlace {
+  return "href" in entrada;
+}
+
 const STORAGE_KEY = "noctium:sidebar:secciones-abiertas";
 
 /**
@@ -43,18 +58,24 @@ function esRutaActiva(pathname: string, href: string): boolean {
  * De todos los hrefs de todas las secciones que matchean el pathname
  * actual, el "activo" es el de match más específico (más largo) — así
  * "/turnos" no queda marcado activo estando en "/turnos/nuevo" si son
- * ítems hermanos, ambos técnicamente "match" por prefijo.
+ * ítems hermanos, ambos técnicamente "match" por prefijo. Un enlace de
+ * primer nivel matchea por su `prefijoActivo` (si lo tiene) y compite con
+ * la longitud de ese prefijo. `usePathname()` no incluye los query params,
+ * así que `?vista=`/`?fecha=` no afectan el resultado.
  */
-function calcularHrefActivo(secciones: SidebarNavSection[], pathname: string): string | null {
-  let mejor: string | null = null;
-  for (const seccion of secciones) {
-    for (const item of seccion.items) {
-      if (esRutaActiva(pathname, item.href) && (!mejor || item.href.length > mejor.length)) {
-        mejor = item.href;
-      }
+function calcularHrefActivo(secciones: SidebarNavEntrada[], pathname: string): string | null {
+  let mejor: { href: string; largo: number } | null = null;
+  const candidatos = secciones.flatMap((entrada) =>
+    esEnlace(entrada)
+      ? [{ href: entrada.href, ruta: entrada.prefijoActivo ?? entrada.href }]
+      : entrada.items.map((item) => ({ href: item.href, ruta: item.href })),
+  );
+  for (const { href, ruta } of candidatos) {
+    if (esRutaActiva(pathname, ruta) && (!mejor || ruta.length > mejor.largo)) {
+      mejor = { href, largo: ruta.length };
     }
   }
-  return mejor;
+  return mejor?.href ?? null;
 }
 
 // --- Persistencia de secciones abiertas (localStorage vía useSyncExternalStore) ---
@@ -137,7 +158,7 @@ function estaAbierta(estado: SeccionesAbiertas, label: string, esSeccionActiva: 
  * criterio 2): un 403 del servidor protege igual aunque se invoque la URL
  * directo, sin pasar por acá.
  */
-export function SidebarNav({ secciones }: { secciones: SidebarNavSection[] }) {
+export function SidebarNav({ secciones }: { secciones: SidebarNavEntrada[] }) {
   const pathname = usePathname();
   const [colapsado, setColapsado] = useState(false);
   const [menuMobileAbierto, setMenuMobileAbierto] = useState(false);
@@ -200,6 +221,18 @@ export function SidebarNav({ secciones }: { secciones: SidebarNavSection[] }) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-3">
           {secciones.map((seccion) => {
+            if (esEnlace(seccion)) {
+              return (
+                <ItemLink
+                  key={seccion.href}
+                  item={seccion}
+                  activo={seccion.href === hrefActivo}
+                  soloIcono={colapsado}
+                  onNavigate={cerrarMobile}
+                />
+              );
+            }
+
             const seccionActiva = seccion.items.some((item) => item.href === hrefActivo);
 
             if (colapsado) {

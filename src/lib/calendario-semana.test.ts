@@ -7,7 +7,6 @@ import {
   desplazarSemana,
   diasOperativosDeLaSemana,
   esFechaCalendario,
-  formatearRangoSemana,
   franjasDeLaGrilla,
   hoyEnZonaCentro,
   lunesDeLaSemana,
@@ -75,13 +74,6 @@ describe("diasOperativosDeLaSemana y rangoDeLaSemana", () => {
   });
 });
 
-describe("formatearRangoSemana", () => {
-  it("muestra el año una vez, o en ambas fechas si cruza de año", () => {
-    expect(formatearRangoSemana("2026-09-21", "2026-09-25")).toBe("Semana del 21/09 al 25/09/2026");
-    expect(formatearRangoSemana("2025-12-29", "2026-01-02")).toBe("Semana del 29/12/2025 al 02/01/2026");
-  });
-});
-
 describe("esFechaCalendario", () => {
   it("acepta solo fechas AAAA-MM-DD que existen", () => {
     expect(esFechaCalendario("2026-02-28")).toBe(true);
@@ -142,19 +134,19 @@ describe("asignarCarriles", () => {
 });
 
 describe("construirUrlCalendarioProfesor", () => {
-  it("lleva profesor y semana en los searchParams y omite los ausentes", () => {
-    expect(construirUrlCalendarioProfesor({ profesorId: "ckabc", semana: "2026-09-21" })).toBe(
-      "/calendario/profesor?profesorId=ckabc&semana=2026-09-21",
+  it("lleva profesor, vista y fecha en los searchParams y omite los ausentes", () => {
+    expect(construirUrlCalendarioProfesor({ profesorId: "ckabc", vista: "mes", fecha: "2026-09-21" })).toBe(
+      "/calendario/profesor?profesorId=ckabc&vista=mes&fecha=2026-09-21",
     );
-    expect(construirUrlCalendarioProfesor({ semana: "2026-09-21" })).toBe("/calendario/profesor?semana=2026-09-21");
+    expect(construirUrlCalendarioProfesor({ vista: "dia" })).toBe("/calendario/profesor?vista=dia");
     expect(construirUrlCalendarioProfesor({})).toBe("/calendario/profesor");
   });
 });
 
 describe("construirUrlCalendarioMateria (HU-J-02)", () => {
-  it("lleva materia y semana en los searchParams y omite los ausentes", () => {
-    expect(construirUrlCalendarioMateria({ materiaId: "ckmat", semana: "2026-09-21" })).toBe(
-      "/calendario/materia?materiaId=ckmat&semana=2026-09-21",
+  it("lleva materia, vista y fecha en los searchParams y omite los ausentes", () => {
+    expect(construirUrlCalendarioMateria({ materiaId: "ckmat", vista: "semana", fecha: "2026-09-21" })).toBe(
+      "/calendario/materia?materiaId=ckmat&vista=semana&fecha=2026-09-21",
     );
     expect(construirUrlCalendarioMateria({ materiaId: "ckmat" })).toBe("/calendario/materia?materiaId=ckmat");
     expect(construirUrlCalendarioMateria({})).toBe("/calendario/materia");

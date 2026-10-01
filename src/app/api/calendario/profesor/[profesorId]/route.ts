@@ -2,19 +2,23 @@ import { NextResponse } from "next/server";
 import { flattenError } from "zod";
 import { withPermission } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
-import { ConsultarCalendarioProfesorQuerySchema } from "@/server/calendario/calendario.schema";
+import { ConsultarCalendarioQuerySchema } from "@/server/calendario/calendario.schema";
 import { obtenerCalendarioProfesor } from "@/server/calendario/calendario.service";
-import { fechaISO, hoyEnZonaCentro, lunesDeLaSemana } from "@/lib/calendario-semana";
+import { fechaISO, hoyEnZonaCentro } from "@/lib/calendario-semana";
 
-// Agenda semanal por profesor (HU-J-01, spec_modulo_J.md §2.1). Capa
+// Agenda por profesor (HU-J-01, spec_modulo_J.md §2.1) en vista día,
+// semana o mes (HU-J-03, §2.3). Capa
 // delgada: withPermission devuelve 401 sin sesión y 403 sin
 // `calendario:leer`; el servicio decide de quién es la agenda según el rol
 // (un Profesor pidiendo otra agenda -> 403, sin revelar si existe).
 export const GET = withPermission("calendario:leer", async (req, ctx) => {
   const { profesorId } = (await ctx.params) as { profesorId: string };
 
-  const parsed = ConsultarCalendarioProfesorQuerySchema.safeParse({
-    semana_inicio: req.nextUrl.searchParams.get("semana_inicio") ?? undefined,
+  const query = req.nextUrl.searchParams;
+  const parsed = ConsultarCalendarioQuerySchema.safeParse({
+    vista: query.get("vista") ?? undefined,
+    fecha: query.get("fecha") ?? undefined,
+    semana_inicio: query.get("semana_inicio") ?? undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -30,17 +34,25 @@ export const GET = withPermission("calendario:leer", async (req, ctx) => {
     );
   }
 
-  const { semana_inicio } = parsed.data;
-  const lunes = lunesDeLaSemana(semana_inicio ? fechaISO(semana_inicio) : hoyEnZonaCentro());
+  // `semana_inicio` (HU-J-01/J-02) es alias de `fecha`; sin ninguna, hoy en Buenos Aires.
+  const { vista, fecha, semana_inicio } = parsed.data;
+  const referencia = fecha ?? semana_inicio;
+  const fechaReferencia = referencia ? fechaISO(referencia) : hoyEnZonaCentro();
 
   try {
-    const { profesor, rango, eventos } = await obtenerCalendarioProfesor({
+    const calendario = await obtenerCalendarioProfesor({
       usuario: { id: req.auth!.user!.id, rol: req.auth!.user!.rol },
       profesorIdSolicitado: profesorId,
-      lunes,
+      vista,
+      fecha: fechaReferencia,
       rechazarAjeno: true,
     });
-    return NextResponse.json({ data: { profesor, rango, eventos }, error: null }, { status: 200 });
+    // Día/semana: eventos (§2.1); mes: un resumen por día (§2.3 punto 4).
+    const data =
+      calendario.vista === "mes"
+        ? { profesor: calendario.profesor, vista: calendario.vista, rango: calendario.rango, dias: calendario.dias }
+        : { profesor: calendario.profesor, vista: calendario.vista, rango: calendario.rango, eventos: calendario.eventos };
+    return NextResponse.json({ data, error: null }, { status: 200 });
   } catch (error) {
     if (error instanceof ServiceError) {
       if (error.code === "SIN_PERMISO" || error.code === "PROFESOR_SIN_FICHA") {
