@@ -14,6 +14,16 @@ export async function obtenerAlumnoDeUsuario(usuarioId: string, db: Prisma.Trans
 
 export { buscarAlumnosActivos } from "@/server/alumnos/alumno.service";
 
+/** IDs de todas las fichas activas; Turnos aplica por su cuenta la elegibilidad horaria. */
+export async function listarIdsAlumnosActivos(db: Prisma.TransactionClient = prisma): Promise<string[]> {
+  const filas = await db.alumno.findMany({
+    where: { activoAlumno: true },
+    select: { idAlumno: true },
+    orderBy: { idAlumno: "asc" },
+  });
+  return filas.map(({ idAlumno }) => idAlumno);
+}
+
 // Mismos textos que MENSAJES de alumno.service.ts (constante no exportada);
 // ALUMNO_INACTIVO no tiene texto allí.
 const MENSAJES = {

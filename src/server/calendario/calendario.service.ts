@@ -69,6 +69,7 @@ function whereTurnosCalendario(filtro: FiltroTurnosCalendario, desde: Date, hast
 const SELECT_EVENTO_BASE = {
   idTurno: true,
   estadoTurno: true,
+  prioridadTurno: true,
   fechaTurno: true,
   horaInicioTurno: true,
   duracionMinutosTurno: true,
@@ -86,6 +87,7 @@ function eventoBase(turno: FilaEventoBase): EventoCalendarioBase {
     hora_fin: minutosAHora(horaAMinutos(horaInicio) + turno.duracionMinutosTurno),
     aula: turno.aula?.nombreAula ?? VALOR_AUSENTE,
     estado: turno.estadoTurno === "COMPLETO" ? "COMPLETO" : "DISPONIBLE",
+    prioridad: turno.prioridadTurno,
   };
 }
 

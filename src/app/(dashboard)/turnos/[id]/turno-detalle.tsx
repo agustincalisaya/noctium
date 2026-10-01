@@ -10,6 +10,7 @@ import { TurnoDatosCard } from "./turno-datos-card";
 import { TurnoDetalleEncabezado } from "./turno-detalle-encabezado";
 import { TurnoClaseCard } from "./turno-clase-card";
 import { TurnoPagoCard } from "./turno-pago-card";
+import { AsignarPrioridadDialog } from "./asignar-prioridad-dialog";
 
 /**
  * Detalle de turno (HU-C-09, mockup pág. 5): contenedor que consulta
@@ -20,6 +21,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
   const [turno, setTurno] = useState<TurnoDetalle | null>(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
+  const [prioridadAbierta, setPrioridadAbierta] = useState(false);
   const cargar = useCallback(async (recarga = false) => {
     if (!recarga) setCargando(true);
     setError("");
@@ -37,7 +39,10 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
   const gestionable = puedeGestionarAlumnos && (turnoActual?.estado === "DISPONIBLE" || turnoActual?.estado === "COMPLETO");
 
   return <main className="mx-auto w-full min-w-0 max-w-5xl space-y-5 p-6">
-    <TurnoDetalleEncabezado turno={turnoActual} retorno={retorno} />
+    <TurnoDetalleEncabezado turno={turnoActual} retorno={retorno} onAsignarPrioridad={() => setPrioridadAbierta(true)} />
+    {prioridadAbierta && turnoActual?.acciones_habilitadas.includes("prioridad") && <AsignarPrioridadDialog
+      turnoId={turnoActual.id} prioridadActual={turnoActual.prioridad} onCerrar={() => setPrioridadAbierta(false)} onCambio={() => cargar(true)}
+    />}
     {turnoActual?.estado === "PENDIENTE" && (puedeConfigurar || (puedeGestionarAlumnos && turnoActual.aula_id)) && <div className="flex flex-wrap gap-3">{puedeConfigurar && <Link className="inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{turnoActual.aula_id ? "Modificar configuración o aula" : "Modificar configuración y asignar aula"}</Link>}{puedeGestionarAlumnos && turnoActual.aula_id && <Link className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Asignar profesor y alumnos</Link>}</div>}
     {cargando ? <p role="status">Cargando turno</p> : error ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turnoActual && (
       // Mockup pág. 5: columna flexible con datos y alumnos; columna fija a la derecha
