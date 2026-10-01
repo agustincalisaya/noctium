@@ -593,6 +593,14 @@ Cada fila enlaza, por su `turno_id`, al Detalle de turno (`spec_modulo_C.md` §2
 
 **Mensaje de HU-D-07 AC4 (decisión del PO, 29/09/2026):** al guardar solo las materias desde la ficha se muestra «Materias asignadas correctamente», el mismo texto que el wizard de alta (HU-D-03, ya en Done, sin cambios de código). El AC cita el literal «Materias del profesor actualizadas» pero también pide que sea el «mismo mensaje que el de la asociación inicial»; los dos textos del backlog no coinciden y el PO resolvió unificar con el del wizard. Divergencia respecto del literal entrecomillado del AC, aceptada por el PO.
 
+
+**Nota de sincronización (HU-D-07, implementada el 01/10/2026 — `docs/tasks/Sprint 2/HU-D-07.md` §11):**
+- **Nombres reales (Regla N.° 11):** Server Action `actualizarMateriasProfesor(profesorId, materiaIds: string[])` en `src/server/profesores/actions.ts` (recibe el arreglo, no `FormData`: el conjunto vacío es válido); servicios `actualizarMateriasDeProfesor()` y `listarTurnosFuturosDeMateria()` en `profesor.service.ts`; schemas `ActualizarMateriasProfesorSchema` (`z.cuid()` de Zod 4) y `ListarTurnosFuturosQuerySchema` en `profesor.schema.ts`; `PUT` en `src/app/api/profesores/[id]/materias/route.ts`.
+- **`version`:** el paso 1 **no** la incrementa. La UI guarda después 2.6 con la `version` precargada; si 2.7 la subiera, 2.6 daría un conflicto falso.
+- **`409 MATERIA_CON_TURNOS_FUTUROS`:** con una sola materia, `message` es el literal de la HU con su N; con varias, un mensaje general, y la UI arma un aviso por materia con `detalle[].cantidad`.
+- **Mensaje de AC4:** la implementación usa el literal del AC, «Materias del profesor actualizadas» (`?actualizada=materias`), que coincide con el mensaje de HU-D-03 fuera del wizard. **Pendiente de confirmación del PO** frente a la nota «Mensaje de HU-D-07 AC4» de arriba.
+- **Pendiente (Regla N.° 2):** de las bajas solo queda `Profesor.modificadoPorUsuarioId`/`updatedAtProfesor`; no se registra qué materia se quitó. Sin tabla nueva hasta que se decida.
+
 ---
 
 ### 2.8. Servicios públicos del módulo

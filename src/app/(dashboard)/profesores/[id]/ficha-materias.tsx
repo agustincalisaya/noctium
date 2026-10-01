@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { rutaModoEdicion } from "@/lib/modo-edicion";
 import type { MateriaDeProfesor } from "@/types/profesor.types";
 import { FichaSeccion } from "./ficha-seccion";
 
@@ -11,7 +12,11 @@ const MENSAJE_PROFESOR_INACTIVO = "Solo pueden asociarse materias a profesores a
  * `<ul>` y no `FichaDatos`: las materias son una lista de largo variable, no
  * pares etiqueta/valor (HU-D-03 §1 punto 11). Muestra TODAS las asociadas;
  * las de materias dadas de baja llevan un badge "Inactiva" (§1 punto 12).
- * La acción de asociar solo existe para profesores activos (criterio 1).
+ * La acción de editar solo existe para profesores activos (criterio 1).
+ *
+ * HU-D-07: las materias se agregan y se quitan desde el modo edición de la
+ * ficha (`#materias`). `/profesores/[id]/materias` (HU-D-03) queda para el
+ * paso 2 del wizard de alta, que solo agrega.
  */
 export function FichaMaterias({
   profesorId,
@@ -28,10 +33,10 @@ export function FichaMaterias({
   if (puedeEditar) {
     accion = activo ? (
       <Link
-        href={`/profesores/${profesorId}/materias`}
+        href={`${rutaModoEdicion(`/profesores/${profesorId}`)}#materias`}
         className={buttonVariants({ variant: "outline", size: "sm" })}
       >
-        Asociar materias
+        Editar materias
       </Link>
     ) : (
       <p className="text-sm text-muted-foreground">{MENSAJE_PROFESOR_INACTIVO}</p>

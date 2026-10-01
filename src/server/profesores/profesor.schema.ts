@@ -161,6 +161,31 @@ export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfeso
 export const ProfesorIdSchema = z.cuid();
 
 /**
+ * Modificación de las materias asociadas (HU-D-07, `spec_modulo_D.md` §2.7):
+ * el CONJUNTO FINAL deseado, no altas y bajas sueltas; el servicio calcula la
+ * diferencia. Puede quedar vacío (profesor sin materias es válido). snake_case
+ * como los contratos nuevos de Sprint 2 (spec §2.7 «Convención de nombres»).
+ * Sin dedupe silencioso: un id repetido es un error de quien llama.
+ */
+export const ActualizarMateriasProfesorSchema = z
+  .object({
+    materia_ids: z
+      .array(z.cuid("Materia inválida"))
+      .max(100, "Demasiadas materias")
+      .refine((ids) => new Set(ids).size === ids.length, "No repitas materias"),
+  })
+  .strict();
+export type ActualizarMateriasProfesorInput = z.infer<typeof ActualizarMateriasProfesorSchema>;
+
+/** Tamaño fijo de página del modal «Ver turnos» (DESIGN.md §8.1). */
+export const TURNOS_FUTUROS_POR_PAGINA = 10;
+
+/** Query del modal «Ver turnos» (spec §2.7): `por_pagina` no es parámetro, es fijo. */
+export const ListarTurnosFuturosQuerySchema = z
+  .object({ pagina: z.coerce.number().int().positive().default(1) })
+  .strict();
+
+/**
  * Registro de horario de atención (HU-D-04, `spec_modulo_D.md` §2.4 con
  * camelCase, igual que HU-D-03). Mismo patrón que
  * `construirIdentidadProfesorSchema`: los parámetros operativos se leen de

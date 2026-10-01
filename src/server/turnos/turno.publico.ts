@@ -113,6 +113,83 @@ export async function contarTurnosFuturosDeProfesorPorMateria(
   return { confirmados: Number(fila?.confirmados ?? 0), pendientes: Number(fila?.pendientes ?? 0) };
 }
 
+/** Fila del modal «Ver turnos» de HU-D-07 (spec_modulo_C.md §2.15). */
+export type TurnoFuturoDeMateria = {
+  turno_id: string;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  aula: string;
+  /** "inscriptos/cupo", mismo formato que `presentar()` del listado (HU-C-01). */
+  alumnos_inscriptos: string;
+  estado: "DISPONIBLE" | "COMPLETO";
+};
+
+type FilaTurnoFuturo = {
+  idTurno: string;
+  fechaTurno: Date;
+  horaInicioTurno: Date;
+  duracionMinutosTurno: number;
+  cupoMaximoTurno: number | null;
+  estadoTurno: "DISPONIBLE" | "COMPLETO";
+  nombreAula: string | null;
+  inscriptos: bigint;
+};
+
+/**
+ * Turnos que bloquean quitarle la materia al profesor (HU-D-07 AC3): mismo
+ * criterio de «futuro» y mismos estados que
+ * `contarTurnosFuturosDeProfesorPorMateria()` (`confirmados`), así `total`
+ * coincide con ese conteo. Orden por fecha, hora e id. Solo lectura.
+ */
+export async function listarTurnosFuturosDeProfesorPorMateria(
+  profesorId: string,
+  materiaId: string,
+  { pagina, porPagina }: { pagina: number; porPagina: number },
+  db: Db = prisma,
+): Promise<{ items: TurnoFuturoDeMateria[]; total: number; pagina: number; por_pagina: number }> {
+  const [conteo] = await db.$queryRaw<{ total: bigint }[]>`
+    SELECT COUNT(*) AS total
+    FROM "turnos"
+    WHERE "profesorId" = ${profesorId} AND "materiaId" = ${materiaId}
+      AND "estadoTurno" IN ('DISPONIBLE', 'COMPLETO')
+      AND ("fechaTurno" + "horaInicioTurno") >
+          date_trunc('minute', CURRENT_TIMESTAMP AT TIME ZONE 'America/Argentina/Buenos_Aires')
+  `;
+  const total = Number(conteo?.total ?? 0);
+  const filas = total === 0 ? [] : await db.$queryRaw<FilaTurnoFuturo[]>`
+    SELECT t."idTurno", t."fechaTurno", t."horaInicioTurno", t."duracionMinutosTurno",
+           t."cupoMaximoTurno", t."estadoTurno", a."nombreAula",
+           (SELECT COUNT(*) FROM "turno_alumno" ta WHERE ta."turnoId" = t."idTurno") AS inscriptos
+    FROM "turnos" t
+    LEFT JOIN "aulas" a ON a."idAula" = t."aulaId"
+    WHERE t."profesorId" = ${profesorId} AND t."materiaId" = ${materiaId}
+      AND t."estadoTurno" IN ('DISPONIBLE', 'COMPLETO')
+      AND (t."fechaTurno" + t."horaInicioTurno") >
+          date_trunc('minute', CURRENT_TIMESTAMP AT TIME ZONE 'America/Argentina/Buenos_Aires')
+    ORDER BY t."fechaTurno", t."horaInicioTurno", t."idTurno"
+    LIMIT ${porPagina} OFFSET ${(pagina - 1) * porPagina}
+  `;
+  return {
+    items: filas.map((fila) => {
+      const inicio = fila.horaInicioTurno.getUTCHours() * 60 + fila.horaInicioTurno.getUTCMinutes();
+      const inscriptos = Number(fila.inscriptos);
+      return {
+        turno_id: fila.idTurno,
+        fecha: fila.fechaTurno.toISOString().slice(0, 10),
+        hora_inicio: horaDeMinutos(inicio),
+        hora_fin: horaDeMinutos(inicio + fila.duracionMinutosTurno),
+        aula: fila.nombreAula ?? "Sin asignar",
+        alumnos_inscriptos: fila.cupoMaximoTurno === null ? "Sin asignar" : `${inscriptos}/${fila.cupoMaximoTurno}`,
+        estado: fila.estadoTurno,
+      };
+    }),
+    total,
+    pagina,
+    por_pagina: porPagina,
+  };
+}
+
 type AjusteCupos =
   | { ok: true; turnos_actualizados: number; eventos: EventoTurnoPendiente[] }
   | { ok: false; turnos_en_conflicto: string[]; max_inscriptos: number };
