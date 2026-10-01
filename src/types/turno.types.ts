@@ -48,6 +48,7 @@ export type PagoRegistradoTurno = {
 export type TurnoDetalle = Turno & {
   creado_por: string | null;
   pagos?: PagoRegistradoTurno[];
+  clase_dictada: { id: string; registrada_en: string } | null;
   acciones_habilitadas: AccionTurno[];
 };
 

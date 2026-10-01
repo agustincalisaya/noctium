@@ -1,13 +1,14 @@
 import type { RolUsuario } from "@prisma/client";
 import { listarPagosDeTurno } from "@/server/pagos/pago.publico";
+import { obtenerClaseDictadaDeTurno } from "@/server/historial/historial.publico";
 import type { TurnoDetalle } from "@/types/turno.types";
 import { calcularAccionesHabilitadas, type CapacidadesAcciones } from "@/server/turnos/turno.acciones";
 import { obtenerTurno } from "@/server/turnos/turno.service";
 
 /**
  * Ensamblador del detalle de turno (HU-C-09, spec_modulo_C.md §2.4). Es el
- * único archivo de Turnos que importa los públicos de Pagos (y, en el hito 2,
- * los de Historial). Lo importa solo la ruta `GET /api/turnos/[id]`; nunca
+ * único archivo de Turnos que importa los públicos de Pagos e Historial.
+ * Lo importa solo la ruta `GET /api/turnos/[id]`; nunca
  * `turno.publico.ts`, para no crear ciclos con los módulos que consumen Turnos.
  */
 
@@ -28,7 +29,10 @@ export async function obtenerDetalleTurno(
   const { turno } = base;
 
   // El Profesor nunca recibe datos de pago, aunque el rol tuviera el permiso.
-  const pagos = capacidades.verPagos && usuario.rol !== "PROFESOR" ? await listarPagosDeTurno(turno.id) : undefined;
+  const [pagos, claseDictada] = await Promise.all([
+    capacidades.verPagos && usuario.rol !== "PROFESOR" ? listarPagosDeTurno(turno.id) : undefined,
+    obtenerClaseDictadaDeTurno(turno.id),
+  ]);
   const acciones_habilitadas = calcularAccionesHabilitadas({
     estado: turno.estado,
     fecha: new Date(`${turno.fecha}T00:00:00.000Z`),
@@ -38,13 +42,17 @@ export async function obtenerDetalleTurno(
     rol: usuario.rol,
     // Para el Profesor, obtenerTurno() ya exigió que el turno fuera suyo.
     turnoPropio: usuario.rol === "PROFESOR",
-    // Hito 2: se completa cuando E publique obtenerClaseDictadaDeTurno().
-    tieneClaseDictada: null,
+    tieneClaseDictada: claseDictada !== null,
     capacidades,
     ahora,
   });
   return {
     resultado: "ok",
-    turno: { ...turno, ...(pagos === undefined ? {} : { pagos }), acciones_habilitadas },
+    turno: {
+      ...turno,
+      ...(pagos === undefined ? {} : { pagos }),
+      clase_dictada: claseDictada ? { id: claseDictada.id, registrada_en: claseDictada.registrada_en } : null,
+      acciones_habilitadas,
+    },
   };
 }
