@@ -109,7 +109,8 @@ export function IndicadoresClient() {
   }, [errorDeRango, rango, reintento]);
 
   const cantidadTotalTurnos = datos?.meses.reduce((total, mes) => total + mes.turnos, 0) ?? 0;
-  const periodoSinDatos = Boolean(datos?.meses.length) && datos!.meses.every((mes) => mes.turnos === 0);
+  const cantidadTotalAlumnos = datos?.meses.reduce((total, mes) => total + mes.alumnos_nuevos, 0) ?? 0;
+  const periodoSinDatos = Boolean(datos?.meses.length) && datos!.meses.every((mes) => mes.turnos === 0 && mes.alumnos_nuevos === 0);
   const opcionesMes = useMemo(() => crearOpcionesMes(mesActual), [mesActual]);
 
   return (
@@ -190,6 +191,14 @@ export function IndicadoresClient() {
             color="chart-1"
             total={cantidadTotalTurnos}
             datos={datos.meses.map(({ mes, turnos }) => ({ mes, cantidad: turnos }))}
+          />
+          <GraficoMensual
+            titulo="Alumnos nuevos por mes"
+            descripcion="Por fecha de alta de la ficha."
+            etiquetaValor="Alumnos nuevos"
+            color="chart-2"
+            total={cantidadTotalAlumnos}
+            datos={datos.meses.map(({ mes, alumnos_nuevos }) => ({ mes, cantidad: alumnos_nuevos }))}
           />
         </div>
       ) : null}

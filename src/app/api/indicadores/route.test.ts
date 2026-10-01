@@ -25,7 +25,7 @@ beforeEach(() => {
   permiso.mockResolvedValue({});
   obtener.mockResolvedValue({
     rango: { desde: "2026-04", hasta: "2026-09", meses: 6 },
-    meses: [{ mes: "2026-04", turnos: 10 }],
+    meses: [{ mes: "2026-04", turnos: 10, alumnos_nuevos: 2 }],
   });
 });
 
@@ -37,7 +37,7 @@ describe("GET /api/indicadores", () => {
     expect(await respuesta.json()).toEqual({
       data: {
         rango: { desde: "2026-04", hasta: "2026-09", meses: 6 },
-        meses: [{ mes: "2026-04", turnos: 10 }],
+        meses: [{ mes: "2026-04", turnos: 10, alumnos_nuevos: 2 }],
       },
       error: null,
     });
