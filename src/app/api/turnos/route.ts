@@ -9,8 +9,16 @@ export const GET = withPermission("turnos:leer", async (req) => {
   if (!parsed.success) {
     return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Parámetros inválidos", detalles: parsed.error.flatten() } }, { status: 400 });
   }
-  const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user, { q: parsed.data.q });
-  return NextResponse.json({ data, error: null });
+  try {
+    const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user, { q: parsed.data.q, profesor_id: parsed.data.profesor_id });
+    return NextResponse.json({ data, error: null });
+  } catch (error) {
+    // HU-C-08: profesor ajeno o sin ficha (Profesor) → 403; profesor inexistente o inactivo (Gerente/Mesa) → 404.
+    if (error instanceof ServiceError && (error.code === "SIN_PERMISO" || error.code === "PROFESOR_NO_ENCONTRADO")) {
+      return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.code === "SIN_PERMISO" ? 403 : 404 });
+    }
+    throw error;
+  }
 });
 
 export const POST = withPermission("turnos:crear", async (req) => {
