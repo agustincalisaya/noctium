@@ -7,6 +7,12 @@ export const ListarTurnosQuerySchema = z.object({
   q: z.string().trim().max(100).optional(), // HU-C-02; profesor_id y .strict() los agrega HU-C-08
 });
 
+export const PRIORIDADES_TURNO = ["NORMAL", "ALTA", "URGENTE"] as const;
+export const ActualizarPrioridadSchema = z.object({
+  prioridad: z.enum(PRIORIDADES_TURNO),
+}).strict();
+export type ActualizarPrioridadInput = z.infer<typeof ActualizarPrioridadSchema>;
+
 // Revisión 4 (§2.1): duraciones que Mesa de Entradas puede elegir. Cambiar el
 // conjunto requiere nueva aprobación del PO: es constante, no ParametroSistema.
 export const DURACIONES_PERMITIDAS_TURNO_MIN = [60, 120, 180] as const;

@@ -243,12 +243,16 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).toBeNull();
   });
 
-  it("no hay botones de acción, aunque acciones_habilitadas las liste (hito 3)", async () => {
+  it("habilita Asignar prioridad y conserva las demás acciones pendientes", async () => {
     await montar();
-    for (const accion of ["Cancelar turno", "Reprogramar", "Asignar prioridad", "Registrar pago", "Registrar clase dictada"]) {
+    expect([...container.querySelectorAll("button")].some((elemento) => elemento.textContent === "Asignar prioridad")).toBe(true);
+    for (const accion of ["Cancelar turno", "Reprogramar", "Registrar pago", "Registrar clase dictada"]) {
       expect([...container.querySelectorAll("button, a")].some((elemento) => elemento.textContent === accion)).toBe(false);
     }
-    expect(container.querySelectorAll("button")).toHaveLength(0);
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    await act(async () => root.unmount()); root = createRoot(container);
+    await montar();
+    expect([...container.querySelectorAll("button")].some((elemento) => elemento.textContent === "Asignar prioridad")).toBe(false);
   });
 
   it("403 del Profesor: muestra el mensaje neutro y las migas sin datos del turno", async () => {
