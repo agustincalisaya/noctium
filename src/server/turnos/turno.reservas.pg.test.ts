@@ -139,7 +139,7 @@ describe.skipIf(!habilitada)("HU-C-15 / HU-C-04 (Revisión 3): exclusión real e
     await asignarAulaTurno(invalido, { aula_id: aulas[1] }, "usuario-prueba");
     await db!.alumno.update({ where: { idAlumno: alumnos[2] }, data: { activoAlumno: false } });
     await expect(asignarParticipantesTurno(invalido, { alumno_ids: [alumnos[0], alumnos[2]], profesor_id: profesores[0] }, "usuario-prueba"))
-      .rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", detalles: { alumno_id: alumnos[2] } });
+      .rejects.toMatchObject({ code: "ALUMNO_INACTIVO", detalles: { alumno_id: alumnos[2] } });
     await db!.alumno.update({ where: { idAlumno: alumnos[2] }, data: { activoAlumno: true } });
     expect(await db!.turno.findUniqueOrThrow({ where: { idTurno: invalido } })).toMatchObject({ estadoTurno: "PENDIENTE", profesorId: null });
     expect(await db!.turnoAlumno.count({ where: { turnoId: invalido } })).toBe(0);

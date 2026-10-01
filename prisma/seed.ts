@@ -730,11 +730,13 @@ const PERMISOS: [RolUsuario, string][] = [
   ["GERENTE", "aulas:editar"],
   ["GERENTE", "aulas:leer"],
   // Alumnos (HU-B-01 alta, HU-B-02 contacto, HU-B-04 listado/detalle):
-  // exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1). Turnos consume
+  // crear/editar exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1); el
+  // Profesor tiene solo lectura del listado y la ficha. Turnos consume
   // Alumno vía servicio público, no por estos permisos.
   ["MESA_ENTRADA", "alumnos:crear"],
   ["MESA_ENTRADA", "alumnos:editar"],
   ["MESA_ENTRADA", "alumnos:leer"],
+  ["PROFESOR", "alumnos:leer"],
   // Profesores (HU-D-01..05): exclusivos de Mesa de Entrada
   // (ver ACCIONES_SOLO_MESA_ENTRADA).
   ["MESA_ENTRADA", "profesores:crear"],
