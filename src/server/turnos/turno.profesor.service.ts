@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { diaSemanaDeFecha, horaAMinutos, minutosAHora } from "@/lib/horario-atencion";
+import { diaSemanaDeFecha, horaAMinutos, intervalosSeSuperponen, minutosAHora } from "@/lib/horario-atencion";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria, obtenerHorariosDeAtencion, obtenerOpcionProfesorActivo, profesorActivoDictaMateria } from "@/server/profesores/profesor.publico";
 import { ServiceError } from "@/server/shared/service-error";
@@ -9,8 +9,16 @@ import { horaLocal, parametrosConfiguracionTurno } from "./turno.validaciones";
 
 const fechaCalendario = (fecha: Date) => fecha.toISOString().slice(0, 10);
 
-/** HU-C-07 §2.8.2: consulta de buena fe; la creación y confirmación revalidan. */
-export async function calcularDisponibilidadProfesor(profesorId: string, query: DisponibilidadProfesorQuery) {
+type FranjaCalculada = {
+  hora_inicio: string; hora_fin: string;
+  tramos_libres: { desde: string; hasta: string }[];
+  tramos_ocupados: { desde: string; hasta: string }[];
+  inicios: string[];
+  bloques: { inicio: string; fin: string; estado: "LIBRE" | "OCUPADO" | "VENCIDO"; seleccionable: boolean }[];
+};
+
+/** Cálculo único de rango, franjas e inicios para C-07 y la agenda visual. */
+async function calcularBaseAgendaProfesor(profesorId: string, query: DisponibilidadProfesorQuery) {
   if (!(await verificarMateriaActiva(query.materia_id))) {
     throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
   }
@@ -48,36 +56,97 @@ export async function calcularDisponibilidadProfesor(profesorId: string, query: 
   const fechas = [] as Array<{
     fecha: string;
     dia_semana: ReturnType<typeof diaSemanaDeFecha>;
-    franjas: Array<{ hora_inicio: string; hora_fin: string; tramos_libres: Array<{ desde: string; hasta: string }>; inicios: string[] }>;
+    operativo: boolean;
+    franjas: FranjaCalculada[];
   }>;
   while (fechaActual <= hasta) {
     const fecha = fechaCalendario(fechaActual);
     const dia = diaSemanaDeFecha(fechaActual);
-    if (operativo.dias_operativos.includes(dia)) {
-      const franjas = horarios.filter((horario) => horario.dia_semana === dia).flatMap((horario) => {
+    const esOperativo = operativo.dias_operativos.includes(dia);
+    let franjas: FranjaCalculada[] = [];
+    if (esOperativo) {
+      const ocupados = ocupadosPorFecha.get(fecha) ?? [];
+      franjas = horarios.filter((horario) => horario.dia_semana === dia).flatMap((horario) => {
         const inicio = Math.max(horaAMinutos(horario.hora_inicio), apertura);
         const fin = Math.min(horaAMinutos(horario.hora_fin), cierre);
         if (inicio >= fin) return [];
-        const libres = calcularTramosLibres({ inicio, fin }, ocupadosPorFecha.get(fecha) ?? []);
-        const inicios = libres.flatMap((tramo) => iniciosPosibles(tramo, query.duracion_min, operativo.granularidad_minutos))
-          .filter((minuto) => fecha !== ahora.fecha || minuto > horaAMinutos(ahora.hora))
-          .map(minutosAHora);
+        const franja = { inicio, fin };
+        const libres = calcularTramosLibres(franja, ocupados);
+        const iniciosValidos = libres.flatMap((tramo) => iniciosPosibles(tramo, query.duracion_min, operativo.granularidad_minutos))
+          .filter((minuto) => fecha !== ahora.fecha || minuto > horaAMinutos(ahora.hora));
+        const iniciosSet = new Set(iniciosValidos);
+        const bloques = iniciosPosibles(franja, query.duracion_min, operativo.granularidad_minutos).map((minuto) => {
+          const intervalo = { inicio: minuto, fin: minuto + query.duracion_min };
+          const estado = fecha === ahora.fecha && minuto <= horaAMinutos(ahora.hora) ? "VENCIDO"
+            : ocupados.some((ocupado) => intervalosSeSuperponen(intervalo, ocupado)) ? "OCUPADO"
+              : iniciosSet.has(minuto) ? "LIBRE" : "VENCIDO";
+          return { inicio: minutosAHora(minuto), fin: minutosAHora(intervalo.fin), estado, seleccionable: estado === "LIBRE" } as const;
+        });
         return [{
           hora_inicio: minutosAHora(inicio), hora_fin: minutosAHora(fin),
           tramos_libres: libres.map((tramo) => ({ desde: minutosAHora(tramo.inicio), hasta: minutosAHora(tramo.fin) })),
-          inicios,
+          tramos_ocupados: ocupados.filter((ocupado) => intervalosSeSuperponen(franja, ocupado))
+            .map((ocupado) => ({ desde: minutosAHora(Math.max(inicio, ocupado.inicio)), hasta: minutosAHora(Math.min(fin, ocupado.fin)) })),
+          inicios: iniciosValidos.map(minutosAHora), bloques,
         }];
       });
-      if (franjas.some((franja) => franja.inicios.length > 0)) fechas.push({ fecha, dia_semana: dia, franjas });
     }
+    fechas.push({ fecha, dia_semana: dia, operativo: esOperativo, franjas });
     fechaActual.setUTCDate(fechaActual.getUTCDate() + 1);
   }
   return {
     profesor: { id: profesor.id, nombre_completo: profesor.nombreParaMostrar },
     duracion_min: query.duracion_min,
+    granularidad_min: operativo.granularidad_minutos,
     rango: { desde: fechaCalendario(desde), hasta: fechaCalendario(hasta) },
+    franjas_recurrentes: horarios,
     fechas,
   };
+}
+
+/** HU-C-07 §2.8.2: mantiene exactamente el DTO y la omisión de fechas sin inicios. */
+export async function calcularDisponibilidadProfesor(profesorId: string, query: DisponibilidadProfesorQuery) {
+  const base = await calcularBaseAgendaProfesor(profesorId, query);
+  return {
+    profesor: base.profesor, duracion_min: base.duracion_min, rango: base.rango,
+    fechas: base.fechas.filter(({ franjas }) => franjas.some(({ inicios }) => inicios.length > 0))
+      .map(({ fecha, dia_semana, franjas }) => ({ fecha, dia_semana, franjas: franjas.map(({ hora_inicio, hora_fin, tramos_libres, inicios }) => ({ hora_inicio, hora_fin, tramos_libres, inicios })) })),
+  };
+}
+
+/** Lectura visual del Paso 3, sin inferir ocupaciones en el cliente. */
+export async function calcularAgendaProfesorWizard(profesorId: string, query: DisponibilidadProfesorQuery) {
+  const base = await calcularBaseAgendaProfesor(profesorId, query);
+  const porFecha = new Map(base.fechas.map((dia) => [dia.fecha, dia]));
+  const meses = [] as Array<{ anio: number; mes: number; etiqueta: string; dias: Array<{
+    fecha: string; dia_semana: ReturnType<typeof diaSemanaDeFecha>; numero: number; en_rango: boolean;
+    operativo: boolean; tiene_horarios_libres: boolean; seleccionable: boolean; franjas: Omit<FranjaCalculada, "inicios">[];
+  }> }>;
+  const cursor = new Date(`${base.rango.desde.slice(0, 7)}-01T00:00:00.000Z`);
+  const ultimoMes = base.rango.hasta.slice(0, 7);
+  while (fechaCalendario(cursor).slice(0, 7) <= ultimoMes) {
+    const anio = cursor.getUTCFullYear();
+    const mes = cursor.getUTCMonth() + 1;
+    const etiqueta = new Intl.DateTimeFormat("es-AR", { month: "long", timeZone: "UTC" }).format(cursor);
+    const dias = [] as typeof meses[number]["dias"];
+    const finMes = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+    for (let numero = 1; numero <= finMes; numero++) {
+      const fechaDate = new Date(Date.UTC(anio, mes - 1, numero));
+      const fecha = fechaCalendario(fechaDate);
+      const calculado = porFecha.get(fecha);
+      const seleccionable = Boolean(calculado?.franjas.some(({ inicios }) => inicios.length > 0));
+      dias.push({ fecha, dia_semana: diaSemanaDeFecha(fechaDate), numero,
+        en_rango: fecha >= base.rango.desde && fecha <= base.rango.hasta,
+        operativo: calculado?.operativo ?? false, tiene_horarios_libres: seleccionable,
+        seleccionable, franjas: calculado?.franjas.map(({ hora_inicio, hora_fin, tramos_libres, tramos_ocupados, bloques }) =>
+          ({ hora_inicio, hora_fin, tramos_libres, tramos_ocupados, bloques })) ?? [],
+      });
+    }
+    meses.push({ anio, mes, etiqueta: `${etiqueta.charAt(0).toUpperCase()}${etiqueta.slice(1)} ${anio}`, dias });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return { profesor: base.profesor, duracion_min: base.duracion_min, granularidad_min: base.granularidad_min,
+    rango: base.rango, franjas_recurrentes: base.franjas_recurrentes, meses };
 }
 
 /** HU-C-07 §2.8.1: profesores activos asociados a una materia activa. */
@@ -91,6 +160,19 @@ export async function listarProfesoresPorMateria(materiaId: string) {
     throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
   }
   return profesores.map(({ id, nombre, apellido }) => ({ id, nombre, apellido }));
+}
+
+/** Opciones del wizard: exige al menos un horario registrado, sin consultar disponibilidad puntual. */
+export async function listarOpcionesProfesorWizard(materiaId: string) {
+  if (!(await verificarMateriaActiva(materiaId))) {
+    throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
+  }
+
+  const profesores = await listarProfesoresActivosPorMateria(materiaId);
+  const opciones = await Promise.all(profesores.map(async ({ id, nombre, apellido }) => ({
+    id, nombre, apellido, horarios: await obtenerHorariosDeAtencion(id),
+  })));
+  return opciones.filter(({ horarios }) => horarios.length > 0);
 }
 
 /**
