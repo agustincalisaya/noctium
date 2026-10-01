@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { construirUrlCalendario, type RutaCalendario } from "@/lib/calendario-semana";
+import { construirUrlCalendario, type RutaCalendario, type VistaCalendario } from "@/lib/calendario-semana";
 
 // Mismo estilo de <select> nativo que registrar-horario-form.tsx (HU-D-04).
 const CLASE_SELECT = cn(
@@ -15,8 +15,8 @@ const CLASE_SELECT = cn(
 
 /**
  * Selector de la entidad de una vista del calendario: profesor (HU-J-01)
- * o materia (HU-J-02). Cambiar la opción conserva la semana consultada; la
- * elección queda en la URL (`?<parametro>=`). Solo recibe datos
+ * o materia (HU-J-02). Cambiar la opción conserva la vista y el período
+ * consultados (HU-J-03); la elección queda en la URL (`?<parametro>=`). Solo recibe datos
  * serializables: la URL se arma acá con la ruta y el nombre del parámetro.
  */
 export function SelectorCalendario({
@@ -28,7 +28,8 @@ export function SelectorCalendario({
   valor,
   rutaBase,
   parametro,
-  semana,
+  vista,
+  fecha,
 }: {
   id: string;
   etiqueta: string;
@@ -39,7 +40,9 @@ export function SelectorCalendario({
   valor: string | undefined;
   rutaBase: RutaCalendario;
   parametro: string;
-  semana: string;
+  vista: VistaCalendario;
+  /** Fecha de referencia, solo si vino explícita en la URL (si no, sigue siendo "hoy"). */
+  fecha?: string;
 }) {
   const router = useRouter();
   const [pendiente, startTransition] = useTransition();
@@ -61,7 +64,7 @@ export function SelectorCalendario({
         onChange={(e) => {
           const elegido = e.target.value || undefined;
           startTransition(() => {
-            router.push(construirUrlCalendario(rutaBase, { [parametro]: elegido, semana }));
+            router.push(construirUrlCalendario(rutaBase, { [parametro]: elegido, vista, fecha }));
           });
         }}
       >

@@ -19,6 +19,14 @@ export const ICONO_ESTADO: Record<Estado, LucideIcon> = {
   COMPLETO: Users,
 };
 
+// Colores de estado de DESIGN.md §6.5 (Disponible: relleno suave verde;
+// Completo: relleno oscuro), compartidos por el bloque de Día/Semana y la
+// celda del mes (HU-J-03). Siempre junto al texto y al ícono.
+export const CLASE_ESTADO: Record<Estado, string> = {
+  DISPONIBLE: "bg-success text-success-foreground",
+  COMPLETO: "bg-primary text-primary-foreground",
+};
+
 export type EstiloEventoEnGrilla = { top: string; height: string; left: string; width: string };
 
 /**
@@ -70,7 +78,7 @@ export function BloqueEventoCalendario({
     >
       <span className="flex items-center justify-between gap-1">
         <span className="font-semibold tabular-nums">{horario}</span>
-        <Badge variant="success" className="shrink-0 gap-1 px-1.5 py-0">
+        <Badge className={cn("shrink-0 gap-1 border-transparent px-1.5 py-0", CLASE_ESTADO[estado])}>
           <IconoEstado className="size-3" aria-hidden />
           {etiquetaEstado}
         </Badge>
