@@ -4,8 +4,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-const { fetch, setDirty } = vi.hoisted(() => ({ fetch: vi.fn(), setDirty: vi.fn() }));
+const { fetch, setDirty, push } = vi.hoisted(() => ({ fetch: vi.fn(), setDirty: vi.fn(), push: vi.fn() }));
 vi.mock("@/lib/fetch-autenticado", () => ({ fetchAutenticado: fetch }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/components/sesion/dirty-state-context", () => ({ useDirtyState: () => ({ dirty: false, setDirty, confirmarSalida: (salir: () => void) => salir() }) }));
 vi.mock("@/components/sesion/link-protegido", async () => {
   const React = await import("react");
