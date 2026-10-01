@@ -16,6 +16,12 @@ export function diaMes(fecha: string): string {
   return fechaCorta(fecha).slice(0, 5);
 }
 
+/** "2026-10-06" → "Mar 06/10" (resumen del modal de cancelación, mockup pág. 8). Fecha de calendario: en UTC. */
+export function diaAbreviadoYFecha(fecha: string): string {
+  const dia = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][new Date(`${fecha}T00:00:00.000Z`).getUTCDay()];
+  return `${dia} ${diaMes(fecha)}`;
+}
+
 /** "2026-10-06" → "Martes 6 de octubre de 2026". La fecha es de calendario: se formatea en UTC para no correr el día. */
 export function fechaLarga(fecha: string): string {
   const texto = new Intl.DateTimeFormat("es-AR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" })
