@@ -1,6 +1,14 @@
 ```markdown
 # Especificación Técnica — Módulo C (Turno)
-## Noctium — Sprint 1 (Revisión 4) · Sprint 2 (Revisión 5)
+## Noctium — Sprint 1 (Revisión 4) · Sprint 2 (Revisión 5.1)
+
+## Revisión 5.1 — HU-C-13: indicador de clase dictada (29/09/2026)
+
+**Changelog de esta revisión:**
+| HU | Estado previo | Acción |
+|---|---|---|
+| HU-C-13 | §2.14.1 no informaba si un turno pasado tenía una clase dictada registrada ni incluía una clave técnica para cada tarjeta | Por decisión del PO (29/09/2026), se agrega `clase_dictada: boolean` por ítem. También se expone `turno_id` para renderizar las tarjetas con una clave estable. Turnos consulta el servicio público `obtenerClaseDictadaDeTurno()` de Historial (E §2.4); la pantalla muestra la etiqueta «Clase dictada» en Anteriores cuando el valor es `true`. |
+
 ## Revisión 5 — Sprint 2: nuevo orden del flujo de registro de turno (HU-C-18), nuevas HU 2.7 a 2.15 y backlog v2 del 28/09/2026
 
 **Metodología:** Specification-Driven Development (SDD)
@@ -996,7 +1004,7 @@ export const MisTurnosQuerySchema = z.object({
 **Pantalla nueva:** "Mis turnos" (mapa de pantallas §2). Página completa.
 
 1. Los turnos donde el alumno autenticado está inscripto (`TurnoAlumno`), **en cualquier estado, incluido `CANCELADO`** (HU-C-13 AC1 del backlog v2: "el alumno necesita enterarse de que su clase se canceló"). Funciona porque 2.10 **conserva** los `TurnoAlumno` al cancelar.
-2. Cada ítem: `fecha`, `hora_inicio`–`hora_fin`, `materia`, `profesor`, `aula`, **`estado`**. **Sin** el dato de alumnos inscriptos (AC2). La UI destaca los `CANCELADO` con texto o ícono, no solo color.
+2. Cada ítem: `turno_id` (identificador técnico de la tarjeta), `fecha`, `hora_inicio`–`hora_fin`, `materia`, `profesor`, `aula`, **`estado`** y **`clase_dictada: boolean`** (true si existe un registro `ClaseDictada` para ese turno). **Sin** el dato de alumnos inscriptos (AC2). Turnos obtiene el indicador mediante el servicio público `obtenerClaseDictadaDeTurno()` de Historial (E §2.4), conforme a la Regla N.° 3. La pantalla muestra la etiqueta «Clase dictada» en Anteriores cuando el valor es `true` (decisión del PO, 29/09/2026). La UI destaca los `CANCELADO` con texto o ícono, no solo color.
 3. **Dos pestañas (definidas por el backlog v2, AC3):** `proximos` (por defecto): `fecha + hora_inicio ≥ ahora`, **cualquier estado** —un `CANCELADO` se ve acá, destacado, mientras su fecha y hora originales no hayan pasado—, orden ascendente. `anteriores`: `fecha + hora_inicio < ahora`, cualquier estado, orden descendente. El pase de una a otra es automático por fecha/hora contra el momento de la consulta: no mueve datos ni requiere proceso de fondo. Paginación server-side en ambas.
 4. **Paginación de a 10 por pestaña (HU-C-13 AC6, backlog del 28/09).** `por_pagina` vale 10 y no admite más. La respuesta trae `paginacion` de la pestaña pedida y **`totales: { proximos, anteriores }`**: el contador de cada pestaña muestra su **total**, no el de la página, y para mostrar los dos contadores a la vez el servidor los calcula siempre, sin importar cuál pestaña se pidió. Con 10 turnos o menos la UI **no muestra la paginación**; al cambiar de pestaña la UI vuelve a pedir `pagina=1`.
    ```json
