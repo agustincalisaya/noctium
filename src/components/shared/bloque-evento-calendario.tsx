@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { CalendarCheck, Users, type LucideIcon } from "lucide-react";
+import { CalendarCheck, Flag, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import type { EventoCalendarioBase } from "@/types/calendario.types";
+import { ETIQUETA_PRIORIDAD_TURNO, type PrioridadTurno } from "@/types/turno.types";
 
 type Estado = EventoCalendarioBase["estado"];
 
@@ -16,6 +17,14 @@ export const ETIQUETA_ESTADO: Record<Estado, string> = {
 export const ICONO_ESTADO: Record<Estado, LucideIcon> = {
   DISPONIBLE: CalendarCheck,
   COMPLETO: Users,
+};
+
+// Colores de estado de DESIGN.md §6.5 (Disponible: relleno suave verde;
+// Completo: relleno oscuro), compartidos por el bloque de Día/Semana y la
+// celda del mes (HU-J-03). Siempre junto al texto y al ícono.
+export const CLASE_ESTADO: Record<Estado, string> = {
+  DISPONIBLE: "bg-success text-success-foreground",
+  COMPLETO: "bg-primary text-primary-foreground",
 };
 
 export type EstiloEventoEnGrilla = { top: string; height: string; left: string; width: string };
@@ -33,6 +42,7 @@ export function BloqueEventoCalendario({
   horaInicio,
   horaFin,
   estado,
+  prioridad,
   lineas,
   descripcion,
   estilo,
@@ -42,6 +52,7 @@ export function BloqueEventoCalendario({
   horaInicio: string;
   horaFin: string;
   estado: Estado;
+  prioridad: PrioridadTurno;
   /** La primera va destacada; el resto, en texto secundario. */
   lineas: string[];
   /** Descripción completa, sin horario ni estado (se agregan acá). */
@@ -53,7 +64,8 @@ export function BloqueEventoCalendario({
   const horario = `${horaInicio}–${horaFin}`;
   const etiquetaEstado = ETIQUETA_ESTADO[estado];
   const IconoEstado = ICONO_ESTADO[estado];
-  const completa = `${horario} · ${descripcion} · ${etiquetaEstado}`;
+  const etiquetaPrioridad = prioridad === "NORMAL" ? "" : ` · Prioridad ${ETIQUETA_PRIORIDAD_TURNO[prioridad]}`;
+  const completa = `${horario} · ${descripcion} · ${etiquetaEstado}${etiquetaPrioridad}`;
 
   return (
     <Link
@@ -66,11 +78,17 @@ export function BloqueEventoCalendario({
     >
       <span className="flex items-center justify-between gap-1">
         <span className="font-semibold tabular-nums">{horario}</span>
-        <Badge variant="success" className="shrink-0 gap-1 px-1.5 py-0">
+        <Badge className={cn("shrink-0 gap-1 border-transparent px-1.5 py-0", CLASE_ESTADO[estado])}>
           <IconoEstado className="size-3" aria-hidden />
           {etiquetaEstado}
         </Badge>
       </span>
+      {prioridad !== "NORMAL" && (
+        <Badge variant="outline" className={cn("w-fit gap-1 border-transparent px-1.5 py-0", prioridad === "ALTA" ? "bg-warning text-warning-foreground" : "bg-destructive text-card")}>
+          <Flag className="size-3" aria-hidden />
+          {ETIQUETA_PRIORIDAD_TURNO[prioridad]}
+        </Badge>
+      )}
       {lineas.map((linea, i) => (
         <span key={i} className={cn("truncate", i === 0 ? "font-medium" : "text-muted-foreground")}>
           {linea}

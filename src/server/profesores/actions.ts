@@ -7,12 +7,14 @@ import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico, obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { mensajeSuperposicion, type DiaSemanaValor } from "@/lib/horario-atencion";
 import {
+  ActualizarMateriasProfesorSchema,
   AsociarMateriasProfesorSchema,
   ProfesorIdSchema,
   construirModificarProfesorSchema,
   construirRegistrarHorarioSchema,
 } from "@/server/profesores/profesor.schema";
 import {
+  actualizarMateriasDeProfesor,
   asociarMateriasAProfesor,
   modificarProfesor as modificarProfesorEnServicio,
   registrarHorarioProfesor as registrarHorario,
@@ -20,6 +22,8 @@ import {
 import type {
   EstadoAsociarMaterias,
   EstadoRegistrarHorario,
+  MateriaBloqueadaPorTurnos,
+  ResultadoActualizarMaterias,
   ResultadoModificarProfesor,
 } from "@/types/profesor.types";
 
@@ -250,6 +254,83 @@ export async function modificarProfesor(
       }
       const mensaje = MENSAJES_MODIFICAR_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
       return { data: null, error: { code: error.code, message: mensaje } };
+    }
+    if (error instanceof PermisoError) {
+      return { data: null, error: { code: error.code, message: error.message } };
+    }
+    return { data: null, error: { code: "ERROR_COMUNICACION", message: MENSAJE_ERROR_COMUNICACION } };
+  }
+}
+
+// Traducción de HU-D-07 (Regla N.° 5): mismos textos que la asociación de
+// HU-D-03 para los códigos compartidos.
+const MENSAJES_MATERIAS_POR_CODIGO: Record<string, string> = {
+  ...MENSAJES_POR_CODIGO,
+  MATERIA_CON_TURNOS_FUTUROS: "No se pudieron guardar los cambios de materias: hay materias con turnos futuros",
+  MATERIA_INACTIVA: "Alguna de las materias seleccionadas dejó de estar activa",
+};
+
+function bloqueosDeDetalles(error: ServiceError): MateriaBloqueadaPorTurnos[] {
+  const detalle = error.detalles?.detalle;
+  return Array.isArray(detalle) ? (detalle as MateriaBloqueadaPorTurnos[]) : [];
+}
+
+/**
+ * Modificación de las materias asociadas (HU-D-07, `spec_modulo_D.md` §2.7).
+ * Recibe el conjunto FINAL como arreglo (no `FormData`: un conjunto vacío es
+ * válido y `getAll()` no distingue "vacío" de "no enviado"). Invocación
+ * directa desde el modo edición de la ficha, sin `useActionState`: devuelve
+ * `{ data, error }` (Regla N.° 5), igual que `modificarProfesor()`. Permiso
+ * primero, después Zod, después el servicio.
+ */
+export async function actualizarMateriasProfesor(
+  profesorId: string,
+  materiaIds: string[],
+): Promise<ResultadoActualizarMaterias> {
+  try {
+    const { id: usuarioId } = await verificarPermiso("profesores:editar");
+
+    const profesorIdParsed = ProfesorIdSchema.safeParse(profesorId);
+    if (!profesorIdParsed.success) {
+      return {
+        data: null,
+        error: { code: "PROFESOR_NO_ENCONTRADO", message: MENSAJES_POR_CODIGO.PROFESOR_NO_ENCONTRADO! },
+      };
+    }
+    const parsed = ActualizarMateriasProfesorSchema.safeParse({ materia_ids: materiaIds });
+    if (!parsed.success) {
+      return {
+        data: null,
+        error: { code: "VALIDACION", message: "Datos inválidos", detalles: flattenError(parsed.error) },
+      };
+    }
+
+    const resultado = await actualizarMateriasDeProfesor(
+      profesorIdParsed.data,
+      parsed.data.materia_ids,
+      usuarioId,
+    );
+
+    if (!resultado.sin_cambios) {
+      // HU-L-02 muestra los profesores de cada materia: también cambian.
+      revalidatePath("/profesores");
+      revalidatePath(`/profesores/${profesorIdParsed.data}`);
+      revalidatePath("/materias");
+      for (const id of [...resultado.agregadas, ...resultado.quitadas]) {
+        revalidatePath(`/materias/${id}`);
+      }
+    }
+    return { data: resultado, error: null };
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      const message = MENSAJES_MATERIAS_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
+      if (error.code === "MATERIA_CON_TURNOS_FUTUROS") {
+        return { data: null, error: { code: error.code, message, detalle: bloqueosDeDetalles(error) } };
+      }
+      if (error.code === "MATERIA_INACTIVA") {
+        return { data: null, error: { code: error.code, message, materias: materiasDeDetalles(error) } };
+      }
+      return { data: null, error: { code: error.code, message } };
     }
     if (error instanceof PermisoError) {
       return { data: null, error: { code: error.code, message: error.message } };

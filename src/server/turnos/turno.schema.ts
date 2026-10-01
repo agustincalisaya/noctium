@@ -7,6 +7,12 @@ export const ListarTurnosQuerySchema = z.object({
   q: z.string().trim().max(100).optional(), // HU-C-02; profesor_id y .strict() los agrega HU-C-08
 });
 
+export const PRIORIDADES_TURNO = ["NORMAL", "ALTA", "URGENTE"] as const;
+export const ActualizarPrioridadSchema = z.object({
+  prioridad: z.enum(PRIORIDADES_TURNO),
+}).strict();
+export type ActualizarPrioridadInput = z.infer<typeof ActualizarPrioridadSchema>;
+
 // Revisión 4 (§2.1): duraciones que Mesa de Entradas puede elegir. Cambiar el
 // conjunto requiere nueva aprobación del PO: es constante, no ParametroSistema.
 export const DURACIONES_PERMITIDAS_TURNO_MIN = [60, 120, 180] as const;
@@ -47,5 +53,32 @@ export const AgregarAlumnoTurnoSchema = z.object({
 });
 export type AgregarAlumnoTurnoInput = z.infer<typeof AgregarAlumnoTurnoSchema>;
 
+/** HU-C-12 §2.14.2: el segundo filtro requiere el primero. */
+export const OpcionesInscripcionQuerySchema = z.object({
+  materia_id: z.string().trim().min(1).optional(),
+  profesor_id: z.string().trim().min(1).optional(),
+}).strict().refine((query) => !query.profesor_id || Boolean(query.materia_id), {
+  message: "Elegí una materia antes de elegir un profesor",
+  path: ["materia_id"],
+});
+export type OpcionesInscripcionQuery = z.infer<typeof OpcionesInscripcionQuerySchema>;
+
+/** HU-C-13 §2.14.1: consulta paginada de turnos del alumno autenticado. */
+export const MisTurnosQuerySchema = z.object({
+  vista: z.enum(["proximos", "anteriores"]).default("proximos"),
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(10).default(10),
+}).strict();
+export type MisTurnosQuery = z.infer<typeof MisTurnosQuerySchema>;
+
 export const AsignarAulaTurnoSchema = z.object({ aula_id: z.cuid() });
 export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
+
+/** HU-C-06: solo fecha y hora de inicio. */
+export const ReprogramarTurnoSchema = z.object({
+  fecha: fechaCalendarioValidaSchema,
+  hora_inicio: ConfigurarTurnoSchema.shape.hora_inicio,
+}).strict();
+export type ReprogramarTurnoInput = z.infer<typeof ReprogramarTurnoSchema>;
+
+export const OpcionesReprogramacionQuerySchema = z.object({ fecha: fechaCalendarioValidaSchema }).strict();

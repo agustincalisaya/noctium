@@ -243,12 +243,71 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).toBeNull();
   });
 
-  it("no hay botones de acción, aunque acciones_habilitadas las liste (hito 3)", async () => {
+  it("acciones en el orden de la pág. 5 (Reprogramar · Asignar prioridad · Cancelar turno); I-01/E-01 siguen pendientes", async () => {
     await montar();
-    for (const accion of ["Cancelar turno", "Reprogramar", "Asignar prioridad", "Registrar pago", "Registrar clase dictada"]) {
+    const botones = [...container.querySelectorAll("header button")].map((elemento) => elemento.textContent);
+    expect(botones).toEqual(["Reprogramar", "Asignar prioridad", "Cancelar turno"]);
+    for (const accion of ["Descartar", "Registrar pago", "Registrar clase dictada"]) {
       expect([...container.querySelectorAll("button, a")].some((elemento) => elemento.textContent === accion)).toBe(false);
     }
-    expect(container.querySelectorAll("button")).toHaveLength(0);
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    await act(async () => root.unmount()); root = createRoot(container);
+    await montar();
+    expect(container.querySelectorAll("header button")).toHaveLength(0);
+  });
+
+  it("HU-C-05 AC2: un PENDIENTE ofrece «Descartar» y nunca «Cancelar turno»", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "PENDIENTE", acciones_habilitadas: ["descartar", "prioridad"] })));
+    await montar();
+    expect([...container.querySelectorAll("header button")].some((b) => b.textContent === "Reprogramar")).toBe(false);
+    const botones = [...container.querySelectorAll("header button")].map((elemento) => elemento.textContent);
+    expect(botones).toEqual(["Asignar prioridad", "Descartar"]);
+  });
+
+  it("HU-C-05 AC1: «Cancelar turno» abre el AlertDialog con el texto literal, el resumen y el aviso N-3", async () => {
+    await montar();
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    const dialogo = document.querySelector('[role="alertdialog"]')!;
+    expect(dialogo.textContent).toContain("¿Confirmás cancelar este turno?");
+    expect(dialogo.textContent).toContain("Matemática · Mar 06/10, 16:00–17:00 · Aula 3 · 2 alumnos inscriptos. Esta acción no se puede deshacer.");
+    expect(dialogo.textContent).toContain("Este turno tiene 2 pagos registrados; no se reembolsan automáticamente");
+  });
+
+  it("HU-C-05 N-3: sin la propiedad pagos (sin pagos:leer) no hay aviso de pagos", async () => {
+    const { pagos: _pagos, ...sinPagos } = detalle();
+    void _pagos;
+    fetch.mockResolvedValue(respuesta(sinPagos));
+    await montar();
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    const dialogo = document.querySelector('[role="alertdialog"]')!;
+    expect(dialogo.textContent).toContain("¿Confirmás cancelar este turno?");
+    expect(dialogo.textContent).not.toContain("pagos registrados");
+  });
+
+  it("HU-C-05 AC3/AC5: al confirmar cancela, recarga el mismo detalle y muestra «Cancelado» sin acciones", async () => {
+    await montar();
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { id: "turno-1", estado: "CANCELADO" }, error: null }) })
+      .mockResolvedValueOnce(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    await act(async () => ([...document.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    await esperar();
+    expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/cancelacion", { method: "POST", cache: "no-store" });
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(container.querySelector("header")?.textContent).toContain("Cancelado");
+    expect(container.querySelectorAll("header button")).toHaveLength(0);
+    expect(texto()).toContain("Pérez, Juan");
+  });
+
+  it("HU-C-06 AC1: «Reprogramar» abre el Dialog de la pág. 9 y carga las opciones de la fecha actual", async () => {
+    await montar();
+    fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { fecha: "2026-10-06", duracion_min: 60, tope_fecha: "2026-10-31",
+      inicios: [{ hora_inicio: "16:00", hora_fin: "17:00", actual: true }, { hora_inicio: "17:00", hora_fin: "18:00", actual: false }] }, error: null }) });
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Reprogramar") as HTMLButtonElement).click());
+    await esperar();
+    expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/reprogramacion/opciones?fecha=2026-10-06", expect.objectContaining({ cache: "no-store" }));
+    const dialogo = document.querySelector('[role="dialog"]')!;
+    expect(dialogo.textContent).toContain("Reprogramar turno");
+    expect(dialogo.textContent).toContain("Profesor (Méndez, Laura), aula y duración se mantienen.");
   });
 
   it("403 del Profesor: muestra el mensaje neutro y las migas sin datos del turno", async () => {

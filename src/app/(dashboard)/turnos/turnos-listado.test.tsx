@@ -20,7 +20,7 @@ const { TurnosListado } = await import("./turnos-listado");
 const { TurnoDetalleVista } = await import("./[id]/turno-detalle");
 const item = (estado: "PENDIENTE" | "DISPONIBLE" | "COMPLETO", extra: Record<string, unknown> = {}) => ({
   id: estado.toLowerCase(), fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", alumnos_inscriptos: "0/5",
-  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, ...extra,
+  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, prioridad: "NORMAL", acciones_habilitadas: [], ...extra,
 });
 const datos = (items: unknown[], pagina = 2) => ({ items, paginacion: { total: 3, pagina_actual: pagina, total_paginas: 2, por_pagina: 2 } });
 const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: async () => ({ data, error }) });
@@ -48,7 +48,7 @@ describe("HU-C-01 interfaz", () => {
     expect(container.querySelector("th")?.textContent).toBe("Fecha");
     expect(container.textContent).toContain("Alumnos inscriptos");
     for (const texto of ["Pendiente", "Disponible", "Completo", "0/10", "1/5", "5/5", "Sin asignar"]) expect(container.textContent).toContain(texto);
-    const estados = [...container.querySelectorAll("tbody tr td:nth-child(7) span")];
+    const estados = [...container.querySelectorAll("tbody tr td:nth-child(8) span")];
     expect(estados[0].className).toContain("bg-warning");
     expect(estados[2].className).toContain("bg-success");
     expect(estados[3].className).toContain("bg-secondary");
@@ -67,6 +67,17 @@ describe("HU-C-01 interfaz", () => {
     expect(anterior.querySelector("svg")?.nextSibling?.textContent).toBe("Anterior");
     expect(paginacion.querySelector('[aria-disabled="true"]')?.textContent).toBe("Siguiente");
     expect(paginacion.querySelector('[aria-disabled="true"] svg')?.previousSibling?.textContent).toBe("Siguiente");
+  });
+
+  it("muestra prioridad Alta y Urgente con texto e ícono sin cambiar el orden recibido", async () => {
+    fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "alta", prioridad: "ALTA" }), item("COMPLETO", { id: "urgente", prioridad: "URGENTE" })])));
+    await montar();
+    expect([...container.querySelectorAll("thead th")].map((celda) => celda.textContent)).toContain("Prioridad");
+    const filas = [...container.querySelectorAll("tbody tr")];
+    expect(filas[0]?.textContent).toContain("Alta");
+    expect(filas[1]?.textContent).toContain("Urgente");
+    expect(filas.every((fila) => fila.querySelector("td:nth-child(7) svg"))).toBe(true);
+    expect(filas.map((fila) => fila.querySelector('a')?.getAttribute("href"))).toEqual(expect.arrayContaining([expect.stringContaining("/turnos/alta"), expect.stringContaining("/turnos/urgente")]));
   });
 
   it("deshabilita Anterior en la primera página y conserva Siguiente habilitado", async () => {
@@ -305,5 +316,46 @@ describe("HU-C-02 búsqueda en el listado", () => {
     expect(filas()).toEqual(["Materia a", "Materia b"]);
     await lenta.resolver(pagina(["r"]));
     expect(container.querySelector("[data-buscando]")).toBeNull();
+  });
+});
+
+describe("HU-C-05 listado: Descartar y etiqueta Cancelado", () => {
+  const montarCon = async (puedeDescartar: boolean) => {
+    await act(async () => root.render(<TurnosListado pagina={2} q="fisica" orden="fecha_hora_asc" puedeConfigurar puedeDescartar={puedeDescartar} />));
+    await esperar();
+  };
+  const botonFila = (nombre: string) => [...container.querySelectorAll("tbody button")].find((b) => b.textContent === nombre) as HTMLButtonElement | undefined;
+
+  it("AC5 / DESIGN §6.5: «Cancelado» con contorno destructivo sobre la tarjeta", async () => {
+    fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "cancelado", estado: "CANCELADO" })])));
+    await montar();
+    const etiqueta = [...container.querySelectorAll("tbody span")].find((span) => span.textContent === "Cancelado")!;
+    expect(etiqueta.className).toContain("border-destructive");
+    expect(etiqueta.className).toContain("text-destructive");
+    expect(etiqueta.className).toContain("bg-card");
+    expect(etiqueta.className).not.toContain("bg-muted");
+  });
+
+  it("sin turnos:cancelar no ofrece Descartar", async () => {
+    await montarCon(false);
+    expect(botonFila("Descartar")).toBeUndefined();
+  });
+
+  it("con turnos:cancelar ofrece Descartar solo en PENDIENTE y recarga la misma página y búsqueda", async () => {
+    fetch.mockResolvedValue(respuesta(datos([item("PENDIENTE"), item("DISPONIBLE", { id: "disponible" })])));
+    await montarCon(true);
+    expect([...container.querySelectorAll("tbody button")].filter((b) => b.textContent === "Descartar")).toHaveLength(1);
+    await act(async () => botonFila("Descartar")!.click());
+    const dialogo = document.querySelector('[role="alertdialog"]')!;
+    expect(dialogo.textContent).toContain("¿Confirmás descartar este turno?");
+    fetch.mockClear();
+    fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { id: "pendiente", estado: "CANCELADO" }, error: null }) })
+      .mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "pendiente", estado: "CANCELADO" })])));
+    await act(async () => ([...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Descartar turno") as HTMLButtonElement).click());
+    await esperar();
+    expect(fetch.mock.calls[0][0]).toBe("/api/turnos/pendiente/cancelacion");
+    expect(fetch.mock.calls[1][0]).toBe("/api/turnos?pagina=2&q=fisica");
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(container.textContent).toContain("Cancelado");
   });
 });

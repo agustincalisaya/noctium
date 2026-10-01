@@ -16,9 +16,12 @@ import { normalizarTextoNombre } from "@/server/shared/texto";
 import { normalizarTelefono } from "@/server/shared/contacto";
 import { MENSAJE_CONTACTO_REQUERIDO } from "@/server/shared/contacto.schema";
 import { construirModificarProfesorSchema } from "@/server/profesores/profesor.schema";
-import { modificarProfesor } from "@/server/profesores/actions";
+import { actualizarMateriasProfesor, modificarProfesor } from "@/server/profesores/actions";
 import type { DetalleProfesor } from "@/types/profesor.types";
 import { formatearFechaAlta } from "./ficha-identidad";
+import { MateriasProfesorSelector } from "./materias-profesor-selector";
+import { VerTurnosFuturosDialog } from "./ver-turnos-futuros-dialog";
+import type { OpcionMateria } from "./materias/asociar-materias-form";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
@@ -76,13 +79,26 @@ type EditarProfesorFormProps = {
   rutaConsulta: string;
   /** Ficha en modo consulta con el banner de éxito. */
   rutaTrasGuardar: string;
+  /** Ficha en modo consulta con el banner de éxito de solo materias (HU-D-07 AC4). */
+  rutaTrasGuardarMaterias: string;
+  /** Selector de materias (HU-D-07): activas del catálogo + asociadas inactivas. */
+  opcionesMaterias: OpcionMateria[];
 };
+
+function mismosElementos(a: Set<string>, b: Set<string>): boolean {
+  return a.size === b.size && [...a].every((id) => b.has(id));
+}
 
 /**
  * Modo edición de la ficha del profesor (HU-D-06, `spec_modulo_D.md` §2.6):
  * identidad (HU-D-01) y contacto (HU-D-02) precargados, con las mismas
- * validaciones que el alta. No incluye materias, horario de atención ni
- * estado (criterio 5): siguen en sus propias pantallas.
+ * validaciones que el alta, y las materias asociadas (HU-D-07, §2.7). No
+ * incluye horario de atención ni estado: siguen en sus propias pantallas.
+ *
+ * Un solo "Guardar cambios" para dos endpoints sin transacción común (spec
+ * §2.7 «Guardado desde la UI»): primero las materias (la regla que más
+ * probablemente falle) y, solo si salieron bien, los datos. Si las materias
+ * se guardaron y los datos no, se avisa y el reintento manda solo los datos.
  */
 export function EditarProfesorForm({
   profesor,
@@ -91,6 +107,8 @@ export function EditarProfesorForm({
   fechaMaximaNacimiento,
   rutaConsulta,
   rutaTrasGuardar,
+  rutaTrasGuardarMaterias,
+  opcionesMaterias,
 }: EditarProfesorFormProps) {
   const router = useRouter();
   const { setDirty } = useDirtyState();
@@ -116,6 +134,18 @@ export function EditarProfesorForm({
   const [pendiente, setPendiente] = useState(false);
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
 
+  // HU-D-07: conjunto deseado vs. último guardado. `materiasGuardadas` se
+  // mueve si las materias se guardaron pero los datos fallaron.
+  const [materiasGuardadas, setMateriasGuardadas] = useState(
+    () => new Set(opcionesMaterias.filter((opcion) => opcion.asociada).map((opcion) => opcion.id)),
+  );
+  const [materiasDeseadas, setMateriasDeseadas] = useState(() => new Set(materiasGuardadas));
+  const [bloqueos, setBloqueos] = useState<Map<string, number>>(() => new Map());
+  const [idsInactivas, setIdsInactivas] = useState<Set<string>>(() => new Set());
+  const [errorMaterias, setErrorMaterias] = useState<string>();
+  const [avisoParcial, setAvisoParcial] = useState<string>();
+  const [verTurnos, setVerTurnos] = useState<{ id: string; nombre: string } | null>(null);
+
   const contacto = normalizarContacto(telefono, email);
   const cambios: Record<Campo, boolean> = {
     nombre: normalizarTextoNombre(nombre) !== profesor.nombre,
@@ -126,7 +156,9 @@ export function EditarProfesorForm({
     telefono: contacto.telefono !== profesor.telefono,
     email: contacto.email !== profesor.email,
   };
-  const hayCambios = CAMPOS.some((campo) => cambios[campo]);
+  const hayCambiosDatos = CAMPOS.some((campo) => cambios[campo]);
+  const hayCambiosMaterias = !mismosElementos(materiasDeseadas, materiasGuardadas);
+  const hayCambios = hayCambiosDatos || hayCambiosMaterias;
 
   useEffect(() => {
     setDirty(hayCambios);
@@ -137,6 +169,59 @@ export function EditarProfesorForm({
   function mostrarErrores(nuevos: Errores) {
     setErrores(nuevos);
     enfocarPrimerCampoInvalido(formRef.current, nuevos);
+  }
+
+  function alternarMateria(id: string, marcada: boolean) {
+    setMateriasDeseadas((previas) => {
+      const siguiente = new Set(previas);
+      if (marcada) siguiente.add(id);
+      else siguiente.delete(id);
+      return siguiente;
+    });
+    // Destildarla de nuevo es el reintento: el aviso de esa materia se va.
+    setBloqueos((previos) => {
+      if (!previos.has(id)) return previos;
+      const siguiente = new Map(previos);
+      siguiente.delete(id);
+      return siguiente;
+    });
+    setIdsInactivas((previas) => {
+      if (!previas.has(id)) return previas;
+      const siguiente = new Set(previas);
+      siguiente.delete(id);
+      return siguiente;
+    });
+    setErrorMaterias(undefined);
+  }
+
+  /**
+   * Paso 1 del guardado (spec §2.7). Ante un rechazo de bajas, las materias
+   * bloqueadas vuelven a quedar tildadas y el resto de los cambios queda en
+   * pantalla, sin guardar (el servidor no guardó nada: todo o nada).
+   */
+  async function guardarMaterias(): Promise<{ ok: true; pendientes: number } | { ok: false }> {
+    const resultado = await actualizarMateriasProfesor(profesor.id, [...materiasDeseadas]);
+    if (!resultado.error) {
+      setMateriasGuardadas(new Set(materiasDeseadas));
+      setBloqueos(new Map());
+      setIdsInactivas(new Set());
+      return { ok: true, pendientes: resultado.data.pendientes_afectados };
+    }
+    const { code, message, detalle, materias } = resultado.error;
+    if (code === "MATERIA_CON_TURNOS_FUTUROS" && detalle) {
+      setBloqueos(new Map(detalle.map(({ materia_id, cantidad }) => [materia_id, cantidad])));
+      setMateriasDeseadas((previas) => new Set([...previas, ...detalle.map(({ materia_id }) => materia_id)]));
+    } else if (code === "MATERIA_INACTIVA" && materias) {
+      setIdsInactivas(new Set(materias.map(({ id }) => id)));
+      setErrorMaterias(
+        materias
+          .map(({ nombre }) => `La materia ${nombre} dejó de estar activa. Quitala de la selección y volvé a confirmar`)
+          .join(". "),
+      );
+    } else {
+      setErrorMaterias(message);
+    }
+    return { ok: false };
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -156,8 +241,8 @@ export function EditarProfesorForm({
       payload[campo] = vaciado ? null : valores[campo];
     }
 
-    const parsed = schema.safeParse(payload);
-    if (!parsed.success) {
+    const parsed = hayCambiosDatos ? schema.safeParse(payload) : null;
+    if (parsed && !parsed.success) {
       mostrarErrores(primerErrorPorCampo(flattenError(parsed.error).fieldErrors));
       setErrorGeneral(undefined);
       return;
@@ -165,7 +250,7 @@ export function EditarProfesorForm({
     // «Al menos un medio de contacto» (N-2): se anticipa acá con los valores
     // precargados; la fuente de verdad es el servicio.
     const teniaContacto = profesor.telefono !== null || profesor.email !== null;
-    if ((cambios.telefono || cambios.email) && teniaContacto && !contacto.telefono && !contacto.email) {
+    if (hayCambiosDatos && (cambios.telefono || cambios.email) && teniaContacto && !contacto.telefono && !contacto.email) {
       mostrarErrores({ telefono: MENSAJE_CONTACTO_REQUERIDO });
       setErrorGeneral(undefined);
       return;
@@ -173,10 +258,31 @@ export function EditarProfesorForm({
 
     setErrores({});
     setErrorGeneral(undefined);
+    setAvisoParcial(undefined);
+    setErrorMaterias(undefined);
     setConflicto(false);
     setPendiente(true);
 
     try {
+      let materiasGuardadasAhora = false;
+      let pendientesAfectados = 0;
+      if (hayCambiosMaterias) {
+        const materias = await guardarMaterias();
+        if (!materias.ok) return; // 2.7 falló: los datos no se envían.
+        materiasGuardadasAhora = true;
+        pendientesAfectados = materias.pendientes;
+      }
+
+      if (!hayCambiosDatos) {
+        setDirty(false);
+        router.replace(
+          pendientesAfectados > 0
+            ? `${rutaTrasGuardarMaterias}&pendientes=${pendientesAfectados}`
+            : rutaTrasGuardarMaterias,
+        );
+        return;
+      }
+
       const resultado = await modificarProfesor(profesor.id, formData);
 
       if (!resultado.error) {
@@ -186,6 +292,9 @@ export function EditarProfesorForm({
       }
 
       const { code, message, detalles } = resultado.error;
+      if (materiasGuardadasAhora) {
+        setAvisoParcial(`Las materias se guardaron, pero los datos no: ${message}`);
+      }
       if (code === "VALIDACION") {
         const campos =
           (detalles as { fieldErrors?: Record<string, string[] | undefined> } | undefined)?.fieldErrors ?? {};
@@ -262,6 +371,12 @@ export function EditarProfesorForm({
             </Button>
           </div>
         </header>
+
+        {avisoParcial && (
+          <p role="alert" className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">
+            {avisoParcial}
+          </p>
+        )}
 
         {errorGeneral && (
           <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-destructive">
@@ -401,10 +516,31 @@ export function EditarProfesorForm({
           </section>
         </div>
 
+        <MateriasProfesorSelector
+          opciones={opcionesMaterias}
+          guardadas={materiasGuardadas}
+          seleccionadas={materiasDeseadas}
+          onAlternar={alternarMateria}
+          bloqueos={bloqueos}
+          idsInactivas={idsInactivas}
+          onVerTurnos={setVerTurnos}
+          deshabilitado={pendiente}
+          profesorActivo={profesor.activo}
+          error={errorMaterias}
+        />
+
         <p className="text-xs text-muted-foreground">
-          Las materias y el horario de atención no se modifican desde acá: se gestionan desde la ficha.
+          El horario de atención no se modifica desde acá: se gestiona desde la ficha.
         </p>
       </form>
+
+      {verTurnos && (
+        <VerTurnosFuturosDialog
+          profesorId={profesor.id}
+          materia={verTurnos}
+          onCerrar={() => setVerTurnos(null)}
+        />
+      )}
 
       <ConfirmarDescarteDialog
         abierto={confirmandoCancelar}

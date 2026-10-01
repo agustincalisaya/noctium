@@ -96,6 +96,50 @@ export type ResultadoModificarProfesor =
   | { data: { id: string; campos_modificados: string[]; version: number }; error: null }
   | { data: null; error: { code: string; message: string; detalles?: unknown } };
 
+/** Una materia que no se pudo quitar por sus turnos futuros (HU-D-07 AC3). */
+export type MateriaBloqueadaPorTurnos = { materia_id: string; cantidad: number };
+
+/** Resultado del guardado de materias del profesor (HU-D-07, `spec_modulo_D.md` §2.7). */
+export type ResultadoActualizarMaterias =
+  | {
+      data: { agregadas: string[]; quitadas: string[]; pendientes_afectados: number; sin_cambios: boolean };
+      error: null;
+    }
+  | {
+      data: null;
+      error: {
+        code: string;
+        message: string;
+        /** `MATERIA_INACTIVA`: las materias del lote que dejaron de estar activas. */
+        materias?: { id: string; nombre: string }[];
+        /** `MATERIA_CON_TURNOS_FUTUROS`: cada materia bloqueada con su N. */
+        detalle?: MateriaBloqueadaPorTurnos[];
+        detalles?: unknown;
+      };
+    };
+
+/**
+ * Fila del modal «Ver turnos» (HU-D-07 AC3). Misma forma que
+ * `TurnoFuturoDeMateria` de `turno.publico.ts` (spec C §2.15), declarada acá
+ * como tipo de UI del módulo D para no acoplar la ficha al módulo C.
+ */
+export type TurnoFuturoDeMateria = {
+  turno_id: string;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  aula: string;
+  alumnos_inscriptos: string;
+  estado: "DISPONIBLE" | "COMPLETO";
+};
+
+export type PaginaTurnosFuturos = {
+  items: TurnoFuturoDeMateria[];
+  total: number;
+  pagina: number;
+  por_pagina: number;
+};
+
 /**
  * Opción de profesor activo del contrato público (`spec_modulo_D.md` §2.8,
  * `listarOpcionesProfesoresActivos`): `OpcionProfesor` más nombre y apellido

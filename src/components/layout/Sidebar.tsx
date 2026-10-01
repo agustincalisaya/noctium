@@ -6,17 +6,17 @@ import {
   BookOpen, 
   DoorOpen,
   ListOrdered,
-  CalendarSearch,
-  CalendarRange,
   Contact,
   Library,
   BadgeCheck,
+  CalendarPlus2,
   Wallet,
+  BarChart3,
   type LucideIcon 
 } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
-import { SidebarNav, type SidebarNavSection } from "./SidebarNav";
+import { SidebarNav, type SidebarNavEntrada } from "./SidebarNav";
 
 interface SidebarItemConfig {
   label: string;
@@ -28,7 +28,27 @@ interface SidebarSeccionConfig {
   label: string;
   icon: LucideIcon;
   items: SidebarItemConfig[];
+  collapsible?: boolean;
+  hideItemIcons?: boolean;
 }
+
+/** Ítem de primer nivel, sin desplegable; activo en toda ruta bajo `prefijoActivo`. */
+interface SidebarEnlaceConfig extends SidebarItemConfig {
+  prefijoActivo?: string;
+}
+
+/**
+ * Calendario (HU-J-03): un único ítem. La pantalla ya tiene su propio
+ * toggle "Por profesor | Por materia", así que entra por la vista por
+ * profesor (la de defecto) y queda activo en /calendario/profesor y
+ * /calendario/materia.
+ */
+const CALENDARIO: SidebarEnlaceConfig = {
+  label: "Calendario",
+  href: "/calendario/profesor",
+  prefijoActivo: "/calendario",
+  icon: CalendarDays,
+};
 
 /**
  * Definición completa de la navegación (Sprint 1). Solo se incluyen ítems
@@ -40,21 +60,14 @@ interface SidebarSeccionConfig {
  * - Alumnos: falta "Nuevo alumno" (`/alumnos/nuevo`) — HU-B-01.
  * - Profesores: falta "Nuevo profesor" (`/profesores/nuevo`) — HU-D-01.
  */
-const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
+const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlaceConfig)[]> = {
   MESA_ENTRADA: [
     {
       label: "Turnos",
       icon: CalendarClock,
       items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
     },
-    {
-      label: "Calendario",
-      icon: CalendarDays,
-      items: [
-        { label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch },
-        { label: "Agenda por materia", href: "/calendario/materia", icon: CalendarRange },
-      ],
-    },
+    CALENDARIO,
     {
       label: "Alumnos",
       icon: Users,
@@ -73,13 +86,11 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
   ],
   GERENTE: [
     {
-      label: "Calendario",
-      icon: CalendarDays,
-      items: [
-        { label: "Agenda por profesor", href: "/calendario/profesor", icon: CalendarSearch },
-        { label: "Agenda por materia", href: "/calendario/materia", icon: CalendarRange },
-      ],
+      label: "Gestión",
+      icon: BarChart3,
+      items: [{ label: "Indicadores", href: "/gerente", icon: BarChart3 }],
     },
+    CALENDARIO,
     {
       label: "Materias",
       icon: BookOpen,
@@ -103,16 +114,28 @@ const SECCIONES_POR_ROL: Record<RolUsuario, SidebarSeccionConfig[]> = {
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
   // operar otros módulos (ej. asociar sus propias materias, HU-D-03).
   PROFESOR: [
+    // Para el rol Profesor, /calendario/profesor es "Mi agenda" (su propia
+    // agenda, resuelta desde la sesión en la página).
+    CALENDARIO,
+    // alumnos:leer: solo lectura (sin alta ni edición).
     {
-      label: "Calendario",
+      label: "Alumnos",
+      icon: Users,
+      items: [{ label: "Listado", href: "/alumnos", icon: Contact }],
+    },
+  ],
+  ALUMNO: [
+    {
+      label: "Mi cuenta",
       icon: CalendarDays,
+      collapsible: false,
+      hideItemIcons: true,
       items: [
-        { label: "Mi agenda", href: "/calendario/profesor", icon: CalendarSearch },
-        { label: "Mis turnos por materia", href: "/calendario/materia", icon: CalendarRange },
+        { label: "Mis turnos", href: "/alumno", icon: CalendarDays },
+        { label: "Solicitar turno", href: "/alumno/turnos/solicitar", icon: CalendarPlus2 },
       ],
     },
   ],
-  ALUMNO: [],
 };
 
 /**
@@ -131,11 +154,21 @@ export async function Sidebar() {
   // Server->Client como referencia cruda (RSC solo serializa elementos ya
   // renderizados, no funciones) — por eso acá se resuelven a JSX antes de
   // pasarlos a `SidebarNav`, que es un Client Component.
-  const secciones: SidebarNavSection[] = SECCIONES_POR_ROL[session.user.rol].map((seccion) => {
+  const secciones: SidebarNavEntrada[] = SECCIONES_POR_ROL[session.user.rol].map((seccion) => {
     const SeccionIcon = seccion.icon;
+    if (!("items" in seccion)) {
+      return {
+        label: seccion.label,
+        href: seccion.href,
+        prefijoActivo: seccion.prefijoActivo,
+        icon: <SeccionIcon className="size-4 shrink-0" aria-hidden />,
+      };
+    }
     return {
       label: seccion.label,
       icon: <SeccionIcon className="size-4 shrink-0" aria-hidden />,
+      collapsible: seccion.collapsible,
+      hideItemIcons: seccion.hideItemIcons,
       items: seccion.items.map((item) => {
         const ItemIcon = item.icon;
         return {
