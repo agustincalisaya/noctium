@@ -67,7 +67,22 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: CalendarClock,
       items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
     },
-    CALENDARIO,
+        {
+      label: "Calendario",
+      icon: CalendarDays,
+      items: [
+              { 
+                label: "Por Profesor", 
+                href: "/calendario/profesor", 
+                icon: GraduationCap // o UserRound
+              }, 
+              { 
+                label: "Por Materia", 
+                href: "/calendario/materia", 
+                icon: BookOpen // o Book
+              }
+            ],
+    },
     {
       label: "Alumnos",
       icon: Users,
@@ -90,7 +105,27 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: BarChart3,
       items: [{ label: "Indicadores", href: "/gerente", icon: BarChart3 }],
     },
-    CALENDARIO,
+            {
+      label: "Turnos",
+      icon: CalendarClock,
+      items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
+    },
+    {
+      label: "Calendario",
+      icon: CalendarDays,
+      items: [
+              { 
+                label: "Por Profesor", 
+                href: "/calendario/profesor", 
+                icon: GraduationCap // o UserRound
+              }, 
+              { 
+                label: "Por Materia", 
+                href: "/calendario/materia", 
+                icon: BookOpen // o Book
+              }
+            ],
+    },
     {
       label: "Materias",
       icon: BookOpen,
@@ -116,7 +151,17 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
   PROFESOR: [
     // Para el rol Profesor, /calendario/profesor es "Mi agenda" (su propia
     // agenda, resuelta desde la sesión en la página).
-    CALENDARIO,
+    {
+      label: "Calendario",
+      icon: CalendarDays,
+      items: [
+        { 
+          label: "Por Profesor", 
+          href: "/calendario/profesor", 
+          icon: GraduationCap // o UserRound
+        }
+      ]
+    },
     // alumnos:leer: solo lectura (sin alta ni edición).
     {
       label: "Alumnos",
