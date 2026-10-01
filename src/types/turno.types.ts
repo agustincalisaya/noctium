@@ -45,8 +45,9 @@ export type PagoRegistradoTurno = {
  * cuenta creadora o `null` (la UI muestra «Sin registrar»). `pagos` solo viene
  * con `pagos:leer`: sin permiso la propiedad no existe.
  */
-export type TurnoDetalle = Turno & {
+export type TurnoDetalle = Omit<Turno, "alumnos"> & {
   creado_por: string | null;
+  alumnos: (Turno["alumnos"][number] & { puede_ver_historial: boolean })[];
   pagos?: PagoRegistradoTurno[];
   clase_dictada: { id: string; registrada_en: string } | null;
   acciones_habilitadas: AccionTurno[];
