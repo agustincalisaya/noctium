@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/shared/pagination";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import type { HistorialAcademicoData } from "@/types/historial.types";
+import { RegistrarResultadoExamenDialog } from "./registrar-resultado-examen-dialog";
 
 function fechaCorta(fecha: string) {
   const [anio, mes, dia] = fecha.split("-");
@@ -13,14 +14,17 @@ function fechaCorta(fecha: string) {
 
 export function HistorialAcademico({
   alumnoId,
+  puedeRegistrarExamen,
   mostrarNombre,
 }: {
   alumnoId: string;
+  puedeRegistrarExamen: boolean;
   mostrarNombre: boolean;
 }) {
   const [datos, setDatos] = useState<HistorialAcademicoData | null>(null);
   const [pagina, setPagina] = useState(1);
   const [materiaId, setMateriaId] = useState("");
+  const [actualizacion, setActualizacion] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
 
@@ -47,7 +51,12 @@ export function HistorialAcademico({
   useEffect(() => {
     const inicial = window.setTimeout(() => void cargar(), 0);
     return () => window.clearTimeout(inicial);
-  }, [cargar]);
+  }, [actualizacion, cargar]);
+
+  const alRegistrar = () => {
+    setPagina(1);
+    setActualizacion((version) => version + 1);
+  };
 
   return (
     <section className="space-y-4" aria-label="Historial académico">
@@ -69,6 +78,13 @@ export function HistorialAcademico({
             {datos ? `${datos.paginacion.total} ${datos.paginacion.total === 1 ? "registro" : "registros"}` : "Cargando historial"}
           </span>
         </div>
+        {puedeRegistrarExamen && datos && (
+          <RegistrarResultadoExamenDialog
+            alumnoId={alumnoId}
+            nombreAlumno={datos.alumno.nombre_completo}
+            onRegistrado={alRegistrar}
+          />
+        )}
       </div>
 
       {cargando && <p role="status" className="text-sm text-muted-foreground">Cargando historial académico…</p>}
@@ -95,6 +111,7 @@ export function HistorialAcademico({
                     </span>
                   </div>
                   {item.tipo === "CLASE_DICTADA" && <p className="pl-4 text-xs text-muted-foreground">{item.profesor}</p>}
+                  {item.tipo === "EXAMEN" && item.observaciones && <p className="pl-4 text-xs text-muted-foreground">{item.observaciones}</p>}
                 </div>
                 {item.tipo === "EXAMEN" && <span className="whitespace-nowrap pt-1 text-sm font-semibold">{item.nota.replace(".", ",")} / 10</span>}
               </li>

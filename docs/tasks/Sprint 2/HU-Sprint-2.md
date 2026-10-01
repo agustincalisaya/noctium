@@ -544,7 +544,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 
 **Criterios de aceptación:**
 
-1. Desde la ficha del alumno (sección Historial académico), "Registrar resultado de examen" solicita Materia (entre las que el alumno cursó, con al menos una clase dictada registrada), Fecha del examen y Nota (dentro de la escala configurada por el centro).
+1. Desde la ficha del alumno (sección Historial académico), "Registrar resultado de examen" solicita Materia (entre las que el alumno cursó, con al menos una clase dictada registrada), Fecha del examen, Nota (dentro de la escala configurada por el centro) y permite ingresar Observaciones opcionales.
 2. La nota se valida contra el rango configurado (por ejemplo, 1 a 10); un valor fuera de rango se rechaza con un mensaje específico.
 3. Un alumno puede tener varios resultados de examen para la misma materia (recuperatorios, distintos parciales) — no se reemplaza el anterior, se agrega como un registro nuevo.
 4. Al guardar se informa "Resultado registrado correctamente" y aparece en el historial académico del alumno (HU-E-05).
@@ -566,7 +566,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 **Criterios de aceptación:**
 
 1. Dentro de la ficha del alumno, una sección/tab "Historial académico" lista las clases dictadas (HU-E-01) y los resultados de examen (HU-E-06) del alumno, ordenados por fecha descendente (más reciente primero).
-2. Cada clase dictada muestra Fecha, Materia y Profesor; cada resultado de examen muestra Fecha, Materia y Nota — ambos tipos de registro conviven en la misma línea de tiempo, distinguidos visualmente.
+2. Cada clase dictada muestra Fecha, Materia y Profesor; cada resultado de examen muestra Fecha, Materia y Nota, con las Observaciones si existen — ambos tipos de registro conviven en la misma línea de tiempo, distinguidos visualmente.
 3. Se puede filtrar la vista por Materia.
 4. Si el alumno no tiene ningún registro: "Este alumno todavía no tiene historial académico".
 5. Esta historia es de solo consulta — las acciones de alta (HU-E-01, HU-E-06) viven en sus propias pantallas/puntos de entrada, no acá.

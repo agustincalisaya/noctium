@@ -20,6 +20,7 @@ type FilaHistorial = {
   materia_id: string | null;
   profesor_id: string | null;
   nota: Prisma.Decimal | string | number | null;
+  observaciones: string | null;
   turno_id: string | null;
   registro_id: string | null;
 };
@@ -63,6 +64,7 @@ export async function obtenerHistorialAlumno(
         clase."materiaId" AS materia_id,
         clase."profesorId" AS profesor_id,
         NULL::numeric AS nota,
+        NULL::text AS observaciones,
         clase."turnoId" AS turno_id,
         clase."createdAtClaseDictada" AS creado_en,
         clase."idClaseDictada" AS registro_id
@@ -77,6 +79,7 @@ export async function obtenerHistorialAlumno(
         examen."materiaId" AS materia_id,
         NULL::text AS profesor_id,
         examen."notaExamen" AS nota,
+        examen."observaciones" AS observaciones,
         NULL::text AS turno_id,
         examen."createdAtResultadoExamen" AS creado_en,
         examen."idResultadoExamen" AS registro_id
@@ -101,7 +104,7 @@ export async function obtenerHistorialAlumno(
     )
     SELECT conteo.total, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
-      pagina.nota, pagina.turno_id, pagina.registro_id
+      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id
     FROM conteo CROSS JOIN materias
     LEFT JOIN pagina ON TRUE
     ORDER BY pagina.fecha DESC NULLS LAST, pagina.creado_en DESC NULLS LAST, pagina.registro_id DESC NULLS LAST
@@ -139,6 +142,7 @@ export async function obtenerHistorialAlumno(
       fecha: fechaCalendario(fila.fecha),
       materia: { id: fila.materia_id, nombre: nombreMateria },
       nota: String(fila.nota),
+      observaciones: fila.observaciones,
     };
   });
 
