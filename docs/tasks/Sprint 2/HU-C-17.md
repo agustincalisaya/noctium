@@ -32,7 +32,7 @@ técnico propio de C-17.
 ### 0.1. Wizard y contratos disponibles
 
 - HU-C-18 y el wizard individual de `/turnos/nuevo` estaban cerrados y mergeados al iniciar
-  C-17. El selector `Generar un turno | Generar varios turnos` está habilitado en ambos
+  C-17. El selector `Turno individual | Generar varios turnos` está habilitado en ambos
   modos; el flujo recurrente y sus rutas de generación ya están implementados.
 - `PasoMateriaTurno` y `PasoProfesorTurno` reciben datos y callbacks por props y se reutilizan
   directamente, sin versiones paralelas. El listado inicial de profesores del wizard usa
@@ -106,7 +106,7 @@ Vive en:
 
 detrás del control:
 
-`Generar un turno | Generar varios turnos`
+`Turno individual | Generar varios turnos`
 
 El modo masivo reutiliza directamente los componentes y orígenes de Materia y Profesor.
 Desde el tercer paso (Franja) tiene un flujo independiente del alta individual. No llama
