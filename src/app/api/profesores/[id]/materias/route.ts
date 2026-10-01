@@ -3,10 +3,14 @@ import { flattenError } from "zod";
 import { withPermission } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
 import {
+  ActualizarMateriasProfesorSchema,
   AsociarMateriasProfesorSchema,
   ProfesorIdSchema,
 } from "@/server/profesores/profesor.schema";
-import { asociarMateriasAProfesor } from "@/server/profesores/profesor.service";
+import {
+  actualizarMateriasDeProfesor,
+  asociarMateriasAProfesor,
+} from "@/server/profesores/profesor.service";
 
 // Asociación de materias al profesor (HU-D-03, spec_modulo_D.md §2.3 con
 // nota de sincronización: camelCase). Capa delgada (Regla N.° 4): valida
@@ -125,6 +129,92 @@ export const POST = withPermission("profesores:editar", async (req, ctx) => {
     }
     // Cualquier otro error: nunca un detalle técnico en el body (mismo
     // criterio que app/api/profesores/route.ts).
+    return NextResponse.json(
+      { data: null, error: { code: "ERROR_INTERNO", message: "No se pudo completar la operación" } },
+      { status: 500 },
+    );
+  }
+});
+
+function bloqueosDeDetalles(error: ServiceError): { materia_id: string; cantidad: number }[] {
+  const detalle = error.detalles?.detalle;
+  return Array.isArray(detalle) ? (detalle as { materia_id: string; cantidad: number }[]) : [];
+}
+
+/** Literal de HU-D-07 AC3 cuando la baja rechazada es de una sola materia. */
+function mensajeTurnosFuturos(bloqueos: { cantidad: number }[]): string {
+  if (bloqueos.length === 1) {
+    return `No se puede quitar: el profesor tiene ${bloqueos[0]!.cantidad} turnos futuros de esta materia`;
+  }
+  return "No se pueden quitar algunas materias: el profesor tiene turnos futuros de ellas";
+}
+
+// Modificación de las materias asociadas (HU-D-07, spec_modulo_D.md §2.7):
+// el body es el CONJUNTO FINAL (`materia_ids`, snake_case como los contratos
+// nuevos de Sprint 2). Mismo servicio que la Server Action
+// `actualizarMateriasProfesor()`.
+export const PUT = withPermission("profesores:editar", async (req, ctx) => {
+  const usuarioId = req.auth!.user.id;
+  const { id } = (await ctx.params) as { id: string };
+
+  const profesorId = ProfesorIdSchema.safeParse(id);
+  if (!profesorId.success) {
+    return errorValidacion({ id: flattenError(profesorId.error).formErrors });
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      {
+        data: null,
+        error: { code: "BODY_INVALIDO", message: "El cuerpo de la solicitud debe ser JSON válido" },
+      },
+      { status: 400 },
+    );
+  }
+
+  const parsed = ActualizarMateriasProfesorSchema.safeParse(body);
+  if (!parsed.success) {
+    const { formErrors, fieldErrors } = flattenError(parsed.error);
+    return errorValidacion(formErrors.length > 0 ? { ...fieldErrors, body: formErrors } : fieldErrors);
+  }
+
+  try {
+    const resultado = await actualizarMateriasDeProfesor(profesorId.data, parsed.data.materia_ids, usuarioId);
+    return NextResponse.json({ data: resultado, error: null }, { status: 200 });
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      if (error.code === "MATERIA_CON_TURNOS_FUTUROS") {
+        const detalle = bloqueosDeDetalles(error);
+        return NextResponse.json(
+          { data: null, error: { code: error.code, message: mensajeTurnosFuturos(detalle), detalle } },
+          { status: 409 },
+        );
+      }
+      if (error.code === "MATERIA_INACTIVA") {
+        const materias = materiasDeDetalles(error);
+        return NextResponse.json(
+          {
+            data: null,
+            error: {
+              code: error.code,
+              message: mensajeMateriasInactivas(materias),
+              materia_ids_invalidas: materias.map((materia) => materia.id),
+            },
+          },
+          { status: 409 },
+        );
+      }
+      const traduccion = MENSAJES[error.code];
+      if (traduccion) {
+        return NextResponse.json(
+          { data: null, error: { code: error.code, message: traduccion.message } },
+          { status: traduccion.status },
+        );
+      }
+    }
     return NextResponse.json(
       { data: null, error: { code: "ERROR_INTERNO", message: "No se pudo completar la operación" } },
       { status: 500 },

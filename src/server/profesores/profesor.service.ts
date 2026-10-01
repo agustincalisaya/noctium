@@ -14,7 +14,13 @@ import { ServiceError } from "@/server/shared/service-error";
 import { MENSAJE_CONTACTO_REQUERIDO } from "@/server/shared/contacto.schema";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
+import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
+import {
+  contarTurnosFuturosDeProfesorPorMateria,
+  listarTurnosFuturosDeProfesorPorMateria,
+} from "@/server/turnos/turno.publico";
 import { clavesOrdenProfesor, formatearApellidoNombre } from "@/lib/profesor-listado";
+import { TURNOS_FUTUROS_POR_PAGINA } from "@/server/profesores/profesor.schema";
 import type {
   AltaProfesorInput,
   ContactoProfesorInput,
@@ -26,6 +32,7 @@ import type {
   HorarioAtencion,
   MateriaDeProfesor,
   OpcionProfesor,
+  PaginaTurnosFuturos,
   PaginacionProfesores,
   ProfesorActivoOpcion,
   ProfesorListadoItem,
@@ -552,6 +559,149 @@ export async function asociarMateriasAProfesor(
     }
     throw error;
   }
+}
+
+/** Señal interna: el conjunto pedido es igual al actual (se revierte el bloqueo del paso 1). */
+class SinCambiosEnMaterias extends Error {}
+
+export type ResultadoActualizarMateriasServicio = {
+  agregadas: string[];
+  quitadas: string[];
+  pendientes_afectados: number;
+  sin_cambios: boolean;
+};
+
+/**
+ * Modificación de las materias asociadas (HU-D-07, `spec_modulo_D.md` §2.7 y
+ * §3.3/§3.6). `materiaIds` es el conjunto FINAL deseado, ya validado por
+ * `ActualizarMateriasProfesorSchema`. Todo o nada en una única `$transaction`:
+ *
+ * 1. Profesor activo: `updateMany` condicionado (Regla N.° 7), mismo patrón
+ *    que `asociarMateriasAProfesor()`. Bloquea la fila del profesor, así dos
+ *    guardados simultáneos se serializan y el segundo calcula el diff con lo
+ *    que confirmó el primero. NO incrementa `version`: la UI guarda después
+ *    los datos personales (§2.6) con la versión precargada (HU-D-07 §0.3).
+ * 2. Diff contra `profesor_materia`. Sin cambios: no se escribe nada.
+ * 3. Agregar: mismas validaciones que HU-D-03 vía `bloquearMateriasParaAsociar()`.
+ * 4. Quitar, por cada materia y en este orden: DELETE del vínculo y DESPUÉS
+ *    `contarTurnosFuturosDeProfesorPorMateria()` (servicio público de Turnos,
+ *    Regla N.° 3). El DELETE toma el bloqueo exclusivo de la fila que
+ *    `profesorActivoDictaMateria(…, tx)` lee con FOR SHARE al crear un turno:
+ *    un turno en curso hace esperar al DELETE y el conteo lo ve; uno posterior
+ *    ya no encuentra la asociación. Se recorren todas antes de lanzar, para
+ *    informar todos los bloqueos juntos.
+ *
+ * La baja es un DELETE físico de la tabla de asociación (excepción a la
+ * Regla N.° 1 documentada en la spec §2.7 paso 6). No toca `HorarioProfesor`
+ * (AC5: el horario no tiene materia).
+ */
+export async function actualizarMateriasDeProfesor(
+  profesorId: string,
+  materiaIds: string[],
+  usuarioId: string,
+): Promise<ResultadoActualizarMateriasServicio> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const { count } = await tx.profesor.updateMany({
+        where: { idProfesor: profesorId, activoProfesor: true },
+        data: { modificadoPorUsuarioId: usuarioId },
+      });
+      if (count === 0) {
+        const existe = await tx.profesor.findUnique({
+          where: { idProfesor: profesorId },
+          select: { idProfesor: true },
+        });
+        throw existe
+          ? new ServiceError("PROFESOR_INACTIVO", "El profesor no está activo")
+          : new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
+      }
+
+      const actuales = await tx.profesorMateria.findMany({
+        where: { profesorId },
+        select: { materiaId: true },
+      });
+      const idsActuales = new Set(actuales.map(({ materiaId }) => materiaId));
+      const deseadas = new Set(materiaIds);
+      const agregar = materiaIds.filter((id) => !idsActuales.has(id));
+      const quitar = [...idsActuales].filter((id) => !deseadas.has(id));
+      if (agregar.length === 0 && quitar.length === 0) throw new SinCambiosEnMaterias();
+
+      if (agregar.length > 0) {
+        const materias = await bloquearMateriasParaAsociar(agregar, tx);
+        if (materias.length !== agregar.length) {
+          throw new ServiceError("MATERIA_NO_ENCONTRADA", "Alguna materia no existe");
+        }
+        const inactivas = materias.filter((materia) => !materia.activa);
+        if (inactivas.length > 0) {
+          throw new ServiceError("MATERIA_INACTIVA", "Alguna materia dejó de estar activa", {
+            materias: inactivas.map(({ id, nombre }) => ({ id, nombre })),
+          });
+        }
+        await tx.profesorMateria.createMany({
+          data: agregar.map((materiaId) => ({ profesorId, materiaId, creadoPorUsuarioId: usuarioId })),
+        });
+      }
+
+      const bloqueadas: { materia_id: string; cantidad: number }[] = [];
+      let pendientesAfectados = 0;
+      for (const materiaId of quitar) {
+        await tx.profesorMateria.deleteMany({ where: { profesorId, materiaId } });
+        const { confirmados, pendientes } = await contarTurnosFuturosDeProfesorPorMateria(
+          profesorId,
+          materiaId,
+          tx,
+        );
+        if (confirmados > 0) bloqueadas.push({ materia_id: materiaId, cantidad: confirmados });
+        pendientesAfectados += pendientes;
+      }
+      if (bloqueadas.length > 0) {
+        throw new ServiceError(
+          "MATERIA_CON_TURNOS_FUTUROS",
+          "No se puede quitar: el profesor tiene turnos futuros de esta materia",
+          { detalle: bloqueadas },
+        );
+      }
+
+      return { agregadas: agregar, quitadas: quitar, pendientes_afectados: pendientesAfectados, sin_cambios: false };
+    });
+  } catch (error) {
+    if (error instanceof SinCambiosEnMaterias) {
+      return { agregadas: [], quitadas: [], pendientes_afectados: 0, sin_cambios: true };
+    }
+    // La única restricción única de profesor_materia es la PK compuesta.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new ServiceError("MATERIA_YA_ASOCIADA", "Alguna materia ya está asociada al profesor", {
+        materias: [],
+      });
+    }
+    throw error;
+  }
+}
+
+/**
+ * Lista del modal «Ver turnos» (HU-D-07 AC3, spec §2.7 «Lista de turnos
+ * futuros»). El profesor y la materia deben existir (activos o no); no exige
+ * que la materia siga asociada. Delega en el servicio público de Turnos: este
+ * módulo nunca lee la tabla `turnos` (Regla N.° 3).
+ */
+export async function listarTurnosFuturosDeMateria(
+  profesorId: string,
+  materiaId: string,
+  pagina: number,
+): Promise<PaginaTurnosFuturos> {
+  const profesor = await prisma.profesor.findUnique({
+    where: { idProfesor: profesorId },
+    select: { idProfesor: true },
+  });
+  if (!profesor) throw new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
+
+  const [materia] = await obtenerMateriasPorIds([materiaId]);
+  if (!materia) throw new ServiceError("MATERIA_NO_ENCONTRADA", "La materia no existe");
+
+  return listarTurnosFuturosDeProfesorPorMateria(profesorId, materiaId, {
+    pagina,
+    porPagina: TURNOS_FUTUROS_POR_PAGINA,
+  });
 }
 
 /**

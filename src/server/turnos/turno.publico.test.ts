@@ -14,6 +14,7 @@ const {
   bloquearTurnoParaOperacion,
   obtenerAlumnosInscriptosDeTurno,
   contarTurnosFuturosDeProfesorPorMateria,
+  listarTurnosFuturosDeProfesorPorMateria,
   ajustarCuposPorCapacidadDeAula,
   contarTurnosPorMes,
 } = await import("./turno.publico");
@@ -97,6 +98,48 @@ describe("contarTurnosFuturosDeProfesorPorMateria", () => {
     db.$queryRaw.mockResolvedValue([{ confirmados: 0n, pendientes: 0n }]);
     await expect(contarTurnosFuturosDeProfesorPorMateria("p", "m"))
       .resolves.toEqual({ confirmados: 0, pendientes: 0 });
+  });
+});
+
+describe("listarTurnosFuturosDeProfesorPorMateria (HU-D-07 AC3)", () => {
+  const fila = (id: string, estado: "DISPONIBLE" | "COMPLETO", inscriptos: bigint, cupo: number | null, aula: string | null) => ({
+    idTurno: id, fechaTurno: new Date("2026-10-06T00:00:00.000Z"), horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"),
+    duracionMinutosTurno: 90, cupoMaximoTurno: cupo, estadoTurno: estado, nombreAula: aula, inscriptos,
+  });
+
+  it("usa el mismo criterio de futuro y estados que contarTurnos…, ordena y pagina", async () => {
+    db.$queryRaw
+      .mockResolvedValueOnce([{ total: 12n }])
+      .mockResolvedValueOnce([fila("t-1", "DISPONIBLE", 3n, 5, "Aula 2"), fila("t-2", "COMPLETO", 10n, 10, "Aula 1")]);
+    await expect(listarTurnosFuturosDeProfesorPorMateria("profesor-1", "materia-1", { pagina: 2, porPagina: 10 }, tx))
+      .resolves.toEqual({
+        items: [
+          { turno_id: "t-1", fecha: "2026-10-06", hora_inicio: "10:00", hora_fin: "11:30", aula: "Aula 2", alumnos_inscriptos: "3/5", estado: "DISPONIBLE" },
+          { turno_id: "t-2", fecha: "2026-10-06", hora_inicio: "10:00", hora_fin: "11:30", aula: "Aula 1", alumnos_inscriptos: "10/10", estado: "COMPLETO" },
+        ],
+        total: 12, pagina: 2, por_pagina: 10,
+      });
+    for (const indice of [0, 1]) {
+      expect(sql(indice)).toContain("IN ('DISPONIBLE', 'COMPLETO')");
+      expect(sql(indice)).toContain("date_trunc('minute', CURRENT_TIMESTAMP AT TIME ZONE 'America/Argentina/Buenos_Aires')");
+      expect(sql(indice)).not.toContain("PENDIENTE");
+      expect(sql(indice)).not.toContain("CANCELADO");
+    }
+    expect(sql(1)).toContain('ORDER BY t."fechaTurno", t."horaInicioTurno", t."idTurno"');
+    expect(db.$queryRaw.mock.calls[1]!.slice(-2)).toEqual([10, 10]); // LIMIT 10 OFFSET 10
+  });
+
+  it("sin turnos no consulta la página y devuelve total 0", async () => {
+    db.$queryRaw.mockResolvedValueOnce([{ total: 0n }]);
+    await expect(listarTurnosFuturosDeProfesorPorMateria("p", "m", { pagina: 1, porPagina: 10 }))
+      .resolves.toEqual({ items: [], total: 0, pagina: 1, por_pagina: 10 });
+    expect(db.$queryRaw).toHaveBeenCalledOnce();
+  });
+
+  it("sin aula ni cupo muestra «Sin asignar», igual que presentar()", async () => {
+    db.$queryRaw.mockResolvedValueOnce([{ total: 1n }]).mockResolvedValueOnce([fila("t-3", "DISPONIBLE", 0n, null, null)]);
+    const { items } = await listarTurnosFuturosDeProfesorPorMateria("p", "m", { pagina: 1, porPagina: 10 });
+    expect(items[0]).toMatchObject({ aula: "Sin asignar", alumnos_inscriptos: "Sin asignar" });
   });
 });
 

@@ -29,7 +29,7 @@
 // Ejemplos INACTIVOS (para probar filtros de listados): alumno 17,
 // profesores 5 y "Sosa", materia "Historia de la Ciencia" y "Aula 12".
 //
-// Listado de profesores (HU-D-05): 22 profesores (2 páginas de 20 — el
+// Listado de profesores (HU-D-05): 23 profesores (2 páginas de 20 — el
 // por_pagina default de ListarProfesoresQuerySchema, igual que alumnos, aulas
 // y materias; paginacion_limite_default = 10 solo lo usa el listado de
 // turnos), con apellidos con tilde y en minúscula/mayúscula (orden
@@ -37,7 +37,16 @@
 // (desempate por DNI), uno sin contacto, uno sin materias, uno con 4 materias
 // y 3 intervalos el mismo día.
 //
-// Turnos (HU-C-*): 27, con fechas en DÍAS OPERATIVOS relativos a la fecha en
+// HU-D-07 (modificar materias del profesor), solo agregados:
+//  - Giménez (profesor1) suma 8 turnos futuros de Matemática (seed-turno-28..35,
+//    días operativos 8 a 15): 11 en total que bloquean quitarle Matemática, para
+//    paginar de a 10 el modal «Ver turnos».
+//  - "Herrera, Mariana" (activa, sin cuenta) tiene asociada "Historia de la
+//    Ciencia", que está INACTIVA: el selector la muestra tildada con "Inactiva".
+//  - seed-turno-36: PENDIENTE de Castro + Química CON profesor asignado (sin
+//    aula ni alumnos): no bloquea quitar Química, pero suma pendientes_afectados.
+//
+// Turnos (HU-C-*): 27 (+9 de HU-D-07, ver arriba), con fechas en DÍAS OPERATIVOS relativos a la fecha en
 // que se corre el seed (0 = próximo día operativo después de hoy):
 //  - 25 futuros en los próximos 11 días operativos (3 por día en los primeros
 //    8): 3 PENDIENTE (sin profesor ni aula), 3 DISPONIBLE sin inscriptos,
@@ -549,6 +558,23 @@ const PROFESORES: {
     materias: ["Inglés Técnico"],
     horarios: [],
   },
+  {
+    // HU-D-07 AC1: activa con una materia INACTIVA asociada ("Historia de la
+    // Ciencia"): el modo edición la muestra tildada con la etiqueta "Inactiva".
+    // Se agrega al final para no cambiar el índice de los demás profesores.
+    nombre: "Mariana",
+    apellido: "Herrera",
+    dni: "32200022",
+    nacimiento: [1984, 8, 21],
+    genero: "FEMENINO",
+    telefono: "+54 11 5560-0122",
+    email: "mariana.herrera@example.com",
+    direccion: null,
+    cuenta: false,
+    activo: true,
+    materias: ["Química", "Historia de la Ciencia"],
+    horarios: [],
+  },
 ];
 
 type AlumnoSeed = {
@@ -761,6 +787,9 @@ type TurnoSeed = {
   id: string;
   prioridad?: "ALTA" | "URGENTE";
   cancelado?: boolean;
+  // PENDIENTE con profesor ya elegido y sin aula (HU-D-07: lo cuenta
+  // `pendientes_afectados`). Sin este flag, PENDIENTE = sin profesor.
+  pendiente?: boolean;
   // Días OPERATIVOS (dias_operativos) relativos a hoy: 0 = próximo día
   // operativo después de hoy, 1 = el siguiente, ...; -1 = último día
   // operativo antes de hoy (turnos pasados, historial del calendario).
@@ -819,6 +848,18 @@ const TURNOS: TurnoSeed[] = [
   // --- PASADOS a propósito (historial del calendario) ---
   { id: "seed-turno-26", diaOperativo: -1, hora: "10:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 2", alumnos: rango(0, 7) },
   { id: "seed-turno-27", diaOperativo: -2, hora: "16:00", duracionMin: 120, materia: "Programación I", profesor: 3, aula: "Aula 10", alumnos: rango(17, 28) },
+  // --- HU-D-07: Giménez + Matemática llega a 11 turnos futuros que bloquean
+  // (3 de arriba + estos 8), para paginar de a 10 el modal «Ver turnos». ---
+  { id: "seed-turno-28", diaOperativo: 8, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: rango(20, 29) }, // COMPLETO 10/10
+  { id: "seed-turno-29", diaOperativo: 9, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: rango(0, 2) },
+  { id: "seed-turno-30", diaOperativo: 10, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: [] },
+  { id: "seed-turno-31", diaOperativo: 11, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: rango(5, 9) },
+  { id: "seed-turno-32", diaOperativo: 12, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: [] },
+  { id: "seed-turno-33", diaOperativo: 13, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: rango(10, 12) },
+  { id: "seed-turno-34", diaOperativo: 14, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: [] },
+  { id: "seed-turno-35", diaOperativo: 15, hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1", alumnos: rango(30, 31) },
+  // HU-D-07: PENDIENTE con profesor asignado (Castro, 15-17 todos los días), sin aula ni alumnos.
+  { id: "seed-turno-36", diaOperativo: 9, hora: "15:00", duracionMin: 60, materia: "Química", profesor: 9, aula: null, alumnos: [], pendiente: true },
 ];
 
 /** Cupo máximo de un turno de seed: la capacidad de su aula, o null sin aula. */
@@ -829,7 +870,7 @@ function capacidadDeAula(nombre: string | null) {
 /** PENDIENTE sin profesor; si no, COMPLETO cuando los inscriptos llenan el cupo. */
 function estadoDeTurno(t: TurnoSeed): EstadoTurno {
   if (t.cancelado) return "CANCELADO";
-  if (t.profesor === null) return "PENDIENTE";
+  if (t.profesor === null || t.pendiente) return "PENDIENTE";
   const cupo = capacidadDeAula(t.aula);
   return cupo !== null && t.alumnos.length >= cupo ? "COMPLETO" : "DISPONIBLE";
 }
@@ -861,7 +902,8 @@ function calcularFechasTurnos(hoy: Date): Map<string, Date> {
 
 function validarDatos(hoy: Date, fechas: Map<string, Date>): void {
   const errores: string[] = [];
-  const agendados = TURNOS.filter((t) => t.profesor !== null);
+  // Un PENDIENTE con profesor (HU-D-07) no reserva recursos: no entra acá.
+  const agendados = TURNOS.filter((t) => t.profesor !== null && !t.pendiente);
 
   for (const p of PROFESORES) {
     // Mismas reglas que registrarHorarioProfesor() (HU-D-04).
@@ -945,6 +987,31 @@ function validarDatos(hoy: Date, fechas: Map<string, Date>): void {
     }
     if (inicio < apertura || fin > cierre) errores.push(`${t.id}: fuera del horario operativo`);
     if (new Set(t.alumnos).size !== t.alumnos.length) errores.push(`${t.id}: alumno repetido`);
+
+    if (t.pendiente) {
+      // PENDIENTE con profesor (HU-D-07): mismas reglas de profesor que un
+      // agendado (activo, dicta la materia, dentro de su horario y libre),
+      // pero sin aula ni alumnos todavía.
+      const prof = t.profesor === null ? null : PROFESORES[t.profesor];
+      if (!prof) errores.push(`${t.id}: PENDIENTE con profesor sin profesor`);
+      else {
+        if (!prof.activo) errores.push(`${t.id}: profesor inactivo`);
+        if (!prof.materias.includes(t.materia)) errores.push(`${t.id}: ${prof.apellido} no dicta ${t.materia}`);
+        const dentroPendiente = prof.horarios.some(
+          (h) => DIAS[h.dia] === dia && inicio >= horaAMinutos(h.desde) && fin <= horaAMinutos(h.hasta),
+        );
+        if (!dentroPendiente) errores.push(`${t.id}: fuera del horario de ${prof.apellido} (${dia} ${t.hora})`);
+        const ocupado = agendados.some(
+          (o) =>
+            o.profesor === t.profesor &&
+            fechas.get(o.id)!.getTime() === fecha.getTime() &&
+            intervalosSeSuperponen(intervaloDe(o), { inicio, fin }),
+        );
+        if (ocupado) errores.push(`${t.id}: ${prof.apellido} ya tiene un turno en ese horario`);
+      }
+      if (t.aula !== null || t.alumnos.length > 0) errores.push(`${t.id}: PENDIENTE con aula o alumnos`);
+      continue;
+    }
 
     if (t.profesor === null) {
       if (t.aula !== null || t.alumnos.length > 0) errores.push(`${t.id}: PENDIENTE con aula o alumnos`);
