@@ -24,13 +24,13 @@ export function TurnoDatosCard({ turno }: { turno: TurnoDetalle }) {
     ["Creado por", turno.creado_por ?? "Sin registrar"],
   ];
   return (
-    <section aria-labelledby="datos-turno-titulo" className="space-y-4 rounded-md border border-border bg-card p-5 text-card-foreground">
-      <h2 id="datos-turno-titulo" className="text-lg font-semibold">Datos del turno</h2>
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <section aria-labelledby="datos-turno-titulo" className="space-y-3.5 rounded-md border border-border bg-card p-4 text-card-foreground sm:p-[22px]">
+      <h2 id="datos-turno-titulo" className="text-sm font-semibold">Datos del turno</h2>
+      <dl className="grid grid-cols-2 gap-[18px] lg:grid-cols-3">
         {campos.map(([etiqueta, valor]) => (
-          <div className="min-w-0" key={etiqueta}>
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{etiqueta}</dt>
-            <dd className="break-words font-medium">{valor}</dd>
+          <div className={`min-w-0 ${etiqueta === "Creado por" ? "col-span-2 lg:col-span-1" : ""}`} key={etiqueta}>
+            <dt className="text-[10px] leading-4 uppercase text-muted-foreground">{etiqueta}</dt>
+            <dd className={`break-words text-sm leading-5 ${["Fecha", "Hora de inicio–fin", "Creado"].includes(etiqueta) ? "font-mono" : ""}`}>{valor}</dd>
           </div>
         ))}
       </dl>

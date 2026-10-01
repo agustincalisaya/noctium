@@ -8,6 +8,12 @@
 
 **HU contractualizadas en la spec:** HU-I-03 (Registrar y listar formas de pago del centro), HU-I-01 (Registrar pago) — Sprint 2.
 
+**Nota aditiva de sincronización HU-I-01 (01/10/2026):** el modelo `Pago`, sus relaciones y permisos ya existen en la migración `20260928150100_sprint2_modelo` y el seed vigente; HU-I-01 no crea otra migración. Se reutiliza `listarPagosDeTurno()` de la fachada `pago.publico.ts` ya integrada en develop por HU-C-09: consume B en lote y no importa Turnos, conservando el aislamiento sin ciclo C → I → C. La ruta de detalle existente comprueba `pagos:leer` antes de pedir la lista y omite por completo `pagos` para el Profesor. Task y evidencia: `docs/tasks/Sprint 2/HU-I-01.md`, `docs/testing/HU-I-01-evidencia.md`. Sin cambios en respuestas, reglas de negocio ni numeración; precisión aditiva de validación de IDs históricos.
+
+**Presentación solicitada (01/10/2026):** HU-I-01 muestra `Total registrado` como en la página 5 del PDF, sumando únicamente las filas recibidas en centavos exactos. Este pedido explícito del usuario extiende la presentación sin total de HU-C-09; no representa saldo, precio esperado ni validación del monto del turno.
+
+**Compatibilidad verificada en integración (01/10/2026):** la migración inicial creó las formas con ids `formapago-efectivo`, `formapago-transferencia`, `formapago-debito`, `formapago-mercado-pago`, conservados por el seed. La validación CUID de §2.4 rechazaba pagos válidos contra ese catálogo. `forma_pago_id` acepta un CUID **o exactamente uno de esos cuatro ids existentes**; las reglas de existencia/actividad siguen validándose en el servicio. No se migran ids ni se alteran referencias históricas. El ejemplo de schema de §2.4 debe interpretarse con esta precisión aditiva.
+
 **Backlog v2 del 28/09/2026:** (1) **HU-C-11 se retiró**: el turno ya no lleva forma de pago, así que esta spec ya no la consume ni la propone desde el turno; (2) **HU-I-01 ahora registra qué alumno paga** (AC1, AC3, AC4): el pago lleva `alumnoId` y la forma de pago se propone a partir de la **preferida del alumno elegido** (HU-B-03), sin obligarla; (3) HU-I-01 depende ahora de HU-C-09 (detalle del turno, de donde sale la lista de inscriptos) y no de HU-C-11; (4) HU-I-03 ya no menciona turnos.
 
 **Changelog de Revisión 1 (trazabilidad Backlog → Spec):**
