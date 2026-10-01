@@ -114,6 +114,12 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
     // Para el rol Profesor, /calendario/profesor es "Mi agenda" (su propia
     // agenda, resuelta desde la sesión en la página).
     CALENDARIO,
+    // alumnos:leer: solo lectura (sin alta ni edición).
+    {
+      label: "Alumnos",
+      icon: Users,
+      items: [{ label: "Listado", href: "/alumnos", icon: Contact }],
+    },
   ],
   ALUMNO: [],
 };
