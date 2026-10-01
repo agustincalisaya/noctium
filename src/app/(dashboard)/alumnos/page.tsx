@@ -2,17 +2,15 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GraduationCap, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { Pagination } from "@/components/shared/pagination";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ListarAlumnosQuerySchema } from "@/server/alumnos/alumno.schema";
 import { listarAlumnos } from "@/server/alumnos/alumno.service";
+import { ListadoAlumnos } from "./listado-alumnos";
 
 export default async function AlumnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creada?: string; pagina?: string; sin_contacto?: string; motivo?: string }>;
+  searchParams: Promise<{ creada?: string; pagina?: string; q?: string; sin_contacto?: string; motivo?: string }>;
 }) {
   let rol;
   try {
@@ -22,7 +20,7 @@ export default async function AlumnosPage({
     throw error;
   }
 
-  const { creada, pagina, sin_contacto: sinContacto, motivo } = await searchParams;
+  const { creada, pagina, q, sin_contacto: sinContacto, motivo } = await searchParams;
   const esMesaDeEntrada = rol === "MESA_ENTRADA";
 
   return (
@@ -48,8 +46,13 @@ export default async function AlumnosPage({
         </p>
       )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Alumnos</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold">Alumnos</h1>
+          <p className="text-sm text-muted-foreground">
+            Buscá por apellido, nombre o DNI (desde 2 caracteres, sin distinguir mayúsculas ni tildes).
+          </p>
+        </div>
         {/* Ocultamiento de UI únicamente — la verificación real es la de
             verificarPermiso("alumnos:crear") en el Server Action. */}
         {esMesaDeEntrada && (
@@ -72,7 +75,7 @@ export default async function AlumnosPage({
        * Materias). Mismo patrón que `materias/page.tsx`.
        */}
       <Suspense fallback={<CargandoAlumnos />}>
-        <TablaAlumnos pagina={pagina} esMesaDeEntrada={esMesaDeEntrada} />
+        <TablaAlumnos pagina={pagina} q={q} esMesaDeEntrada={esMesaDeEntrada} />
       </Suspense>
     </div>
   );
@@ -89,87 +92,30 @@ function CargandoAlumnos() {
 
 async function TablaAlumnos({
   pagina,
+  q,
   esMesaDeEntrada,
 }: {
   pagina: string | undefined;
+  q: string | undefined;
   esMesaDeEntrada: boolean;
 }) {
   const paginaSolicitada = Number(pagina);
-  const query = ListarAlumnosQuerySchema.parse({
+  const base = {
     pagina: Number.isFinite(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : undefined,
-  });
-  const { items, paginacion } = await listarAlumnos(query);
+  };
+  // Un `q` inválido escrito a mano en la URL (más de 100 caracteres) se
+  // ignora en vez de romper la página: el listado sale sin filtro.
+  const conBusqueda = ListarAlumnosQuerySchema.safeParse({ ...base, q });
+  const query = conBusqueda.success ? conBusqueda.data : ListarAlumnosQuerySchema.parse(base);
+  const inicial = await listarAlumnos(query);
 
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-md border border-border bg-card py-12 text-center">
-        <p className="text-sm text-muted-foreground">No hay alumnos registrados</p>
-        {esMesaDeEntrada && (
-          <Link
-            href="/alumnos/nueva"
-            className="text-sm font-medium text-primary underline underline-offset-4"
-          >
-            Nuevo alumno
-          </Link>
-        )}
-      </div>
-    );
-  }
-
+  // Sin `key`: cuando el paginador navega, ListadoAlumnos adopta los datos
+  // nuevos sin remontarse, así la tabla no se desarma (HU-B-05, 1.4).
   return (
-    <>
-      <div className="overflow-hidden rounded-md border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 text-left font-medium">Apellido y nombre</th>
-              <th className="px-4 py-2 text-left font-medium">DNI</th>
-              <th className="px-4 py-2 text-left font-medium">Teléfono</th>
-              <th className="px-4 py-2 text-left font-medium">Email</th>
-              <th className="px-4 py-2 text-left font-medium">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {items.map((alumno) => (
-              <tr
-                key={alumno.id}
-                className={cn(
-                  "relative transition-colors hover:bg-accent",
-                  !alumno.is_active && "opacity-60",
-                )}
-              >
-                <td className="max-w-[16rem] truncate px-4 py-2 font-medium text-foreground" title={`${alumno.apellido}, ${alumno.nombre}`}>
-                  <Link
-                    href={`/alumnos/${alumno.id}?pagina=${paginacion.pagina_actual}`}
-                    className="after:absolute after:inset-0 after:content-['']"
-                  >
-                    {alumno.apellido}, {alumno.nombre}
-                  </Link>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">{alumno.dni}</td>
-                <td className="max-w-[12rem] truncate px-4 py-2 text-muted-foreground" title={alumno.telefono ?? "—"}>
-                  {alumno.telefono ?? "—"}
-                </td>
-                <td className="max-w-[16rem] truncate px-4 py-2 text-muted-foreground" title={alumno.email ?? "—"}>
-                  {alumno.email ?? "—"}
-                </td>
-                <td className="px-4 py-2">
-                  <Badge variant={alumno.is_active ? "success" : "muted"}>
-                    {alumno.is_active ? "Activo" : "Inactivo"}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Pagination
-        paginaActual={paginacion.pagina_actual}
-        totalPaginas={paginacion.total_paginas}
-        total={paginacion.total}
-        buildHref={(p) => `/alumnos?pagina=${p}`}
-      />
-    </>
+    <ListadoAlumnos
+      inicial={inicial}
+      qInicial={query.q ?? ""}
+      esMesaDeEntrada={esMesaDeEntrada}
+    />
   );
 }

@@ -4,18 +4,24 @@ import { revalidatePath } from "next/cache";
 import { flattenError } from "zod";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
-import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
+import { getParametroNumerico, obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { mensajeSuperposicion, type DiaSemanaValor } from "@/lib/horario-atencion";
 import {
   AsociarMateriasProfesorSchema,
   ProfesorIdSchema,
+  construirModificarProfesorSchema,
   construirRegistrarHorarioSchema,
 } from "@/server/profesores/profesor.schema";
 import {
   asociarMateriasAProfesor,
+  modificarProfesor as modificarProfesorEnServicio,
   registrarHorarioProfesor as registrarHorario,
 } from "@/server/profesores/profesor.service";
-import type { EstadoAsociarMaterias, EstadoRegistrarHorario } from "@/types/profesor.types";
+import type {
+  EstadoAsociarMaterias,
+  EstadoRegistrarHorario,
+  ResultadoModificarProfesor,
+} from "@/types/profesor.types";
 
 // Actions del módulo D en la ubicación de la Regla N.° 11. Las de HU-D-01/D-02
 // siguen en app/(dashboard)/profesores/actions.ts hasta su refactor propio
@@ -165,5 +171,89 @@ export async function registrarHorarioProfesor(formData: FormData): Promise<Esta
       return { status: "error", mensaje: error.message };
     }
     return { status: "error_comunicacion" };
+  }
+}
+
+// Traducción de HU-D-06 (Regla N.° 5). Mismos textos que el alta y el
+// contacto (app/(dashboard)/profesores/actions.ts), que no se pueden importar
+// desde un archivo "use server".
+const MENSAJES_MODIFICAR_POR_CODIGO: Record<string, string> = {
+  DNI_DUPLICADO: "Ya existe un profesor registrado con ese DNI",
+  EMAIL_YA_ASOCIADO: "Ese email ya está asociado a otra cuenta",
+  CONFLICTO_EDICION_CONCURRENTE: "La ficha fue modificada por otro usuario. Recargá para ver los datos actuales.",
+  PROFESOR_NO_ENCONTRADO: "El profesor ya no existe",
+};
+
+/** "" en el FormData = la UI vació el campo: `null` (sin especificar / quitar el medio). */
+function vacioANull(valor: FormDataEntryValue | null): FormDataEntryValue | null {
+  return valor === "" ? null : valor;
+}
+
+/**
+ * Modificación de identidad y contacto del profesor (HU-D-06,
+ * `spec_modulo_D.md` §2.6). Invocación directa desde el modo edición de la
+ * ficha, sin `useActionState`: devuelve `{ data, error }` (Regla N.° 5),
+ * igual que `modificarAlumno()` y `modificarMateria()`.
+ *
+ * El formulario manda solo los campos que cambiaron, más `version`: un campo
+ * ausente del FormData no se modifica (`formData.has`). `genero`, `telefono`
+ * y `email` vacíos se convierten en `null` antes de validar.
+ */
+export async function modificarProfesor(
+  profesorId: string,
+  formData: FormData,
+): Promise<ResultadoModificarProfesor> {
+  // Sin `version` (o vacía) no se convierte a 0 (`Number(null)`/`Number("")`):
+  // queda ausente y el schema la rechaza, porque es obligatoria.
+  const version = formData.get("version");
+  const payload: Record<string, unknown> = {
+    version: typeof version === "string" && version.trim() !== "" ? Number(version) : undefined,
+  };
+  for (const campo of ["nombre", "apellido", "dni", "fechaNacimiento"] as const) {
+    if (formData.has(campo)) payload[campo] = formData.get(campo);
+  }
+  for (const campo of ["genero", "telefono", "email"] as const) {
+    if (formData.has(campo)) payload[campo] = vacioANull(formData.get(campo));
+  }
+
+  try {
+    const [dniLongitudMin, dniLongitudMax] = await Promise.all([
+      getParametroNumerico("dni_longitud_min", 7),
+      getParametroNumerico("dni_longitud_max", 8),
+    ]);
+    const parsed = construirModificarProfesorSchema(dniLongitudMin, dniLongitudMax).safeParse(payload);
+    if (!parsed.success) {
+      return {
+        data: null,
+        error: { code: "VALIDACION", message: "Datos inválidos", detalles: flattenError(parsed.error) },
+      };
+    }
+
+    const { id: usuarioId } = await verificarPermiso("profesores:editar");
+    const resultado = await modificarProfesorEnServicio(profesorId, parsed.data, usuarioId);
+
+    revalidatePath("/profesores");
+    revalidatePath(`/profesores/${profesorId}`);
+
+    return { data: resultado, error: null };
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      if (error.code === "CONTACTO_REQUERIDO") {
+        return {
+          data: null,
+          error: {
+            code: "VALIDACION",
+            message: "Datos inválidos",
+            detalles: { formErrors: [], fieldErrors: { telefono: [error.message] } },
+          },
+        };
+      }
+      const mensaje = MENSAJES_MODIFICAR_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
+      return { data: null, error: { code: error.code, message: mensaje } };
+    }
+    if (error instanceof PermisoError) {
+      return { data: null, error: { code: error.code, message: error.message } };
+    }
+    return { data: null, error: { code: "ERROR_COMUNICACION", message: MENSAJE_ERROR_COMUNICACION } };
   }
 }

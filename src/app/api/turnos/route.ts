@@ -9,17 +9,17 @@ export const GET = withPermission("turnos:leer", async (req) => {
   if (!parsed.success) {
     return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Parámetros inválidos", detalles: parsed.error.flatten() } }, { status: 400 });
   }
-  const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user);
+  const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user, { q: parsed.data.q });
   return NextResponse.json({ data, error: null });
 });
 
 export const POST = withPermission("turnos:crear", async (req) => {
   const parsed = ConfigurarTurnoSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Datos inválidos", detalles: parsed.error.flatten() } }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ data: null, error: { code: "VALIDATION_ERROR", message: "Datos inválidos", detalles: parsed.error.flatten() } }, { status: 400 });
   try {
     return NextResponse.json({ data: await configurarTurno(parsed.data, req.auth!.user.id), error: null }, { status: 201 });
   } catch (error) {
-    if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.code === "MATERIA_NO_DISPONIBLE" ? 409 : 422 });
+    if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.code === "PROFESOR_NO_ENCONTRADO" ? 404 : ["MATERIA_NO_DISPONIBLE", "PROFESOR_NO_DICTA_MATERIA", "PROFESOR_FUERA_DE_HORARIO", "PROFESOR_NO_DISPONIBLE"].includes(error.code) ? 409 : 422 });
     throw error;
   }
 });

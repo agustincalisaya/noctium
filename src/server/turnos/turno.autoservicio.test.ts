@@ -16,7 +16,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {
 vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnoDeUsuario: alumno }));
 vi.mock("@/server/alumnos/alumno.service", () => ({ verificarAlumnoActivo: activo }));
 vi.mock("@/server/materias/materia.service", () => ({ listarMateriasActivas: materias, verificarMateriaActiva: vi.fn() }));
-vi.mock("@/server/profesores/profesor.service", () => ({
+vi.mock("@/server/profesores/profesor.publico", () => ({
   listarProfesoresActivosPorMateria: profesores,
   profesorActivoDictaMateria: vi.fn(), estaDentroDeHorarioAtencion: vi.fn(),
   intervalosSeSuperponen: (a: { inicio: number; fin: number }, b: { inicio: number; fin: number }) => a.inicio < b.fin && b.inicio < a.fin,

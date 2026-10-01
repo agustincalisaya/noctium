@@ -68,6 +68,9 @@ export type ContactoAlumnoInput = ContactoInput;
 export const ListarAlumnosQuerySchema = z.object({
   pagina: z.coerce.number().int().positive().default(1),
   por_pagina: z.coerce.number().int().positive().max(20).default(20),
+  // Búsqueda (HU-B-05, spec_modulo_B.md §2.7). Con menos de 2 caracteres no
+  // es un error: el servicio la ignora.
+  q: z.string().trim().max(100).optional(),
 });
 export type ListarAlumnosQuery = z.infer<typeof ListarAlumnosQuerySchema>;
 

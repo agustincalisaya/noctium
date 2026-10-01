@@ -1,17 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
-import type { EstadoTurno, Prisma, RolUsuario } from "@prisma/client";
+import type { EstadoTurno, Prisma, PrioridadTurno, RolUsuario } from "@prisma/client";
 import { ServiceError } from "@/server/shared/service-error";
 import { listarMateriasActivas, verificarMateriaActiva } from "@/server/materias/materia.service";
-import { profesorActivoDictaMateria } from "@/server/profesores/profesor.service";
-import { estaDentroDeHorarioAtencion, intervalosSeSuperponen, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.service";
+import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria, estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.publico";
+import { intervalosSeSuperponen } from "@/lib/horario-atencion";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
-import { obtenerAlumnoDeUsuario } from "@/server/alumnos/alumno.publico";
+import { listarIdsAlumnosActivos, obtenerAlumnosBasicos, obtenerAlumnoDeUsuario, verificarAlumnoActivo as verificarAlumnoActivoPublico } from "@/server/alumnos/alumno.publico";
 import { verificarAulaActiva } from "@/server/aulas/aula.publico";
+import { obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
+import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
-import { aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
+import { alumnosConTurnoSuperpuesto, aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
-import type { AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, OpcionesInscripcionQuery } from "./turno.schema";
+import { construirFiltroBusquedaTurno } from "./turno.busqueda";
+import type { ActualizarPrioridadInput, AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, OpcionesInscripcionQuery } from "./turno.schema";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -38,33 +41,67 @@ async function prepararConfiguracion(input: ConfigurarTurnoInput) {
   return { validacion, data: { fechaTurno: input.fecha, horaInicioTurno: horaFecha(input.hora_inicio), duracionMinutosTurno: input.duracion_min, materiaId: input.materia_id } };
 }
 
+async function validarProfesorConfiguracion(input: ConfigurarTurnoInput, data: Awaited<ReturnType<typeof prepararConfiguracion>>["data"], db: Prisma.TransactionClient, turnoId?: string) {
+  if (!(await obtenerOpcionProfesorActivo(input.profesor_id, db))) throw new ServiceError("PROFESOR_NO_ENCONTRADO", "No se encontró un profesor activo");
+  if (!(await profesorActivoDictaMateria(input.profesor_id, input.materia_id, db))) throw new ServiceError("PROFESOR_NO_DICTA_MATERIA", "El profesor no dicta la materia seleccionada");
+  const turno = { idTurno: turnoId, fechaTurno: data.fechaTurno, horaInicioTurno: data.horaInicioTurno, duracionMinutosTurno: data.duracionMinutosTurno };
+  const intervalo = intervaloTurno(turno);
+  if (!(await estaDentroDeHorarioAtencion(input.profesor_id, input.fecha, horaDeMinutos(intervalo.inicio), horaDeMinutos(intervalo.fin), db))) {
+    throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", "El profesor no atiende en ese horario");
+  }
+  const conflicto = (await profesoresConTurnoSuperpuesto(db, turno, [input.profesor_id])).get(input.profesor_id);
+  if (conflicto) throw new ServiceError("PROFESOR_NO_DISPONIBLE", "El profesor ya tiene un turno en ese horario");
+}
+
 export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
-  const turno = await prisma.turno.create({ data: { ...data, estadoTurno: "PENDIENTE", profesorId: null, aulaId: null, cupoMaximoTurno: null, creadoPorUsuarioId: usuarioId } });
-  await emitirEventoTurno("turno:configurado", turno.idTurno, usuarioId, { turno_id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, usuario_id: usuarioId });
-  return { id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, cupo_maximo: turno.cupoMaximoTurno, estado: turno.estadoTurno };
+  const turno = await prisma.$transaction(async (tx) => {
+    await validarProfesorConfiguracion(input, data, tx);
+    return tx.turno.create({ data: { ...data, estadoTurno: "PENDIENTE", profesorId: input.profesor_id, aulaId: null, cupoMaximoTurno: null, creadoPorUsuarioId: usuarioId } });
+  });
+  await emitirEventoTurno("turno:configurado", turno.idTurno, usuarioId, { turno_id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, profesor_id: input.profesor_id, usuario_id: usuarioId });
+  return { id: turno.idTurno, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, profesor_id: input.profesor_id, cupo_maximo: turno.cupoMaximoTurno, estado: turno.estadoTurno };
 }
 
 export async function modificarConfiguracionTurno(id: string, input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
-  const actual = await prisma.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
-  if (!actual) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-  if (actual.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de configuración");
-  const profesorDesasignado = Boolean(actual.profesorId && actual.materiaId !== input.materia_id && !(await profesorActivoDictaMateria(actual.profesorId, input.materia_id)));
-  // Estado y versión de la fila se comprueban en la misma sentencia que la mutación.
-  const actualizado = await prisma.turno.updateMany({
-    where: { idTurno: id, estadoTurno: "PENDIENTE", updatedAtTurno: actual.updatedAtTurno, materiaId: actual.materiaId, profesorId: actual.profesorId },
-    data: { ...data, modificadoPorUsuarioId: usuarioId, ...(profesorDesasignado ? { profesorId: null } : {}) },
+  const { actual, aulaDesasignada } = await prisma.$transaction(async (tx) => {
+    const pendiente = await tx.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
+    if (!pendiente) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+    if (pendiente.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de configuración");
+    await validarProfesorConfiguracion(input, data, tx, id);
+    // Estado y versión de la fila se comprueban en la misma sentencia que la mutación.
+    const actualizado = await tx.turno.updateMany({
+      where: { idTurno: id, estadoTurno: "PENDIENTE", updatedAtTurno: pendiente.updatedAtTurno, materiaId: pendiente.materiaId, profesorId: pendiente.profesorId },
+      data: { ...data, profesorId: input.profesor_id, modificadoPorUsuarioId: usuarioId },
+    });
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    const aulaDesasignada = pendiente.aulaId !== null && await aulaConTurnoSuperpuesto(tx, {
+      idTurno: id, fechaTurno: data.fechaTurno, horaInicioTurno: data.horaInicioTurno, duracionMinutosTurno: data.duracionMinutosTurno,
+    }, pendiente.aulaId);
+    if (aulaDesasignada) {
+      const desasignado = await tx.turno.updateMany({
+        where: { idTurno: id, estadoTurno: "PENDIENTE", aulaId: pendiente.aulaId },
+        data: { aulaId: null, cupoMaximoTurno: null, modificadoPorUsuarioId: usuarioId },
+      });
+      if (desasignado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    }
+    return { actual: pendiente, aulaDesasignada };
   });
-  if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
   const camposModificados = [
     actual.fechaTurno.getTime() !== input.fecha.getTime() ? "fecha" : null,
     hora(actual.horaInicioTurno) !== input.hora_inicio ? "hora_inicio" : null,
     actual.duracionMinutosTurno !== input.duracion_min ? "duracion_min" : null,
     actual.materiaId !== input.materia_id ? "materia_id" : null,
+    actual.profesorId !== input.profesor_id ? "profesor_id" : null,
   ].filter((campo): campo is string => campo !== null);
-  await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, profesor_desasignado: profesorDesasignado, usuario_id: usuarioId });
-  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, cupo_maximo: actual.cupoMaximoTurno, estado: "PENDIENTE" as const, profesor_desasignado: profesorDesasignado };
+  await emitirEventoTurno("turno:configuracion_modificada", id, usuarioId, { turno_id: id, campos_modificados: camposModificados, aula_desasignada: aulaDesasignada, profesor_desasignado: false, usuario_id: usuarioId });
+  return { id, fecha: validacion.fecha, hora_inicio: input.hora_inicio, hora_fin: validacion.hora_fin, duracion_min: input.duracion_min, materia_id: input.materia_id, profesor_id: input.profesor_id, cupo_maximo: aulaDesasignada ? null : actual.cupoMaximoTurno, estado: "PENDIENTE" as const, profesor_desasignado: false, aula_desasignada: aulaDesasignada };
+}
+
+function idsAlumnosOcupados(otros: { horaInicioTurno: Date; duracionMinutosTurno: number; alumnos: { alumnoId: string }[] }[], intervalo: { inicio: number; fin: number }) {
+  return new Set(otros.filter((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro)))
+    .flatMap((otro) => otro.alumnos.map(({ alumnoId }) => alumnoId)));
 }
 
 /**
@@ -79,12 +116,8 @@ async function alumnoConTurnoSuperpuesto(
   intervalo: { inicio: number; fin: number },
   alumnoIds: string[],
 ) {
-  const otros = await tx.turno.findMany({
-    where: { idTurno: { not: turnoId }, fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: alumnoIds } } } },
-    select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: alumnoIds } }, select: { alumnoId: true } } },
-  });
-  const ocupados = new Set(otros.filter((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro))).flatMap((otro) => otro.alumnos.map(({ alumnoId }) => alumnoId)));
-  return alumnoIds.find((alumnoId) => ocupados.has(alumnoId)) ?? null;
+  const turno = { idTurno: turnoId, fechaTurno, horaInicioTurno: new Date(Date.UTC(1970, 0, 1, 0, intervalo.inicio)), duracionMinutosTurno: intervalo.fin - intervalo.inicio };
+  return (await alumnosConTurnoSuperpuesto(tx, turno, alumnoIds))[0] ?? null;
 }
 
 // `detalles.alumno_id` identifica el recurso no disponible (HU-C-04 c8) sin
@@ -95,6 +128,33 @@ function alumnoInactivo(alumnoId: string) {
 
 function alumnoOcupado(alumnoId: string) {
   return new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario", { alumno_id: alumnoId });
+}
+
+/** Lectura preventiva del Paso 5. La confirmación conserva su validación transaccional. */
+export async function listarOpcionesAlumnoTurno(turnoId: string) {
+  const turno = await prisma.turno.findUnique({
+    where: { idTurno: turnoId },
+    select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, aulaId: true, cupoMaximoTurno: true },
+  });
+  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+  if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de participantes");
+  if (!turno.aulaId || turno.cupoMaximoTurno === null) throw new ServiceError("TURNO_SIN_AULA", "Asigná un aula antes de confirmar el turno");
+
+  const ids = await listarIdsAlumnosActivos();
+  if (ids.length === 0) return { turno_id: turnoId, alumnos: [] };
+  const [basicos, otros] = await Promise.all([
+    obtenerAlumnosBasicos(ids),
+    prisma.turno.findMany({
+      where: { idTurno: { not: turnoId }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: ids } } } },
+      select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: ids } }, select: { alumnoId: true } } },
+    }),
+  ]);
+  const intervalo = intervaloTurno(turno);
+  const ocupados = idsAlumnosOcupados(otros, intervalo);
+  const alumnos = basicos.filter((alumno) => alumno.activo && !ocupados.has(alumno.id))
+    .sort((a, b) => a.apellido.localeCompare(b.apellido, "es") || a.nombre.localeCompare(b.nombre, "es") || a.dni.localeCompare(b.dni, "es"))
+    .map(({ id, nombre, apellido, dni }) => ({ id, nombre, apellido, dni }));
+  return { turno_id: turnoId, alumnos };
 }
 
 /**
@@ -108,7 +168,7 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
     resultado = await prisma.$transaction(async (tx) => {
       const turno = await tx.turno.findUnique({
         where: { idTurno: turnoId },
-        select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true },
+        select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true },
       });
       if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
       if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de participantes");
@@ -120,19 +180,28 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
       if (!(await verificarMateriaActiva(turno.materiaId, tx))) throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
 
       for (const alumnoId of input.alumno_ids) {
-        if (!(await verificarAlumnoActivo(alumnoId, tx))) throw alumnoInactivo(alumnoId);
+        try { await verificarAlumnoActivoPublico(alumnoId, tx); }
+        catch (error) {
+          if (error instanceof ServiceError) throw new ServiceError(error.code, error.message, { alumno_id: alumnoId });
+          throw error;
+        }
       }
-      const profesores = await listarProfesoresActivosPorMateria(turno.materiaId, tx);
-      if (profesores.length === 0) throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
-      if (!profesores.some(({ id }) => id === input.profesor_id)) {
-        throw new ServiceError("PROFESOR_NO_APTO", "El profesor no está activo o no dicta esta materia");
+      const profesorId = input.profesor_id ?? turno.profesorId;
+      if (!profesorId) throw new ServiceError("TURNO_SIN_PROFESOR", "Elegí un profesor antes de confirmar el turno");
+      if (input.profesor_id && input.profesor_id !== turno.profesorId) {
+        const profesores = await listarProfesoresActivosPorMateria(turno.materiaId, tx);
+        if (profesores.length === 0) throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
+      }
+      if (!(await obtenerOpcionProfesorActivo(profesorId, tx))) throw new ServiceError("PROFESOR_NO_ENCONTRADO", "No se encontró un profesor activo");
+      if (!(await profesorActivoDictaMateria(profesorId, turno.materiaId, tx))) {
+        throw new ServiceError("PROFESOR_NO_DICTA_MATERIA", "El profesor no dicta la materia seleccionada");
       }
 
       const intervalo = intervaloTurno(turno);
-      if (!(await estaDentroDeHorarioAtencion(input.profesor_id, turno.fechaTurno, horaDeMinutos(intervalo.inicio), horaDeMinutos(intervalo.fin), tx))) {
+      if (!(await estaDentroDeHorarioAtencion(profesorId, turno.fechaTurno, horaDeMinutos(intervalo.inicio), horaDeMinutos(intervalo.fin), tx))) {
         throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", "El turno está fuera del horario de atención del profesor");
       }
-      const conflictoProfesor = (await profesoresConTurnoSuperpuesto(tx, turno, [input.profesor_id])).get(input.profesor_id);
+      const conflictoProfesor = (await profesoresConTurnoSuperpuesto(tx, turno, [profesorId])).get(profesorId);
       if (conflictoProfesor) {
         throw new ServiceError("PROFESOR_NO_DISPONIBLE", `El profesor ya tiene un turno agendado de ${horaDeMinutos(conflictoProfesor.inicio)} a ${horaDeMinutos(conflictoProfesor.fin)}`);
       }
@@ -147,7 +216,7 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
       // detecta una configuración/asignación concurrente antes de tocar vínculos.
       const actualizado = await tx.turno.updateMany({
         where: { idTurno: turnoId, estadoTurno: "PENDIENTE", updatedAtTurno: turno.updatedAtTurno },
-        data: { profesorId: input.profesor_id, modificadoPorUsuarioId: usuarioId },
+        data: { ...(profesorId !== turno.profesorId ? { profesorId } : {}), modificadoPorUsuarioId: usuarioId },
       });
       if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
       await tx.turnoAlumno.deleteMany({ where: { turnoId } });
@@ -160,7 +229,7 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
       const confirmado = await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "PENDIENTE" }, data: { estadoTurno: estado } });
       if (confirmado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
       return {
-        respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: input.profesor_id, cupo_maximo: cupo, estado },
+        respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: profesorId, cupo_maximo: cupo, estado },
         evento: { fecha: fecha(turno.fechaTurno), hora_inicio: horaDeMinutos(intervalo.inicio), hora_fin: horaDeMinutos(intervalo.fin), aula_id: aulaId, materia_id: turno.materiaId },
       };
     }, { timeout: 15_000 });
@@ -170,14 +239,14 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
   }
   const { respuesta, evento } = resultado;
   await emitirEventoTurno("turno:participantes_asignados", turnoId, usuarioId, {
-    turno_id: turnoId, alumno_ids: input.alumno_ids, profesor_id: input.profesor_id, usuario_id: usuarioId,
+    turno_id: turnoId, alumno_ids: input.alumno_ids, profesor_id: respuesta.profesor_id, usuario_id: usuarioId,
   });
   if (respuesta.estado === "COMPLETO") {
     await emitirEventoTurno("turno:completado", turnoId, usuarioId, { turno_id: turnoId, alumno_ids: input.alumno_ids, cupo_maximo: respuesta.cupo_maximo, usuario_id: usuarioId });
   } else {
     await emitirEventoTurno("turno:disponibilizado", turnoId, usuarioId, {
       turno_id: turnoId, fecha: evento.fecha, hora_inicio: evento.hora_inicio, hora_fin: evento.hora_fin, alumno_ids: input.alumno_ids,
-      profesor_id: input.profesor_id, aula_id: evento.aula_id, materia_id: evento.materia_id, usuario_id: usuarioId,
+      profesor_id: respuesta.profesor_id, aula_id: evento.aula_id, materia_id: evento.materia_id, usuario_id: usuarioId,
     });
   }
   return respuesta;
@@ -384,6 +453,7 @@ function presentar(turno: TurnoConRelaciones) {
     aula_id: turno.aulaId,
     aula_capacidad: turno.aula?.capacidadAula ?? null,
     estado: turno.estadoTurno,
+    prioridad: turno.prioridadTurno,
     creado_en: turno.createdAtTurno.toISOString(),
     actualizado_en: turno.updatedAtTurno.toISOString(),
     creado_por_id: turno.creadoPorUsuarioId,
@@ -391,15 +461,27 @@ function presentar(turno: TurnoConRelaciones) {
   };
 }
 
-export async function listarTurnos(pagina: number, porPaginaSolicitado: number | undefined, usuario: { id: string; rol: RolUsuario }) {
+/**
+ * Filtros opcionales del listado (spec_modulo_C.md §2.7). Cada uno se suma
+ * con AND al alcance base (desde hoy + rol): HU-C-08 agrega `profesor_id`
+ * acá sin cambiar la firma de listarTurnos().
+ */
+export type FiltrosListadoTurnos = { q?: string };
+
+export async function listarTurnos(pagina: number, porPaginaSolicitado: number | undefined, usuario: { id: string; rol: RolUsuario }, filtros: FiltrosListadoTurnos = {}) {
   const configurado = await getParametroNumerico("paginacion_limite_default", 10);
   const porPagina = porPaginaSolicitado ?? Math.min(20, Math.max(1, Math.trunc(configurado)));
   const partes = new Intl.DateTimeFormat("en-US", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const parte = (tipo: string) => partes.find(({ type }) => type === tipo)!.value;
   const inicioHoy = new Date(`${parte("year")}-${parte("month")}-${parte("day")}T00:00:00.000Z`);
-  const where = {
+  // Sin filtros el `where` es el de HU-C-01; la búsqueda (HU-C-02) mantiene el
+  // mismo alcance de fechas y rol. count y findMany usan el mismo `where`, así
+  // el total y la paginación son los del resultado filtrado.
+  const condiciones = [construirFiltroBusquedaTurno(filtros.q)].filter((condicion) => condicion !== undefined);
+  const where: Prisma.TurnoWhereInput = {
     fechaTurno: { gte: inicioHoy },
     ...(usuario.rol === "PROFESOR" ? { profesor: { is: { usuarioId: usuario.id } } } : {}),
+    ...(condiciones.length ? { AND: condiciones } : {}),
   };
   const total = await prisma.turno.count({ where });
   const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
@@ -416,15 +498,54 @@ export async function listarTurnos(pagina: number, porPaginaSolicitado: number |
   };
 }
 
-export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUsuario }) {
-  const turno = await prisma.turno.findFirst({
-    where: { idTurno: id, ...(usuario.rol === "PROFESOR" ? { profesor: { is: { usuarioId: usuario.id } } } : {}) },
-    include: turnoInclude,
+export type ResultadoObtenerTurno =
+  | { resultado: "ok"; turno: ReturnType<typeof presentar> & { creado_por: string | null } }
+  | { resultado: "sin_permiso" }
+  | { resultado: "no_encontrado" };
+
+/**
+ * Detalle base (spec_modulo_C.md §2.4, HU-C-09). Para el Profesor, la ficha
+ * sale de la sesión (Módulo D) y la consulta filtra por id y profesor en el
+ * mismo `where`: un turno ajeno, un id inexistente o una cuenta sin ficha dan
+ * el mismo `sin_permiso`, sin revelar si el turno existe. Mesa de Entrada y
+ * Gerente ven cualquier turno (`no_encontrado` si no existe). `creado_por` es
+ * el email vía Módulo A, o `null`; nunca el id como respaldo.
+ */
+export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUsuario }): Promise<ResultadoObtenerTurno> {
+  let alcance: Prisma.TurnoWhereInput = {};
+  if (usuario.rol === "PROFESOR") {
+    const propio = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    if (!propio) return { resultado: "sin_permiso" };
+    alcance = { profesorId: propio.id };
+  }
+  const turno = await prisma.turno.findFirst({ where: { idTurno: id, ...alcance }, include: turnoInclude });
+  if (!turno) return { resultado: usuario.rol === "PROFESOR" ? "sin_permiso" : "no_encontrado" };
+  const creadoPor = turno.creadoPorUsuarioId ? await obtenerEmailDeUsuario(turno.creadoPorUsuarioId) : null;
+  return { resultado: "ok", turno: { ...presentar(turno), creado_por: creadoPor } };
+}
+
+/** HU-C-10: bloqueo y cambio condicional en una transacción; evento tras el commit. */
+export async function actualizarPrioridadTurno(id: string, input: ActualizarPrioridadInput, usuarioId: string) {
+  const resultado = await prisma.$transaction(async (tx) => {
+    const [turno] = await tx.$queryRaw<{ idTurno: string; estadoTurno: EstadoTurno; prioridadTurno: PrioridadTurno }[]>`
+      SELECT "idTurno", "estadoTurno", "prioridadTurno"
+      FROM "turnos" WHERE "idTurno" = ${id} FOR UPDATE
+    `;
+    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
+    if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "Un turno cancelado no admite cambios de prioridad");
+    if (turno.prioridadTurno === input.prioridad) return { anterior: turno.prioridadTurno, sinCambios: true };
+
+    const actualizado = await tx.turno.updateMany({
+      where: { idTurno: id, estadoTurno: { not: "CANCELADO" } },
+      data: { prioridadTurno: input.prioridad, modificadoPorUsuarioId: usuarioId },
+    });
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    return { anterior: turno.prioridadTurno, sinCambios: false };
   });
-  if (!turno) return null;
-  const [responsable, modificador] = await Promise.all([
-    turno.creadoPorUsuarioId ? prisma.usuario.findUnique({ where: { idUsuario: turno.creadoPorUsuarioId }, select: { emailUsuario: true } }) : null,
-    turno.modificadoPorUsuarioId ? prisma.usuario.findUnique({ where: { idUsuario: turno.modificadoPorUsuarioId }, select: { emailUsuario: true } }) : null,
-  ]);
-  return { ...presentar(turno), creado_por: responsable?.emailUsuario ?? turno.creadoPorUsuarioId ?? "Sin registrar", modificado_por: modificador?.emailUsuario ?? turno.modificadoPorUsuarioId ?? "Sin registrar" };
+
+  if (resultado.sinCambios) return { id, prioridad: input.prioridad, sin_cambios: true as const };
+  await emitirEventoTurno("turno:prioridad_actualizada", id, usuarioId, {
+    turno_id: id, prioridad_anterior: resultado.anterior, prioridad_nueva: input.prioridad, usuario_id: usuarioId,
+  });
+  return { id, prioridad: input.prioridad };
 }

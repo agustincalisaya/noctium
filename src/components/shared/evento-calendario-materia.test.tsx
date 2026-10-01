@@ -36,6 +36,7 @@ const evento = (extra: Record<string, unknown> = {}) => ({
   cupo: 5,
   aula: "Aula 2",
   estado: "DISPONIBLE" as const,
+  prioridad: "NORMAL" as const,
   ...extra,
 });
 
@@ -97,6 +98,14 @@ describe("EventoCalendarioMateria", () => {
     expect(link.textContent).toContain("Alumnos: 5/5");
     expect(container.querySelector("svg")!.getAttribute("class")).not.toBe(iconoDisponible);
   });
+
+  it("muestra prioridad Urgente con texto, bandera y descripción accesible", async () => {
+    await act(async () => root.render(<EventoCalendarioMateria evento={evento({ prioridad: "URGENTE" })} estilo={ESTILO} volverA={VOLVER} />));
+    const link = container.querySelector("a")!;
+    expect(link.textContent).toContain("Urgente");
+    expect(link.getAttribute("aria-label")).toContain("Prioridad Urgente");
+    expect(link.querySelectorAll("svg")).toHaveLength(2);
+  });
 });
 
 describe("EventoCalendario (HU-J-01, regresión del refactor)", () => {
@@ -113,6 +122,7 @@ describe("EventoCalendario (HU-J-01, regresión del refactor)", () => {
             materia: "Matemática",
             aula: "Aula 2",
             estado: "COMPLETO",
+            prioridad: "NORMAL",
           }}
           estilo={ESTILO}
           volverA="/calendario/profesor?profesorId=ckprof"

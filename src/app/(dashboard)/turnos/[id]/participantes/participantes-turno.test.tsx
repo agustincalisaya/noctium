@@ -49,14 +49,14 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 describe("HU-C-04 formulario", () => {
   it("precarga participantes con resumen del aula y cupo, y Cancelar no envía PATCH", async () => {
     await montar();
-    expect(fetch.mock.calls.map(([url]) => url)).toContain("/api/turnos/profesores/opciones?turno_id=turno-1");
+    expect(fetch.mock.calls.map(([url]) => url)).not.toContain("/api/turnos/profesores/opciones?turno_id=turno-1");
     expect(container.textContent).toContain("Aula: Aula 1 · Cupo máximo: 2");
     expect(container.textContent).toContain("Pendiente");
     expect(container.textContent).toContain("López, Juan · DNI 30123456");
     expect(container.textContent).toContain("(1/2)");
-    const select = container.querySelector("#profesor") as HTMLSelectElement;
-    expect(select.value).toBe("profesor-1");
-    await act(async () => { select.value = "profesor-2"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(container.querySelector("#profesor")).toBeNull();
+    expect(container.textContent).toContain("Profesor ya asignado al turno.");
+    await act(async () => { (container.querySelector('button[aria-label="Quitar a López, Juan"]') as HTMLButtonElement).click(); });
     expect(setDirty).toHaveBeenLastCalledWith(true);
     expect(container.querySelector('a[href="/turnos/turno-1?volver=%2Fturnos"]')?.textContent).toBe("Cancelar");
     expect(patch()).toBeUndefined();
@@ -98,12 +98,23 @@ describe("HU-C-04 formulario", () => {
     await montar();
     expect(container.querySelector('button[type="submit"]')?.textContent).toBe("Confirmar turno");
     await enviar();
-    expect(JSON.parse(patch()?.[1].body)).toEqual({ alumno_ids: ["alumno-1"], profesor_id: "profesor-1" });
+    expect(JSON.parse(patch()?.[1].body)).toEqual({ alumno_ids: ["alumno-1"] });
     expect(container.textContent).toContain("Profesor y alumnos asignados correctamente");
     expect(container.textContent).toContain("Turno confirmado");
     expect(container.textContent).toContain("Disponible");
     expect(container.querySelector('a[href*="/aula"]')).toBeNull();
     expect(container.querySelector('a[href="/turnos/turno-1?volver=%2Fturnos"]')?.textContent).toBe("Ver detalle");
+  });
+  it("PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito", async () => {
+    fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH" ? respuesta({ estado: "DISPONIBLE" })
+      : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }])
+        : respuesta(turno({ profesor_id: null })));
+    await montar();
+    expect(fetch.mock.calls.map(([url]) => url)).toContain("/api/turnos/profesores/opciones?turno_id=turno-1");
+    const select = container.querySelector("#profesor") as HTMLSelectElement;
+    await act(async () => { select.value = "profesor-1"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    await enviar();
+    expect(JSON.parse(patch()?.[1].body)).toEqual({ alumno_ids: ["alumno-1"], profesor_id: "profesor-1" });
   });
   it("marca el alumno en conflicto con el mensaje del servidor", async () => {
     fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH"

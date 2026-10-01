@@ -1,10 +1,10 @@
 import { Prisma, type EstadoTurno } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { turnoSigueVigente } from "./turno.validaciones";
+import { turnoNoHaComenzado, turnoSigueVigente } from "./turno.validaciones";
 
 type Db = Prisma.TransactionClient;
 
-export type EventoTurno =
+export type EventoTurnoPendiente =
   | {
       tipoEvento: "turno:cupo_actualizado";
       turnoId: string;
@@ -27,6 +27,9 @@ export type EventoTurno =
         turno_id: string; alumno_id_liberado: null; usuario_id: string;
       };
     };
+
+/** Alias previo, conservado para los consumidores existentes (Aulas). */
+export type EventoTurno = EventoTurnoPendiente;
 
 export type TurnoParaOperacion = {
   id: string;
@@ -111,7 +114,7 @@ export async function contarTurnosFuturosDeProfesorPorMateria(
 }
 
 type AjusteCupos =
-  | { ok: true; turnos_actualizados: number; eventos: EventoTurno[] }
+  | { ok: true; turnos_actualizados: number; eventos: EventoTurnoPendiente[] }
   | { ok: false; turnos_en_conflicto: string[]; max_inscriptos: number };
 
 type FilaTurnoAula = {
@@ -133,8 +136,9 @@ export async function ajustarCuposPorCapacidadDeAula(
       AND "estadoTurno" IN ('PENDIENTE', 'DISPONIBLE', 'COMPLETO')
     ORDER BY "idTurno" FOR UPDATE
   `;
+  const ahora = new Date();
   const turnos = turnosBloqueados.filter((turno) =>
-    turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno));
+    turnoNoHaComenzado(turno.fechaTurno, turno.horaInicioTurno, ahora));
   if (turnos.length === 0) return { ok: true, turnos_actualizados: 0, eventos: [] };
 
   const inscripciones = await tx.turnoAlumno.findMany({
@@ -163,7 +167,7 @@ export async function ajustarCuposPorCapacidadDeAula(
     };
   }
 
-  const eventos: EventoTurno[] = [];
+  const eventos: EventoTurnoPendiente[] = [];
   for (const turno of turnos) {
     const alumnoIds = alumnosPorTurno.get(turno.idTurno) ?? [];
     const nuevoEstado = turno.estadoTurno === "PENDIENTE"
@@ -207,6 +211,16 @@ export async function ajustarCuposPorCapacidadDeAula(
     }
   }
   return { ok: true, turnos_actualizados: turnos.length, eventos };
+}
+
+/** El llamador la invoca después del COMMIT (Regla N.° 2, opción b); un único INSERT graba todos o ninguno. */
+export async function emitirEventosTurno(eventos: EventoTurnoPendiente[], db: Db = prisma): Promise<void> {
+  if (eventos.length === 0) return;
+  await db.eventoTurno.createMany({
+    data: eventos.map(({ tipoEvento, turnoId, payloadEvento }) => ({
+      tipoEvento, turnoId, usuarioId: payloadEvento.usuario_id, payloadEvento,
+    })),
+  });
 }
 
 export async function contarTurnosPorMes(

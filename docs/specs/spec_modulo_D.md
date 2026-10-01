@@ -29,6 +29,14 @@
 | HU-D-07 | Gap | Nueva sección 2.7, con su ruta propia `GET /api/profesores/[id]/materias/[materiaId]/turnos-futuros` (lista del modal «Ver turnos»). Regla 3.6 |
 | Servicios públicos | `profesorActivoDictaMateria()` (existente) | Nueva sección 2.8: 4 funciones nuevas para Turnos (`spec_modulo_C.md` Revisión 5) y Historial, más `obtenerOpcionProfesorDeUsuario()` y `obtenerOpcionProfesorActivo()` (nuevas en Revisión 2, consumidas por Turnos, Historial y Calendario) |
 | Modelo `Profesor` | Tiene `modificadoPorUsuarioId` y `updatedAtProfesor` | + `version` (concurrencia optimista, mismo patrón que `Alumno`) |
+
+**Actualización del 29/09/2026 (implementación del PR 0', sin renumerar secciones):**
+| Sección | Estado previo | Acción |
+|---|---|---|
+| 2.8 | Varias firmas marcadas «forma exacta: a confirmar» | **Confirmadas contra el código** (ver tabla): `OpcionProfesor = { id, nombreParaMostrar }`, con `db?` opcional en todas |
+| 2.8 (`obtenerMateriasDelProfesor`) | «Materias activas» | Devuelve **todas** las materias asociadas con el campo `activa`; el consumidor filtra (el calendario ya consume esa forma) |
+| 2.8 (`profesorActivoDictaMateria`) | Requisito de `FOR SHARE` con `db` | Implementado en `profesor.publico.ts`: con `db` lee `profesor_materia` con `FOR SHARE OF`; sin `db` delega en la del service |
+| 2.8 (imports) | «No importa nada de otros módulos» | Se precisa qué sí puede importar (ver nota al inicio de 2.8) |
 | Permisos | `profesores:crear`, `profesores:editar`, `profesores:leer` **exclusivos de Mesa de Entrada** (`seed.ts`, `ACCIONES_SOLO_MESA_ENTRADA`) | **Sin cambios.** El backlog v2 corrigió HU-D-06/D-07 a "Como personal de mesa de entrada" (R2-1 resuelto) |
 
 ## ✅ RESUELTO — R2-1 (antes Q12): quién modifica un profesor
@@ -591,10 +599,12 @@ Cada fila enlaza, por su `turno_id`, al Detalle de turno (`spec_modulo_C.md` §2
 
 Conforme a la Regla N.° 3 (ampliados en Revisión 2). Funciones en `src/server/profesores/profesor.publico.ts`. **No importa nada de otros módulos** (evita ciclos con Turnos). El parámetro opcional `db` recibe el `Prisma.TransactionClient` del llamador.
 
+**Qué puede importar `profesor.publico.ts` (precisión del 29/09/2026):** `@prisma/client` (solo tipos), `@/lib/prisma`, `@/server/shared/*`, `@/types/profesor.types` y, únicamente para **reexportar** o delegar en funciones existentes, el service de su propio módulo (`@/server/profesores/profesor.service`, siempre con el alias `@/`, Regla N.° 11). También puede importar **utilidades puras de `src/lib/`** (sin `prisma` ni imports de `src/server/**`): hoy `@/lib/profesor-listado` (formato «Apellido, Nombre») y `@/lib/horario-atencion` (formato de hora), para que el público y el service compartan un único formato. Nada de otros módulos de dominio; lo verifica `src/server/publico.aislamiento.test.ts`.
+
 | Función | Devuelve | Consumidores |
 |---|---|---|
-| `listarOpcionesProfesoresActivos()` | `{ id, nombre, apellido, nombreParaMostrar }[]`, orden `apellidoNormalizado, nombreNormalizado` (**unifica** la función de 2.5; ya no hay una segunda) | `spec_modulo_C.md` §2.7 (filtro del Gerente) |
-| `obtenerHorariosDeAtencion(profesorId, db?)` | `{ horario_id, dia_semana, hora_inicio, hora_fin }[]`, orden día y hora | `spec_modulo_C.md` §2.8, §2.9 |
+| `listarOpcionesProfesoresActivos(db?)` | `{ id, nombre, apellido, nombreParaMostrar }[]`, orden `apellidoNormalizado, nombreNormalizado` (con el DNI como último desempate, igual que el service) (**unifica** la función de 2.5; ya no hay una segunda) | `spec_modulo_C.md` §2.7 (filtro del Gerente) |
+| `obtenerHorariosDeAtencion(profesorId, db?)` | `{ horario_id, dia_semana, hora_inicio, hora_fin }[]`, orden día y hora. `dia_semana` es el valor del enum (`"LUNES"` … `"DOMINGO"`) y `hora_inicio` / `hora_fin` son `"HH:mm"` en 24 h con cero a la izquierda (formato confirmado el 29/09/2026) | `spec_modulo_C.md` §2.8, §2.9 |
 | `obtenerHorarioDeProfesor(profesorId, horarioId, db?)` | la fila anterior, o `null` si no pertenece a ese profesor | `spec_modulo_C.md` §2.9 |
 | `obtenerNombresProfesores(ids, db?)` | `Record<id, "Apellido, Nombre">` | `spec_modulo_E.md` §2.3 |
 | `profesorActivoDictaMateria(profesorId, materiaId, db?)` | `boolean` (**existente**) | `spec_modulo_C.md` §2.1, §2.2, §2.8, §2.9 |
@@ -603,13 +613,13 @@ Conforme a la Regla N.° 3 (ampliados en Revisión 2). Funciones en `src/server/
 
 | Función | Devuelve | Consumidores | Origen |
 |---|---|---|---|
-| `listarProfesoresActivosPorMateria(materiaId)` | profesores activos asociados a la materia (firma exacta: a confirmar contra el código) | `spec_modulo_C.md` §2.2 paso 4, §2.6, §2.8.1 | existente (Sprint 1) |
-| `estaDentroDeHorarioAtencion(profesorId, fecha, horaInicio, horaFin, db?)` | `boolean` (contrato completo en 2.4; hoy vive en `profesor.service.ts`, no en `profesor.publico.ts`: moverla o re-exportarla) | `spec_modulo_C.md` §2.1, §2.2, §2.6, §2.11 | existente (HU-D-04) |
-| `obtenerOpcionProfesorDeUsuario(usuarioId)` | la opción de profesor de la ficha vinculada a la cuenta (`Profesor.usuarioId`), o `null` si no tiene ficha; forma exacta: a confirmar | `spec_modulo_C.md` §2.4, §2.7; `spec_modulo_E.md` §2.1, §2.2, §2.3; `spec_modulo_J.md` §2.1, §2.2 | nueva (Revisión 2) |
-| `obtenerOpcionProfesorActivo(profesorId)` | la opción de un profesor activo, o `null`; forma exacta: a confirmar | `spec_modulo_C.md` §2.1, §2.2; `spec_modulo_J.md` §2.1, §2.2 | nueva (Revisión 2) |
-| `obtenerMateriasDelProfesor(profesorId)` | materias activas asociadas al profesor | `spec_modulo_J.md` §2.2 (nota) | a confirmar: si no existe, se agrega en HU-J-03 |
+| `listarProfesoresActivosPorMateria(materiaId, db?)` | `{ id, nombre, apellido }[]`, orden apellido, nombre e id. **Reexportada** desde el service (firma confirmada el 29/09/2026) | `spec_modulo_C.md` §2.2 paso 4, §2.6, §2.8.1 | existente (Sprint 1) |
+| `estaDentroDeHorarioAtencion(profesorId, fecha, horaInicio, horaFin, db?)` | `boolean` (contrato completo en 2.4). **Reexportada** desde `profesor.service.ts` por `profesor.publico.ts` (29/09/2026) | `spec_modulo_C.md` §2.1, §2.2, §2.6, §2.11 | existente (HU-D-04) |
+| `obtenerOpcionProfesorDeUsuario(usuarioId, db?)` | `{ id, nombreParaMostrar } \| null`: la opción de profesor de la ficha vinculada a la cuenta (`Profesor.usuarioId`), o `null` si no tiene ficha. **No filtra por activo** (forma confirmada el 29/09/2026) | `spec_modulo_C.md` §2.4, §2.7; `spec_modulo_E.md` §2.1, §2.2, §2.3; `spec_modulo_J.md` §2.1, §2.2 | nueva (Revisión 2) |
+| `obtenerOpcionProfesorActivo(profesorId, db?)` | `{ id, nombreParaMostrar } \| null`: la opción de un profesor **activo**, o `null` (forma confirmada el 29/09/2026) | `spec_modulo_C.md` §2.1, §2.2; `spec_modulo_J.md` §2.1, §2.2 | nueva (Revisión 2) |
+| `obtenerMateriasDelProfesor(profesorId, db?)` | `{ id, nombre, codigo: string \| null, activa: boolean }[]`: **todas** las materias asociadas, activas o inactivas, con el campo `activa`; quien la consume filtra (p. ej. el Profesor en `spec_modulo_J.md` §2.2 solo opera materias activas) | `spec_modulo_J.md` §2.2 (nota) | existente; publicada en `profesor.publico.ts` (29/09/2026) |
 
-**Requisito nuevo sobre `profesorActivoDictaMateria`:** cuando recibe `db` (o sea, dentro de una transacción), debe leer la fila de `profesor_materia` con **`SELECT … FOR SHARE`**. Es la contraparte del bloqueo de 2.7 paso 4. Sin `db`, se comporta como hasta ahora.
+**Requisito nuevo sobre `profesorActivoDictaMateria`:** cuando recibe `db` (o sea, dentro de una transacción), debe leer la fila de `profesor_materia` con **`SELECT … FOR SHARE`**. Es la contraparte del bloqueo de 2.7 paso 4. Sin `db`, se comporta como hasta ahora. **Implementado el 29/09/2026** en `profesor.publico.ts`: el parámetro `db` no tiene valor por defecto (para distinguir «con `db`» de «sin `db`»); sin `db` delega en la versión del service, y con `db` reproduce sus mismas condiciones (profesor activo y relación con la materia) con `FOR SHARE OF` sobre `profesor_materia` únicamente, sin bloquear la fila del profesor.
 
 ---
 
