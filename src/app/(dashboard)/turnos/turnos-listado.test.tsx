@@ -20,7 +20,7 @@ const { TurnosListado } = await import("./turnos-listado");
 const { TurnoDetalleVista } = await import("./[id]/turno-detalle");
 const item = (estado: "PENDIENTE" | "DISPONIBLE" | "COMPLETO", extra: Record<string, unknown> = {}) => ({
   id: estado.toLowerCase(), fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", alumnos_inscriptos: "0/5",
-  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, ...extra,
+  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, prioridad: "NORMAL", acciones_habilitadas: [], ...extra,
 });
 const datos = (items: unknown[], pagina = 2) => ({ items, paginacion: { total: 3, pagina_actual: pagina, total_paginas: 2, por_pagina: 2 } });
 const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: async () => ({ data, error }) });
@@ -48,7 +48,7 @@ describe("HU-C-01 interfaz", () => {
     expect(container.querySelector("th")?.textContent).toBe("Fecha");
     expect(container.textContent).toContain("Alumnos inscriptos");
     for (const texto of ["Pendiente", "Disponible", "Completo", "0/10", "1/5", "5/5", "Sin asignar"]) expect(container.textContent).toContain(texto);
-    const estados = [...container.querySelectorAll("tbody tr td:nth-child(7) span")];
+    const estados = [...container.querySelectorAll("tbody tr td:nth-child(8) span")];
     expect(estados[0].className).toContain("bg-warning");
     expect(estados[2].className).toContain("bg-success");
     expect(estados[3].className).toContain("bg-secondary");
@@ -67,6 +67,17 @@ describe("HU-C-01 interfaz", () => {
     expect(anterior.querySelector("svg")?.nextSibling?.textContent).toBe("Anterior");
     expect(paginacion.querySelector('[aria-disabled="true"]')?.textContent).toBe("Siguiente");
     expect(paginacion.querySelector('[aria-disabled="true"] svg')?.previousSibling?.textContent).toBe("Siguiente");
+  });
+
+  it("muestra prioridad Alta y Urgente con texto e ícono sin cambiar el orden recibido", async () => {
+    fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "alta", prioridad: "ALTA" }), item("COMPLETO", { id: "urgente", prioridad: "URGENTE" })])));
+    await montar();
+    expect([...container.querySelectorAll("thead th")].map((celda) => celda.textContent)).toContain("Prioridad");
+    const filas = [...container.querySelectorAll("tbody tr")];
+    expect(filas[0]?.textContent).toContain("Alta");
+    expect(filas[1]?.textContent).toContain("Urgente");
+    expect(filas.every((fila) => fila.querySelector("td:nth-child(7) svg"))).toBe(true);
+    expect(filas.map((fila) => fila.querySelector('a')?.getAttribute("href"))).toEqual(expect.arrayContaining([expect.stringContaining("/turnos/alta"), expect.stringContaining("/turnos/urgente")]));
   });
 
   it("deshabilita Anterior en la primera página y conserva Siguiente habilitado", async () => {

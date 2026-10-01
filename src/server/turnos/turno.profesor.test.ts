@@ -17,7 +17,7 @@ vi.mock("@/server/profesores/profesor.service", () => ({
   intervalosSeSuperponen: (a: { inicio: number; fin: number }, b: { inicio: number; fin: number }) => a.inicio < b.fin && b.inicio < a.fin,
 }));
 
-const { listarOpcionesProfesorTurno, listarProfesoresPorMateria, calcularDisponibilidadProfesor } = await import("./turno.profesor.service");
+const { listarOpcionesProfesorTurno, listarProfesoresPorMateria, listarOpcionesProfesorWizard, calcularDisponibilidadProfesor, calcularAgendaProfesorWizard } = await import("./turno.profesor.service");
 const TURNO = "ckturno00000000000000001";
 const [ANA, BETO, CARLA] = ["ckprofesor000000000000001", "ckprofesor000000000000002", "ckprofesor000000000000003"];
 const actual = {
@@ -58,6 +58,31 @@ describe("HU-C-07 §2.8.1 listarProfesoresPorMateria", () => {
   it("distingue una materia activa sin profesores asociados", async () => {
     profesores.mockResolvedValueOnce([]);
     await expect(listarProfesoresPorMateria(actual.materiaId)).rejects.toMatchObject({ code: "SIN_PROFESORES_PARA_MATERIA" });
+  });
+});
+
+describe("Corrección wizard Paso 2 listarOpcionesProfesorWizard", () => {
+  it("rechaza materia inactiva antes de consultar el contrato público de Profesor", async () => {
+    materiaActiva.mockResolvedValueOnce(null);
+    await expect(listarOpcionesProfesorWizard(actual.materiaId)).rejects.toMatchObject({ code: "MATERIA_NO_DISPONIBLE" });
+    expect(profesores).not.toHaveBeenCalled();
+    expect(horarios).not.toHaveBeenCalled();
+  });
+
+  it("excluye solo a quien no tiene horarios y entrega los horarios de los demás", async () => {
+    horarios.mockImplementation(async (id: string) => id === BETO ? [] : [{ horario_id: `h-${id}`, dia_semana: "MARTES", hora_inicio: "16:00", hora_fin: "20:00" }]);
+    await expect(listarOpcionesProfesorWizard(actual.materiaId)).resolves.toEqual([
+      { id: ANA, nombre: "Ana", apellido: "Gómez", horarios: [{ horario_id: `h-${ANA}`, dia_semana: "MARTES", hora_inicio: "16:00", hora_fin: "20:00" }] },
+      { id: CARLA, nombre: "Carla", apellido: "Ruiz", horarios: [{ horario_id: `h-${CARLA}`, dia_semana: "MARTES", hora_inicio: "16:00", hora_fin: "20:00" }] },
+    ]);
+    expect(horarios).toHaveBeenCalledTimes(3);
+    expect(horario).not.toHaveBeenCalled();
+    expect(turno.findMany).not.toHaveBeenCalled();
+  });
+
+  it("con profesores asociados pero sin horarios devuelve lista vacía", async () => {
+    horarios.mockResolvedValue([]);
+    await expect(listarOpcionesProfesorWizard(actual.materiaId)).resolves.toEqual([]);
   });
 });
 
@@ -215,5 +240,96 @@ describe("HU-C-07 §2.8.2 calcularDisponibilidadProfesor", () => {
     expect(respuesta.rango.hasta).toBe("2026-09-29");
     expect(respuesta.fechas).toEqual([]);
     expect(turno.findMany.mock.calls[0]![0].where.fechaTurno.gte).toEqual(dia("2026-09-29"));
+  });
+});
+
+describe("Corrección wizard Paso 3 calcularAgendaProfesorWizard", () => {
+  const dia = (valor: string) => new Date(`${valor}T00:00:00.000Z`);
+  const consulta = (duracion_min = 60, desde = "2026-09-29", hasta = desde) => ({ materia_id: actual.materiaId, duracion_min, desde: dia(desde), hasta: dia(hasta) });
+  const ocupado = (fecha: string, hora: string, duracion: number) => ({ fechaTurno: dia(fecha), horaInicioTurno: new Date(`1970-01-01T${hora}:00.000Z`), duracionMinutosTurno: duracion });
+  const diaAgenda = async (duracion = 60) => (await calcularAgendaProfesorWizard(ANA, consulta(duracion))).meses[0]!.dias.find(({ fecha }) => fecha === "2026-09-29")!;
+
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-29T07:00:00.000Z")); });
+  afterEach(() => vi.useRealTimers());
+
+  it("sin turnos entrega rango, mes completo, franja recurrente y bloques libres iguales a C-07", async () => {
+    const agenda = await calcularAgendaProfesorWizard(ANA, consulta());
+    const contractual = await calcularDisponibilidadProfesor(ANA, consulta());
+    expect(agenda).toMatchObject({ profesor: contractual.profesor, duracion_min: 60, granularidad_min: 30,
+      rango: contractual.rango, franjas_recurrentes: [{ horario_id: "h1", dia_semana: "MARTES", hora_inicio: "08:00", hora_fin: "12:00" }],
+      meses: [{ anio: 2026, mes: 9, etiqueta: "Septiembre 2026" }],
+    });
+    expect(agenda.meses[0]!.dias).toHaveLength(30);
+    const fecha = await diaAgenda();
+    expect(fecha).toMatchObject({ fecha: "2026-09-29", dia_semana: "MARTES", numero: 29, en_rango: true, operativo: true, seleccionable: true, tiene_horarios_libres: true });
+    expect(fecha.franjas[0]).toMatchObject({ hora_inicio: "08:00", hora_fin: "12:00", tramos_libres: [{ desde: "08:00", hasta: "12:00" }], tramos_ocupados: [] });
+    expect(fecha.franjas[0]).not.toHaveProperty("inicios");
+    expect(fecha.franjas[0]!.bloques[0]).toEqual({ inicio: "08:00", fin: "09:00", estado: "LIBRE", seleccionable: true });
+    expect(fecha.franjas[0]!.bloques.filter(({ seleccionable }) => seleccionable).map(({ inicio }) => inicio)).toEqual(contractual.fechas[0]!.franjas[0]!.inicios);
+  });
+
+  it("ocupación parcial explícita marca cada inicio superpuesto y conserva contigüidad", async () => {
+    turno.findMany.mockResolvedValue([ocupado("2026-09-29", "09:00", 120)]);
+    const fecha = await diaAgenda();
+    expect(fecha.franjas[0]!.tramos_ocupados).toEqual([{ desde: "09:00", hasta: "11:00" }]);
+    expect(fecha.franjas[0]!.tramos_libres).toEqual([{ desde: "08:00", hasta: "09:00" }, { desde: "11:00", hasta: "12:00" }]);
+    expect(fecha.franjas[0]!.bloques.find(({ inicio }) => inicio === "08:00")?.estado).toBe("LIBRE");
+    expect(fecha.franjas[0]!.bloques.find(({ inicio }) => inicio === "08:30")?.estado).toBe("OCUPADO");
+    expect(fecha.franjas[0]!.bloques.find(({ inicio }) => inicio === "11:00")?.estado).toBe("LIBRE");
+    expect(fecha.franjas[0]!.bloques.find(({ inicio }) => inicio === "08:30")?.seleccionable).toBe(false);
+  });
+
+  it("franja totalmente ocupada conserva fecha y ocupados, sin hacerla seleccionable", async () => {
+    turno.findMany.mockResolvedValue([ocupado("2026-09-29", "08:00", 240)]);
+    const fecha = await diaAgenda();
+    expect(fecha.franjas[0]!.tramos_libres).toEqual([]);
+    expect(fecha.franjas[0]!.tramos_ocupados).toEqual([{ desde: "08:00", hasta: "12:00" }]);
+    expect(fecha.franjas[0]!.bloques.every(({ estado, seleccionable }) => estado === "OCUPADO" && !seleccionable)).toBe(true);
+    expect(fecha.seleccionable).toBe(false);
+  });
+
+  it("dos ocupaciones en una franja dejan solo los inicios realmente válidos", async () => {
+    turno.findMany.mockResolvedValue([ocupado("2026-09-29", "08:30", 60), ocupado("2026-09-29", "10:00", 60)]);
+    const fecha = await diaAgenda();
+    expect(fecha.franjas[0]!.tramos_ocupados).toEqual([{ desde: "08:30", hasta: "09:30" }, { desde: "10:00", hasta: "11:00" }]);
+    expect(fecha.franjas[0]!.bloques.filter(({ seleccionable }) => seleccionable).map(({ inicio }) => inicio)).toEqual(["11:00"]);
+  });
+
+  it.each([60, 120, 180])("duración %i entrega fin completo y solo inicios contractuales", async (duracion) => {
+    const fecha = await diaAgenda(duracion);
+    const contractual = await calcularDisponibilidadProfesor(ANA, consulta(duracion));
+    const libres = fecha.franjas[0]!.bloques.filter(({ seleccionable }) => seleccionable);
+    expect(libres.map(({ inicio }) => inicio)).toEqual(contractual.fechas[0]!.franjas[0]!.inicios);
+    expect(libres[0]!.fin).toBe(duracion === 60 ? "09:00" : duracion === 120 ? "10:00" : "11:00");
+  });
+
+  it("usa granularidad y distingue VENCIDO de OCUPADO", async () => {
+    parametros.mockResolvedValue({ dias_operativos: ["MARTES"], apertura: "08:00", cierre: "20:00", granularidad_minutos: 20, anticipacion_maxima_dias: 30 });
+    vi.setSystemTime(new Date("2026-09-29T11:15:00.000Z")); // 08:15 local
+    const fecha = await diaAgenda();
+    expect(fecha.franjas[0]!.bloques.find(({ inicio }) => inicio === "08:00")?.estado).toBe("VENCIDO");
+    expect(fecha.franjas[0]!.bloques.find(({ inicio }) => inicio === "08:20")?.estado).toBe("LIBRE");
+    expect(fecha.franjas[0]!.bloques.some(({ inicio }) => inicio === "08:30")).toBe(false);
+  });
+
+  it("incluye fecha operativa sin horario, no operativa y días fuera del rango sin selección", async () => {
+    const agenda = await calcularAgendaProfesorWizard(ANA, consulta(60, "2026-09-29", "2026-10-02"));
+    const sept = agenda.meses[0]!.dias;
+    const oct = agenda.meses[1]!.dias;
+    expect(sept.find(({ fecha }) => fecha === "2026-09-30")).toMatchObject({ operativo: true, franjas: [], seleccionable: false });
+    expect(oct.find(({ fecha }) => fecha === "2026-10-01")).toMatchObject({ operativo: false, franjas: [], seleccionable: false });
+    expect(oct.find(({ fecha }) => fecha === "2026-10-03")).toMatchObject({ en_rango: false, seleccionable: false });
+  });
+
+  it("recorta el rango igual que C-07 y conserva sus errores de validación", async () => {
+    const agenda = await calcularAgendaProfesorWizard(ANA, consulta(60, "2026-09-01", "2026-12-01"));
+    expect(agenda.rango).toEqual({ desde: "2026-09-29", hasta: "2026-10-29" });
+    await expect(calcularAgendaProfesorWizard(ANA, consulta(60, "2026-11-01", "2026-12-01"))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    materiaActiva.mockResolvedValueOnce(null);
+    await expect(calcularAgendaProfesorWizard(ANA, consulta())).rejects.toMatchObject({ code: "MATERIA_NO_DISPONIBLE" });
+    opcionActiva.mockResolvedValueOnce(null);
+    await expect(calcularAgendaProfesorWizard(ANA, consulta())).rejects.toMatchObject({ code: "PROFESOR_NO_ENCONTRADO" });
+    dictaMateria.mockResolvedValueOnce(false);
+    await expect(calcularAgendaProfesorWizard(ANA, consulta())).rejects.toMatchObject({ code: "PROFESOR_NO_DICTA_MATERIA" });
   });
 });
