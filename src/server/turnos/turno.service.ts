@@ -9,7 +9,7 @@ import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { listarIdsAlumnosActivos, obtenerAlumnosBasicos, obtenerAlumnoDeUsuario, verificarAlumnoActivo as verificarAlumnoActivoPublico } from "@/server/alumnos/alumno.publico";
 import { obtenerClaseDictadaDeTurno } from "@/server/historial/historial.publico";
 import { verificarAulaActiva } from "@/server/aulas/aula.publico";
-import { obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
+import { listarOpcionesProfesoresActivos, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
 import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validaciones";
 import { alumnosConTurnoSuperpuesto, aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
@@ -554,10 +554,37 @@ function presentar(turno: TurnoConRelaciones) {
 
 /**
  * Filtros opcionales del listado (spec_modulo_C.md §2.7). Cada uno se suma
- * con AND al alcance base (desde hoy + rol): HU-C-08 agrega `profesor_id`
- * acá sin cambiar la firma de listarTurnos().
+ * con AND al alcance base (desde hoy + rol). `profesor_id` (HU-C-08) se
+ * combina con `q` y con la paginación e incluye turnos en cualquier estado.
  */
-export type FiltrosListadoTurnos = { q?: string };
+export type FiltrosListadoTurnos = { q?: string; profesor_id?: string };
+
+/** Opciones del selector «Profesor» del listado (HU-C-08): activos, por apellido y nombre (Módulo D). */
+export async function listarOpcionesFiltroProfesor(): Promise<{ id: string; nombre: string; apellido: string }[]> {
+  return (await listarOpcionesProfesoresActivos()).map(({ id, nombre, apellido }) => ({ id, nombre, apellido }));
+}
+
+const MENSAJE_SIN_PERMISO_LISTADO = "No tenés permisos para ver los turnos de ese profesor";
+
+/**
+ * Alcance por profesor del listado, siempre resuelto en el servidor
+ * (spec_modulo_C.md §2.7 y R5-12): el Profesor ve solo sus turnos (la ficha
+ * sale de la sesión); su propio `profesor_id` equivale a no enviarlo y uno
+ * ajeno o inexistente responde `SIN_PERMISO` sin revelar si existe. Gerente y
+ * Mesa de Entrada filtran por cualquier profesor activo.
+ */
+async function alcanceProfesorListado(usuario: { id: string; rol: RolUsuario }, profesorId: string | undefined): Promise<Prisma.TurnoWhereInput> {
+  if (usuario.rol === "PROFESOR") {
+    const propio = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    if (!propio || (profesorId !== undefined && profesorId !== propio.id)) {
+      throw new ServiceError("SIN_PERMISO", MENSAJE_SIN_PERMISO_LISTADO);
+    }
+    return { profesorId: propio.id };
+  }
+  if (profesorId === undefined) return {};
+  if (!(await obtenerOpcionProfesorActivo(profesorId))) throw new ServiceError("PROFESOR_NO_ENCONTRADO", "No se encontró un profesor activo");
+  return { profesorId };
+}
 
 export async function listarTurnos(pagina: number, porPaginaSolicitado: number | undefined, usuario: { id: string; rol: RolUsuario }, filtros: FiltrosListadoTurnos = {}) {
   const configurado = await getParametroNumerico("paginacion_limite_default", 10);
@@ -568,10 +595,11 @@ export async function listarTurnos(pagina: number, porPaginaSolicitado: number |
   // Sin filtros el `where` es el de HU-C-01; la búsqueda (HU-C-02) mantiene el
   // mismo alcance de fechas y rol. count y findMany usan el mismo `where`, así
   // el total y la paginación son los del resultado filtrado.
+  const alcanceProfesor = await alcanceProfesorListado(usuario, filtros.profesor_id);
   const condiciones = [construirFiltroBusquedaTurno(filtros.q)].filter((condicion) => condicion !== undefined);
   const where: Prisma.TurnoWhereInput = {
     fechaTurno: { gte: inicioHoy },
-    ...(usuario.rol === "PROFESOR" ? { profesor: { is: { usuarioId: usuario.id } } } : {}),
+    ...alcanceProfesor,
     ...(condiciones.length ? { AND: condiciones } : {}),
   };
   const total = await prisma.turno.count({ where });

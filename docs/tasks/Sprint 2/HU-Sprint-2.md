@@ -2,7 +2,7 @@
 
 Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de prioridad de arriba hacia abajo (no es el orden de módulo). Formato espejo de `Historias_de_Usuario_-_Sprint_2.xlsx`.
 
-**Total: 25 Historias de Usuario — 48 SP**
+**Total: 25 Historias de Usuario — 63 SP**
 
 > Nota de proceso (SDD): este documento es un backlog a nivel de PO (Como/Necesito/Para/Criterios/SP/Justificación). Las specs (`docs/specs/spec_modulo_X.md`) y los tasks (`docs/tasks/HU-X-NN.md`) de cada historia los redacta el Scrum Master o el developer al iniciar la HU — este archivo no los reemplaza. Para la pantalla/presentación (modal vs. página) de cada acción, ver `docs/adicionales/mapa-pantallas-sprint-2.md`.
 
@@ -21,7 +21,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 9. HU-C-16 - Mostrar aulas disponibles según horario — 1 SP
 10. HU-C-18 - Reordenar el flujo de registro de turno según el nuevo orden aprobado — 3 SP
 11. HU-C-17 - Generar turnos a partir del horario del profesor — 5 SP
-12. HU-C-09 - Consultar detalles del turno — 1 SP
+12. HU-C-09 - Consultar detalles del turno — 2 SP
 13. HU-C-05 - Cambiar estado del turno a cancelado — 1 SP
 14. HU-C-06 - Cambiar fecha y hora del turno — 2 SP
 15. HU-C-10 - Asignar prioridad/urgencia al turno — 1 SP
@@ -313,7 +313,7 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 ## 12. HU-C-09 - Consultar detalles del turno
 
 **Módulo:** Gestionar turnos  
-**SP:** 1
+**SP:** 2
 
 **Como** Usuario autorizado (mesa de entrada, gerente o profesor sobre sus propios turnos),
 **necesito** Ver el detalle completo de un turno, incluidos los datos que se agregan este sprint,

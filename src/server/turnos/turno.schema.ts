@@ -4,8 +4,10 @@ import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
 export const ListarTurnosQuerySchema = z.object({
   pagina: z.coerce.number().int().positive().default(1),
   por_pagina: z.coerce.number().int().positive().max(20).optional(),
-  q: z.string().trim().max(100).optional(), // HU-C-02; profesor_id y .strict() los agrega HU-C-08
-});
+  q: z.string().trim().max(100).optional(), // HU-C-02
+  // HU-C-08. `.strict()`: sin `materia_id`, `estados` ni `solo_futuros` (HU-C-02 AC6, spec §2.7).
+  profesor_id: z.string().cuid().optional(),
+}).strict();
 
 export const PRIORIDADES_TURNO = ["NORMAL", "ALTA", "URGENTE"] as const;
 export const ActualizarPrioridadSchema = z.object({
