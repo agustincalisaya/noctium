@@ -29,10 +29,12 @@ vi.mock("@/server/turnos/turno.publico", async (importOriginal) => {
   return {
     ...original,
     ajustarCuposPorCapacidadDeAula: vi.fn(original.ajustarCuposPorCapacidadDeAula),
+    emitirEventosTurno: vi.fn().mockResolvedValue(undefined),
   };
 });
 
-const { ajustarCuposPorCapacidadDeAula } = await import("@/server/turnos/turno.publico");
+const { prisma } = await import("@/lib/prisma");
+const { ajustarCuposPorCapacidadDeAula, emitirEventosTurno } = await import("@/server/turnos/turno.publico");
 const { modificarAula } = await import("@/server/aulas/aula.service");
 const { ModificarAulaSchema } = await import("@/server/aulas/aula.schema");
 
@@ -224,12 +226,100 @@ describe("modificarAula", () => {
   });
 });
 
-// TODO HU-K-03: esperar emitirEventosTurno (Tomás). Cuando exista en
-// turno.publico.ts, mockearla y cubrir la emisión post-COMMIT (spec §2.4 paso 6).
+// Spec K §2.4 paso 6: emitirEventosTurno() está mockeada; se verifica cuándo y
+// con qué se llama, no la escritura en eventos_turno (la cubre turno.publico).
 describe("modificarAula — eventos de turno después del COMMIT", () => {
-  it.todo("emite los eventos del ajuste con emitirEventosTurno, una vez, después de que resolvió $transaction");
-  it.todo("no emite nada si la transacción lanzó (capacidad menor a inscriptos, conflicto de version)");
-  it.todo("no llama a emitirEventosTurno si no hay eventos (solo nombre, aula sin turnos futuros)");
+  it("emite los eventos del ajuste con emitirEventosTurno, una vez, después de que resolvió $transaction", async () => {
+    tx.$queryRaw.mockResolvedValue([
+      { idTurno: "t01", estadoTurno: "COMPLETO", cupoMaximoTurno: 10, fechaTurno: futuro(1), horaInicioTurno: hora },
+    ]);
+    tx.turnoAlumno.findMany.mockResolvedValue(inscriptos("t01", 10));
+    let transaccionResuelta = false;
+    let resueltaAlEmitir: boolean | undefined;
+    vi.mocked(prisma.$transaction).mockImplementationOnce((async (callback: (cliente: typeof tx) => unknown) => {
+      const resultado = await callback(tx);
+      transaccionResuelta = true;
+      return resultado;
+    }) as never);
+    // Se registra el valor en vez de afirmar acá: un expect que falle dentro
+    // del mock lo atraparía el try/catch de modificarAula().
+    vi.mocked(emitirEventosTurno).mockImplementationOnce(async () => {
+      resueltaAlEmitir = transaccionResuelta;
+    });
+
+    await modificarAula(ID, { capacidad: 12, version: 3 }, USUARIO);
+
+    expect(resueltaAlEmitir).toBe(true);
+    const ajuste = await vi.mocked(ajustarCuposPorCapacidadDeAula).mock.results[0].value;
+    expect(ajuste.eventos).toHaveLength(2);
+    expect(emitirEventosTurno).toHaveBeenCalledTimes(1);
+    // Los mismos eventos, sin transformar, y sin el `tx` ya cerrado.
+    expect(vi.mocked(emitirEventosTurno).mock.calls[0]).toEqual([ajuste.eventos]);
+    expect(vi.mocked(emitirEventosTurno).mock.calls[0][0]).toBe(ajuste.eventos);
+    expect(vi.mocked(prisma.$transaction).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(emitirEventosTurno).mock.invocationCallOrder[0]);
+  });
+
+  it("no emite nada si la transacción lanzó por capacidad menor a inscriptos", async () => {
+    tx.$queryRaw.mockResolvedValue([
+      { idTurno: "t01", estadoTurno: "COMPLETO", cupoMaximoTurno: 10, fechaTurno: futuro(1), horaInicioTurno: hora },
+    ]);
+    tx.turnoAlumno.findMany.mockResolvedValue(inscriptos("t01", 10));
+
+    const error = await capturarError(modificarAula(ID, { capacidad: 9, version: 3 }, USUARIO));
+
+    expect(error.code).toBe("CAPACIDAD_MENOR_A_INSCRIPTOS");
+    expect(emitirEventosTurno).not.toHaveBeenCalled();
+  });
+
+  it("no emite nada si la transacción lanzó por conflicto de version", async () => {
+    tx.aula.updateMany.mockResolvedValue({ count: 0 });
+
+    const error = await capturarError(modificarAula(ID, { capacidad: 12, version: 2 }, USUARIO));
+
+    expect(error.code).toBe("CONFLICTO_EDICION_CONCURRENTE");
+    expect(emitirEventosTurno).not.toHaveBeenCalled();
+  });
+
+  it("no llama a emitirEventosTurno si solo cambia el nombre", async () => {
+    const r = await modificarAula(ID, { nombre: "Aula Uno", version: 3 }, USUARIO);
+
+    expect(r.turnos_actualizados).toBe(0);
+    expect(emitirEventosTurno).not.toHaveBeenCalled();
+  });
+
+  it("no llama a emitirEventosTurno si el aula no tiene turnos futuros (eventos vacío)", async () => {
+    tx.$queryRaw.mockResolvedValue([
+      { idTurno: "pasado", estadoTurno: "DISPONIBLE", cupoMaximoTurno: 10,
+        fechaTurno: new Date("2026-09-25T00:00:00.000Z"), horaInicioTurno: hora },
+    ]);
+
+    const r = await modificarAula(ID, { capacidad: 12, version: 3 }, USUARIO);
+
+    expect(r).toEqual({ id: ID, campos_modificados: ["capacidad"], version: 4, turnos_actualizados: 0 });
+    expect(ajustarCuposPorCapacidadDeAula).toHaveBeenCalledTimes(1);
+    expect(emitirEventosTurno).not.toHaveBeenCalled();
+  });
+
+  it("si emitirEventosTurno rechaza, devuelve igual el resultado exitoso y loguea el error", async () => {
+    tx.$queryRaw.mockResolvedValue([
+      { idTurno: "t01", estadoTurno: "COMPLETO", cupoMaximoTurno: 10, fechaTurno: futuro(1), horaInicioTurno: hora },
+    ]);
+    tx.turnoAlumno.findMany.mockResolvedValue(inscriptos("t01", 10));
+    const fallo = new Error("fallo de escritura");
+    vi.mocked(emitirEventosTurno).mockRejectedValueOnce(fallo);
+    const consola = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const r = await modificarAula(ID, { capacidad: 12, version: 3 }, USUARIO);
+
+      // El aula y los cupos ya se confirmaron: no se presenta como rollback.
+      expect(r).toEqual({ id: ID, campos_modificados: ["capacidad"], version: 4, turnos_actualizados: 1 });
+      expect(consola).toHaveBeenCalledWith("modificarAula: no se pudieron registrar los eventos de turno", fallo);
+    } finally {
+      consola.mockRestore();
+    }
+  });
 });
 
 describe("Regla N.° 3 — imports del módulo Aulas", () => {

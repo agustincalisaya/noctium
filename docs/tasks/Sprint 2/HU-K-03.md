@@ -19,11 +19,11 @@ Relevado el 28/09 sobre `develop` (`7f7a3db`). **Revisado el 29/09 contra `spec_
 - La rama local `feature/HU-K-03` (commit `9893da9`, base `7f7a3db`) ya tiene una implementación según la versión anterior de esta task. **Necesita rework**:
   1. Revertir el cambio en `src/server/turnos/turno.publico.ts` (helper `registrarEventoTurno` y escritura de eventos dentro del `tx`, marcado "HU-K-03: coordinar con Tomás") y en `turno.publico.test.ts` / `turno.publico.pg.test.ts`. Esos archivos son del módulo C y quedan como están en `develop`.
   2. Rebasar sobre `develop`: desde `293b79f` los servicios públicos de Aula viven en `src/server/aulas/aula.publico.ts` (spec K §2.3), y la rama todavía los tiene en `aula.service.ts` (conflicto esperable).
-  3. Agregar la emisión post-COMMIT (4.2 paso 7) cuando exista `emitirEventosTurno` (depende de Tomás, 0.1).
-  4. Ajustar los tests a la emisión post-COMMIT (sección 7).
+  3. ~~Agregar la emisión post-COMMIT (4.2 paso 7) cuando exista `emitirEventosTurno` (depende de Tomás, 0.1).~~ **Hecho el 30/09** (`emitirEventosTurno` entró en `develop` con el PR #124).
+  4. ~~Ajustar los tests a la emisión post-COMMIT (sección 7).~~ **Hecho el 30/09.**
 - El resto de lo implementado en la rama (schema, diff, unicidad, `updateMany` con `version`, rollback ante `ok: false`, `PATCH`, ficha en modo edición) coincide con la spec K y se conserva.
 
-### 0.1. Dependencia de Turno: `turno.publico.ts` — **EXISTE `ajustarCuposPorCapacidadDeAula`; FALTA `emitirEventosTurno`**
+### 0.1. Dependencia de Turno: `turno.publico.ts` — **EXISTEN `ajustarCuposPorCapacidadDeAula` y `emitirEventosTurno`** (esta última desde el PR #124, re-verificado el 30/09 sobre `develop` `830d4b4`)
 
 - El PR 0 (`sprint2/pr0-migraciones`, #107) y el de servicios públicos de Turno (`sprint2/turno-publico`, #108) **están en `develop`**. `turno.publico.ts` no cambió entre `7f7a3db` y `beda994`.
 - `src/server/turnos/turno.publico.ts` exporta, con esta firma real:
@@ -37,16 +37,25 @@ Relevado el 28/09 sobre `develop` (`7f7a3db`). **Revisado el 29/09 contra `spec_
     | { ok: true; turnos_actualizados: number; eventos: EventoTurno[] }
     | { ok: false; turnos_en_conflicto: string[]; max_inscriptos: number };
   ```
-  `EventoTurno` también se exporta desde el mismo archivo (unión de `turno:cupo_actualizado`, `turno:completado`, `turno:disponible_nuevamente`, cada uno con `tipoEvento`, `turnoId` y `payloadEvento`). **Diferencia de nombres con la spec C §2.15**, que lo llama `EventoTurnoPendiente = { tipo, turno_id, payload }`: esta task usa el tipo real del código; la alineación la decide el dueño de C (0.6, Q-K3-1).
+  **Nombre del tipo, alineado (PR #124):** el tipo se llama ahora `EventoTurnoPendiente` (unión discriminada por `tipoEvento` de `turno:cupo_actualizado`, `turno:completado`, `turno:disponible_nuevamente`, cada uno con `tipoEvento`, `turnoId` y `payloadEvento`), y `AjusteCupos` devuelve `eventos: EventoTurnoPendiente[]`. `EventoTurno` sigue exportado como alias para Aulas, así que `aula.service.ts` no se renombró. La spec C §2.15 se sincronizó con el código (ya no dice `{ tipo, turno_id, payload }`).
 - **Qué hace (leído en el código, coincide con `spec_modulo_C.md` §2.15 salvo el borde de "futuro"):**
-  1. `SELECT … FOR UPDATE` (ordenado por `idTurno`) de los turnos con ese `aulaId` en `PENDIENTE`, `DISPONIBLE` o `COMPLETO` (**`CANCELADO` queda afuera**). Después filtra en memoria los **vigentes** con `turnoSigueVigente()` (definición de "turno futuro", ver 0.6 Q-K3-4).
+  1. `SELECT … FOR UPDATE` (ordenado por `idTurno`) de los turnos con ese `aulaId` en `PENDIENTE`, `DISPONIBLE` o `COMPLETO` (**`CANCELADO` queda afuera**). Después captura una sola vez el instante actual y filtra en memoria los que **no han comenzado** con `turnoNoHaComenzado()` (`fecha + hora_inicio ≥ ahora`, al minuto; definición de "turno futuro", ver 0.6 Q-K3-4).
   2. Cuenta `TurnoAlumno` por turno. Si algún `DISPONIBLE`/`COMPLETO` futuro tiene **más** inscriptos que `nuevaCapacidad` → devuelve `ok: false` **sin escribir**, con los ids en conflicto ordenados por fecha/hora y el máximo de inscriptos.
   3. Si no hay conflicto: `cupoMaximoTurno = nuevaCapacidad` en todos los turnos futuros y recalcula estado (`COMPLETO` si `inscriptos ≥ cupo`, si no `DISPONIBLE`; `PENDIENTE` solo actualiza cupo). Escribe `modificadoPorUsuarioId` en cada turno.
   4. **No emite eventos:** los devuelve en `eventos` para que el llamador los emita **después del COMMIT** (spec C §2.15 paso 4, spec K §2.4 paso 6).
 - **No lanza** ante conflicto: devuelve `ok: false`. Es responsabilidad de `modificarAula()` **lanzar** un `ServiceError` dentro del `$transaction` para que se revierta también el `UPDATE` del aula (spec K §2.4 paso 4).
 - Tiene tests unitarios (`turno.publico.test.ts`) y contra Postgres real (`turno.publico.pg.test.ts`, incluido "respeta el rollback del llamador" y "bloquea un turno vencido sin modificarlo").
 - **Validación de inscriptos:** sale de la misma función pública (paso 2), no de una query propia del módulo Aula.
-- **`emitirEventosTurno(eventos, db?)` — NO EXISTE en `develop`.** La spec C §2.15 la declara ("`void`. Emite los `EventoTurnoPendiente` recibidos (`emitirEventoTurno()` por cada uno). El llamador la invoca después del `COMMIT`", consumidor: spec K §2.4 paso 6), pero `turno.publico.ts` no la exporta. Hoy el único emisor es `emitirEventoTurno(tipoEvento, turnoId, usuarioId, payloadEvento)` en `turno.service.ts` (línea 28), que **no es público** (Regla N.° 3). **Aulas no puede importar `turno.service.ts`** ni escribir `eventos_turno` por su cuenta (spec K §2.4 paso 6). La agrega el dueño del módulo C (Tomás): **PENDIENTE, bloquea el paso 7 de 4.2** (ver 0.6 Q-K3-1).
+- **`emitirEventosTurno` — EXISTE en `develop` (PR #124, Tomás, commit `175d827`).** Firma real:
+  ```typescript
+  export async function emitirEventosTurno(eventos: EventoTurnoPendiente[], db: Prisma.TransactionClient = prisma): Promise<void>;
+  ```
+  - Acepta **tal cual** el `ajuste.eventos` de `ajustarCuposPorCapacidadDeAula` (mismo tipo, sin transformar).
+  - Si el arreglo está vacío no escribe; si no, hace **un solo** `eventoTurno.createMany` con `tipoEvento`, `turnoId`, `usuarioId` y `payloadEvento` (las columnas obligatorias de `eventos_turno`; `idEvento` y `creadoEnEvento` tienen default).
+  - `usuarioId` sale de `payloadEvento.usuario_id` (obligatorio en las tres variantes).
+  - **Propaga** el error de escritura sin atraparlo: la spec C §2.15 deja a K decidir qué hacer, "sabiendo que Aula y cupos ya quedaron confirmados, sin presentarlo como rollback" (ver Q-K3-9).
+  - Se invoca **sin** el `tx` (ya cerrado): usa `prisma` por defecto.
+  - No importa `turno.service.ts` (lo verifica `publico.aislamiento.test.ts`). Tiene tests unitarios en `turno.publico.test.ts` y contra Postgres real en `turno.publico.pg.test.ts`.
 - **Nota sobre el ciclo de imports:** hoy `turno.service.ts` importa `@/server/aulas/aula.publico` (no `aula.service.ts`), y `aula.publico.ts` no importa nada de otros módulos (spec K §2.3). Por eso `aula.service.ts → turno.publico.ts` no arma ciclo. El problema de importar `turno.service.ts` desde Aulas no es un ciclo sino la Regla N.° 3 (no es servicio público) y el acoplamiento transitivo con Materias, Profesores y Alumnos.
 
 ### 0.2. Archivos actuales del módulo Aula que se reutilizan (HU-K-01 / HU-K-02)
@@ -125,23 +134,24 @@ Los turnos del seed se fechan en **días operativos relativos al día en que se 
 - `src/app/api/aulas/[id]/route.ts`: `PATCH`.
 - `src/app/(dashboard)/aulas/[id]/page.tsx`: modo consulta y edición sobre la misma ruta, breadcrumb, botón "Modificar", banner de éxito, fila "Última modificación".
 
-**No se tocan:** `prisma/schema.prisma`, `prisma/seed.ts`, migraciones, `src/server/aulas/aula.publico.ts`, `aula-form.tsx`, `/aulas` (listado), y **ningún archivo de `src/server/turnos/`** (`turno.publico.ts`, `turno.service.ts` ni sus tests). `emitirEventosTurno` la agrega el dueño del módulo C en su propio cambio (0.1); si se decide que la escriba quien implementa esta HU, es con OK de Tomás y en un commit separado del módulo C.
+**No se tocan:** `prisma/schema.prisma`, `prisma/seed.ts`, migraciones, `src/server/aulas/aula.publico.ts`, `aula-form.tsx`, `/aulas` (listado), y **ningún archivo de `src/server/turnos/`** (`turno.publico.ts`, `turno.service.ts` ni sus tests). `emitirEventosTurno` la agregó el dueño del módulo C en su propio cambio (PR #124, 0.1).
 
 ### 0.6. Dudas y resoluciones (28/09, revisadas el 29/09 contra la spec K)
 
-- **Q-K3-1 — CAMBIÓ: eventos de turno. Resuelta por la spec, con una dependencia PENDIENTE.** Spec K §2.4 paso 6: "Después del `COMMIT`, el servicio emite los eventos que `ajustarCuposPorCapacidadDeAula()` devolvió en `eventos` (…) con `emitirEventosTurno(eventos)` (exportada por `turno.publico.ts`, `spec_modulo_C.md` §2.15). Este módulo no escribe en `eventos_turno` por su cuenta (Regla N.° 3)." Lo mismo dicen spec C §2.15 (fila `emitirEventosTurno` y paso 4) y la Regla N.° 2 opción (b) (tabla de eventos → después del COMMIT). Spec K §4: "Los eventos de los turnos afectados (…) los emite el Módulo C".
+- **Q-K3-1 — RESUELTA: eventos de turno.** Resuelta por la spec; la dependencia con Tomás se cerró con el PR #124 (30/09). Spec K §2.4 paso 6: "Después del `COMMIT`, el servicio emite los eventos que `ajustarCuposPorCapacidadDeAula()` devolvió en `eventos` (…) con `emitirEventosTurno(eventos)` (exportada por `turno.publico.ts`, `spec_modulo_C.md` §2.15). Este módulo no escribe en `eventos_turno` por su cuenta (Regla N.° 3)." Lo mismo dicen spec C §2.15 (fila `emitirEventosTurno` y paso 4) y la Regla N.° 2 opción (b) (tabla de eventos → después del COMMIT). Spec K §4: "Los eventos de los turnos afectados (…) los emite el Módulo C".
   - **Se descarta** la decisión del 28/09 (registrar los eventos dentro del `tx` desde `ajustarCuposPorCapacidadDeAula`, con un helper `registrarEventoTurno` en `turno.publico.ts`, como excepción a la Regla N.° 2). Ya no hay excepción que documentar ni que pedir en la spec C.
-  - **PENDIENTE (Tomás):** `emitirEventosTurno` no existe en `develop` (0.1). Hay que agregarla en `turno.publico.ts` **sin importar `turno.service.ts`** (spec C: "`turno.publico.ts` no importa nada de los demás módulos", y `turno.service.ts` importa Materias, Profesores, Alumnos y Aulas). Opciones para él: escribir `db.eventoTurno.create` directo en `turno.publico.ts`, o mover `emitirEventoTurno` a un archivo propio del módulo (p. ej. `turno.eventos.ts`) que importen ambos. Además, decidir de dónde sale el `usuarioId` de la columna (hoy solo viene en `payloadEvento.usuario_id`) y si se alinea el nombre del tipo (`EventoTurno` en el código vs. `EventoTurnoPendiente` en la spec).
-  - Consecuencia aceptada de la opción (b): si la transacción se revierte no se emite nada (los eventos nunca salen del callback); si la emisión falla **después** del COMMIT, el aula y los cupos quedan guardados sin sus eventos. Es el mismo comportamiento que el resto de las emisiones post-COMMIT de Turno (`await` sin `catch`); no se agrega manejo propio.
+  - **RESUELTO (Tomás, PR #124):** `emitirEventosTurno` está en `turno.publico.ts` y escribe con `db.eventoTurno.createMany` directo, sin importar `turno.service.ts`. El `usuarioId` de la columna sale de `payloadEvento.usuario_id`. El tipo se alineó a `EventoTurnoPendiente` y `EventoTurno` quedó como alias (0.1).
+  - Consecuencia aceptada de la opción (b): si la transacción se revierte no se emite nada (los eventos nunca salen del callback); si la emisión falla **después** del COMMIT, el aula y los cupos quedan guardados sin sus eventos. Cómo se trata ese fallo: ver Q-K3-9.
 - **Q-K3-2 — CAMBIÓ: recálculo `COMPLETO ⇄ DISPONIBLE`. Ratificado por el PO.** Spec C §2.15 paso 3: "recalcular el estado (**ratificado por el PO el 29/09/2026 — Q4**)". Spec K §2.4 paso 4 y §3.5 lo contractualizan: los `DISPONIBLE`/`COMPLETO` futuros recalculan estado; un `PENDIENTE` no cambia de estado. Ya no es DEFAULT SM. Lo implementa `ajustarCuposPorCapacidadDeAula`; Aulas no hace nada extra.
 - **Q-K3-3 — RESUELTA por la spec: `PENDIENTE` y `CANCELADO`.** Spec K §2.4 paso 4: bloquean solo los turnos futuros `DISPONIBLE` o `COMPLETO`; "Un turno futuro `PENDIENTE` con esta aula solo actualiza su cupo y sigue `PENDIENTE`". Spec C §2.15 paso 1 solo selecciona `PENDIENTE`, `DISPONIBLE` y `COMPLETO`: un `CANCELADO` **ni bloquea ni se modifica** (conserva su cupo). Spec K §3.5: modificar no crea ni elimina `reservas_turno`. El código coincide.
-- **Q-K3-4 — SIGUE ABIERTA (dueño de C), no bloquea: borde de "turno futuro".** Spec K §2.4 solo dice "futuro"/"fecha futura" y delega en C. Spec C §2.15 paso 1 dice `fecha + hora_inicio ≥ ahora`; el código usa `turnoSigueVigente()`, que compara al minuto con `>` (un turno que empieza en el minuto actual cuenta como pasado: ni bloquea ni se ajusta). La propia spec C usa "posterior al momento de la consulta" (`>`) para `listarTurnosFuturosDeProfesorPorMateria`. Aulas no reimplementa el criterio (Regla N.° 3): lo que decida C vale para esta HU. La diferencia es de un minuto y no afecta ningún CP con el seed.
+- **Q-K3-4 — RESUELTA por el dueño de C (PR #124): borde de "turno futuro" = `≥` para el ajuste de cupos.** Spec C §2.15 paso 1: después de obtener los locks, se captura una sola vez el instante actual y un turno se incluye si `fecha + hora_inicio ≥ ahora`, al minuto, en `America/Argentina/Buenos_Aires`. El código lo implementa con `turnoNoHaComenzado()` (`turno.validaciones.ts`): un turno que empieza en el minuto actual **cuenta como futuro** (bloquea y se ajusta). Ese `≥` es particular del ajuste de cupos; `turnoSigueVigente()` y los demás consumidores (p. ej. `listarTurnosFuturosDeProfesorPorMateria`) conservan `>`. Aulas no reimplementa el criterio (Regla N.° 3) y no cambió nada por esto. No afecta ningún CP con el seed.
   - Nota de backlog vs. spec: el criterio 2 dice "turnos con fecha futura"; la spec C lo interpreta como **fecha + hora de inicio** (un turno de hoy que ya empezó es pasado). **Manda la spec.**
 - **Q-K3-5 — RESUELTA por la spec (implícito): se permite editar un aula inactiva.** Spec K §2.4 paso 1 solo exige que el aula **exista** (`404 AULA_NO_ENCONTRADA`); no hay ningún error por aula inactiva, y el detalle de §2.2 muestra también las inactivas. Mismo criterio que la materia inactiva en HU-L-03. Ya no se pide confirmación al PO; si el PO quisiera bloquearlo, sería un cambio de spec (nuevo código de error).
 - **Q-K3-6 — RESUELTA por la spec: error de capacidad y clave `detalle`.** Spec K §2.4, «Errores esperados»: `409 CAPACIDAD_MENOR_A_INSCRIPTOS` (con `detalle: { turnos_en_conflicto, max_inscriptos }`), mensaje literal "La nueva capacidad es menor a la cantidad de alumnos ya inscriptos en turnos que usan esta aula", y "toda la transacción se revierte (tampoco se guarda el nombre)". `modificarAula()` lanza, **dentro de la transacción**, `ServiceError("CAPACIDAD_MENOR_A_INSCRIPTOS", <mensaje>, { turnos_en_conflicto, max_inscriptos })`. La clase compartida `ServiceError` guarda ese objeto en su campo `detalles` (no se renombra la clase); el `PATCH` **y la Server Action** lo exponen como **`error.detalle`**, como dice la spec. Los errores `VALIDACION` siguen con `detalles` (`flatten()`), como el resto del proyecto.
   - Nota: en el código conviven `detalles` (rutas de Turnos) y `detalle` (specs K y D). Esta task sigue la spec K; unificar es tarea aparte.
 - **Q-K3-7 — SIGUE ABIERTA, no bloquea: Mockup 21 no está en el repo** (tampoco en `guia-pantallas-referencia-sprint-2.md`). La pantalla sigue la spec K §2.4 («Pantalla»), la fila del mapa y el patrón de HU-L-03. Si el mockup muestra algo más (lista de turnos afectados, texto sobre el cupo), se consulta al PO.
 - **Q-K3-8 — NUEVA, no bloquea: textos del diálogo de descarte.** Spec K §2.4 «Cancelar» pide título «¿Descartar los cambios?», texto «Tenés cambios sin guardar. Si salís de esta pantalla, se van a perder.» y botones «Seguir editando» / «Descartar cambios». El componente existente (`confirmar-descarte-dialog.tsx`) usa «Cambios sin guardar», «Hay datos sin guardar. ¿Salir de todas formas?», «Seguir editando» y «Salir sin guardar». La misma spec resuelve: "Si el componente ya implementado usa otro texto, **prevalece el existente** y se actualiza también L §2.4". Se usa el componente tal cual; queda para el SM actualizar el texto en spec K §2.4 y spec L §2.4.
+- **Q-K3-9 — NUEVA, DECIDIDA (30/09): fallo de `emitirEventosTurno` después del COMMIT.** `modificarAula()` envuelve la llamada en `try/catch` y, si falla, lo registra con `console.error("modificarAula: no se pudieron registrar los eventos de turno", error)` y **devuelve igual el resultado exitoso** (`200`). Motivo: la spec C §2.15 pide que K trate ese error "sabiendo que Aula y cupos ya quedaron confirmados, sin presentarlo como rollback"; propagarlo daría un `500` sobre un cambio que sí se guardó, y el usuario podría reintentarlo con una `version` vieja. Sigue el precedente de `autenticacion.service.ts` (`cerrarSesion`, `console.error` después de la operación principal). Difiere de las emisiones de `turno.service.ts` (`await` sin `catch`), que no tienen esta indicación en su spec. Lo cubre un test en `aula.modificar.test.ts`.
 - **`--destructive-soft` — DECISIÓN RESUELTA:** el token está en `DESIGN.md` pero todavía no en `src/app/globals.css` (verificado el 29/09). Los avisos de error usan `text-destructive`, igual que HU-L-03.
 
 ---
@@ -163,7 +173,7 @@ Los turnos del seed se fechan en **días operativos relativos al día en que se 
 - Listar en pantalla los turnos en conflicto (no está en el mapa ni en los criterios; ver Q-K3-7).
 - Evento `aula:modificada` o tabla de auditoría del aula: la trazabilidad va por columnas (§4, Regla N.° 2 opción (a)).
 - Cualquier cambio de schema, migración o seed.
-- Implementar `emitirEventosTurno` (es del módulo C, Q-K3-1).
+- Implementar `emitirEventosTurno` (es del módulo C, Q-K3-1; ya existe desde el PR #124).
 
 ---
 
@@ -249,7 +259,7 @@ Pasos 1 a 6 dentro de **una única** `prisma.$transaction(async (tx) => …)`; e
    - `ajuste.ok === true` → se guardan `ajuste.turnos_actualizados` y `ajuste.eventos` para devolverlos desde el callback.
    - Si solo cambió el nombre, **no** se llama a la función (`turnos_actualizados: 0`, `eventos: []`).
 6. El callback devuelve `{ resultado: { id, campos_modificados, version: input.version + 1, turnos_actualizados }, eventos }`. Errores: `ServiceError` se relanza tal cual; `P2002` → `NOMBRE_DUPLICADO` con el helper compartido con `crearAula()`.
-7. **Después del COMMIT** (el `$transaction` ya resolvió): si `eventos.length > 0`, `await emitirEventosTurno(eventos)` (spec K §2.4 paso 6). Si la transacción lanzó, este paso nunca se ejecuta. Aulas no filtra, no transforma ni vuelve a armar los eventos. **Depende de Q-K3-1** (Tomás).
+7. **Después del COMMIT** (el `$transaction` ya resolvió): si `eventos.length > 0`, `await emitirEventosTurno(eventos)` **sin pasar el `tx`** (spec K §2.4 paso 6, spec C §2.15). Si la transacción lanzó, este paso nunca se ejecuta. Aulas no filtra, no transforma ni vuelve a armar los eventos. Si la emisión falla: `console.error` y se devuelve igual el resultado (Q-K3-9).
 8. Sin evento propio de aula (§4). Devolver `resultado`.
 
 `obtenerAulaPorId()` suma `updated_at` (ISO) y `version` a lo que ya devuelve (aditivo; el `GET` existente no se rompe; spec K §2.2).
@@ -322,12 +332,12 @@ Pasos 1 a 6 dentro de **una única** `prisma.$transaction(async (tx) => …)`; e
 
 1. **Confirmar relevamiento:** `git pull` de `develop`; verificar que `turno.publico.ts` conserva la firma de 0.1 y si ya exporta `emitirEventosTurno`; que `Aula.version` existe en la base local (`npx prisma migrate status`). Esperar OK sobre las dudas abiertas de 0.6 (Q-K3-1 dependencia, Q-K3-4, Q-K3-7, Q-K3-8; ninguna bloquea salvo el paso 7 de 4.2).
 2. **Rework de la rama `feature/HU-K-03`** (0.0): revertir los cambios en `src/server/turnos/turno.publico.ts`, `turno.publico.test.ts` y `turno.publico.pg.test.ts`; rebasar sobre `develop` y resolver el conflicto con `aula.publico.ts` (los públicos no vuelven a `aula.service.ts`).
-3. **Pedir a Tomás `emitirEventosTurno`** en `turno.publico.ts` (Q-K3-1). Si se demora, se avanza con los pasos 4–7 y el paso 7 de 4.2 queda para el final.
+3. ~~**Pedir a Tomás `emitirEventosTurno`** en `turno.publico.ts` (Q-K3-1).~~ Hecho: PR #124.
 4. **Schema:** `ModificarAulaSchema` + tests de schema.
 5. **Types:** `DetalleAula` (con `updated_at`, `version`) y `ResultadoModificarAula`.
 6. **Service:** helper de `P2002` compartido; `obtenerAulaPorId()` ampliado; `modificarAula()` según 4.2 pasos 1–6 y 8. Tests unitarios con `ajustarCuposPorCapacidadDeAula` mockeado (Nivel 1).
 7. **Route Handler `PATCH`** + **Server Action** (con `detalle` en ambos).
-8. **Emisión de eventos post-COMMIT** (4.2 paso 7) con `emitirEventosTurno`, más sus tests, cuando esté disponible.
+8. **Emisión de eventos post-COMMIT** (4.2 paso 7) con `emitirEventosTurno`, más sus tests. Hecho el 30/09.
 9. **Frontend:** `page.tsx` (modos, breadcrumb, botón, banner, última modificación) y `editar-aula-form.tsx`.
 10. **Verificación:** `npm test`, `npx tsc --noEmit`, `npm run lint`. Re-correr el seed y ejecutar los casos de la sección 7 (Postman + SQL + UI).
 11. PR acotado a esta HU, **sin archivos de `src/server/turnos/`** (el git lo maneja el responsable).
@@ -346,8 +356,10 @@ Pasos 1 a 6 dentro de **una única** `prisma.$transaction(async (tx) => …)`; e
 - `P2002` → `NOMBRE_DUPLICADO`;
 - `version` desactualizada (`count === 0`) → `CONFLICTO_EDICION_CONCURRENTE` y **no** se llama a `ajustarCupos…`;
 - `ajustarCupos…` devuelve `ok: false` → `CAPACIDAD_MENOR_A_INSCRIPTOS` con `detalles` y la transacción se revierte (el callback lanza); **no** se llama a `emitirEventosTurno`;
-- `ok: true` con eventos → devuelve `turnos_actualizados` y llama a `emitirEventosTurno(eventos)` **una vez, después** de que resolvió el `$transaction` (verificar el orden de llamadas), con los eventos tal cual los devolvió `ajustarCupos…`;
-- `ok: true` sin eventos (aula sin turnos futuros) → no llama a `emitirEventosTurno`;
+- `ok: true` con eventos → devuelve `turnos_actualizados` y llama a `emitirEventosTurno(eventos)` **una vez, después** de que resolvió el `$transaction` (verificar el orden de llamadas), con los eventos tal cual los devolvió `ajustarCupos…` y **sin `tx`**;
+- `CAPACIDAD_MENOR_A_INSCRIPTOS` o `CONFLICTO_EDICION_CONCURRENTE` → no llama a `emitirEventosTurno`;
+- `ok: true` sin eventos (aula sin turnos futuros) o solo nombre → no llama a `emitirEventosTurno`;
+- `emitirEventosTurno` rechaza → `modificarAula` devuelve igual el resultado exitoso y registra el error con `console.error` (Q-K3-9);
 - aula inexistente → `AULA_NO_ENCONTRADA`; aula inactiva → editable (Q-K3-5).
 
 `ModificarAulaSchema`: misma normalización que el alta; campo ausente; capacidad 0 / negativa / decimal / no numérica → error; nombre vacío o > 30 → error; `version` obligatoria; rechaza `is_active`.
@@ -358,7 +370,7 @@ Pasos 1 a 6 dentro de **una única** `prisma.$transaction(async (tx) => …)`; e
 
 ### Nivel 2 — Postman y Nivel 3 — BD / TablePlus: casos con datos del seed
 
-Precondición: `npx prisma db seed` corrido **el mismo día**; sesión de Gerente salvo que se indique. `v` = `version` actual del aula (leerla con `GET /api/aulas/:id` o de la ficha). Los chequeos de `eventos_turno` requieren `emitirEventosTurno` (Q-K3-1).
+Precondición: `npx prisma db seed` corrido **el mismo día**; sesión de Gerente salvo que se indique. `v` = `version` actual del aula (leerla con `GET /api/aulas/:id` o de la ficha). Los chequeos de `eventos_turno` ya se pueden hacer (`emitirEventosTurno` en `develop` desde el PR #124): contar solo las filas nuevas (`WHERE "creadoEnEvento" > <instante previo al PATCH>`), ordenadas por `"creadoEnEvento"`.
 
 | # | Caso | Datos | Acción | Resultado esperado (API/UI) | Verificación en BD |
 |---|---|---|---|---|---|
@@ -392,8 +404,12 @@ FROM turnos t LEFT JOIN turno_alumno ta ON ta."turnoId" = t."idTurno"
 WHERE t."aulaId" = (SELECT "idAula" FROM aulas WHERE "nombreAula" = 'Aula 2')
 GROUP BY t."idTurno" ORDER BY t."fechaTurno", t."horaInicioTurno";
 
-SELECT "tipoEvento", "turnoId", "payloadEvento", "creadoEnEvento"
-FROM eventos_turno ORDER BY "creadoEnEvento" DESC LIMIT 10;
+-- Eventos del último PATCH (ajustar el intervalo si pasó más tiempo)
+SELECT "tipoEvento", "turnoId", "usuarioId", "payloadEvento", "creadoEnEvento"
+FROM eventos_turno
+WHERE "creadoEnEvento" > now() - interval '5 minutes'
+  AND "tipoEvento" IN ('turno:cupo_actualizado', 'turno:completado', 'turno:disponible_nuevamente')
+ORDER BY "creadoEnEvento", "turnoId", "tipoEvento";
 ```
 
 **Evidencia esperada:** Postman y SQL de los CP; capturas de la ficha en: modo consulta con botón "Modificar", edición sin cambios (Guardar deshabilitado), error de duplicado, error de capacidad insuficiente, guardando, confirmación de Cancelar, conflicto de versión con "Recargar", y banner de éxito.
@@ -407,21 +423,21 @@ FROM eventos_turno ORDER BY "creadoEnEvento" DESC LIMIT 10;
 | HU-K-01 / HU-K-02 (alta, listado y detalle de aula) | ✅ Implementadas (Sprint 1) |
 | PR 0 del Sprint 2 (columnas `version`/`updatedAtAula`/`modificadoPorUsuarioId`, permiso `aulas:editar`) | ✅ Mergeado (#107), verificado en `schema.prisma`, migración y `seed.ts` |
 | `turno.publico.ts` → `ajustarCuposPorCapacidadDeAula` | ✅ Mergeado (#108), firma relevada en 0.1 |
-| `turno.publico.ts` → `emitirEventosTurno` (spec C §2.15) | ⏳ **No existe en `develop`.** La agrega Tomás (Q-K3-1). Bloquea solo 4.2 paso 7 y los chequeos de `eventos_turno` |
+| `turno.publico.ts` → `emitirEventosTurno` (spec C §2.15) | ✅ Mergeado (#124, 29/09). Integrada en `modificarAula()` el 30/09 |
 | Refactor de públicos a `aula.publico.ts` (`293b79f`) | ✅ En `develop`; la rama necesita rebase (0.0) |
 | Mecanismo de modo edición, breadcrumb, badge `warning`, `ConfirmarDescarteDialog` (HU-L-03) | ✅ Mergeado (#110) |
 | Ratificación PO del recálculo `COMPLETO ⇄ DISPONIBLE` | ✅ Ratificado el 29/09 (spec C §2.15, Q4) |
-| Borde `≥`/`>` de "turno futuro" | ⏳ A alinear por el dueño de C (Q-K3-4), no bloquea |
+| Borde `≥`/`>` de "turno futuro" | ✅ Resuelto por C (#124): `≥` para el ajuste de cupos (Q-K3-4) |
 | Textos del diálogo de descarte en specs K y L | ⏳ A actualizar por el SM (Q-K3-8), no bloquea |
 | Token `--destructive-soft` en `globals.css` | ⏳ Deuda de diseño, no bloquea |
 | Mockup 21 accesible para comparar | ⏳ No está en el repo (Q-K3-7) |
-| HU-C-04 (quitar alumno) para preparar CP-02 · wizard HU-C-18 para CP-15 | ✅ / según avance del sprint (CP-15 se puede posponer) |
+| HU-C-04 (quitar alumno) para preparar CP-02 · wizard HU-C-18 para CP-15 | ✅ / ✅ HU-C-18 mergeada (#126, 29/09): CP-15 ya se puede probar |
 
 ---
 
 ## 9. Checklist de Definition of Done
 
-Estado al 29/09, después del rework (cambios sin commitear sobre `develop` `beda994`, a llevar a `feature/HU-K-03`).
+Estado al 29/09, después del rework (cambios sin commitear sobre `develop` `beda994`, a llevar a `feature/HU-K-03`). **Actualizado el 30/09** con la emisión de eventos, sobre `develop` `830d4b4`.
 
 - [x] Relevamiento (sección 0) revisado contra spec K Revisión 2; Q-K3-2, Q-K3-3, Q-K3-5 y Q-K3-6 resueltas por la spec.
 - [x] Rework (0.0): nada de `src/server/turnos/` en el diff (`turno.publico.ts` y sus dos tests idénticos a `develop`); públicos de Aula en `aula.publico.ts`, sin tocarlo.
@@ -430,15 +446,15 @@ Estado al 29/09, después del rework (cambios sin commitear sobre `develop` `bed
 - [x] `modificarAula()`: diff, unicidad excluyendo la propia aula (aplicativa + `P2002`), `updateMany` con `version`, ajuste de turnos **en la misma transacción**; si algo falla no se guarda nada. La transacción devuelve los eventos del ajuste.
 - [x] `obtenerAulaPorId()` devuelve `version` y `updated_at` (spec K §2.2).
 - [x] Ninguna lectura ni escritura de `turnos`/`turno_alumno`/`eventos_turno` desde el módulo Aulas: todo vía `turno.publico.ts` (Regla N.° 3). Sin import de `turno.service.ts` (lo verifica un test de `aula.modificar.test.ts`).
-- [ ] Eventos de turno emitidos con `emitirEventosTurno(eventos)` **después del COMMIT**; ninguno si hubo rollback. **Estructura lista, llamada comentada** en `aula.service.ts` con `TODO HU-K-03: esperar emitirEventosTurno (Tomás)` (requiere Q-K3-1).
-- [ ] **Coordinar con Tomás:** `emitirEventosTurno` en `turno.publico.ts` sin importar `turno.service.ts`; borde `≥`/`>` (Q-K3-4); nombre del tipo de evento.
+- [x] Eventos de turno emitidos con `emitirEventosTurno(eventos)` **después del COMMIT**, sin el `tx`; ninguno si hubo rollback. Un fallo de la emisión se registra con `console.error` y no cambia la respuesta (Q-K3-9). TODO eliminado.
+- [x] **Coordinado con Tomás (PR #124):** `emitirEventosTurno` en `turno.publico.ts` sin importar `turno.service.ts`; borde `≥` para el ajuste (Q-K3-4); tipo `EventoTurnoPendiente` con alias `EventoTurno`.
 - [x] Route Handler `PATCH` y Server Action delgados, con `detalle` en `CAPACIDAD_MENOR_A_INSCRIPTOS`.
 - [x] Ficha con `?modo=edicion`, breadcrumb, "Editando", Guardar deshabilitado sin cambios, errores por campo, "Recargar" ante conflicto, banner "Aula actualizada correctamente".
 - [x] Cancelar con `ConfirmarDescarteDialog` (textos del componente existente) y `DirtyStateContext` (criterio 4). Sin switch de estado (criterio 5).
 - [ ] Avisar al SM de la diferencia de textos del diálogo (Q-K3-8) para actualizar spec K §2.4 y spec L §2.4.
 - [x] Solo tokens de `DESIGN.md`; ningún hex ni color default de Tailwind. Sin `--destructive-soft`.
 - [x] Ningún `DELETE` físico.
-- [x] Nivel 1 en verde: `aula.modificar.test.ts` 27 pasan + 3 `todo` (emisión post-COMMIT, pendientes de `emitirEventosTurno`); suite completa 434 pasan, 18 omitidos (`*.pg.test.ts` sin base de prueba), 3 `todo`. `tsc --noEmit` y `eslint` limpios.
-- [ ] Tests de emisión post-COMMIT (los 3 `todo`) cuando exista `emitirEventosTurno`.
+- [x] Nivel 1 en verde (30/09): `aula.modificar.test.ts` 33 pasan, 0 `todo`; suite completa 1006 pasan, 40 omitidos (`*.pg.test.ts` sin base de prueba), 0 `todo`. `tsc --noEmit` y `eslint` limpios.
+- [x] Tests de emisión post-COMMIT: se llama una vez, con los mismos eventos, sin `tx` y después del `$transaction`; no se llama ante `CAPACIDAD_MENOR_A_INSCRIPTOS`, `CONFLICTO_EDICION_CONCURRENTE`, solo nombre ni ajuste sin eventos; si falla, el resultado sigue siendo exitoso y se loguea.
 - [ ] Niveles 2 y 3 (CP-01 a CP-16) con evidencia y capturas de UI: a cargo de quien pruebe a mano.
 - [ ] PR con el diff acotado a esta HU (sin cambios en `src/server/turnos/`).

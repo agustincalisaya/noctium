@@ -2,7 +2,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
-import { ajustarCuposPorCapacidadDeAula, type EventoTurno } from "@/server/turnos/turno.publico";
+import {
+  ajustarCuposPorCapacidadDeAula,
+  emitirEventosTurno,
+  type EventoTurno,
+} from "@/server/turnos/turno.publico";
 import type { DetalleAula } from "@/types/aula.types";
 import type { CrearAulaInput, ListarAulasQuery, ModificarAulaInput } from "./aula.schema";
 
@@ -223,10 +227,16 @@ export async function modificarAula(
     throw traducirViolacionUnicidad(error) ?? error;
   }
 
-  // Después del COMMIT: si la transacción lanzó, no se llega acá.
+  // Después del COMMIT, sin el `tx` ya cerrado: si la transacción lanzó, no se
+  // llega acá. Un fallo al registrar los eventos no revierte nada (aula y cupos
+  // ya quedaron confirmados), así que se loguea y no se presenta como error
+  // de la operación (spec C §2.15).
   if (transaccion.eventos.length > 0) {
-    // TODO HU-K-03: esperar emitirEventosTurno (Tomás)
-    // await emitirEventosTurno(transaccion.eventos);
+    try {
+      await emitirEventosTurno(transaccion.eventos);
+    } catch (error) {
+      console.error("modificarAula: no se pudieron registrar los eventos de turno", error);
+    }
   }
 
   return transaccion.resultado;
