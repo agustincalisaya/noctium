@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { ETIQUETA_ESTADO_TURNO, type Turno } from "./turno.types";
+import { ETIQUETA_ESTADO_TURNO, type Turno } from "@/types/turno.types";
 
 export function EstadoTurnoBadge({ estado }: { estado: Turno["estado"] }) {
   if (estado === "PENDIENTE") {

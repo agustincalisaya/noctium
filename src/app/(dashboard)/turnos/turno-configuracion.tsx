@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { SeccionAulaTurno, type AulaOpcion } from "./seccion-aula-turno";
-import type { Turno } from "./turno.types";
+import type { Turno } from "@/types/turno.types";
 
 type Materia = { id: string; nombre: string; codigo: string | null };
 type ProfesorLegacy = { id: string; nombre: string; apellido: string };

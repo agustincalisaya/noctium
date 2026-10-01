@@ -13,6 +13,7 @@ const publico = await import("./alumno.publico");
 const servicio = await import("./alumno.service");
 const {
   obtenerAlumnoDeUsuario,
+  listarIdsAlumnosActivos,
   obtenerAlumnosBasicos,
   obtenerAlumnoBasico,
   verificarAlumnoActivo,
@@ -28,6 +29,15 @@ const fila = (id: string, activo = true, formaPago: string | null = null) => ({
 });
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("listarIdsAlumnosActivos", () => {
+  it("enumera únicamente IDs activos por la frontera pública y respeta el db recibido", async () => {
+    tx.alumno.findMany.mockResolvedValue([{ idAlumno: "a1" }, { idAlumno: "a2" }]);
+    await expect(listarIdsAlumnosActivos(conTx)).resolves.toEqual(["a1", "a2"]);
+    expect(tx.alumno.findMany).toHaveBeenCalledWith({ where: { activoAlumno: true }, select: { idAlumno: true }, orderBy: { idAlumno: "asc" } });
+    expect(db.alumno.findMany).not.toHaveBeenCalled();
+  });
+});
 
 describe("obtenerAlumnoDeUsuario", () => {
   it("devuelve id y activo de la ficha vinculada, o null", async () => {

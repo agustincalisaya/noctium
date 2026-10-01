@@ -16,11 +16,12 @@ export function horaLocal(fecha: Date) {
   return { fecha: `${valor("year")}-${valor("month")}-${valor("day")}`, hora: `${valor("hour")}:${valor("minute")}` };
 }
 
-export function turnoSigueVigente(fecha: Date, horaInicio: Date): boolean {
-  const ahora = horaLocal(new Date());
+/** fecha + hora_inicio > ahora, a precisión de minuto. `ahora` permite usar un único instante por request (HU-C-09). */
+export function turnoSigueVigente(fecha: Date, horaInicio: Date, ahora: Date = new Date()): boolean {
+  const horaActual = horaLocal(ahora);
   const diaTurno = fecha.toISOString().slice(0, 10);
   const horaTurno = horaInicio.toISOString().slice(11, 16);
-  return diaTurno > ahora.fecha || (diaTurno === ahora.fecha && horaTurno > ahora.hora);
+  return diaTurno > horaActual.fecha || (diaTurno === horaActual.fecha && horaTurno > horaActual.hora);
 }
 
 /** Spec C §2.15 paso 1: fecha + hora_inicio >= ahora, a precisión de minuto. */
