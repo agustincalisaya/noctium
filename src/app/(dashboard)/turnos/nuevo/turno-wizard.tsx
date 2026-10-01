@@ -14,6 +14,7 @@ import { PasoAlumnosTurno, type AlumnoOpcionTurno, type AlumnoSeleccionadoTurno 
 import { EstadoTurnoBadge } from "../estado-turno-badge";
 import { ProgresoTurno, type PasoTurno } from "./progreso-turno";
 import { ResumenTurno } from "./resumen-turno";
+import { TurnoRecurrente } from "./turno-recurrente";
 
 type SeleccionTurno = {
   materiaId: string;
@@ -44,16 +45,21 @@ async function obtenerConfiguracionTurno() {
   if (!respuesta.ok || !Array.isArray(valor?.data?.materias) || !Array.isArray(valor?.data?.parametros?.duraciones_permitidas_minutos)) {
     throw new Error(valor?.error?.message ?? "No se pudo cargar la configuración del turno");
   }
-  return { materias: valor.data.materias as MateriaOpcionTurno[], duraciones: valor.data.parametros.duraciones_permitidas_minutos as number[] };
+  return { materias: valor.data.materias as MateriaOpcionTurno[], duraciones: valor.data.parametros.duraciones_permitidas_minutos as number[],
+    granularidad: Number.isSafeInteger(valor.data.parametros.granularidad_minutos) && valor.data.parametros.granularidad_minutos > 0
+      ? valor.data.parametros.granularidad_minutos as number : null };
 }
 
 export function TurnoWizard() {
   const { setDirty } = useDirtyState();
+  const [modo, setModo] = useState<"individual" | "recurrente">("individual");
+  const [recurrenteOcupado, setRecurrenteOcupado] = useState(false);
   const [paso, setPaso] = useState<PasoTurno>(1);
   const [pasoMaximoHabilitado, setPasoMaximoHabilitado] = useState<PasoTurno>(1);
   const [seleccion, setSeleccion] = useState<SeleccionTurno>(seleccionInicial);
   const [materias, setMaterias] = useState<MateriaOpcionTurno[]>([]);
   const [duracionesPermitidas, setDuracionesPermitidas] = useState<number[]>([]);
+  const [granularidadMin, setGranularidadMin] = useState<number | null>(null);
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
   const [reintentoMaterias, setReintentoMaterias] = useState(0);
@@ -79,10 +85,11 @@ export function TurnoWizard() {
   useEffect(() => {
     let vigente = true;
     void obtenerConfiguracionTurno()
-      .then(({ materias, duraciones }) => {
+      .then(({ materias, duraciones, granularidad }) => {
         if (!vigente) return;
         setMaterias(materias);
         setDuracionesPermitidas(duraciones);
+        setGranularidadMin(granularidad);
       })
       .catch((error) => {
         if (vigente) setErrorCarga(error instanceof Error ? error.message : "No se pudo cargar la configuración del turno");
@@ -160,7 +167,7 @@ export function TurnoWizard() {
   }, [materiaId, reintentoProfesores]);
 
   useEffect(() => {
-    if (paso !== 4 || !turnoId) return;
+    if (modo !== "individual" || paso !== 4 || !turnoId) return;
     const controlador = new AbortController();
     const cargarAulas = async () => {
       setConsultaAulas({ estado: "cargando", opciones: [], mensaje: "" });
@@ -189,10 +196,10 @@ export function TurnoWizard() {
     return () => controlador.abort();
     // Se vuelve a consultar al entrar al paso o al pedir un reintento; el aula guardada se reconcilia con esa respuesta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paso, turnoId, reintentoAulas]);
+  }, [modo, paso, turnoId, reintentoAulas]);
 
   useEffect(() => {
-    if (paso !== 5 || !turnoId || !aulaGuardada) return;
+    if (modo !== "individual" || paso !== 5 || !turnoId || !aulaGuardada) return;
     const controlador = new AbortController();
     const cargarAlumnos = async () => {
       setConsultaAlumnos({ estado: "cargando", opciones: [], mensaje: "" });
@@ -211,7 +218,7 @@ export function TurnoWizard() {
     };
     void cargarAlumnos();
     return () => controlador.abort();
-  }, [paso, turnoId, aulaGuardada, reintentoAlumnos]);
+  }, [modo, paso, turnoId, aulaGuardada, reintentoAlumnos]);
 
   useEffect(() => {
     const cambiosConfiguracion = configuracionPersistida
@@ -219,8 +226,8 @@ export function TurnoWizard() {
         || seleccion.duracionMin !== configuracionPersistida.duracionMin || seleccion.fecha !== configuracionPersistida.fecha
         || seleccion.horaInicio !== configuracionPersistida.horaInicio
       : Boolean(seleccion.materiaId || seleccion.profesorId || seleccion.duracionMin || seleccion.fecha || seleccion.horaInicio);
-    setDirty(!resultadoFinal && (cambiosConfiguracion || Boolean((aulaIdElegida && aulaIdElegida !== aulaGuardada?.id) || seleccion.alumnos.length)));
-  }, [seleccion, configuracionPersistida, aulaIdElegida, aulaGuardada, resultadoFinal, setDirty]);
+    if (modo === "individual") setDirty(!resultadoFinal && (cambiosConfiguracion || Boolean((aulaIdElegida && aulaIdElegida !== aulaGuardada?.id) || seleccion.alumnos.length)));
+  }, [modo, seleccion, configuracionPersistida, aulaIdElegida, aulaGuardada, resultadoFinal, setDirty]);
   useEffect(() => () => setDirty(false), [setDirty]);
 
   const materia = materias.find(({ id }) => id === seleccion.materiaId);
@@ -251,6 +258,16 @@ export function TurnoWizard() {
   const seleccionarPaso = (destino: PasoTurno) => {
     if (destino === paso || destino > pasoMaximoHabilitado || guardando || guardandoRef.current || resultadoFinal) return;
     setPaso(destino);
+  };
+  const cambiarMateriaRecurrente = (nuevaMateriaId: string) => {
+    if (nuevaMateriaId === seleccion.materiaId) return;
+    setSeleccion((anterior) => ({ ...anterior, materiaId: nuevaMateriaId, profesorId: "", fecha: "", horaInicio: "" }));
+    setPaso(1); setPasoMaximoHabilitado(1); setErrorGuardado("");
+  };
+  const cambiarProfesorRecurrente = (nuevoProfesorId: string) => {
+    if (nuevoProfesorId === seleccion.profesorId) return;
+    setSeleccion((anterior) => ({ ...anterior, profesorId: nuevoProfesorId, fecha: "", horaInicio: "" }));
+    setPaso(2); setPasoMaximoHabilitado(2); setErrorGuardado("");
   };
   const retroceder = () => { if (paso > 1) seleccionarPaso((paso - 1) as PasoTurno); };
 
@@ -326,14 +343,23 @@ export function TurnoWizard() {
     <header className="space-y-3">
       <Breadcrumb tramos={[{ etiqueta: "Turnos", href: "/turnos" }, { etiqueta: "Nuevo turno" }]} />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1"><h1 className="text-3xl font-semibold tracking-tight">Nuevo turno</h1><p className="text-sm text-muted-foreground">Materia → Profesor → Fecha y horario → Aula → Alumnos.</p></div>
+        <div className="space-y-1"><h1 className="text-3xl font-semibold tracking-tight">Nuevo turno</h1><p className="text-sm text-muted-foreground">{modo === "individual" ? "Materia → Profesor → Fecha y horario → Aula → Alumnos." : "Materia → Profesor → Franja y horario → Aula y rango → Vista previa."}</p></div>
         <div role="group" aria-label="Tipo de creación de turnos" className="inline-flex max-w-full gap-1 rounded-lg border border-border bg-muted p-1">
-          <button type="button" aria-pressed="true" className="rounded-md bg-card px-4 py-2 text-sm font-medium shadow-xs">Turno individual</button>
-          <button type="button" disabled aria-label="Generar varios turnos (próximamente)" className="rounded-md px-4 py-2 text-sm text-muted-foreground disabled:cursor-not-allowed">Generar varios turnos</button>
+          <button type="button" aria-pressed={modo === "individual"} disabled={guardando || recurrenteOcupado} onClick={() => setModo("individual")} className={`rounded-md px-4 py-2 text-sm font-medium ${modo === "individual" ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Generar un turno</button>
+          <button type="button" aria-pressed={modo === "recurrente"} disabled={guardando || recurrenteOcupado} onClick={() => setModo("recurrente")} className={`rounded-md px-4 py-2 text-sm font-medium ${modo === "recurrente" ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground"}`}>Generar varios turnos</button>
         </div>
       </div>
     </header>
 
+    {modo === "recurrente" ? <TurnoRecurrente materias={materias} materiaId={seleccion.materiaId} profesorId={seleccion.profesorId}
+      profesores={profesores} profesoresPorMateria={consultaConteos?.cantidades ?? {}}
+      cargandoMaterias={cargando} errorMaterias={errorCarga} onReintentarMaterias={reintentarMaterias}
+      cargandoConteos={!consultaConteos} errorConteos={consultaConteos?.estado === "error" ? consultaConteos.mensaje : ""}
+      onReintentarConteos={() => { setConsultaConteos(null); setReintentoConteos((valor) => valor + 1); }}
+      cargandoProfesores={!consultaVigente || consultaVigente.estado === "cargando"} errorProfesores={consultaVigente?.estado === "error" ? consultaVigente.mensaje : ""}
+      mensajeProfesores={consultaVigente?.mensaje ?? "No hay profesores asociados a esta materia"} onReintentarProfesores={() => setReintentoProfesores((valor) => valor + 1)}
+      onSeleccionarMateria={cambiarMateriaRecurrente} onSeleccionarProfesor={cambiarProfesorRecurrente}
+      duracionesPermitidas={duracionesPermitidas} granularidadMin={granularidadMin} onBusyChange={setRecurrenteOcupado} /> : <>
     <ProgresoTurno paso={paso} pasoMaximoHabilitado={pasoMaximoHabilitado} onPasoSeleccionado={seleccionarPaso} />
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
@@ -383,6 +409,6 @@ export function TurnoWizard() {
       </div>
       <ResumenTurno valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.nombre} ${profesor.apellido}` : null, fechaHorario,
         aula: (paso === 4 ? aulaElegida?.nombre : null) ?? aulaGuardada?.nombre ?? null, alumnos: cantidadAlumnos ? seleccion.alumnos.map(({ nombre }) => nombre.replace(/^([^,]+),\s*(.+)$/, "$2 $1")).join(", ") : null, estadoInicial }} />
-    </div>
+    </div></>}
   </main>;
 }

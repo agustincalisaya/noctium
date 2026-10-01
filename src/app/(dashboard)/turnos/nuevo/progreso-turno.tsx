@@ -1,13 +1,14 @@
 import { cn } from "@/lib/utils";
 
 export const PASOS_TURNO = ["Materia", "Profesor", "Fecha y horario", "Aula", "Alumnos"] as const;
+export const PASOS_TURNO_RECURRENTES = ["Materia", "Profesor", "Franja y horario", "Aula y rango", "Vista previa"] as const;
 export type PasoTurno = 1 | 2 | 3 | 4 | 5;
 
-export function ProgresoTurno({ paso, pasoMaximoHabilitado, onPasoSeleccionado }: { paso: PasoTurno; pasoMaximoHabilitado: PasoTurno; onPasoSeleccionado: (paso: PasoTurno) => void }) {
+export function ProgresoTurno({ paso, pasoMaximoHabilitado, onPasoSeleccionado, nombres = PASOS_TURNO }: { paso: PasoTurno; pasoMaximoHabilitado: PasoTurno; onPasoSeleccionado: (paso: PasoTurno) => void; nombres?: readonly string[] }) {
   return <nav aria-label="Progreso del nuevo turno">
     <div className="overflow-x-auto pb-1">
       <ol className="grid min-w-[38rem] grid-cols-5 gap-2">
-        {PASOS_TURNO.map((nombre, indice) => {
+        {nombres.map((nombre, indice) => {
           const numero = indice + 1;
           const estado = numero < paso ? "completado" : numero === paso ? "actual" : "futuro";
           const contenido = <>
