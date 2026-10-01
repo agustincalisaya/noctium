@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import {
   DIAS_SEMANA,
   HORA_REGEX,
@@ -60,8 +61,8 @@ const HORARIO_OPERATIVO_POR_DEFECTO: ParametrosHorarioOperativo = {
  * `ParametroSistema` (HU-D-04). Igual que `getParametroNumerico`, un valor
  * ausente o mal cargado cae al valor por defecto en vez de romper el flujo.
  */
-export async function obtenerParametrosHorarioOperativo(): Promise<ParametrosHorarioOperativo> {
-  const filas = await prisma.parametroSistema.findMany({
+export async function obtenerParametrosHorarioOperativo(db: Prisma.TransactionClient = prisma): Promise<ParametrosHorarioOperativo> {
+  const filas = await db.parametroSistema.findMany({
     where: { clave: { in: Object.values(CLAVES_HORARIO_OPERATIVO) } },
   });
   const valores = new Map(filas.map(({ clave, valor }) => [clave, valor.trim()]));

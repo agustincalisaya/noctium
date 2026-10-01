@@ -6,6 +6,30 @@ type Db = Prisma.TransactionClient;
 
 export type EventoTurnoPendiente =
   | {
+      tipoEvento: "turno:configurado";
+      turnoId: string;
+      payloadEvento: {
+        turno_id: string; fecha: string; hora_inicio: string; hora_fin: string;
+        duracion_min: number; materia_id: string; profesor_id: string;
+        generacion_id: string; usuario_id: string;
+      };
+    }
+  | {
+      tipoEvento: "turno:aula_asignada";
+      turnoId: string;
+      payloadEvento: {
+        turno_id: string; aula_id: string; cupo_maximo: number; usuario_id: string;
+      };
+    }
+  | {
+      tipoEvento: "turno:disponibilizado";
+      turnoId: string;
+      payloadEvento: {
+        turno_id: string; fecha: string; hora_inicio: string; hora_fin: string;
+        alumno_ids: string[]; profesor_id: string; aula_id: string; materia_id: string; usuario_id: string;
+      };
+    }
+  | {
       tipoEvento: "turno:cupo_actualizado";
       turnoId: string;
       payloadEvento: {

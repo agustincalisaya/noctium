@@ -645,7 +645,7 @@ const PARAMETROS: Record<string, string> = {
   horario_operativo_hasta: "20:00",
   granularidad_turno_minutos: "30",
   anticipacion_maxima_dias: "30",
-  generacion_maxima_dias: "150",
+  generacion_maxima_meses: "6",
   generacion_maxima_turnos: "40",
   nota_minima: "1",
   nota_maxima: "10",
