@@ -20,18 +20,20 @@ no se modifican migraciones ya aplicadas.
 El Kanban informado durante el relevamiento indica 5 SP; se deja registrada la divergencia
 administrativa. No modifica el alcance funcional de esta task.
 
-**Estado:** diseño y relevamiento técnico aprobados como base de implementación. HU-C-18 y el
-wizard individual están cerrados y mergeados; HU-C-17 todavía no está implementada.
+**Estado:** Fases 1 a 5 implementadas y auditadas en esta rama. HU-C-18 y el wizard
+individual están cerrados y mergeados. La integración con HU-C-12 sigue pendiente de
+verificación porque su autoservicio aún no existe en esta rama; no bloquea el cierre
+técnico propio de C-17.
 
 ---
 
-## 0. Relevamiento técnico aprobado sobre el estado actual de develop
+## 0. Relevamiento técnico aprobado previo a la implementación
 
 ### 0.1. Wizard y contratos disponibles
 
-- HU-C-18 y el wizard individual de `/turnos/nuevo` están cerrados y mergeados. El selector
-  `Turno individual | Generar varios turnos` ya se muestra, pero «Generar varios turnos»
-  está deshabilitado. No existe aún flujo recurrente ni rutas de generación.
+- HU-C-18 y el wizard individual de `/turnos/nuevo` estaban cerrados y mergeados al iniciar
+  C-17. El selector `Generar un turno | Generar varios turnos` está habilitado en ambos
+  modos; el flujo recurrente y sus rutas de generación ya están implementados.
 - `PasoMateriaTurno` y `PasoProfesorTurno` reciben datos y callbacks por props y se reutilizan
   directamente, sin versiones paralelas. El listado inicial de profesores del wizard usa
   `GET /api/turnos/profesores/opciones-wizard?materia_id=`: ofrece profesores activos que
@@ -55,20 +57,21 @@ wizard individual están cerrados y mergeados; HU-C-17 todavía no está impleme
   los tres eventos de C-17, no crear una infraestructura nueva.
 - HU-C-12 está contractualizada en la spec, pero el autoservicio y
   `inscribirAlumnoEnTurno()` aún no están implementados en esta rama. Su ausencia no bloquea
-  el desarrollo de C-17; la integración real C-17 → C-12 queda pendiente de verificación
-  y es necesaria antes de cerrar el DoD conjunto.
+  el cierre técnico propio de C-17; la integración real C-17 → C-12 queda pendiente de
+  verificación y es necesaria para cerrar el DoD conjunto cuando exista C-12.
 
-### 0.2. Parámetros y archivos previstos
+### 0.2. Parámetros y archivos incorporados
 
-`ParametroSistema` es clave/valor y no requiere cambiar `schema.prisma`. El seed y una
-migración ya aplicada registran `generacion_maxima_dias = 150` y
-`generacion_maxima_turnos = 40`, pero no `generacion_maxima_meses = 6`. Incorporar esta
-última clave mediante **una migración de datos nueva** y actualizar `prisma/seed.ts`; no
-editar migraciones existentes ni ejecutar seed o `migrate reset` sobre una base compartida.
+`ParametroSistema` es clave/valor y no requirió cambiar `schema.prisma`. El seed y una
+migración anterior ya registraban `generacion_maxima_dias = 150` y
+`generacion_maxima_turnos = 40`. La migración de datos nueva
+`20260930120000_c17_generacion_maxima_meses` incorporó `generacion_maxima_meses = 6` y
+`prisma/seed.ts` quedó actualizado. No se editaron migraciones anteriores ni se ejecutó
+seed completo o `migrate reset` sobre una base compartida.
 El límite de C-17 son seis meses calendario y 40 turnos, sin usar
 `ANTICIPACION_MAXIMA_DIAS` ni el antiguo valor de 150 días.
 
-**Existentes a modificar:** `src/app/(dashboard)/turnos/nuevo/turno-wizard.tsx` para habilitar
+**Existentes modificados:** `src/app/(dashboard)/turnos/nuevo/turno-wizard.tsx` para habilitar
 el modo y compartir Materia/Profesor sin usar las mutaciones individuales;
 `progreso-turno.tsx` y `resumen-turno.tsx` para presentar los pasos y el resumen recurrentes;
 `src/app/(dashboard)/turnos/seccion-aula-turno.tsx` solo para adaptar la presentación de sus
@@ -77,7 +80,7 @@ lote de eventos; `prisma/seed.ts` y los tests afectados. `PasoMateriaTurno` y
 `PasoProfesorTurno` se consumen tal como están. No se modifican los contratos C-07, C-16
 ni los del wizard individual.
 
-**Nuevos:** `src/server/turnos/turno.generacion.service.ts`, schema de generación en la
+**Nuevos incorporados:** `src/server/turnos/turno.generacion.service.ts`, schema de generación en la
 capa de Turnos (`src/server/turnos/turno.generacion.schema.ts`), una migración de datos
 nueva y estos Route Handlers:
 
@@ -85,9 +88,8 @@ nueva y estos Route Handlers:
 - `src/app/api/turnos/generacion/vista-previa/route.ts`;
 - `src/app/api/turnos/generacion/route.ts`.
 
-También se agregan componentes recurrentes bajo `src/app/(dashboard)/turnos/nuevo/` y
-sus tests unitarios, de API, frontend y PostgreSQL aislado. Los nombres internos de los
-componentes visuales se fijan al implementar cada fase; no se agrega una página ni un
+También se agregó `turno-recurrente.tsx` bajo `src/app/(dashboard)/turnos/nuevo/` y
+sus tests unitarios, de API, frontend y PostgreSQL aislado. No se agregó una página ni un
 ítem de menú.
 
 ---
@@ -104,7 +106,7 @@ Vive en:
 
 detrás del control:
 
-`Turno individual | Generar varios turnos`
+`Generar un turno | Generar varios turnos`
 
 El modo masivo reutiliza directamente los componentes y orígenes de Materia y Profesor.
 Desde el tercer paso (Franja) tiene un flujo independiente del alta individual. No llama
@@ -516,8 +518,7 @@ La pantalla debe:
 9. representar todas las fechas y sus conflictos;
 10. deshabilitar Confirmar ante cualquier conflicto;
 11. invalidar la preview si el usuario modifica un dato del formulario;
-12. tras éxito informar:
-    `Se generaron N turnos correctamente`.
+12. tras éxito informar la cantidad creada (singular o plural según corresponda).
 
 No implementar en cliente reglas de disponibilidad o superposición que pertenezcan al
 servidor. El cliente presenta el cálculo recibido.
@@ -602,7 +603,7 @@ Cubrir:
 
 ### Integración obligatoria C-17 → C-12
 
-HU-C-12 todavía no está implementada en esta rama. Esto no bloquea el desarrollo de
+HU-C-12 todavía no está implementada en esta rama. Esto no bloquea el cierre técnico de
 C-17 ni sus pruebas propias; la siguiente verificación queda pendiente hasta que exista
 el autoservicio. No cerrar el DoD de integración únicamente con seed.
 
@@ -615,23 +616,25 @@ Crear al menos un turno mediante HU-C-17 y comprobar que HU-C-12 puede:
 
 ---
 
-## 7. Plan de implementación por fases pequeñas
+## 7. Fases de implementación
 
-1. **Parámetro y contratos.** Incorporar `generacion_maxima_meses = 6` con una migración
+1. **Parámetro y contratos — implementada.** Incorporar `generacion_maxima_meses = 6` con una migración
    de datos nueva, actualizar seed, definir el schema `strict` y crear las tres rutas de
    §4 con `turnos:crear`. Probar validaciones, permisos y respuestas HTTP.
-2. **Cálculo y vista previa.** Compartir helpers de intervalos/granularidad con C-07,
+2. **Cálculo y vista previa — implementada.** Compartir helpers de intervalos/granularidad con C-07,
    enumerar fechas y aplicar límites, vigencia y conflictos por fecha con precedencia de
    `TURNO_EXISTENTE`. Probar que la preview devuelve todas las fechas sin escribir.
-3. **Confirmación.** Recalcular dentro de una transacción, insertar directamente
+3. **Confirmación — implementada.** Recalcular dentro de una transacción, insertar directamente
    `DISPONIBLE 0/N`, verificar reservas y rollback ante un conflicto, y traducir `23P01`
    a `GENERACION_CON_CONFLICTOS`. Probar con PostgreSQL aislado, incluida concurrencia.
-4. **UI recurrente.** Habilitar el selector, compartir Materia/Profesor, presentar Franja,
+4. **UI recurrente — implementada.** Habilitar el selector, compartir Materia/Profesor, presentar Franja,
    Duración, Hora de inicio, Aula, Desde/Hasta, preview completa y confirmación. Probar
    invalidaciones, navegación, doble envío y regresión del wizard individual.
-5. **Trazabilidad e integración.** Emitir los tres eventos por turno con un
-   `generacion_id` común y verificar auditoría. Cuando C-12 esté implementada, crear un
-   turno desde C-17 y verificar consulta, inscripción y transición por cupo de C-12.
+5. **Trazabilidad y cierre documental — implementada para C-17.** Los tres eventos por turno,
+   el `generacion_id` común y la auditoría están verificados en PostgreSQL aislado.
+   La prueba de integración externa con C-12 queda pendiente hasta que exista su
+   autoservicio: crear un turno desde C-17 y verificar consulta, inscripción y transición
+   por cupo mediante C-12.
 
 Cada fase conserva los contratos C-07, C-16 y del wizard individual; no se extiende la
 agenda C-07 de 30 días para resolver la preview recurrente de seis meses.
@@ -657,38 +660,75 @@ agenda C-07 de 30 días para resolver la preview recurrente de seis meses.
 
 - [ ] Task revisada por el Scrum Master antes de implementar.
 - [x] Relevamiento de §0 ejecutado sobre la rama posterior a HU-C-18.
-- [ ] Archivos exactos a crear/modificar aprobados antes de escribir código.
-- [ ] Contratos de Profesor disponibles y consumidos sin acceso directo a sus tablas.
-- [ ] Cálculo compartido con C-07/C-06; sin implementación duplicada.
-- [ ] `generacion_maxima_meses = 6` incorporado con migración de datos nueva y seed
+- [x] Archivos exactos a crear/modificar aprobados antes de escribir código.
+- [x] Contratos de Profesor disponibles y consumidos sin acceso directo a sus tablas.
+- [x] Cálculo reutiliza los helpers autoritativos de disponibilidad de C-07, sin
+      implementación duplicada. C-06 todavía no tiene flujo implementado en esta rama;
+      no se afirma una integración C-17 → C-06 ya verificada.
+- [x] `generacion_maxima_meses = 6` incorporado con migración de datos nueva y seed
       actualizado; `generacion_maxima_turnos = 40` verificado.
-- [ ] Vista previa sin persistencia.
-- [ ] Confirmación recalcula dentro de una única transacción.
-- [ ] Atomicidad todo-o-nada comprobada.
-- [ ] Turnos generados `DISPONIBLE 0/N`.
-- [ ] Reservas de profesor y aula verificadas contra PostgreSQL.
-- [ ] Conflictos concurrentes traducidos sin exponer error técnico.
-- [ ] Eventos y auditoría verificados.
-- [ ] Frontend conforme a `/turnos/nuevo`, sin pantalla adicional.
-- [ ] Tests unitarios, API, frontend y PostgreSQL real aprobados.
-- [ ] `tsc --noEmit`, lint y build aprobados.
+- [x] Vista previa sin persistencia.
+- [x] Confirmación recalcula dentro de una única transacción.
+- [x] Atomicidad todo-o-nada comprobada.
+- [x] Turnos generados `DISPONIBLE 0/N`.
+- [x] Reservas de profesor y aula verificadas contra PostgreSQL.
+- [x] Conflictos concurrentes traducidos sin exponer error técnico.
+- [x] Eventos y auditoría verificados.
+- [x] Frontend conforme a `/turnos/nuevo`, sin pantalla adicional.
+- [x] Tests unitarios, API, frontend y PostgreSQL real aprobados.
+- [x] `tsc --noEmit`, lint y build aprobados.
 - [ ] Integración real HU-C-17 → HU-C-12 verificada con un turno creado desde la UI
       cuando el autoservicio de C-12 esté implementado.
-- [ ] Evidencia de implementación agregada a esta task.
-- [ ] Sin `migrate reset` sobre base compartida.
+- [x] Evidencia de implementación agregada a esta task.
+- [x] Sin `migrate reset` sobre base compartida.
 - [ ] PR revisado y con diff acotado al alcance aprobado.
 
 ---
 
-## 10. Estado antes de implementación
+## 10. Evidencia de cierre técnico (Fase 5)
 
-**HU-C-17 tiene el diseño y el relevamiento técnico aprobados; no está implementada.**
-HU-C-18 y el wizard individual ya están cerrados y mergeados. El selector recurrente
-existe, pero sigue deshabilitado. El contrato vigente fija generación directa en
-`DISPONIBLE 0/N`; la referencia histórica de Kanban a `PENDIENTE` y 5 SP no modifica
-ese contrato ni la estimación de 8 SP indicada al inicio de esta task.
+**Las cinco fases propias de HU-C-17 están implementadas.** El modo individual sigue
+disponible por defecto y el recurrente se activa desde `/turnos/nuevo`. La referencia
+histórica de Kanban a `PENDIENTE` y 5 SP no altera el contrato vigente: generación
+directa en `DISPONIBLE 0/N` y estimación de 8 SP indicada al inicio de esta task.
 
-La integración C-17 → C-12 sigue pendiente porque C-12 no está implementada en esta
-rama. Esa dependencia no bloquea el desarrollo de las fases propias de C-17, pero sí
-impide marcar como verificado el DoD de integración hasta probar un turno generado
-desde este flujo y posteriormente inscripto mediante C-12.
+| Área | Implementación comprobada | Tests y verificación |
+|---|---|---|
+| Selector y pasos | `turno-wizard.tsx` comparte `PasoMateriaTurno` y `PasoProfesorTurno`; `turno-recurrente.tsx` reúne Franja/Duración/Hora, Aula/Desde/Hasta y Vista previa/Confirmación en cinco pasos visuales. `progreso-turno.tsx` y `resumen-turno.tsx` muestran los datos del modo sin Alumnos. | `turno-recurrente.test.tsx` (13 tests); `turno-wizard.test.tsx` (44 tests). |
+| Franjas y horas | `turno.franjas.service.ts` usa los contratos públicos de Profesor; `turno-recurrente.tsx` obtiene las franjas por `GET /api/turnos/profesores/[profesorId]/franjas?materia_id=` y usa `iniciosPosibles()` con la granularidad vigente. Duraciones: 60/120/180. | `turno.franjas.service.test.ts`, `franjas/route.test.ts`, `turno.generacion.calculo.test.ts`. |
+| Límites y conflictos | `turno.generacion.calculo.ts` suma seis meses de calendario, cuenta hasta 40 ocurrencias generables y omite hoy vencido. `turno.generacion.service.ts` consulta los parámetros, reutiliza los helpers de superposición y da precedencia a `TURNO_EXISTENTE`; si no hay duplicado, conserva `AULA_OCUPADA` y `PROFESOR_OCUPADO` cuando ambos ocurren. | `turno.generacion.calculo.test.ts`, `turno.generacion.service.test.ts` y `turno.generacion.pg.test.ts`. |
+| Vista previa | `POST /api/turnos/generacion/vista-previa` comparte schema y cálculo con confirmación; devuelve todas las fechas, motivos y totales sin escribir turnos, reservas ni eventos. La UI invalida el resultado al cambiar cualquier dato y bloquea Confirmar si hay conflictos. | `generacion/route.test.ts`, `turno.generacion.service.test.ts`, `turno-recurrente.test.tsx`. |
+| Confirmación y trazabilidad | `POST /api/turnos/generacion` recalcula dentro de una sola `prisma.$transaction`, inserta todo o nada en `DISPONIBLE`, prioridad `NORMAL`, 0 alumnos y cupo tomado de la capacidad actual del aula. El trigger vigente crea reservas de profesor/aula. `23P01` se traduce a `409 GENERACION_CON_CONFLICTOS`. El primer id de turno es el `generacion_id` común en los eventos `turno:configurado`; se emiten además `turno:aula_asignada` y `turno:disponibilizado` con `alumno_ids: []`. | `turno.generacion.pg.test.ts` verifica creación, capacidad, reservas, auditoría, atomicidad, carrera real, eventos y la limitación de eventos posteriores al commit. |
+| Parámetros y alcance | Migración nueva de solo datos `20260930120000_c17_generacion_maxima_meses` y `prisma/seed.ts`; `generacion_maxima_turnos = 40` se conserva. El diff de C-17 no contiene `schema.prisma`, migraciones anteriores ni cambios de contratos C-07/C-16/C-18 o de participantes individuales. | `prisma migrate status` sobre `noctium_dev`: actualizado. Regresiones C-07/C-16/wizard individual y `git diff --check`: aprobadas. |
+
+**Verificación final de esta fase:** tests focalizados C-17, wizard individual y
+regresiones C-07/C-16: **250/250**. Suite completa: **1179 passed, 0 failed,
+56 skipped, 3 todo**. Los tests PostgreSQL protegidos no corren en la suite normal;
+se ejecutaron de forma separada en PostgreSQL 16 efímero con las variables de seguridad
+requeridas: **16/16 passed**. `npx.cmd tsc --noEmit`, `npm.cmd run lint`,
+`npm.cmd run build` y `git diff --check`: correctos. No se ejecutó seed completo.
+
+**Recorrido manual en `noctium_dev`:** se recorrieron los cinco pasos individuales y se
+confirmó un turno individual. En recurrente, una vista previa con `TURNO_EXISTENTE`
+mostró todas las fechas y bloqueó Confirmar; volver sin cambios conservó la vista.
+Cambiar el rango la invalidó. Una nueva preview libre permitió confirmar una instancia;
+el listado mostró el turno generado como `Disponible 0/10`. La carrera `409` y sus
+detalles recalculados están cubiertos por tests; no se forzó una carrera manual en
+`noctium_dev`.
+
+**Compatibilidad con HU-C-12:** C-17 produce turnos `DISPONIBLE 0/N` con cupo y reservas,
+aptos para el contrato de inscripción esperado. La página de Alumno sigue en
+construcción y no existe `inscribirAlumnoEnTurno()` ni el flujo de solicitud en esta rama.
+Por eso la prueba C-17 → C-12 de consulta, inscripción y transición por cupo permanece
+**pendiente de verificación** hasta que C-12 esté implementada. No se marca como cumplida
+ni bloquea los criterios técnicos propios de C-17.
+
+**Precisiones de fuente:** la mención a `por-materia` en `spec_modulo_C.md` §2.9 para el
+listado inicial de Profesor y la frase que equipara cambios de selección con volver
+describen el diseño anterior a los merges del wizard. El contrato aprobado de C-17 usa
+`opciones-wizard` para ese listado; volver sin cambios conserva valores. La spec no se
+modifica en esta fase. La emisión de eventos ocurre después del commit según la
+arquitectura vigente: si falla, el lote confirmado no se revierte manualmente.
+
+Siguen sin constancia la revisión previa por Scrum Master y la revisión del PR. El diff
+de implementación sí fue auditado como acotado; no se hizo stage ni commit en esta fase.

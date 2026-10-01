@@ -19,7 +19,7 @@ export const GenerarTurnosSchema = z.object({
 
 export type GenerarTurnosInput = z.infer<typeof GenerarTurnosSchema>;
 
-/** Contratos de éxito de §2.9; las rutas los devolverán en Fases 2 y 3. */
+/** Contratos de éxito de §2.9 compartidos por preview y confirmación. */
 export type MotivoConflictoGeneracion = "AULA_OCUPADA" | "PROFESOR_OCUPADO" | "TURNO_EXISTENTE";
 export type VistaPreviaGeneracion = {
   cantidad: number;
