@@ -318,3 +318,44 @@ describe("HU-C-02 búsqueda en el listado", () => {
     expect(container.querySelector("[data-buscando]")).toBeNull();
   });
 });
+
+describe("HU-C-05 listado: Descartar y etiqueta Cancelado", () => {
+  const montarCon = async (puedeDescartar: boolean) => {
+    await act(async () => root.render(<TurnosListado pagina={2} q="fisica" orden="fecha_hora_asc" puedeConfigurar puedeDescartar={puedeDescartar} />));
+    await esperar();
+  };
+  const botonFila = (nombre: string) => [...container.querySelectorAll("tbody button")].find((b) => b.textContent === nombre) as HTMLButtonElement | undefined;
+
+  it("AC5 / DESIGN §6.5: «Cancelado» con contorno destructivo sobre la tarjeta", async () => {
+    fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "cancelado", estado: "CANCELADO" })])));
+    await montar();
+    const etiqueta = [...container.querySelectorAll("tbody span")].find((span) => span.textContent === "Cancelado")!;
+    expect(etiqueta.className).toContain("border-destructive");
+    expect(etiqueta.className).toContain("text-destructive");
+    expect(etiqueta.className).toContain("bg-card");
+    expect(etiqueta.className).not.toContain("bg-muted");
+  });
+
+  it("sin turnos:cancelar no ofrece Descartar", async () => {
+    await montarCon(false);
+    expect(botonFila("Descartar")).toBeUndefined();
+  });
+
+  it("con turnos:cancelar ofrece Descartar solo en PENDIENTE y recarga la misma página y búsqueda", async () => {
+    fetch.mockResolvedValue(respuesta(datos([item("PENDIENTE"), item("DISPONIBLE", { id: "disponible" })])));
+    await montarCon(true);
+    expect([...container.querySelectorAll("tbody button")].filter((b) => b.textContent === "Descartar")).toHaveLength(1);
+    await act(async () => botonFila("Descartar")!.click());
+    const dialogo = document.querySelector('[role="alertdialog"]')!;
+    expect(dialogo.textContent).toContain("¿Confirmás descartar este turno?");
+    fetch.mockClear();
+    fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { id: "pendiente", estado: "CANCELADO" }, error: null }) })
+      .mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "pendiente", estado: "CANCELADO" })])));
+    await act(async () => ([...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Descartar turno") as HTMLButtonElement).click());
+    await esperar();
+    expect(fetch.mock.calls[0][0]).toBe("/api/turnos/pendiente/cancelacion");
+    expect(fetch.mock.calls[1][0]).toBe("/api/turnos?pagina=2&q=fisica");
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(container.textContent).toContain("Cancelado");
+  });
+});
