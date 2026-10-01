@@ -6,7 +6,7 @@
 | Sprint | 2 |
 | Responsable | Iván |
 | SP estimado | 2 |
-| Estado | PR #118 actualizada sobre HU-C-12; integración, PostgreSQL y Playwright aprobados en escritorio y móvil |
+| Estado | PR #118 con base develop tras integrar #116; pruebas locales y Playwright aprobados en escritorio y móvil |
 | Contrato | docs/specs/spec_modulo_C.md §2.14.1; docs/specs/spec_modulo_A.md §2.4; docs/specs/spec_modulo_B.md §2.8; docs/specs/spec_modulo_E.md §2.4 |
 | Backlog | docs/tasks/Sprint 2/HU-Sprint-2.md §20 |
 | Pantalla | docs/adicionales/mapa-pantallas-sprint-2.md §2; pantallas de referencia Sprint 2, págs. 25–26 |
@@ -125,6 +125,18 @@ La pantalla debe revisarse en navegador de escritorio y móvil contra las págin
 - Fixtures de Playwright retirados y base temporal de suites eliminada; sin reset ni reseed de la base del usuario. Evidencia y capturas conservadas en el reporte local.
 - **Orden de integración:** revisar primero #116 y después #118. #118 sigue apilada sobre la rama de C-12 para mostrar únicamente su alcance. Una vez integrada #116, cambiar la base de #118 a `develop` antes de borrar la rama de C-12, para ejecutar sus workflows de CI y conservar la PR abierta.
 
+### Cambio de base tras integrar HU-C-12 (01/10/2026)
+
+- El PR #116 ya está integrado. Se cambió la base de #118 a `develop` y se incorporó `origin/develop` en `81936c0`, incluidos los cambios de HU-J-03. La integración no produjo conflictos de texto. El sidebar y su navegación conservan exactamente la implementación vigente de `develop`.
+- El diff contra `develop` contiene únicamente los 11 archivos de C-13: consulta y pantalla propias, pruebas y documentación. El helper oficial de Historial y la implementación de C-12 ya pertenecen a la base; esta PR no los reemplaza.
+- `npm test -- --reporter=dot`: **1.328 aprobadas**, con las 59 pruebas PostgreSQL omitidas por su guarda. Las 12 suites PostgreSQL se ejecutaron aparte contra una base nueva aislada: **59 aprobadas**.
+- `npx prisma generate`, `npm run lint`, `npm run build` y `npx tsc --noEmit` después del build: aprobados. `git diff --check`: sin hallazgos.
+- **Playwright/Chromium sobre el build integrado:** sesión real, aislamiento del alumno, estados vacíos, API 401/403/400, páginas de 10/2 tarjetas y 10/3 después de inscribirse, regreso a página 1 al cambiar de pestaña, cancelación C-05, reprogramación C-06 y registro de clase E-01 con sus endpoints reales: aprobados.
+- Se revalidó la inscripción de C-12 sobre un turno Disponible de prueba: identidad de sesión, último cupo, estado Completo, evento de autoservicio y aviso de éxito. Cancelar el turno entre selección y confirmación devuelve conflicto y actualiza las opciones; dos sesiones disputando el último cupo producen 200/409 sin duplicar inscripciones.
+- Escritorio 1440 × 1000 y móvil 390 × 844: capturas revisadas, menú y paginación funcionales, sin desborde horizontal ni excepciones JavaScript. La navegación de Calendario y sus vistas Día/Mes/Semana también se comprobaron tras incorporar HU-J-03.
+- Se retiraron las cinco cuentas y los 19 turnos de prueba, con sus relaciones y eventos, y se eliminó la base temporal de las suites. No se hizo reset ni reseed de la base del usuario. Reporte local: `/home/polentita/.codex/artifacts/noctium-c13-develop-20261001/index.html`.
+- #118 ya no depende de la rama de C-12 como base y sus workflows se ejecutan contra `develop`. Conserva el estado borrador para la revisión del equipo; el merge se realiza después de esa revisión.
+
 ## 7. Checklist de Definition of Done
 
 - [x] Task SDD revisada y relevamiento/archivos aprobados por Iván antes de implementar.
@@ -135,4 +147,4 @@ La pantalla debe revisarse en navegador de escritorio y móvil contra las págin
 - [x] Evidencia automatizada de Unit, API y BD documentada.
 - [x] Checks locales de CI completados y registrados.
 - [x] Verificación real de HU-C-05, HU-C-06 y HU-E-01 con sesión de Mesa y consulta propia del alumno.
-- [x] Diff revisado y PR borrador #118 publicada sobre la rama de HU-C-12; cambiar la base a `develop` cuando se integre el PR #116.
+- [x] Diff revisado y PR borrador #118 actualizada con base `develop` después de integrar #116; revalidación local y Playwright completados.

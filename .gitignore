@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# descripción local de PR (se copia a GitHub, no se versiona)
+/pr-description.md
