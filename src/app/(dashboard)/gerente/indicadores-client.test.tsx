@@ -8,12 +8,12 @@ import { IndicadoresClient } from "./indicadores-client";
 const datos: IndicadoresMensuales = {
   rango: { desde: "2026-04", hasta: "2026-09", meses: 6 },
   meses: [
-    { mes: "2026-04", turnos: 8 },
-    { mes: "2026-05", turnos: 0 },
-    { mes: "2026-06", turnos: 4 },
-    { mes: "2026-07", turnos: 1 },
-    { mes: "2026-08", turnos: 3 },
-    { mes: "2026-09", turnos: 2 },
+    { mes: "2026-04", turnos: 8, alumnos_nuevos: 1 },
+    { mes: "2026-05", turnos: 0, alumnos_nuevos: 0 },
+    { mes: "2026-06", turnos: 4, alumnos_nuevos: 2 },
+    { mes: "2026-07", turnos: 1, alumnos_nuevos: 0 },
+    { mes: "2026-08", turnos: 3, alumnos_nuevos: 1 },
+    { mes: "2026-09", turnos: 2, alumnos_nuevos: 1 },
   ],
 };
 const respuesta = (cuerpo: unknown, ok = true) => ({ ok, json: async () => cuerpo }) as Response;
@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe("IndicadoresClient", () => {
-  it("carga el rango del servidor y muestra el indicador de turnos", async () => {
+  it("carga el rango del servidor y muestra ambos indicadores", async () => {
     await act(async () => raiz.render(<IndicadoresClient />));
     await esperarRender();
 
@@ -67,15 +67,16 @@ describe("IndicadoresClient", () => {
     expect(desde.labels?.[0]?.textContent).toBe("Desde");
     expect(hasta.labels?.[0]?.textContent).toBe("Hasta");
     expect(contenedor.textContent).toContain("Turnos por mes");
+    expect(contenedor.textContent).toContain("Alumnos nuevos por mes");
     expect(contenedor.textContent).toContain("Por fecha del turno; Disponible, Completo y Cancelado");
+    expect(contenedor.textContent).toContain("Por fecha de alta de la ficha.");
     expect(contenedor.textContent).not.toContain("HU-H-01");
     expect(contenedor.textContent).not.toContain("HU-H-02");
-    expect(contenedor.textContent).not.toContain("Alumnos nuevos por mes");
     expect(contenedor.textContent).toContain("18");
-    expect(contenedor.querySelectorAll("table tbody tr")).toHaveLength(6);
+    expect(contenedor.textContent).toContain("5");
   });
 
-  it("actualiza la consulta cuando cambia el rango", async () => {
+  it("actualiza las dos series cuando cambia el rango compartido", async () => {
     await act(async () => raiz.render(<IndicadoresClient />));
     await esperarRender();
     await cambiarMes(contenedor.querySelector<HTMLSelectElement>("#indicadores-desde")!, "2026-05");
@@ -87,7 +88,7 @@ describe("IndicadoresClient", () => {
   it("muestra ceros y el texto de período vacío", async () => {
     const vacios: IndicadoresMensuales = {
       rango: { desde: "2026-04", hasta: "2026-09", meses: 6 },
-      meses: datos.meses.map(({ mes }) => ({ mes, turnos: 0 })),
+      meses: datos.meses.map(({ mes }) => ({ mes, turnos: 0, alumnos_nuevos: 0 })),
     };
     fetchMock.mockResolvedValueOnce(respuesta({ data: vacios, error: null }));
 
@@ -95,7 +96,7 @@ describe("IndicadoresClient", () => {
     await esperarRender();
 
     expect(contenedor.textContent).toContain("No hay datos para el período seleccionado.");
-    expect(contenedor.querySelectorAll("table tbody td")).toHaveLength(6);
+    expect(contenedor.querySelectorAll("table tbody td")).toHaveLength(12);
     expect([...contenedor.querySelectorAll("table tbody td")].every((celda) => celda.textContent === "0")).toBe(true);
   });
 

@@ -1,6 +1,7 @@
 export type IndicadorMes = {
   mes: string;
   turnos: number;
+  alumnos_nuevos: number;
 };
 
 export type RangoIndicadores = {
