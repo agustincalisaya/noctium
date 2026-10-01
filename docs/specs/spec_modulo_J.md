@@ -240,6 +240,13 @@ export const ConsultarCalendarioQuerySchema = z.object({
    - Cada cambio dispara una consulta nueva con `vista` y, salvo en los dos primeros casos, `fecha`.
 7. **Vista rápida al hacer clic en un turno** (mapa de pantallas §4, aprobado): abre un `Dialog` de solo lectura con fecha, materia, profesor, alumnos inscriptos y estado, y un enlace "Ver detalle completo" a `/turnos/[id]`. **No requiere endpoint nuevo:** el `Dialog` consulta `GET /api/turnos/[id]` (`turnos:leer`, ya concedido a los tres roles; un Profesor que pide un turno ajeno recibe `403 SIN_PERMISO` sin revelar si existe, como en 2.1, `spec_modulo_C.md` §2.4). Los datos de pagos no aparecen ahí: requieren `pagos:leer`, que el `Dialog` ignora.
 
+**Nota de sincronización (HU-J-03, implementación 01/10/2026):**
+- **Lectura de turnos:** `listarTurnosParaCalendario()` todavía no está publicada en `src/server/turnos/turno.publico.ts`. La consulta sigue en `calendario.service.ts` como `listarTurnosDelCalendario({ desde, hasta, profesorId?, materiaId? })`, con la firma, el rango **cerrado** `[desde, hasta]` y la forma de dato de `spec_modulo_C.md` §2.15, y el `TODO(Regla N.° 3)`. Reemplaza a `listarTurnosAgendadosDeProfesor()` / `listarTurnosAgendadosDeMateria()`; los eventos de 2.1 y 2.2 se arman con la tabla de correspondencia de «Convenciones generales». Cuando C la publique, solo cambia el cuerpo de esa función y se cierra la excepción.
+- **Mes con días de relleno:** el rango consultado del mes es la grilla completa (lunes de la semana del día 1 a domingo de la semana del último día, 35 o 42 días) y `dias` trae un ítem por cada día de la grilla, con `en_mes: false` en los de otros meses. `rango` sigue siendo del día 1 al último día del mes. Es aditivo: los días del mes tienen exactamente la forma del punto 4.
+- **Respuesta:** `data` lleva además `vista`. Día/semana: `{ profesor|materia, vista, rango, eventos }`; mes: `{ profesor|materia, vista, rango, dias }`.
+- **Vista día en un día no operativo** (p. ej. clic en un sábado del mes o «Hoy» un domingo): se muestra igual, una columna, normalmente vacía.
+- **Días sin turnos en el mes:** solo se atenúan los días de relleno; un sábado o domingo del mes sin turnos se ve como cualquier día sin turnos (diseño de referencia de `HU-J-03.md` §5.1).
+
 **Errores esperados:** los mismos de 2.1 y 2.2:
 - `400` (validación Zod, `flatten()`) — `vista` fuera de `dia | semana | mes` o `fecha` / `semana_inicio` inválidas.
 - `403 SIN_PERMISO` — mismo alcance por rol que 2.1 y 2.2.
