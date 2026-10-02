@@ -324,20 +324,36 @@ export async function emitirEventosTurno(eventos: EventoTurnoPendiente[], db: Db
   });
 }
 
-export async function contarTurnosPorMes(
-  desde: string, hasta: string, db: Db = prisma,
-): Promise<{ mes: string; cantidad: number }[]> {
+/**
+ * Ocupación promedio por mes de los turnos dictados (spec_modulo_C.md §2.15,
+ * consumida por spec_modulo_H.md §2.3). Promedia `inscriptos / cupo` de los
+ * turnos DISPONIBLE/COMPLETO con cupo asignado, sin redondear (razón 0–1).
+ * `desde`/`hasta` son meses AAAA-MM inclusivos y `fechaMaxima` (AAAA-MM-DD,
+ * inclusiva) deja afuera los turnos que todavía no ocurrieron. Solo devuelve
+ * los meses con turnos: los ceros los completa Indicadores.
+ */
+export async function promediarOcupacionTurnosPorMes(
+  desde: string, hasta: string, fechaMaxima: string, db: Db = prisma,
+): Promise<{ mes: string; promedio: number; turnos: number }[]> {
   const fin = new Date(`${hasta}-01T00:00:00.000Z`);
   fin.setUTCMonth(fin.getUTCMonth() + 1);
   const hastaExclusivo = fin.toISOString().slice(0, 10);
-  const filas = await db.$queryRaw<{ mes: string; cantidad: bigint }[]>`
-    SELECT to_char("fechaTurno", 'YYYY-MM') AS mes, COUNT(*) AS cantidad
-    FROM "turnos"
-    WHERE "fechaTurno" >= CAST(${`${desde}-01`} AS date)
-      AND "fechaTurno" < CAST(${hastaExclusivo} AS date)
-      AND "estadoTurno" IN ('DISPONIBLE', 'COMPLETO', 'CANCELADO')
-    GROUP BY to_char("fechaTurno", 'YYYY-MM')
+  const filas = await db.$queryRaw<{ mes: string; promedio: number; turnos: bigint }[]>`
+    SELECT to_char(t."fechaTurno", 'YYYY-MM') AS mes,
+      -- numeric: AVG sobre float8 depende del orden de suma y movía el redondeo en el borde .5.
+      AVG(COALESCE(i.inscriptos, 0)::numeric / t."cupoMaximoTurno")::float8 AS promedio,
+      COUNT(*) AS turnos
+    FROM "turnos" t
+    LEFT JOIN (
+      SELECT "turnoId", COUNT(*) AS inscriptos FROM "turno_alumno" GROUP BY "turnoId"
+    ) i ON i."turnoId" = t."idTurno"
+    WHERE t."fechaTurno" >= CAST(${`${desde}-01`} AS date)
+      AND t."fechaTurno" < CAST(${hastaExclusivo} AS date)
+      AND t."fechaTurno" <= CAST(${fechaMaxima} AS date)
+      AND t."estadoTurno" IN ('DISPONIBLE', 'COMPLETO')
+      AND t."cupoMaximoTurno" > 0
+    GROUP BY to_char(t."fechaTurno", 'YYYY-MM')
     ORDER BY mes
   `;
-  return filas.map(({ mes, cantidad }) => ({ mes, cantidad: Number(cantidad) }));
+  return filas.map(({ mes, promedio, turnos }) => ({ mes, promedio: Number(promedio), turnos: Number(turnos) }));
 }

@@ -2,6 +2,13 @@
 # Especificación Técnica — Módulo C (Turno)
 ## Noctium — Sprint 1 (Revisión 4) · Sprint 2 (Revisión 5.1)
 
+## Nota aditiva — 01/10/2026: servicios públicos para Indicadores (`spec_modulo_H.md` Revisión 2)
+
+| Sección | Estado previo | Acción |
+|---|---|---|
+| 2.15 `contarTurnosPorMes()` | Consumida por HU-H-01 original | **Retirada** del código: HU-H-01 fue reemplazada por "Ingresos cobrados" y la función quedó sin consumidores. La fila se conserva tachada como historial |
+| 2.15 `promediarOcupacionTurnosPorMes()` | — | **Nueva**, consumida por HU-H-02 revisada (tasa de ocupación). Solo lectura, sin cambios en reglas de negocio, estados ni numeración |
+
 ## Revisión 5.1 — HU-C-13: indicador de clase dictada (29/09/2026)
 
 **Changelog de esta revisión:**
@@ -1078,7 +1085,8 @@ Conforme a la Regla N.° 3: se declaran en `src/server/turnos/turno.publico.ts`.
 | `ajustarCuposPorCapacidadDeAula(aulaId, nuevaCapacidad, usuarioId, tx)` | `{ ok: true, turnos_actualizados: number, eventos: EventoTurnoPendiente[] } \| { ok: false, turnos_en_conflicto, max_inscriptos }`. La unión `EventoTurnoPendiente` se detalla debajo | HU-K-03, `spec_modulo_K.md` 2.4 |
 | `emitirEventosTurno(eventos: EventoTurnoPendiente[], db?: Prisma.TransactionClient): Promise<void>` | Si `eventos` está vacío no escribe; de lo contrario hace un solo `eventoTurno.createMany` y propaga el error de escritura sin atraparlo. En código, `db` se declara con valor por defecto `prisma`, por eso es opcional para el llamador | `spec_modulo_K.md` 2.4 paso 6: K la invoca después del COMMIT, sin pasar el `tx` cerrado |
 | `listarTurnosParaCalendario({ desde, hasta, profesorId?, materiaId? }, db?)` | Turnos `DISPONIBLE`/`COMPLETO` con `fecha` en el rango **cerrado e inclusivo** `[desde, hasta]` (fechas `AAAA-MM-DD`; la vista día usa `desde = hasta`). Por turno: `{ turno_id, fecha, hora_inicio, hora_fin, estado, prioridad, materia: { id, nombre }, profesor: { id, nombre_para_mostrar }, aula: { id, nombre }, alumnos: string[], inscriptos: number, cupo: number \| null, alumnos_inscriptos: "3/5" }[]`, ordenados por fecha, hora de inicio, apellido y nombre del profesor e id (el mismo orden que exige `spec_modulo_J.md` §2.3). Nunca devuelve `PENDIENTE` | HU-J-03, `spec_modulo_J.md` 2.1, 2.2, 2.3 |
-| `contarTurnosPorMes(desde, hasta, db?)` | `desde` y `hasta` son **meses `AAAA-MM`** con límites **inclusivos** (cuenta los turnos cuya `fechaTurno` cae entre el primer día del mes `desde` y el último día del mes `hasta`). Devuelve `{ mes: "AAAA-MM", cantidad }[]`: turnos `DISPONIBLE`/`COMPLETO`/`CANCELADO` agrupados por el mes de `fechaTurno` (**no** de creación); sin ceros | HU-H-01, `spec_modulo_H.md` |
+| ~~`contarTurnosPorMes(desde, hasta, db?)`~~ — **RETIRADA el 01/10/2026** (`spec_modulo_H.md` Revisión 2: su único consumidor, HU-H-01 original, fue reemplazado) | `desde` y `hasta` son **meses `AAAA-MM`** con límites **inclusivos** (cuenta los turnos cuya `fechaTurno` cae entre el primer día del mes `desde` y el último día del mes `hasta`). Devuelve `{ mes: "AAAA-MM", cantidad }[]`: turnos `DISPONIBLE`/`COMPLETO`/`CANCELADO` agrupados por el mes de `fechaTurno` (**no** de creación); sin ceros | ~~HU-H-01~~ (sin consumidores) |
+| `promediarOcupacionTurnosPorMes(desde, hasta, fechaMaxima, db?)` — **NUEVA el 01/10/2026** | `desde` y `hasta` son meses `AAAA-MM` con límites inclusivos y `fechaMaxima` es una fecha `AAAA-MM-DD` inclusiva (tope adicional: el llamador pasa "hoy"). Devuelve `{ mes: "AAAA-MM", promedio, turnos }[]`, **solo los meses con datos**, en orden cronológico. `promedio` es la media simple, sin redondear, calculada en `numeric` (determinística, independiente del orden de suma) y entregada como `float8`, de `inscriptos / cupoMaximoTurno` (razón 0–1, `inscriptos` = filas de `turno_alumno`) sobre los turnos `DISPONIBLE`/`COMPLETO` con `cupoMaximoTurno > 0` agrupados por el mes de `fechaTurno`. `turnos` es la cantidad de turnos promediados. `$queryRaw` parametrizado, de solo lectura | HU-H-02 revisada, `spec_modulo_H.md` §2.3 |
 
 **Contrato de `EventoTurnoPendiente` (sincronización de §2.15):** unión discriminada por `tipoEvento`, con `turnoId: string` y `payloadEvento` tipado para cada variante:
 

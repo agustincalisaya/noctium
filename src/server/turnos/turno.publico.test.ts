@@ -16,7 +16,7 @@ const {
   contarTurnosFuturosDeProfesorPorMateria,
   listarTurnosFuturosDeProfesorPorMateria,
   ajustarCuposPorCapacidadDeAula,
-  contarTurnosPorMes,
+  promediarOcupacionTurnosPorMes,
 } = await import("./turno.publico");
 
 const turnoId = "turno-1";
@@ -246,22 +246,26 @@ describe("ajustarCuposPorCapacidadDeAula", () => {
   });
 });
 
-describe("contarTurnosPorMes", () => {
-  it("incluye el mes hasta mediante límite superior exclusivo y convierte bigint", async () => {
-    db.$queryRaw.mockResolvedValue([{ mes: "2026-12", cantidad: 2n }, { mes: "2027-01", cantidad: 1n }]);
-    await expect(contarTurnosPorMes("2026-12", "2027-01", tx)).resolves.toEqual([
-      { mes: "2026-12", cantidad: 2 }, { mes: "2027-01", cantidad: 1 },
+describe("promediarOcupacionTurnosPorMes", () => {
+  it("filtra estados, cupo y fecha máxima, y convierte los tipos de PostgreSQL", async () => {
+    db.$queryRaw.mockResolvedValue([{ mes: "2026-12", promedio: 0.625, turnos: 2n }, { mes: "2027-01", promedio: 1, turnos: 1n }]);
+    await expect(promediarOcupacionTurnosPorMes("2026-12", "2027-01", "2027-01-15", tx)).resolves.toEqual([
+      { mes: "2026-12", promedio: 0.625, turnos: 2 }, { mes: "2027-01", promedio: 1, turnos: 1 },
     ]);
-    expect(sql()).toContain("\"fechaTurno\" >= CAST(? AS date)");
-    expect(sql()).toContain("\"fechaTurno\" < CAST(? AS date)");
-    expect(sql()).toContain("'DISPONIBLE', 'COMPLETO', 'CANCELADO'");
-    expect(sql()).toContain("GROUP BY to_char(\"fechaTurno\", 'YYYY-MM')");
-    expect(db.$queryRaw.mock.calls[0]!.slice(1)).toEqual(["2026-12-01", "2027-02-01"]);
+    expect(sql()).toContain("t.\"fechaTurno\" >= CAST(? AS date)");
+    expect(sql()).toContain("t.\"fechaTurno\" < CAST(? AS date)");
+    expect(sql()).toContain("t.\"fechaTurno\" <= CAST(? AS date)");
+    expect(sql()).toContain("t.\"estadoTurno\" IN ('DISPONIBLE', 'COMPLETO')");
+    expect(sql()).not.toMatch(/CANCELADO|PENDIENTE/);
+    expect(sql()).toContain("t.\"cupoMaximoTurno\" > 0");
+    expect(sql()).toContain("FROM \"turno_alumno\"");
+    expect(sql()).toContain("::numeric / t.\"cupoMaximoTurno\")::float8");
+    expect(db.$queryRaw.mock.calls[0]!.slice(1)).toEqual(["2026-12-01", "2027-02-01", "2027-01-15"]);
   });
 
-  it("omite los meses sin datos", async () => {
+  it("omite los meses sin turnos elegibles", async () => {
     db.$queryRaw.mockResolvedValue([]);
-    await expect(contarTurnosPorMes("2026-01", "2026-03")).resolves.toEqual([]);
+    await expect(promediarOcupacionTurnosPorMes("2026-01", "2026-03", "2026-03-31")).resolves.toEqual([]);
   });
 });
 

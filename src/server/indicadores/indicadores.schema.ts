@@ -16,6 +16,16 @@ export function mesActualBuenosAires(fecha = new Date()): string {
   return `${anio}-${mes}`;
 }
 
+/** Fecha calendario de hoy en el centro (AAAA-MM-DD): tope de los turnos ya dictados (spec_modulo_H.md §3.6). */
+export function fechaActualBuenosAires(fecha = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(fecha);
+}
+
 export function desplazarMes(mes: string, cantidad: number): string {
   const [anio, numeroMes] = mes.split("-").map(Number);
   const fecha = new Date(Date.UTC(anio!, numeroMes! - 1 + cantidad, 1));
@@ -34,7 +44,7 @@ export function listarMeses(desde: string, hasta: string): string[] {
   return Array.from({ length: total }, (_, indice) => desplazarMes(desde, indice));
 }
 
-export function resolverRangoIndicadores(query: IndicadoresQuery, fecha = new Date()) {
+export function resolverRangoIndicadores(query: RangoIndicadoresInput, fecha = new Date()) {
   const actual = mesActualBuenosAires(fecha);
   const hasta = query.hasta ?? actual;
   const desde = query.desde ?? desplazarMes(hasta, -5);
@@ -42,7 +52,7 @@ export function resolverRangoIndicadores(query: IndicadoresQuery, fecha = new Da
   return { desde, hasta, meses };
 }
 
-export const IndicadoresQuerySchema = z.object({
+export const RangoIndicadoresQuerySchema = z.object({
   desde: mesSchema.optional(),
   hasta: mesSchema.optional(),
 }).superRefine((query, contexto) => {
@@ -74,4 +84,4 @@ export const IndicadoresQuerySchema = z.object({
   }
 });
 
-export type IndicadoresQuery = z.infer<typeof IndicadoresQuerySchema>;
+export type RangoIndicadoresInput = z.infer<typeof RangoIndicadoresQuerySchema>;

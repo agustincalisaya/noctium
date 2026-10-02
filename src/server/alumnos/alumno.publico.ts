@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ServiceError } from "@/server/shared/service-error";
-import type { AlumnoBasico, AlumnoResumen, AlumnosNuevosPorMes } from "@/types/alumno.types";
+import type { AlumnoBasico, AlumnoResumen } from "@/types/alumno.types";
 
 /** Contrato público del Módulo B (§2.8): ficha vinculada a la cuenta de sesión. */
 export async function obtenerAlumnoDeUsuario(usuarioId: string, db: Prisma.TransactionClient = prisma) {
@@ -30,8 +30,6 @@ const MENSAJES = {
   ALUMNO_NO_ENCONTRADO: "El alumno ya no existe",
   ALUMNO_INACTIVO: "El alumno está inactivo",
 } as const;
-
-const MES_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /**
  * Datos básicos en lote (activos e inactivos). Los ids inexistentes no
@@ -101,39 +99,4 @@ export async function verificarAlumnoActivo(
   });
   if (!alumno) throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
   if (!alumno.activoAlumno) throw new ServiceError("ALUMNO_INACTIVO", MENSAJES.ALUMNO_INACTIVO);
-}
-
-/**
- * Altas de fichas por mes (todas: activas o inactivas, con o sin cuenta),
- * solo los meses con datos, en orden ascendente. `createdAtAlumno` es
- * TIMESTAMP sin zona guardado en UTC: primero se interpreta como UTC y
- * después se pasa a la hora local de Buenos Aires. `desde` y `hasta`
- * (AAAA-MM) son inclusivos.
- */
-export async function contarAlumnosNuevosPorMes(
-  desde: string,
-  hasta: string,
-  db: Prisma.TransactionClient = prisma,
-): Promise<AlumnosNuevosPorMes[]> {
-  if (!MES_REGEX.test(desde) || !MES_REGEX.test(hasta)) {
-    throw new Error(`Rango de meses inválido: se esperaba AAAA-MM (desde="${desde}", hasta="${hasta}")`);
-  }
-  if (desde > hasta) {
-    throw new Error(`Rango de meses inválido: desde (${desde}) es posterior a hasta (${hasta})`);
-  }
-
-  const filas = await db.$queryRaw<{ mes: string; cantidad: bigint }[]>`
-    SELECT mes, COUNT(*) AS cantidad
-    FROM (
-      SELECT to_char(
-        ("createdAtAlumno" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Argentina/Buenos_Aires',
-        'YYYY-MM'
-      ) AS mes
-      FROM "alumnos"
-    ) AS altas
-    WHERE mes >= ${desde} AND mes <= ${hasta}
-    GROUP BY mes
-    ORDER BY mes
-  `;
-  return filas.map(({ mes, cantidad }) => ({ mes, cantidad: Number(cantidad) }));
 }

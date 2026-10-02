@@ -1,16 +1,11 @@
-export type IndicadorMes = {
+/** Ingresos cobrados en un mes, en pesos (`spec_modulo_H.md` §2.2). */
+export type IngresoMes = {
   mes: string;
-  turnos: number;
-  alumnos_nuevos: number;
+  total: number;
 };
 
-export type RangoIndicadores = {
-  desde: string;
-  hasta: string;
-  meses: number;
-};
-
-export type IndicadoresMensuales = {
-  rango: RangoIndicadores;
-  meses: IndicadorMes[];
+/** Ocupación promedio de un mes, en porcentaje con 1 decimal (`spec_modulo_H.md` §2.3). */
+export type OcupacionMes = {
+  mes: string;
+  ocupacion_promedio: number;
 };

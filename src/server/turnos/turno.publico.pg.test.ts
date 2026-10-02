@@ -5,8 +5,8 @@ import {
   ajustarCuposPorCapacidadDeAula,
   bloquearTurnoParaOperacion,
   contarTurnosFuturosDeProfesorPorMateria,
-  contarTurnosPorMes,
   obtenerAlumnosInscriptosDeTurno,
+  promediarOcupacionTurnosPorMes,
 } from "./turno.publico";
 
 // Misma guarda que turno.reservas.pg.test.ts: nunca escribir en la base habitual.
@@ -329,30 +329,28 @@ describe.skipIf(!habilitada)("turno.publico: PostgreSQL real aislado", () => {
     expect((await db!.aula.findUniqueOrThrow({ where: { idAula: aula[2] } })).capacidadAula).toBe(capacidadAnterior);
   });
 
-  it("contarTurnosPorMes usa fechaTurno, cruza año y omite estados y meses vacíos", async () => {
+  it("promediarOcupacionTurnosPorMes promedia inscriptos/cupo solo de DISPONIBLE/COMPLETO hasta la fecha máxima", async () => {
     const anio = new Date().getUTCFullYear() + 10;
-    const crear = (sufijo: string, fecha: Date, estado: EstadoTurno) =>
-      crearTurno(sufijo, { fecha, estado, cupo: estado === "COMPLETO" ? 1 : 4,
-        alumnoIds: estado === "COMPLETO" ? [alumno[3]] : [] });
-    await crear("mes-antes", dia(anio, 11, 30), "DISPONIBLE");
-    await crear("mes-inicio", dia(anio, 12, 1), "DISPONIBLE");
-    await crear("mes-cancelado", dia(anio, 12, 2), "CANCELADO");
-    await crear("mes-final", dia(anio + 1, 1, 31), "COMPLETO");
-    await crear("mes-pendiente", dia(anio + 1, 1, 30), "PENDIENTE");
-    await crear("mes-despues", dia(anio + 1, 2, 1), "DISPONIBLE");
-    const desde = `${anio}-12`;
-    const hasta = `${anio + 1}-01`;
-    const conteo = await contarTurnosPorMes(desde, hasta, db!);
-    expect(conteo).toEqual([{ mes: desde, cantidad: 2 }, { mes: hasta, cantidad: 1 }]);
-    expect(typeof conteo[0].cantidad).toBe("number");
-    const [conteoRaw] = await db!.$queryRaw<{ cantidad: bigint }[]>`
-      SELECT COUNT(*) AS cantidad FROM "turnos" WHERE "fechaTurno" = ${dia(anio, 12, 1)}
-    `;
-    expect(typeof conteoRaw.cantidad).toBe("bigint");
-    expect(await contarTurnosPorMes(`${anio}-12`, `${anio + 1}-03`, db!)).toEqual([
-      { mes: desde, cantidad: 2 }, { mes: hasta, cantidad: 1 }, { mes: `${anio + 1}-02`, cantidad: 1 },
+    // Diciembre: 1/4 (DISPONIBLE) y 1/1 (COMPLETO) → (0.25 + 1) / 2 = 0.625.
+    await crearTurno("ocu-disp", { fecha: dia(anio, 12, 3), estado: "DISPONIBLE", cupo: 4, alumnoIds: [alumno[0]] });
+    await crearTurno("ocu-comp", { fecha: dia(anio, 12, 4), estado: "COMPLETO", cupo: 1, alumnoIds: [alumno[1]] });
+    // Excluidos: CANCELADO y PENDIENTE (alterarían el promedio si contaran) y uno posterior a la fecha máxima.
+    await crearTurno("ocu-canc", { fecha: dia(anio, 12, 5), estado: "CANCELADO", cupo: 4, alumnoIds: [] });
+    await crearTurno("ocu-pend", { fecha: dia(anio, 12, 6), estado: "PENDIENTE", cupo: 2, alumnoIds: [] });
+    await crearTurno("ocu-futuro", { fecha: dia(anio + 1, 1, 20), estado: "DISPONIBLE", cupo: 4, alumnoIds: [] });
+    // Enero: 2/4 → 0.5; cruza de año.
+    await crearTurno("ocu-enero", { fecha: dia(anio + 1, 1, 10), estado: "DISPONIBLE", cupo: 4, alumnoIds: [alumno[2], alumno[3]] });
+
+    const ocupacion = await promediarOcupacionTurnosPorMes(`${anio}-11`, `${anio + 1}-01`, `${anio + 1}-01-15`, db!);
+    expect(ocupacion).toEqual([
+      { mes: `${anio}-12`, promedio: 0.625, turnos: 2 },
+      { mes: `${anio + 1}-01`, promedio: 0.5, turnos: 1 },
     ]);
+    // Sin tope de fecha, el turno futuro de enero (0/4) baja el promedio a 0.25.
+    expect(await promediarOcupacionTurnosPorMes(`${anio + 1}-01`, `${anio + 1}-01`, `${anio + 1}-12-31`, db!))
+      .toEqual([{ mes: `${anio + 1}-01`, promedio: 0.25, turnos: 2 }]);
   });
+
 });
 
 const { emitirEventosTurno } = await import("./turno.publico");

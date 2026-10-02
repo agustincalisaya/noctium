@@ -17,11 +17,9 @@ const {
   obtenerAlumnosBasicos,
   obtenerAlumnoBasico,
   verificarAlumnoActivo,
-  contarAlumnosNuevosPorMes,
 } = publico;
 
 const conTx = tx as never;
-const sql = (mock: typeof db.$queryRaw) => (mock.mock.calls[0]![0] as TemplateStringsArray).join("?");
 
 const fila = (id: string, activo = true, formaPago: string | null = null) => ({
   idAlumno: id, nombreAlumno: `Nombre ${id}`, apellidoAlumno: `Apellido ${id}`,
@@ -137,44 +135,5 @@ describe("verificarAlumnoActivo", () => {
 describe("buscarAlumnosActivos", () => {
   it("es la misma función que la del service", () => {
     expect(publico.buscarAlumnosActivos).toBe(servicio.buscarAlumnosActivos);
-  });
-});
-
-describe("contarAlumnosNuevosPorMes", () => {
-  it("convierte cantidad a number y consulta con la zona corregida", async () => {
-    db.$queryRaw.mockResolvedValue([{ mes: "2026-09", cantidad: 2n }, { mes: "2026-11", cantidad: 1n }]);
-    await expect(contarAlumnosNuevosPorMes("2026-09", "2026-11")).resolves.toEqual([
-      { mes: "2026-09", cantidad: 2 }, { mes: "2026-11", cantidad: 1 },
-    ]);
-    const consulta = sql(db.$queryRaw);
-    expect(consulta).toContain(`("createdAtAlumno" AT TIME ZONE 'UTC') AT TIME ZONE 'America/Argentina/Buenos_Aires'`);
-    expect(consulta).toContain(`FROM "alumnos"`);
-    expect(consulta).toMatch(/mes >= \? AND mes <= \?/);
-    expect(consulta).not.toMatch(/activoAlumno|usuarioId/);
-    expect(db.$queryRaw.mock.calls[0]!.slice(1)).toEqual(["2026-09", "2026-11"]);
-  });
-
-  it("sin meses con datos devuelve []", async () => {
-    db.$queryRaw.mockResolvedValue([]);
-    await expect(contarAlumnosNuevosPorMes("2026-01", "2026-01")).resolves.toEqual([]);
-  });
-
-  it.each([
-    ["2026-9", "2026-10"], ["2026-13", "2026-12"], ["2026-00", "2026-01"], ["2026-01", "26-02"], ["2026-01-01", "2026-02"],
-  ])("rechaza formato inválido (%s, %s) sin consultar", async (desde, hasta) => {
-    await expect(contarAlumnosNuevosPorMes(desde, hasta)).rejects.toThrow(/AAAA-MM/);
-    expect(db.$queryRaw).not.toHaveBeenCalled();
-  });
-
-  it("rechaza desde posterior a hasta sin consultar", async () => {
-    await expect(contarAlumnosNuevosPorMes("2026-10", "2026-09")).rejects.toThrow(/posterior/);
-    expect(db.$queryRaw).not.toHaveBeenCalled();
-  });
-
-  it("usa el db recibido", async () => {
-    tx.$queryRaw.mockResolvedValue([]);
-    await contarAlumnosNuevosPorMes("2026-01", "2026-12", conTx);
-    expect(tx.$queryRaw).toHaveBeenCalledOnce();
-    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 });

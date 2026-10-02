@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { listarPagosDeTurno } from "./pago.publico";
+import { listarPagosDeTurno, sumarPagosPorMes } from "./pago.publico";
 
 // Misma guarda que turno.publico.pg.test.ts: nunca escribir en la base habitual.
 const habilitada = Boolean(process.env.HU_C15_TEST_DATABASE_URL
@@ -83,5 +83,30 @@ describe.skipIf(!habilitada)("pago.publico: PostgreSQL real aislado", () => {
   it("funciona dentro de una transacción del llamador", async () => {
     const pagos = await db!.$transaction((tx) => listarPagosDeTurno(id("t"), tx));
     expect(pagos.map(({ id: pagoId }) => pagoId)).toEqual([id("p2"), id("p1")]);
+  });
+
+  it("sumarPagosPorMes suma exacto por mes de fechaPago, incluye pagos de turnos cancelados y cruza año", async () => {
+    // Años lejanos para no mezclarse con otros pagos de la base de test (la suma es global).
+    const anio = new Date().getUTCFullYear() + 10;
+    await db!.turno.create({
+      data: {
+        idTurno: id("t-cancelado"), fechaTurno: dia(`${anio}-12-01`), horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"),
+        duracionMinutosTurno: 60, cupoMaximoTurno: 4, materiaId: id("m"), estadoTurno: "CANCELADO",
+      },
+    });
+    await db!.pago.createMany({
+      data: [
+        { idPago: id("s-nov"), turnoId: id("t"), alumnoId: id("s1"), montoPago: "999", formaPagoId: id("fa"), fechaPago: dia(`${anio}-11-30`) },
+        { idPago: id("s-dic1"), turnoId: id("t"), alumnoId: id("s1"), montoPago: "0.10", formaPagoId: id("fa"), fechaPago: dia(`${anio}-12-01`) },
+        { idPago: id("s-dic2"), turnoId: id("t-cancelado"), alumnoId: id("s2"), montoPago: "0.20", formaPagoId: id("fi"), fechaPago: dia(`${anio}-12-31`) },
+        { idPago: id("s-ene"), turnoId: id("t"), alumnoId: id("s1"), montoPago: "15000.50", formaPagoId: id("fa"), fechaPago: dia(`${anio + 1}-01-31`) },
+        { idPago: id("s-mar"), turnoId: id("t"), alumnoId: id("s1"), montoPago: "1", formaPagoId: id("fa"), fechaPago: dia(`${anio + 1}-03-01`) },
+      ],
+    });
+    // 0.10 + 0.20 = "0.30" exacto (en coma flotante sería 0.30000000000000004); febrero no aparece.
+    await expect(sumarPagosPorMes(`${anio}-12`, `${anio + 1}-02`, db!)).resolves.toEqual([
+      { mes: `${anio}-12`, total: "0.30" },
+      { mes: `${anio + 1}-01`, total: "15000.50" },
+    ]);
   });
 });

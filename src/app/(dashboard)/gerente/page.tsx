@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { exigirPermiso } from "@/server/shared/with-permission";
 import { IndicadoresClient } from "./indicadores-client";
 
+/** Pantalla "Indicadores" del Gerente (spec_modulo_H.md §2.2 y §2.3): permiso granular, no rol (Regla N.° 10). */
 export default async function GerentePage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (session.user.rol !== "GERENTE") redirect("/home");
+  await exigirPermiso("indicadores:leer");
 
   return <IndicadoresClient />;
 }
