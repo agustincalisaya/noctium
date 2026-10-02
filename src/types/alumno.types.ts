@@ -123,6 +123,3 @@ export type AlumnoBasico = {
 
 /** Resumen de un alumno para otros módulos (`spec_modulo_B.md` §2.8, `obtenerAlumnoBasico`). */
 export type AlumnoResumen = Pick<AlumnoBasico, "id" | "nombre" | "apellido" | "activo">;
-
-/** Altas de fichas por mes en `America/Argentina/Buenos_Aires` (`spec_modulo_B.md` §2.8). */
-export type AlumnosNuevosPorMes = { mes: string; cantidad: number };

@@ -1,0 +1,232 @@
+{
+  "info": {
+    "name": "Noctium HU-H-01/H-02 revisadas — Indicadores (Ingresos y Ocupación)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar SOLO en base aislada. Autenticarse desde la UI (o /api/auth/callback/credentials) y usar las cookies de sesión: Gerente para 1-3, Mesa de Entrada para 4, ninguna sesión para 5. No contiene credenciales. Solo lectura: no altera datos."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "desde",
+      "value": "2026-05"
+    },
+    {
+      "key": "hasta",
+      "value": "2026-10"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Ingresos, rango con datos (sesión Gerente)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ingresos-por-mes?desde={{desde}}&hasta={{hasta}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Un elemento por mes, en orden, sin omitir meses\", () => { const meses = body.data.map((f) => f.mes); pm.expect(meses).to.eql([...meses].sort()); pm.expect(new Set(meses).size).to.eql(meses.length); });",
+              "pm.test(\"Cada mes trae total numérico (0 si no hay datos)\", () => body.data.forEach((f) => pm.expect(f.total).to.be.a(\"number\")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Ocupación, rango con datos (sesión Gerente)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ocupacion-por-mes?desde={{desde}}&hasta={{hasta}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Un elemento por mes, en orden, sin omitir meses\", () => { const meses = body.data.map((f) => f.mes); pm.expect(meses).to.eql([...meses].sort()); pm.expect(new Set(meses).size).to.eql(meses.length); });",
+              "pm.test(\"Cada mes trae ocupacion_promedio numérico (0 si no hay datos)\", () => body.data.forEach((f) => pm.expect(f.ocupacion_promedio).to.be.a(\"number\")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3a. Rango inválido desde > hasta — ingresos (sesión Gerente)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ingresos-por-mes?desde={{hasta}}&hasta={{desde}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = VALIDATION_ERROR\", () => pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3b. Rango inválido desde > hasta — ocupación (sesión Gerente)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ocupacion-por-mes?desde={{hasta}}&hasta={{desde}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = VALIDATION_ERROR\", () => pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3c. Rango > 24 meses (sesión Gerente)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ingresos-por-mes?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = VALIDATION_ERROR\", () => pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4a. Usuario sin rol Gerente — ingresos (sesión Mesa de Entrada)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ingresos-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = SIN_PERMISO\", () => pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4b. Usuario sin rol Gerente — ocupación (sesión Mesa de Entrada)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ocupacion-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = SIN_PERMISO\", () => pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5a. Sin sesión — ingresos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ingresos-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = SESION_INVALIDA\", () => pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5b. Sin sesión — ocupación",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/ocupacion-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar { data, error }\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"error.code = SESION_INVALIDA\", () => pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"));",
+              "pm.test(\"data = null\", () => pm.expect(body.data).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

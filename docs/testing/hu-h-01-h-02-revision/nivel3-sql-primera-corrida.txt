@@ -1,0 +1,43 @@
+=== Ingresos: suma manual de contraste (rango 2026-05..2026-10) ===
+   mes   |  total   
+---------+----------
+ 2026-05 | 10000.00
+ 2026-07 |     0.30
+ 2026-08 | 15000.50
+ 2026-10 | 16800.50
+(4 rows)
+
+=== Ocupación: promedio manual de contraste (DISPONIBLE/COMPLETO, cupo > 0, fecha <= hoy BA) ===
+   mes   | ocupacion_pct | turnos 
+---------+---------------+--------
+ 2026-06 |           0.0 |      1
+ 2026-07 |          41.7 |      3
+ 2026-08 |          33.3 |      2
+ 2026-09 |          38.8 |      4
+(4 rows)
+
+=== Control: si se incluyeran CANCELADO y PENDIENTE (NO debe coincidir con la API) ===
+   mes   | ocupacion_pct_incorrecta 
+---------+--------------------------
+ 2026-07 |                     41.7
+ 2026-08 |                     55.6
+(2 rows)
+
+=== Fixture: turnos de contraste y su estado ===
+ idTurno | fechaTurno | estadoTurno | cupoMaximoTurno | inscriptos 
+---------+------------+-------------+-----------------+------------
+ ctr-t1  | 2026-07-10 | DISPONIBLE  |               4 |          1
+ ctr-t2  | 2026-07-20 | COMPLETO    |               2 |          2
+ ctr-t3  | 2026-08-05 | DISPONIBLE  |               3 |          2
+ ctr-t4  | 2026-08-12 | CANCELADO   |               2 |          2
+ ctr-t5  | 2026-08-15 | PENDIENTE   |                 |          0
+ ctr-t6  | 2026-09-30 | DISPONIBLE  |               4 |          3
+ ctr-t7  | 2026-10-20 | DISPONIBLE  |               4 |          0
+(7 rows)
+
+=== Pago de un turno CANCELADO: cuenta como ingreso (P1, propuesta por defecto) ===
+ idPago | fechaPago  | montoPago | estadoTurno 
+--------+------------+-----------+-------------
+ ctr-p4 | 2026-08-12 |  15000.50 | CANCELADO
+(1 row)
+

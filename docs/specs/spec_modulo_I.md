@@ -16,6 +16,8 @@
 
 **Backlog v2 del 28/09/2026:** (1) **HU-C-11 se retiró**: el turno ya no lleva forma de pago, así que esta spec ya no la consume ni la propone desde el turno; (2) **HU-I-01 ahora registra qué alumno paga** (AC1, AC3, AC4): el pago lleva `alumnoId` y la forma de pago se propone a partir de la **preferida del alumno elegido** (HU-B-03), sin obligarla; (3) HU-I-01 depende ahora de HU-C-09 (detalle del turno, de donde sale la lista de inscriptos) y no de HU-C-11; (4) HU-I-03 ya no menciona turnos.
 
+**Nota aditiva — 01/10/2026 (`spec_modulo_H.md` Revisión 2):** se agrega la fila `sumarPagosPorMes()` en §2.3, la lectura agregada que consume el indicador "Ingresos cobrados por mes" (HU-H-01 revisada). Es de solo lectura, no cambia el modelo `Pago` ni ninguna regla de negocio, y no se renumera nada.
+
 **Changelog de Revisión 1 (trazabilidad Backlog → Spec):**
 | HU | Estado previo | Acción |
 |---|---|---|
@@ -196,6 +198,7 @@ Conforme a la Regla N.° 3, **provistos por este módulo**, en `forma-pago.publi
 | `obtenerFormaPago(id, db?)` | `{ id, nombre, is_active } \| null` | mostrar el nombre histórico de una forma desactivada (en el detalle de pagos y en la ficha del alumno) |
 | `listarFormasPagoActivas()` | `{ id, nombre }[]`, orden alfabético normalizado | selectores |
 | `listarPagosDeTurno(turnoId, db?)` | `{ id, alumno: { id, nombre_completo }, monto, forma_pago: { id, nombre }, fecha_pago, registrado_en }[]`, más recientes primero. Los nombres de alumno salen de `obtenerAlumnosBasicos()` (Módulo B, §2.8), en una sola consulta en lote | C §2.4 (detalle) |
+| `sumarPagosPorMes(desde, hasta, db?)` — **NUEVA el 01/10/2026** | `desde` y `hasta` son meses `AAAA-MM` con límites inclusivos. Devuelve `{ mes: "AAAA-MM", total }[]`, **solo los meses con pagos**, en orden cronológico. `total` es la suma exacta de `montoPago` como texto decimal con dos decimales (`"450000.00"`, misma convención que `monto` en `listarPagosDeTurno`), agrupada por el mes de `fechaPago` (`@db.Date`). Suma **todos** los pagos sin filtrar por forma de pago ni por el estado del turno (son hechos consumados, §3.6). `$queryRaw` parametrizado, de solo lectura | HU-H-01 revisada, `spec_modulo_H.md` §2.2 |
 
 **Consumido por este módulo:** `bloquearTurnoParaOperacion(turnoId, tx)` de `spec_modulo_C.md` §2.15 — devuelve el turno bloqueado con `FOR SHARE` y **la lista de alumnos inscriptos** (`alumno_ids`), mismo patrón que `bloquearMateriasParaAsociar` (`spec_modulo_L.md` §2.3); y `obtenerAlumnosBasicos(ids)` de `spec_modulo_B.md` §2.8 para nombres y forma de pago preferida.
 

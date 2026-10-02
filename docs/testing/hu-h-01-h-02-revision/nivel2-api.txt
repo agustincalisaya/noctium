@@ -1,0 +1,47 @@
+# Nivel 2 — ejecutado 2026-10-01T08:46Z contra next start :3100, base temporal noctium_tmp_hu_h_rev2 (seed + fixture de contraste)
+
+### 1. Ingresos, rango con datos (default: últimos 6 meses)
+GET /api/indicadores/ingresos-por-mes  [gerente]
+{"data":[{"mes":"2026-05","total":10000},{"mes":"2026-06","total":0},{"mes":"2026-07","total":0.3},{"mes":"2026-08","total":15000.5},{"mes":"2026-09","total":0},{"mes":"2026-10","total":16800.5}],"error":null}
+HTTP 200
+
+### 2. Ocupación, rango con datos (default)
+GET /api/indicadores/ocupacion-por-mes  [gerente]
+{"data":[{"mes":"2026-05","ocupacion_promedio":0},{"mes":"2026-06","ocupacion_promedio":0},{"mes":"2026-07","ocupacion_promedio":41.7},{"mes":"2026-08","ocupacion_promedio":33.3},{"mes":"2026-09","ocupacion_promedio":38.8},{"mes":"2026-10","ocupacion_promedio":0}],"error":null}
+HTTP 200
+
+### 3a. Rango inválido desde > hasta (ingresos)
+GET /api/indicadores/ingresos-por-mes?desde=2026-10&hasta=2026-05  [gerente]
+{"data":null,"error":{"code":"VALIDATION_ERROR","message":"Parámetros inválidos","detalles":{"formErrors":[],"fieldErrors":{"desde":["El mes desde no puede ser posterior al mes hasta"]}}}}
+HTTP 400
+
+### 3b. Rango inválido desde > hasta (ocupación)
+GET /api/indicadores/ocupacion-por-mes?desde=2026-10&hasta=2026-05  [gerente]
+{"data":null,"error":{"code":"VALIDATION_ERROR","message":"Parámetros inválidos","detalles":{"formErrors":[],"fieldErrors":{"desde":["El mes desde no puede ser posterior al mes hasta"]}}}}
+HTTP 400
+
+### 3c. Límite: rango > 24 meses
+GET /api/indicadores/ingresos-por-mes?desde=2024-09&hasta=2026-10  [gerente]
+{"data":null,"error":{"code":"VALIDATION_ERROR","message":"Parámetros inválidos","detalles":{"formErrors":[],"fieldErrors":{"hasta":["El rango máximo es de 24 meses"]}}}}
+HTTP 400
+
+### 4a. Usuario sin rol Gerente (Mesa de Entrada) - ingresos
+GET /api/indicadores/ingresos-por-mes  [mesa]
+{"data":null,"error":{"code":"SIN_PERMISO","message":"No tenés permisos para acceder a esta sección"}}
+HTTP 403
+
+### 4b. Usuario sin rol Gerente (Mesa de Entrada) - ocupación
+GET /api/indicadores/ocupacion-por-mes  [mesa]
+{"data":null,"error":{"code":"SIN_PERMISO","message":"No tenés permisos para acceder a esta sección"}}
+HTTP 403
+
+### 5a. Sin sesión - ingresos
+GET /api/indicadores/ingresos-por-mes  [sin sesión]
+{"data":null,"error":{"code":"SESION_INVALIDA","message":"Tu sesión expiró. Iniciá sesión nuevamente"}}
+HTTP 401
+
+### 5b. Sin sesión - ocupación
+GET /api/indicadores/ocupacion-por-mes  [sin sesión]
+{"data":null,"error":{"code":"SESION_INVALIDA","message":"Tu sesión expiró. Iniciá sesión nuevamente"}}
+HTTP 401
+

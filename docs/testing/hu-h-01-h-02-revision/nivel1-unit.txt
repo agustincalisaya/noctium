@@ -1,0 +1,15 @@
+ RUN  v3.2.7 D:/Proyectos Facultad/noctium
+ ✓ src/server/turnos/turno.publico.test.ts (28 tests) 180ms
+ ✓ src/app/api/indicadores/ocupacion-por-mes/route.test.ts (7 tests) 165ms
+ ✓ src/server/indicadores/indicadores.service.test.ts (8 tests) 103ms
+ ✓ src/app/api/indicadores/ingresos-por-mes/route.test.ts (7 tests) 164ms
+ ✓ src/server/pagos/pago.publico.test.ts (9 tests) 34ms
+ ✓ src/server/indicadores/indicadores.schema.test.ts (8 tests) 115ms
+ ✓ src/server/publico.aislamiento.test.ts (41 tests) 72ms
+ ✓ src/server/alumnos/alumno.publico.test.ts (14 tests) 31ms
+ ✓ src/app/(dashboard)/gerente/indicadores-client.test.tsx (9 tests) 1265ms
+   ✓ IndicadoresClient > pide los dos indicadores con el mismo rango y precarga los selectores con el rango del servidor  369ms
+ Test Files  9 passed (9)
+      Tests  131 passed (131)
+   Start at  05:47:51
+   Duration  13.51s (transform 1.83s, setup 0ms, collect 9.80s, tests 2.13s, environment 5.93s, prepare 4.12s)

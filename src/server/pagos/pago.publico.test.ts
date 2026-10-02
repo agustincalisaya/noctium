@@ -2,14 +2,14 @@ import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { db, tx, obtenerAlumnosBasicos } = vi.hoisted(() => ({
-  db: { pago: { findMany: vi.fn() } },
-  tx: { pago: { findMany: vi.fn() } },
+  db: { pago: { findMany: vi.fn() }, $queryRaw: vi.fn() },
+  tx: { pago: { findMany: vi.fn() }, $queryRaw: vi.fn() },
   obtenerAlumnosBasicos: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnosBasicos }));
 
-const { listarPagosDeTurno } = await import("./pago.publico");
+const { listarPagosDeTurno, sumarPagosPorMes } = await import("./pago.publico");
 
 const fila = (id: string, alumnoId: string, monto: string, fecha: string, registrado: string) => ({
   idPago: id,
@@ -108,5 +108,28 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     obtenerAlumnosBasicos.mockResolvedValue([]);
 
     await expect(listarPagosDeTurno("turno-1")).rejects.toThrow("Pago pago-1 sin alumno alumno-a");
+  });
+});
+
+describe("sumarPagosPorMes (spec_modulo_I.md §2.3)", () => {
+  const sql = (mock: typeof db.$queryRaw) => (mock.mock.calls[0]![0] as TemplateStringsArray).join("?");
+
+  it("suma montoPago por mes de fechaPago, sin filtrar forma de pago ni turno, con límite superior exclusivo", async () => {
+    db.$queryRaw.mockResolvedValue([{ mes: "2026-12", total: "15000.50" }, { mes: "2027-01", total: "12000.00" }]);
+    await expect(sumarPagosPorMes("2026-12", "2027-01")).resolves.toEqual([
+      { mes: "2026-12", total: "15000.50" }, { mes: "2027-01", total: "12000.00" },
+    ]);
+    const consulta = sql(db.$queryRaw);
+    expect(consulta).toContain('SUM("montoPago")::text');
+    expect(consulta).toContain('FROM "pagos"');
+    expect(consulta).toContain("GROUP BY to_char(\"fechaPago\", 'YYYY-MM')");
+    expect(consulta).not.toMatch(/formaPagoId|turnoId|turnos/);
+    expect(db.$queryRaw.mock.calls[0]!.slice(1)).toEqual(["2026-12-01", "2027-02-01"]);
+  });
+
+  it("usa el db recibido", async () => {
+    tx.$queryRaw.mockResolvedValue([]);
+    await expect(sumarPagosPorMes("2026-01", "2026-03", tx as never)).resolves.toEqual([]);
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 });

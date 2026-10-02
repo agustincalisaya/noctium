@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cantidadMesesInclusivos,
-  IndicadoresQuerySchema,
+  RangoIndicadoresQuerySchema,
   listarMeses,
   mesActualBuenosAires,
   resolverRangoIndicadores,
@@ -46,15 +46,15 @@ describe("rango mensual de Indicadores", () => {
   });
 
   it("acepta exactamente 24 meses y rechaza 25", () => {
-    expect(IndicadoresQuerySchema.safeParse({ desde: "2024-10", hasta: "2026-09" }).success).toBe(true);
-    const resultado = IndicadoresQuerySchema.safeParse({ desde: "2024-09", hasta: "2026-09" });
+    expect(RangoIndicadoresQuerySchema.safeParse({ desde: "2024-10", hasta: "2026-09" }).success).toBe(true);
+    const resultado = RangoIndicadoresQuerySchema.safeParse({ desde: "2024-09", hasta: "2026-09" });
     expect(resultado.success).toBe(false);
     if (!resultado.success) expect(resultado.error.issues[0]?.message).toBe("El rango máximo es de 24 meses");
   });
 
   it("rechaza meses mal formados y rangos invertidos", () => {
-    expect(IndicadoresQuerySchema.safeParse({ desde: "2026-13", hasta: "2026-09" }).success).toBe(false);
-    const invertido = IndicadoresQuerySchema.safeParse({ desde: "2026-10", hasta: "2026-09" });
+    expect(RangoIndicadoresQuerySchema.safeParse({ desde: "2026-13", hasta: "2026-09" }).success).toBe(false);
+    const invertido = RangoIndicadoresQuerySchema.safeParse({ desde: "2026-10", hasta: "2026-09" });
     expect(invertido.success).toBe(false);
     if (!invertido.success) expect(invertido.error.issues[0]?.message).toBe("El mes desde no puede ser posterior al mes hasta");
   });
@@ -62,7 +62,7 @@ describe("rango mensual de Indicadores", () => {
   it("rechaza desde futuro si hasta se omite", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-30T18:00:00.000Z"));
-    const resultado = IndicadoresQuerySchema.safeParse({ desde: "2026-10" });
+    const resultado = RangoIndicadoresQuerySchema.safeParse({ desde: "2026-10" });
     expect(resultado.success).toBe(false);
     if (!resultado.success) expect(resultado.error.issues[0]?.message).toBe("El mes desde no puede ser posterior al mes actual");
   });

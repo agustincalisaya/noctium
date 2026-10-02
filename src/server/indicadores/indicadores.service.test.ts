@@ -1,54 +1,89 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { contarTurnos, contarAlumnos } = vi.hoisted(() => ({ contarTurnos: vi.fn(), contarAlumnos: vi.fn() }));
-vi.mock("@/server/turnos/turno.publico", () => ({ contarTurnosPorMes: contarTurnos }));
-vi.mock("@/server/alumnos/alumno.publico", () => ({ contarAlumnosNuevosPorMes: contarAlumnos }));
+const { sumarPagos, promediarOcupacion } = vi.hoisted(() => ({ sumarPagos: vi.fn(), promediarOcupacion: vi.fn() }));
+vi.mock("@/server/pagos/pago.publico", () => ({ sumarPagosPorMes: sumarPagos }));
+vi.mock("@/server/turnos/turno.publico", () => ({ promediarOcupacionTurnosPorMes: promediarOcupacion }));
 
-import { obtenerIndicadoresMensuales } from "./indicadores.service";
+import { obtenerIngresosPorMes, obtenerOcupacionPromedioPorMes } from "./indicadores.service";
+import { RangoIndicadoresQuerySchema } from "./indicadores.schema";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  contarTurnos.mockResolvedValue([{ mes: "2026-09", cantidad: 8 }, { mes: "2026-11", cantidad: 3 }]);
-  contarAlumnos.mockResolvedValue([{ mes: "2026-10", cantidad: 2 }, { mes: "2026-11", cantidad: 5 }]);
+  vi.useFakeTimers({ toFake: ["Date"] });
+  // 30/09/2026 22:30 en Buenos Aires: en UTC ya es 1/10.
+  vi.setSystemTime(new Date("2026-10-01T01:30:00.000Z"));
 });
+afterEach(() => vi.useRealTimers());
 
-describe("obtenerIndicadoresMensuales", () => {
-  it("combina los servicios públicos y completa meses vacíos con cero", async () => {
-    const datos = await obtenerIndicadoresMensuales({ desde: "2026-09", hasta: "2026-11" });
-
-    expect(datos).toEqual({
-      rango: { desde: "2026-09", hasta: "2026-11", meses: 3 },
-      meses: [
-        { mes: "2026-09", turnos: 8, alumnos_nuevos: 0 },
-        { mes: "2026-10", turnos: 0, alumnos_nuevos: 2 },
-        { mes: "2026-11", turnos: 3, alumnos_nuevos: 5 },
-      ],
-    });
-    expect(contarTurnos).toHaveBeenCalledExactlyOnceWith("2026-09", "2026-11");
-    expect(contarAlumnos).toHaveBeenCalledExactlyOnceWith("2026-09", "2026-11");
+describe("obtenerIngresosPorMes", () => {
+  it("con pagos en todos los meses devuelve el total de cada uno, en orden y como number", async () => {
+    sumarPagos.mockResolvedValue([
+      { mes: "2026-07", total: "450000.00" }, { mes: "2026-08", total: "512000.50" }, { mes: "2026-09", total: "0.30" },
+    ]);
+    await expect(obtenerIngresosPorMes({ desde: "2026-07", hasta: "2026-09" })).resolves.toEqual([
+      { mes: "2026-07", total: 450000 }, { mes: "2026-08", total: 512000.5 }, { mes: "2026-09", total: 0.3 },
+    ]);
+    expect(sumarPagos).toHaveBeenCalledExactlyOnceWith("2026-07", "2026-09");
   });
 
-  it("devuelve ceros para todos los meses cuando las dos fuentes están vacías", async () => {
-    contarTurnos.mockResolvedValueOnce([]);
-    contarAlumnos.mockResolvedValueOnce([]);
-
-    const datos = await obtenerIndicadoresMensuales({ desde: "2026-01", hasta: "2026-03" });
-
-    expect(datos.meses).toEqual([
-      { mes: "2026-01", turnos: 0, alumnos_nuevos: 0 },
-      { mes: "2026-02", turnos: 0, alumnos_nuevos: 0 },
-      { mes: "2026-03", turnos: 0, alumnos_nuevos: 0 },
+  it("un mes sin pagos se devuelve en $0, no se omite", async () => {
+    sumarPagos.mockResolvedValue([{ mes: "2026-07", total: "1000.00" }, { mes: "2026-09", total: "2000.00" }]);
+    await expect(obtenerIngresosPorMes({ desde: "2026-07", hasta: "2026-09" })).resolves.toEqual([
+      { mes: "2026-07", total: 1000 }, { mes: "2026-08", total: 0 }, { mes: "2026-09", total: 2000 },
     ]);
   });
 
-  it("resuelve y envía el mismo rango por defecto a los dos módulos", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-30T18:00:00.000Z"));
+  it("sin parámetros usa los últimos 6 meses incluyendo el actual del centro", async () => {
+    sumarPagos.mockResolvedValue([]);
+    const datos = await obtenerIngresosPorMes({});
+    expect(datos.map(({ mes }) => mes)).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(datos.every(({ total }) => total === 0)).toBe(true);
+    expect(sumarPagos).toHaveBeenCalledExactlyOnceWith("2026-04", "2026-09");
+  });
 
-    await obtenerIndicadoresMensuales({});
+  it("desde > hasta es un error de validación del schema y no llega al servicio", () => {
+    const resultado = RangoIndicadoresQuerySchema.safeParse({ desde: "2026-09", hasta: "2026-07" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error!.flatten().fieldErrors.desde).toEqual(["El mes desde no puede ser posterior al mes hasta"]);
+  });
+});
 
-    expect(contarTurnos).toHaveBeenCalledExactlyOnceWith("2026-04", "2026-09");
-    expect(contarAlumnos).toHaveBeenCalledExactlyOnceWith("2026-04", "2026-09");
-    vi.useRealTimers();
+describe("obtenerOcupacionPromedioPorMes", () => {
+  it("pasa a porcentaje con 1 decimal y completa con 0% los meses sin turnos elegibles", async () => {
+    // 0.6825 → 68.3 (AC4, ejemplo de la HU); 0.625 = (0.25 + 1) / 2 → 62.5.
+    promediarOcupacion.mockResolvedValue([{ mes: "2026-07", promedio: 0.6825, turnos: 4 }, { mes: "2026-09", promedio: 0.625, turnos: 2 }]);
+    await expect(obtenerOcupacionPromedioPorMes({ desde: "2026-07", hasta: "2026-10" })).resolves.toEqual([
+      { mes: "2026-07", ocupacion_promedio: 68.3 },
+      { mes: "2026-08", ocupacion_promedio: 0 },
+      { mes: "2026-09", ocupacion_promedio: 62.5 },
+      { mes: "2026-10", ocupacion_promedio: 0 },
+    ]);
+  });
+
+  it("redondea la mitad hacia arriba aunque la razón llegue con ruido binario (caso real de nivel 3)", async () => {
+    // 38.75% llegó como 0.38749999999999996 desde un AVG en coma flotante: debe dar 38.8, igual que ROUND de PostgreSQL.
+    promediarOcupacion.mockResolvedValue([
+      { mes: "2026-08", promedio: 0.3875, turnos: 4 },
+      { mes: "2026-09", promedio: 0.38749999999999996, turnos: 4 },
+    ]);
+    await expect(obtenerOcupacionPromedioPorMes({ desde: "2026-08", hasta: "2026-09" })).resolves.toEqual([
+      { mes: "2026-08", ocupacion_promedio: 38.8 },
+      { mes: "2026-09", ocupacion_promedio: 38.8 },
+    ]);
+  });
+
+  it("pide a Turnos solo los turnos hasta hoy en Buenos Aires (no el día UTC)", async () => {
+    promediarOcupacion.mockResolvedValue([]);
+    await obtenerOcupacionPromedioPorMes({ desde: "2026-09", hasta: "2026-12" });
+    expect(promediarOcupacion).toHaveBeenCalledExactlyOnceWith("2026-09", "2026-12", "2026-09-30");
+  });
+
+  it("delega el filtro de estados en Turnos: el servicio no recalcula ni mezcla Cancelado/Pendiente", async () => {
+    // El promedio que llega ya excluye CANCELADO/PENDIENTE (verificado contra PostgreSQL en
+    // turno.publico.pg.test.ts); acá se comprueba que H lo usa tal cual, sin alterarlo.
+    promediarOcupacion.mockResolvedValue([{ mes: "2026-09", promedio: 0.5, turnos: 1 }]);
+    await expect(obtenerOcupacionPromedioPorMes({ desde: "2026-09", hasta: "2026-09" })).resolves.toEqual([
+      { mes: "2026-09", ocupacion_promedio: 50 },
+    ]);
   });
 });

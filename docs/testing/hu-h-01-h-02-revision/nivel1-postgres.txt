@@ -1,0 +1,24 @@
+
+ RUN  v3.2.7 D:/Proyectos Facultad/noctium
+
+ ✓ src/server/pagos/pago.publico.pg.test.ts > pago.publico: PostgreSQL real aislado > lista todos los pagos del turno, más recientes primero, incluido el de un alumno no inscripto 25ms
+ ✓ src/server/pagos/pago.publico.pg.test.ts > pago.publico: PostgreSQL real aislado > devuelve [] para un turno sin pagos y para un id inexistente 9ms
+ ✓ src/server/pagos/pago.publico.pg.test.ts > pago.publico: PostgreSQL real aislado > funciona dentro de una transacción del llamador 30ms
+ ✓ src/server/pagos/pago.publico.pg.test.ts > pago.publico: PostgreSQL real aislado > sumarPagosPorMes suma exacto por mes de fechaPago, incluye pagos de turnos cancelados y cruza año 38ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > bloquearTurnoParaOperacion da formato, inscriptos, inexistente y vigencia 125ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > FOR SHARE retiene una cancelación de otra conexión hasta el commit 130ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > obtenerAlumnosInscriptosDeTurno distingue null, vacío y lista de IDs 44ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > contarTurnosFuturosDeProfesorPorMateria separa estados y excluye ajenos 90ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > ajustarCuposPorCapacidadDeAula devuelve los IDs en conflicto sin escribir 84ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > ajustarCuposPorCapacidadDeAula recalcula estados y solo devuelve eventos 103ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > ajustarCuposPorCapacidadDeAula bloquea un turno vencido sin modificarlo 103ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > ajustarCuposPorCapacidadDeAula respeta el rollback del llamador 41ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > turno.publico: PostgreSQL real aislado > promediarOcupacionTurnosPorMes promedia inscriptos/cupo solo de DISPONIBLE/COMPLETO hasta la fecha máxima 96ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > emitirEventosTurno: PostgreSQL real aislado > después del COMMIT registra un cupo_actualizado por turno futuro y un evento por transición 152ms
+ ✓ src/server/turnos/turno.publico.pg.test.ts > emitirEventosTurno: PostgreSQL real aislado > un ajuste con ok: false revierte la transacción y no inserta filas 51ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  05:48:13
+   Duration  3.83s (transform 885ms, setup 0ms, collect 2.04s, tests 1.72s, environment 1ms, prepare 670ms)
+

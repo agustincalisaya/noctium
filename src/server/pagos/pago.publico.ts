@@ -67,3 +67,28 @@ export async function listarPagosDeTurno(
     };
   });
 }
+
+/**
+ * Total cobrado por mes (spec_modulo_I.md §2.3, consumida por
+ * spec_modulo_H.md §2.2). Suma todos los pagos del mes de `fechaPago`, sin
+ * filtrar por forma de pago ni por el estado del turno: un pago es un hecho
+ * consumado (Regla N.° 8). `desde`/`hasta` son meses AAAA-MM inclusivos.
+ * `total` va como texto decimal exacto; solo devuelve meses con pagos.
+ */
+export async function sumarPagosPorMes(
+  desde: string,
+  hasta: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<{ mes: string; total: string }[]> {
+  const fin = new Date(`${hasta}-01T00:00:00.000Z`);
+  fin.setUTCMonth(fin.getUTCMonth() + 1);
+  const hastaExclusivo = fin.toISOString().slice(0, 10);
+  return db.$queryRaw<{ mes: string; total: string }[]>`
+    SELECT to_char("fechaPago", 'YYYY-MM') AS mes, SUM("montoPago")::text AS total
+    FROM "pagos"
+    WHERE "fechaPago" >= CAST(${`${desde}-01`} AS date)
+      AND "fechaPago" < CAST(${hastaExclusivo} AS date)
+    GROUP BY to_char("fechaPago", 'YYYY-MM')
+    ORDER BY mes
+  `;
+}
