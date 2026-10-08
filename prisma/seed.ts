@@ -1,5 +1,5 @@
 // ============================================================
-// Noctium — Seed de desarrollo (Sprint 1 + fixtures de Sprint 2)
+// Noctium — Seed de desarrollo (Sprint 1 y 2 + seed base del Sprint 3)
 //
 // Ejecutar con:  npx prisma db seed
 // (o directo:    npx tsx prisma/seed.ts)
@@ -9,17 +9,31 @@
 // Validar como si hoy fuera otra fecha (solo junto con SEED_SOLO_VALIDAR):
 //                SEED_SOLO_VALIDAR=1 SEED_FECHA_HOY=2026-10-15 npx tsx prisma/seed.ts
 //
+// SPRINT 3 (PR-0.md §2.16): este archivo es el SEED BASE — catálogos, formas
+// de pago, tarifas, parámetros, datos del centro, cuentas, fichas y clases.
+// NO crea inscripciones, pagos, comprobantes, cajas ni clases dictadas: esos
+// datos los crea el seed de escenarios llamando a los servicios de dominio
+// (etapa 2 del PR 0), para que cumplan las mismas reglas que la aplicación.
+// Las clases confirmadas quedan DISPONIBLE (con profesor, aula y cupo) y sin
+// inscriptos: una clase llega a COMPLETO por sus inscripciones. El campo
+// `alumnos` de TURNOS es el plan de inscriptos para ese seed de escenarios;
+// validarDatos() lo sigue verificando. El historial de Indicadores (turnos
+// pasados con inscriptos y pagos) deja de sembrarse acá: lo agregan como
+// fixtures las HU de presentación (PR-0.md §2.16).
+//
+// La base se regenera con `npx prisma migrate reset` (decisión del PO): las
+// migraciones del Sprint 3 exigen tablas de negocio vacías.
+//
 // DEMO INCREMENTO 2: los fixtures del guion de la demo están marcados con
-// "// DEMO INCREMENTO 2 — Paso N" (ver DEMO, TURNOS y HISTORICO_MENSUAL) y
-// validarDatos() verifica que cada caso siga apareciendo como se espera.
-// Antes de la demo conviene `npx prisma migrate reset`: un pago o una
-// generación cargados a mano en un ensayo pueden bloquear el re-seed (los
-// pagos son RESTRICT sobre el turno) o chocar con los fixtures recreados.
+// "// DEMO INCREMENTO 2 — Paso N" (ver DEMO y TURNOS) y validarDatos()
+// verifica que cada caso siga apareciendo como se espera.
 //
 // CREDENCIALES: todos los usuarios usan la contraseña  Password123!
 //
-//   gerente@noctium.local            GERENTE
-//   mesa.entrada@noctium.local       MESA_ENTRADA
+//   gerente@noctium.local            GERENTE (con ficha de gerente)
+//   gerente2@noctium.local           GERENTE (con ficha de gerente)
+//   mesa.entrada@noctium.local       MESA_ENTRADA (con ficha de mesa de entrada)
+//   mesa.entrada2@noctium.local      MESA_ENTRADA (con ficha de mesa de entrada)
 //   profesor1..4@noctium.local       PROFESOR
 //   alumno01..06@noctium.local       ALUMNO
 //   alumno.inactivo@noctium.local    ALUMNO con activoUsuario = false
@@ -60,29 +74,35 @@
 // Incremento 2, ver DEMO), con fechas en DÍAS OPERATIVOS relativos a la fecha en
 // que se corre el seed (0 = próximo día operativo después de hoy):
 //  - 25 futuros en los próximos 11 días operativos (3 por día en los primeros
-//    8): 3 PENDIENTE (sin profesor ni aula), 3 DISPONIBLE sin inscriptos,
-//    parciales (ej. 6/20 en Aula 2, 12/30 en Aula 10) y 2 COMPLETO (Aula 1
-//    10/10, Laboratorio 15/15). Giménez (profesor1) tiene 7 (+1 pasado).
+//    8): 3 PENDIENTE (sin profesor ni aula) y el resto DISPONIBLE. El plan de
+//    inscriptos (`alumnos`) lleva algunos a parciales (ej. 6/20 en Aula 2) y
+//    2 a COMPLETO (Aula 1 10/10, Laboratorio 15/15) cuando el seed de
+//    escenarios los inscriba. Giménez (profesor1) tiene 7 (+1 pasado).
 //  - 2 en el PASADO a propósito (1 y 2 días operativos antes de hoy,
-//    DISPONIBLE con inscriptos) para que el calendario muestre historial.
-//  Además, el historial de Indicadores (HISTORICO_MENSUAL): turnos pasados
-//  con inscriptos y pagos en los últimos 6 meses y en el mes en curso.
+//    DISPONIBLE) para que el calendario muestre historial.
 //  El cupo es la capacidad del aula; ningún turno usa "Sala individual" ni
 //  "Sala grupal". Como el día de la semana de cada fecha depende de cuándo se
 //  corre el seed, los profesores con turnos tienen una franja común todos los
 //  días operativos, y validarDatos() valida contra el día REAL de la fecha.
 //
+// Tarifas (HU-L-06): todas las materias nacen con tarifa (solo al crearlas:
+// una segunda corrida no pisa los cambios de HU-L-06/L-07).
+//
 // Es idempotente: se puede correr N veces sin duplicar datos.
-//  - Usuarios / alumnos / profesores / materias / aulas / formas de pago /
-//    parámetros: upsert por clave única.
+//  - Usuarios / alumnos / profesores / materias / aulas: upsert por clave única.
+//  - Formas de pago: por el id fijo del catálogo migrado (formapago-*); la
+//    rama de actualización no cambia nombre, estado ni esEfectivo (HU-I-07).
+//  - Parámetros: los técnicos se actualizan; los que edita HU-N-01 y los datos
+//    del centro solo se crean si faltan.
+//  - Fichas de mesa de entrada y de gerente: por DNI, solo se crean si faltan.
 //  - HorarioProfesor (sin clave única): se borra y recrea por profesor.
-//  - Turnos: ids fijos ("seed-turno-XX"). Se borran todos los "seed-turno-*"
-//    (con sus inscripciones y reservas, en cascada) y se recrean: así, al
-//    re-correr el seed otro día, los turnos se "mueven" a las fechas nuevas
-//    sin chocar a mitad de camino con la exclusión de reservas_turno.
+//  - Turnos: ids fijos ("seed-turno-XX"), solo se crean si faltan (no se
+//    borran ni se mueven: conservan la fecha de la primera corrida y lo que
+//    les hayan agregado las HU o el seed de escenarios).
 //  - No toca datos que no sean del seed (ej. el alumno de prueba manual).
 //  - No siembra tablas de runtime (TokenRevocado, IntentoLoginFallido,
-//    IntentoRegistro, EventoSeguridad, CodigoVerificacion).
+//    IntentoRegistro, EventoSeguridad, CodigoVerificacion, TokenRecuperacion,
+//    SolicitudRecuperacion).
 // ============================================================
 
 import "dotenv/config";
@@ -112,13 +132,6 @@ const prisma = new PrismaClient();
 
 const PASSWORD = "Password123!";
 const BCRYPT_COST = 12;
-// Identificadores fijos con formato CUID para fixtures inmutables: permiten
-// limpiar únicamente estas filas al resembrar, sin borrar registros ajenos.
-const IDS_S2 = {
-  pagos: ["c45dcbed5ebbbb2f71c3e4eb6", "cca6d708ffccb87dfecc2d32b", "cbb7148538d13630d5d65ea76", "c9e2a41f7d03b58c6a1e0d94f"],
-  clase: "c76b1e35264c86b86c4c70eb3",
-  examen: "c792cfe215eaa6ce2c594997a",
-} as const;
 
 // ------------------------------------------------------------
 // Helpers de fecha/hora (todo en UTC para columnas @db.Date / @db.Time)
@@ -159,16 +172,28 @@ const pad = (n: number) => String(n).padStart(2, "0");
 // Datos
 // ------------------------------------------------------------
 
-const FORMAS_PAGO = ["Efectivo", "Transferencia", "Débito", "Mercado Pago"] as const;
+// Catálogo de formas de pago por id ESTABLE (el de la migración
+// 20260921210000), nunca por el nombre, que HU-I-07 puede cambiar. Solo
+// «Efectivo» suma en el arqueo de caja (esEfectivo, PR-0.md §2.5). «Mercado
+// Pago» es un cobro de mostrador ya realizado por ese medio, sin integración.
+const FORMAS_PAGO: { id: string; nombre: string; esEfectivo: boolean }[] = [
+  { id: "formapago-efectivo", nombre: "Efectivo", esEfectivo: true },
+  { id: "formapago-transferencia", nombre: "Transferencia", esEfectivo: false },
+  { id: "formapago-debito", nombre: "Débito", esEfectivo: false },
+  { id: "formapago-mercado-pago", nombre: "Mercado Pago", esEfectivo: false },
+];
 
-const MATERIAS: { nombre: string; codigo: string | null; activa: boolean }[] = [
-  { nombre: "Matemática", codigo: "MAT101", activa: true },
-  { nombre: "Física", codigo: "FIS101", activa: true },
-  { nombre: "Programación I", codigo: "PRG101", activa: true },
-  { nombre: "Bases de Datos", codigo: "BDD201", activa: true },
-  { nombre: "Química", codigo: null, activa: true }, // sin código: se muestra "—"
-  { nombre: "Inglés Técnico", codigo: null, activa: true },
-  { nombre: "Historia de la Ciencia", codigo: "HIS101", activa: false },
+// Códigos alfanuméricos sin guion (regla de HU-L-01, P-L8). Tarifa por hora en
+// pesos (HU-L-06): se carga solo al crear la materia; con las duraciones
+// permitidas (60/120/180) el precio de la clase siempre es entero.
+const MATERIAS: { nombre: string; codigo: string | null; activa: boolean; tarifa: number }[] = [
+  { nombre: "Matemática", codigo: "MAT101", activa: true, tarifa: 12000 },
+  { nombre: "Física", codigo: "FIS101", activa: true, tarifa: 12000 },
+  { nombre: "Programación I", codigo: "PRG101", activa: true, tarifa: 13000 },
+  { nombre: "Bases de Datos", codigo: "BDD201", activa: true, tarifa: 11000 },
+  { nombre: "Química", codigo: null, activa: true, tarifa: 10500 }, // sin código: se muestra "—"
+  { nombre: "Inglés Técnico", codigo: null, activa: true, tarifa: 9000 },
+  { nombre: "Historia de la Ciencia", codigo: "HIS101", activa: false, tarifa: 9500 },
 ];
 
 // Nombres pensados para verificar orden natural (Aula 2 antes que Aula 10).
@@ -706,6 +731,28 @@ const TERMINOS_ACEPTADOS_EN = new Date(Date.UTC(2026, 8, 1, 12, 0, 0));
 // tenían cuenta). Ya no corresponden: esas fichas ahora no tienen cuenta.
 const CUENTAS_ALUMNO_LEGACY = Array.from({ length: 9 }, (_, i) => `alumno${pad(i + 7)}@noctium.local`);
 
+// Cuentas internas de prueba con su ficha (PR-0.md §2.7, HU-F y HU-G): al
+// menos 2 de mesa de entrada (varias cajas abiertas, cierre por ausencia) y 2
+// de gerente («al menos un gerente activo», HU-G-05). El email de la ficha es
+// el de la cuenta. DNI único por tipo de ficha.
+type PersonalSeed = {
+  email: string;
+  rol: "MESA_ENTRADA" | "GERENTE";
+  nombre: string;
+  apellido: string;
+  dni: string;
+  nacimiento: [number, number, number];
+  genero: Genero | null;
+  telefono: string | null;
+};
+
+const PERSONAL: PersonalSeed[] = [
+  { email: "mesa.entrada@noctium.local", rol: "MESA_ENTRADA", nombre: "Marta", apellido: "Ruiz", dni: "25100001", nacimiento: [1985, 5, 14], genero: "FEMENINO", telefono: "+54 11 5570-0001" },
+  { email: "mesa.entrada2@noctium.local", rol: "MESA_ENTRADA", nombre: "Pablo", apellido: "Ferreyra", dni: "25100002", nacimiento: [1990, 9, 3], genero: "MASCULINO", telefono: null },
+  { email: "gerente@noctium.local", rol: "GERENTE", nombre: "Silvia", apellido: "Paredes", dni: "24100001", nacimiento: [1975, 2, 21], genero: "FEMENINO", telefono: "+54 11 5580-0001" },
+  { email: "gerente2@noctium.local", rol: "GERENTE", nombre: "Roberto", apellido: "Quiroga", dni: "24100002", nacimiento: [1978, 11, 8], genero: "MASCULINO", telefono: null },
+];
+
 const PARAMETROS: Record<string, string> = {
   // Turnos y calendario (la duración del turno la elige Mesa de Entradas entre
   // DURACIONES_PERMITIDAS_TURNO_MIN — spec_modulo_C.md Revisión 4 — no es un parámetro)
@@ -740,6 +787,21 @@ const PARAMETROS: Record<string, string> = {
   terminos_version_vigente: "1.0",
 };
 
+// Parámetros que edita HU-N-01 y datos fijos del centro (comprobantes e
+// impresiones, HU-I-11/I-12). La migración 20261008120100_sprint3_modelo ya
+// los inserta; el seed los crea solo si faltan y NUNCA los pisa (rama de
+// actualización vacía), para conservar los cambios hechos desde la pantalla.
+// `generacion_maxima_dias` lo inserta 20260928150100 y no lo lee el código ni
+// lo siembra este archivo (lo reemplazó generacion_maxima_meses, HU-C-17).
+const PARAMETROS_CONFIGURABLES: Record<string, string> = {
+  plazo_pago_horas: "24",
+  cancelacion_anticipacion_horas: "24",
+  umbral_presentismo: "75",
+  centro_nombre: "Instituto Noctium",
+  centro_domicilio: "Av. Siempreviva 742",
+  centro_telefono: "351-4000000",
+};
+
 const PARAMETROS_HORARIO = {
   diasOperativos: PARAMETROS.dias_operativos!
     .split(",")
@@ -749,8 +811,10 @@ const PARAMETROS_HORARIO = {
   granularidadMinutos: Number(PARAMETROS.granularidad_turno_minutos),
 };
 
-// Matriz RBAC (HU-A-02): una fila [rol, acción] por permiso sembrado. Varias
-// migraciones también insertan algunas, para bases que no corran el seed.
+// Matriz RBAC (HU-A-02): una fila [rol, acción] por permiso sembrado. Desde el
+// Sprint 3 TODA la matriz está también en migraciones (la última es
+// 20261008120200_sprint3_permisos): una base sin seed queda con exactamente
+// estas filas. Tabla cerrada de acciones del sprint: PR-0.md §2.9.1.
 const PERMISOS: [RolUsuario, string][] = [
   // Ping de renovación de sesión: los 4 roles (spec_modulo_A.md, nota de
   // sincronización HU-A-02).
@@ -771,19 +835,29 @@ const PERMISOS: [RolUsuario, string][] = [
   ["GERENTE", "aulas:crear"],
   ["GERENTE", "aulas:editar"],
   ["GERENTE", "aulas:leer"],
+  // Tarifas (HU-L-06/L-07): el Gerente las cambia (y con eso las ve); Mesa
+  // de Entrada solo las ve. El Profesor tiene materias:leer y NO ve precios.
+  ["GERENTE", "materias:cambiar_tarifa"],
+  ["MESA_ENTRADA", "materias:ver_tarifa"],
   // Alumnos (HU-B-01 alta, HU-B-02 contacto, HU-B-04 listado/detalle):
-  // crear/editar exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1); el
-  // Profesor tiene solo lectura del listado y la ficha. Turnos consume
-  // Alumno vía servicio público, no por estos permisos.
+  // crear/editar exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1). Turnos
+  // consume Alumno vía servicio público, no por estos permisos. Sprint 3:
+  // el Gerente consulta alumnos (convención 8 d) y el Profesor pierde
+  // alumnos:leer (convención 8 g: su acceso al historial es acotado, ver
+  // PERMISOS_REVOCADOS). Baja y reactivación (HU-B-07): solo Mesa de Entrada.
   ["MESA_ENTRADA", "alumnos:crear"],
   ["MESA_ENTRADA", "alumnos:editar"],
   ["MESA_ENTRADA", "alumnos:leer"],
-  ["PROFESOR", "alumnos:leer"],
-  // Profesores (HU-D-01..05): exclusivos de Mesa de Entrada
-  // (ver ACCIONES_SOLO_MESA_ENTRADA).
+  ["GERENTE", "alumnos:leer"],
+  ["MESA_ENTRADA", "alumnos:cambiar_estado"],
+  // Profesores (HU-D-01..07): crear/editar exclusivos de Mesa de Entrada (ver
+  // ACCIONES_SOLO_MESA_ENTRADA). Sprint 3 (HU-D-08): el Gerente consulta y
+  // desactiva/reactiva; los datos y las materias los sigue editando Mesa.
   ["MESA_ENTRADA", "profesores:crear"],
   ["MESA_ENTRADA", "profesores:editar"],
   ["MESA_ENTRADA", "profesores:leer"],
+  ["GERENTE", "profesores:leer"],
+  ["GERENTE", "profesores:cambiar_estado"],
   // turnos:leer: Mesa de Entrada, Gerente y Profesor.
   ["MESA_ENTRADA", "turnos:leer"],
   ["GERENTE", "turnos:leer"],
@@ -819,11 +893,70 @@ const PERMISOS: [RolUsuario, string][] = [
   ["MESA_ENTRADA", "calendario:leer"],
   ["GERENTE", "calendario:leer"],
   ["PROFESOR", "calendario:leer"],
+  // --- Sprint 3: resto de la tabla cerrada (PR-0.md §2.9.1) ---
+  // Cuenta propia (HU-A-06): junto con sesion:ping, la única acción que admite
+  // una cuenta con «Debe cambiar la contraseña».
+  ["MESA_ENTRADA", "cuenta:cambiar_password"],
+  ["GERENTE", "cuenta:cambiar_password"],
+  ["PROFESOR", "cuenta:cambiar_password"],
+  ["ALUMNO", "cuenta:cambiar_password"],
+  // Historial académico (HU-E-04, E-07, E-10, E-11; el alcance del Profesor
+  // lo dan los helpers del módulo E) y «Mi historial» (HU-E-08).
+  ["MESA_ENTRADA", "observaciones:registrar"],
+  ["PROFESOR", "observaciones:registrar"],
+  ["MESA_ENTRADA", "indicaciones:registrar"],
+  ["PROFESOR", "indicaciones:registrar"],
+  ["MESA_ENTRADA", "examenes:corregir"],
+  ["PROFESOR", "examenes:corregir"],
+  ["MESA_ENTRADA", "clases:corregir"],
+  ["PROFESOR", "clases:corregir"],
+  ["ALUMNO", "historial:leer_propio"],
+  // Inscripciones y reservas (HU-C-14, HU-C-26).
+  ["ALUMNO", "turnos:cancelar_propia"],
+  ["MESA_ENTRADA", "reservas:leer"],
+  // Pagos y comprobantes (HU-I-05, I-06, I-11). Mesa corrige con alcance
+  // acotado (puedeCorregirPago); el Gerente no registra pagos.
+  ["MESA_ENTRADA", "pagos:corregir"],
+  ["GERENTE", "pagos:corregir"],
+  ["ALUMNO", "pagos:leer_propios"],
+  ["MESA_ENTRADA", "comprobantes:leer"],
+  ["GERENTE", "comprobantes:leer"],
+  ["ALUMNO", "comprobantes:leer_propios"],
+  // Cajas (HU-I-12): Mesa, solo su propia caja; el Gerente ve todas y hace el
+  // cierre por ausencia, pero no abre cajas ni registra movimientos.
+  ["MESA_ENTRADA", "cajas:abrir"],
+  ["MESA_ENTRADA", "cajas:movimiento"],
+  ["MESA_ENTRADA", "cajas:cerrar"],
+  ["MESA_ENTRADA", "cajas:leer"],
+  ["GERENTE", "cajas:leer_todas"],
+  ["GERENTE", "cajas:cerrar_ausencia"],
+  // Formas de pago (HU-I-07; desactivar incluye reactivar).
+  ["GERENTE", "formas_pago:editar"],
+  ["GERENTE", "formas_pago:desactivar"],
+  // Personal de mesa de entrada (HU-F), gerentes (HU-G) y configuración (HU-N-01).
+  ["GERENTE", "personal:crear"],
+  ["GERENTE", "personal:editar"],
+  ["GERENTE", "personal:leer"],
+  ["GERENTE", "personal:cambiar_estado"],
+  ["GERENTE", "gerentes:crear"],
+  ["GERENTE", "gerentes:editar"],
+  ["GERENTE", "gerentes:leer"],
+  ["GERENTE", "gerentes:cambiar_estado"],
+  ["GERENTE", "configuracion:leer"],
+  ["GERENTE", "configuracion:editar"],
 ];
 
-// Acciones que migraciones viejas dieron a otros roles y hoy son exclusivas de
-// Mesa de Entrada: el seed borra esas filas (ver paso 10 de main()).
-const ACCIONES_SOLO_MESA_ENTRADA = ["profesores:crear", "profesores:editar", "profesores:leer"] as const;
+// Acciones que migraciones viejas dieron a otros roles y son exclusivas de
+// Mesa de Entrada: el seed borra esas filas (ver paso 10 de main()). Sprint 3
+// (convención 8 d): profesores:leer ya NO está acá, porque el Gerente la tiene.
+const ACCIONES_SOLO_MESA_ENTRADA = ["profesores:crear", "profesores:editar"] as const;
+
+// Filas que un rol tuvo y perdió (también las borra la migración de permisos
+// del Sprint 3). El upsert con update: {} no las quitaría de una base vieja.
+const PERMISOS_REVOCADOS: [RolUsuario, string][] = [
+  // Convención 8 g: el Profesor accede al historial solo con el alcance acotado.
+  ["PROFESOR", "alumnos:leer"],
+];
 
 type TurnoSeed = {
   id: string;
@@ -948,72 +1081,31 @@ const DEMO = {
   paso5: { alumno: 3, turno: "seed-turno-03" },
 } as const;
 
-// ------------------------------------------------------------
-// DEMO INCREMENTO 2 — Paso 6: historial de Indicadores (spec_modulo_H.md
-// Revisión 2). La pantalla /gerente muestra:
-//  - Ingresos cobrados por mes = SUM(montoPago) por mes de fechaPago.
-//  - Ocupación promedio por mes = promedio de inscriptos / cupo de los turnos
-//    DISPONIBLE/COMPLETO con aula y fechaTurno ≤ hoy (C §2.15).
-// Por eso el historial son turnos PASADOS con inscriptos (no vacíos: un 0/N
-// cuenta como 0% y hunde el promedio) y pagos de esos inscriptos. Cantidad de
-// turnos, ocupación y precio por clase suben mes a mes, así que ambas series
-// crecen; validarDatos() exige que los 6 meses completos sean estrictamente
-// crecientes. El mes en curso solo usa días operativos ANTERIORES a hoy (uno
-// por día), así que sus ingresos son parciales: si la demo es en los primeros
-// días del mes, elegir «Hasta» = mes anterior muestra 6 meses completos.
-// ------------------------------------------------------------
-
-const HISTORICO_MENSUAL: { mesesAtras: number; turnos: number; ocupacion: number; precio: number }[] = [
-  { mesesAtras: 6, turnos: 6, ocupacion: 0.52, precio: 5000 },
-  { mesesAtras: 5, turnos: 6, ocupacion: 0.57, precio: 5200 },
-  { mesesAtras: 4, turnos: 7, ocupacion: 0.62, precio: 5450 },
-  { mesesAtras: 3, turnos: 7, ocupacion: 0.67, precio: 5700 },
-  { mesesAtras: 2, turnos: 8, ocupacion: 0.72, precio: 5950 },
-  { mesesAtras: 1, turnos: 8, ocupacion: 0.77, precio: 6200 },
-  { mesesAtras: 0, turnos: 8, ocupacion: 0.81, precio: 6500 },
-];
-
-// Tres franjas sin superposición horaria entre sí (los inscriptos pueden
-// repetirse) ni con los dos turnos pasados de TURNOS (10-12 y 16-18), dentro
-// del horario de cada profesor todos los días operativos.
-const FRANJAS_HISTORICO: Pick<TurnoSeed, "hora" | "duracionMin" | "materia" | "profesor" | "aula">[] = [
-  { hora: "08:00", duracionMin: 120, materia: "Matemática", profesor: 0, aula: "Aula 1" }, // Giménez, cupo 10
-  { hora: "12:00", duracionMin: 120, materia: "Bases de Datos", profesor: 1, aula: "Aula 10" }, // Rossi, cupo 30
-  { hora: "14:00", duracionMin: 120, materia: "Química", profesor: 2, aula: "Laboratorio" }, // Vega, cupo 15
-];
-
-// Fichas sin cuenta: los alumnos con cuenta (0-5) no se llenan de historial
-// en «Mis turnos». ALUMNOS[16] (inactivo) queda afuera.
-const POOL_HISTORICO = [...rango(17, 39), ...rango(6, 15)];
-
-// Pagos del historial: ids con formato CUID y un prefijo que ningún CUID real
-// tiene (los reales empiezan con la marca de tiempo, "cm…"), para borrarlos
-// por prefijo al resembrar aunque cambie cuántos se generan.
-const PREFIJO_PAGO_HISTORICO = "c5eed0";
-
-type PagoSeed = { id: string; turnoId: string; alumno: number; monto: string; forma: number; fecha: Date };
-
-// Pagos de muestra (HU-I-01 v2: cada pago guarda QUÉ alumno paga y debe estar inscripto en el turno).
-// seed-turno-02 tiene inscriptos ALUMNOS[17..22]; seed-turno-26, ALUMNOS[0..7]. Dos parciales de un mismo
-// alumno, uno de otro alumno del mismo turno, y uno de una clase pasada. Fecha: hoy.
-const PAGOS_S2: Omit<PagoSeed, "fecha">[] = [
-  { id: IDS_S2.pagos[0], turnoId: "seed-turno-02", alumno: 17, monto: "3500.00", forma: 1 },
-  { id: IDS_S2.pagos[1], turnoId: "seed-turno-02", alumno: 17, monto: "2500.50", forma: 0 },
-  { id: IDS_S2.pagos[2], turnoId: "seed-turno-02", alumno: 18, monto: "6000.00", forma: 2 },
-  { id: IDS_S2.pagos[3], turnoId: "seed-turno-26", alumno: 0, monto: "4800.00", forma: 3 },
-];
-
 /** Cupo máximo de un turno de seed: la capacidad de su aula, o null sin aula. */
 function capacidadDeAula(nombre: string | null) {
   return nombre === null ? null : AULAS.find((a) => a.nombre === nombre)?.capacidad ?? null;
 }
 
-/** PENDIENTE sin profesor; si no, COMPLETO cuando los inscriptos llenan el cupo. */
+/**
+ * Estado que tendrá la clase con su plan de inscriptos: PENDIENTE sin
+ * profesor; si no, COMPLETO cuando los inscriptos llenan el cupo. Lo usa
+ * validarDatos() para el plan del seed de escenarios.
+ */
 function estadoDeTurno(t: TurnoSeed): EstadoTurno {
   if (t.cancelado) return "CANCELADO";
   if (t.profesor === null || t.pendiente) return "PENDIENTE";
   const cupo = capacidadDeAula(t.aula);
   return cupo !== null && t.alumnos.length >= cupo ? "COMPLETO" : "DISPONIBLE";
+}
+
+/**
+ * Estado con el que el seed BASE guarda la clase: todavía sin inscriptos, así
+ * que una clase confirmada queda DISPONIBLE; llega a COMPLETO cuando el seed
+ * de escenarios la llena con crearInscripcion (PR-0.md §2.0, «Seed»).
+ */
+function estadoSeedBase(t: TurnoSeed): EstadoTurno {
+  const estado = estadoDeTurno(t);
+  return estado === "COMPLETO" ? "DISPONIBLE" : estado;
 }
 
 /**
@@ -1053,93 +1145,12 @@ function calcularFechasTurnos(hoy: Date, turnos: readonly TurnoSeed[]): Map<stri
   return new Map(turnos.map((t) => [t.id, fechaDeTurno(hoy, t)]));
 }
 
-/** Clave AAAA-MM de un @db.Date (mismo criterio que to_char de Indicadores). */
-const mesDe = (fecha: Date) => fecha.toISOString().slice(0, 7);
-
-/** Turno DISPONIBLE/COMPLETO con aula ya dictado: el que cuenta para la ocupación (C §2.15). */
-const cuentaParaOcupacion = (t: TurnoSeed, fecha: Date, hoy: Date) =>
-  fecha <= hoy && capacidadDeAula(t.aula) !== null && ["DISPONIBLE", "COMPLETO"].includes(estadoDeTurno(t));
-
-/**
- * DEMO INCREMENTO 2 — Paso 6: turnos pasados con inscriptos y sus pagos, mes
- * a mes según HISTORICO_MENSUAL. Un turno por día operativo, repartidos en el
- * mes y rotando FRANJAS_HISTORICO. La ocupación objetivo descuenta los turnos
- * pasados de TURNOS que caen en el mismo mes (seed-turno-26/27, 40%), para
- * que el promedio del mes quede cerca del objetivo sea cual sea la fecha.
- * Paga ~90% de los inscriptos, el precio del mes, el día de la clase.
- */
-function planificarHistorico(hoy: Date, fechasBase: Map<string, Date>) {
-  const turnos: TurnoSeed[] = [];
-  const pagos: PagoSeed[] = [];
-  for (const cfg of HISTORICO_MENSUAL) {
-    const inicioMes = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - cfg.mesesAtras, 1));
-    const dias: Date[] = [];
-    for (let d = inicioMes; d.getUTCMonth() === inicioMes.getUTCMonth() && d < hoy; d = sumarDias(d, 1)) {
-      if (PARAMETROS_HORARIO.diasOperativos.includes(diaSemanaDeFecha(d))) dias.push(d);
-    }
-    const n = Math.min(cfg.turnos, dias.length);
-    if (n === 0) continue;
-
-    const razonesExistentes = TURNOS
-      .filter((t) => {
-        const fecha = fechasBase.get(t.id)!;
-        return mesDe(fecha) === mesDe(inicioMes) && cuentaParaOcupacion(t, fecha, hoy);
-      })
-      .map((t) => t.alumnos.length / capacidadDeAula(t.aula)!);
-    const objetivo = Math.min(
-      1,
-      (cfg.ocupacion * (n + razonesExistentes.length) - razonesExistentes.reduce((a, b) => a + b, 0)) / n,
-    );
-
-    // Cada turno varía ±5 puntos alrededor del objetivo y arrastra al
-    // siguiente lo que el redondeo le sacó o le sumó (difusión de error), así
-    // el promedio del mes queda en el objetivo aunque haya aulas de 10.
-    let arrastre = 0;
-    for (let j = 0; j < n; j++) {
-      const franja = FRANJAS_HISTORICO[j % FRANJAS_HISTORICO.length];
-      const cupo = capacidadDeAula(franja.aula)!;
-      const ideal = objetivo + (((j + cfg.mesesAtras) % 3) - 1) * 0.05 + arrastre;
-      const inscriptos = Math.max(1, Math.min(cupo, Math.round(ideal * cupo)));
-      arrastre = ideal - inscriptos / cupo;
-      const desde = (j * 5 + cfg.mesesAtras * 3) % POOL_HISTORICO.length;
-      const alumnos = Array.from({ length: inscriptos }, (_, k) => POOL_HISTORICO[(desde + k) % POOL_HISTORICO.length]);
-      const fecha = dias[Math.floor(((j + 0.5) * dias.length) / n)];
-      const id = `seed-s2-turno-hist-${cfg.mesesAtras}-${pad(j + 1)}`;
-      turnos.push({ id, fecha, ...franja, alumnos });
-      alumnos.forEach((alumno, k) => {
-        if ((k + j) % 10 === 9) return; // ~10% todavía no pagó
-        pagos.push({
-          id: `${PREFIJO_PAGO_HISTORICO}${String(pagos.length + 1).padStart(19, "0")}`,
-          turnoId: id, alumno, monto: `${cfg.precio}.00`, forma: (alumno + j) % FORMAS_PAGO.length, fecha,
-        });
-      });
-    }
-  }
-  return { turnos, pagos };
-}
-
 // ------------------------------------------------------------
 // Validación en memoria: el seed no debe generar datos que la propia
 // lógica de negocio de la app rechazaría.
 // ------------------------------------------------------------
 
-/**
- * Lo que mostrará /gerente para los meses de HISTORICO_MENSUAL, con el mismo
- * criterio que promediarOcupacionTurnosPorMes() y sumarPagosPorMes().
- */
-function seriesIndicadores(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<string, Date>, pagos: readonly PagoSeed[]) {
-  return [...HISTORICO_MENSUAL].sort((a, b) => b.mesesAtras - a.mesesAtras).map(({ mesesAtras }) => {
-    const mes = mesDe(new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - mesesAtras, 1)));
-    const razones = turnos
-      .filter((t) => mesDe(fechas.get(t.id)!) === mes && cuentaParaOcupacion(t, fechas.get(t.id)!, hoy))
-      .map((t) => t.alumnos.length / capacidadDeAula(t.aula)!);
-    const ocupacion = razones.length ? Math.round((razones.reduce((a, b) => a + b, 0) / razones.length) * 1000) / 10 : 0;
-    const ingresos = pagos.filter((p) => mesDe(p.fecha) === mes).reduce((total, p) => total + Number(p.monto), 0);
-    return { mes, ocupacion, ingresos, enCurso: mesesAtras === 0 };
-  });
-}
-
-function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<string, Date>, pagos: readonly PagoSeed[]): void {
+function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<string, Date>): void {
   const errores: string[] = [];
   // Un PENDIENTE con profesor (HU-D-07) no reserva recursos: no entra acá.
   const agendados = turnos.filter((t) => t.profesor !== null && !t.pendiente);
@@ -1198,6 +1209,38 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
       errores.push(`Alumno ${a.apellido}: contacto inválido (${contacto.error.issues.map((x) => x.message).join(", ")})`);
     }
   });
+
+  // Fichas del personal: misma identidad que un alta (nombre, apellido, DNI,
+  // nacimiento) y contacto válido; DNI único por tipo de ficha y una ficha
+  // por cuenta.
+  for (const p of PERSONAL) {
+    const identidad = identidadAlumno.safeParse({
+      nombre: p.nombre,
+      apellido: p.apellido,
+      dni: p.dni,
+      fecha_nacimiento: new Date(Date.UTC(...p.nacimiento)).toISOString().slice(0, 10),
+      genero: p.genero ?? undefined,
+    });
+    if (!identidad.success) {
+      errores.push(`Ficha ${p.email}: identidad inválida (${identidad.error.issues.map((x) => x.message).join(", ")})`);
+    }
+    if (!ContactoSchema.safeParse({ telefono: p.telefono, email: p.email }).success) {
+      errores.push(`Ficha ${p.email}: contacto inválido`);
+    }
+  }
+  if (new Set(PERSONAL.map((p) => p.email)).size !== PERSONAL.length) errores.push("Fichas del personal con email repetido");
+  for (const rol of ["MESA_ENTRADA", "GERENTE"] as const) {
+    const delRol = PERSONAL.filter((p) => p.rol === rol);
+    if (delRol.length < 2) errores.push(`Se necesitan al menos 2 cuentas de ${rol} con ficha (PR-0.md §2.7)`);
+    if (new Set(delRol.map((p) => p.dni)).size !== delRol.length) errores.push(`DNI repetido en fichas de ${rol}`);
+  }
+
+  // Tarifas (HU-L-06): enteras y positivas, así precioClase() da un entero.
+  for (const m of MATERIAS) {
+    if (!Number.isSafeInteger(m.tarifa) || m.tarifa <= 0) errores.push(`Materia ${m.nombre}: tarifa inválida`);
+    if (m.codigo !== null && !/^[A-Za-z0-9]+$/.test(m.codigo)) errores.push(`Materia ${m.nombre}: código con caracteres no alfanuméricos`);
+  }
+  if (FORMAS_PAGO.filter((f) => f.esEfectivo).length !== 1) errores.push("Exactamente una forma de pago debe ser efectivo");
 
   const materiasActivas = new Set(MATERIAS.filter((m) => m.activa).map((m) => m.nombre));
   const aulasActivas = new Set(AULAS.filter((a) => a.activa).map((a) => a.nombre));
@@ -1324,17 +1367,7 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
     }
   }
 
-  // Pagos: mismas reglas que registrarPago() (HU-I-01 v2).
   const turnoPorId = new Map(turnos.map((t) => [t.id, t]));
-  if (new Set(pagos.map((p) => p.id)).size !== pagos.length) errores.push("Ids de pago repetidos");
-  for (const p of pagos) {
-    const t = turnoPorId.get(p.turnoId);
-    if (!t) { errores.push(`Pago ${p.id}: turno ${p.turnoId} inexistente`); continue; }
-    if (!["DISPONIBLE", "COMPLETO"].includes(estadoDeTurno(t))) errores.push(`Pago ${p.id}: ${t.id} no admite pagos`);
-    if (!t.alumnos.includes(p.alumno)) errores.push(`Pago ${p.id}: alumno ${p.alumno} no inscripto en ${t.id}`);
-    if (p.fecha > hoy) errores.push(`Pago ${p.id}: fecha futura`);
-    if (!/^\d{1,9}(\.\d{1,2})?$/.test(p.monto) || Number(p.monto) <= 0) errores.push(`Pago ${p.id}: monto inválido`);
-  }
 
   // DEMO INCREMENTO 2: cada paso del guion tiene que seguir funcionando.
   const mismaFecha = (o: TurnoSeed, fecha: Date) => fechas.get(o.id)!.getTime() === fecha.getTime();
@@ -1390,13 +1423,13 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
     }
   }
 
-  // Paso 4: turno futuro con el alumno inscripto y sin ningún pago.
+  // Paso 4: turno futuro con el alumno en el plan de inscriptos (el seed base
+  // no crea pagos, así que nunca tiene uno).
   {
     const t = turnoPorId.get(DEMO.paso4.turno);
     if (!t || !agendados.includes(t) || !t.alumnos.includes(DEMO.paso4.alumno) || fechas.get(t.id)! <= hoy) {
       errores.push("DEMO Paso 4: el turno debe ser futuro, agendado y con el alumno inscripto");
     }
-    if (pagos.some((p) => p.turnoId === DEMO.paso4.turno)) errores.push("DEMO Paso 4: el turno ya tiene pagos");
   }
 
   // Paso 5: alumno con cuenta activa, turno DISPONIBLE con lugar dentro de la
@@ -1414,12 +1447,8 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
     }
   }
 
-  // Paso 6: los 6 meses completos anteriores, estrictamente crecientes.
-  const serie = seriesIndicadores(hoy, turnos, fechas, pagos).filter((m) => !m.enCurso);
-  for (let i = 1; i < serie.length; i++) {
-    if (serie[i].ocupacion <= serie[i - 1].ocupacion) errores.push(`DEMO Paso 6: la ocupación de ${serie[i].mes} no crece`);
-    if (serie[i].ingresos <= serie[i - 1].ingresos) errores.push(`DEMO Paso 6: los ingresos de ${serie[i].mes} no crecen`);
-  }
+  // Paso 6 (historial de Indicadores): ya no lo siembra el seed base; lo
+  // agregan las HU de presentación como fixtures (PR-0.md §2.16).
 
   if (errores.length > 0) {
     throw new Error(`Datos del seed inválidos:\n - ${errores.join("\n - ")}`);
@@ -1435,18 +1464,11 @@ async function main() {
   const fechaForzada = process.env.SEED_FECHA_HOY;
   if (fechaForzada && !soloValidar) throw new Error("SEED_FECHA_HOY solo se admite junto con SEED_SOLO_VALIDAR=1");
   const hoy = fechaForzada ? new Date(`${fechaForzada}T00:00:00.000Z`) : fechaDeHoy(new Date());
-  const fechasBase = calcularFechasTurnos(hoy, TURNOS);
-  const historico = planificarHistorico(hoy, fechasBase);
-  const turnosSeed = [...TURNOS, ...historico.turnos];
+  const turnosSeed = TURNOS;
   const fechasTurnos = calcularFechasTurnos(hoy, turnosSeed);
-  const pagosSeed: PagoSeed[] = [...PAGOS_S2.map((p) => ({ ...p, fecha: hoy })), ...historico.pagos];
-  validarDatos(hoy, turnosSeed, fechasTurnos, pagosSeed);
-  const serie = seriesIndicadores(hoy, turnosSeed, fechasTurnos, pagosSeed);
+  validarDatos(hoy, turnosSeed, fechasTurnos);
   if (soloValidar) {
-    console.log(`✓ Datos del seed válidos (${ALUMNOS.length} alumnos, ${turnosSeed.length} turnos, ${pagosSeed.length} pagos). No se escribió en la base.`);
-    for (const m of serie) {
-      console.log(`  ${m.mes}${m.enCurso ? " (en curso)" : ""}: ocupación ${m.ocupacion}% · ingresos $${m.ingresos.toLocaleString("es-AR")}`);
-    }
+    console.log(`✓ Datos del seed válidos (${ALUMNOS.length} alumnos, ${turnosSeed.length} turnos, ${PERSONAL.length} fichas del personal). No se escribió en la base.`);
     return;
   }
   const passwordHash = await bcrypt.hash(PASSWORD, BCRYPT_COST);
@@ -1466,8 +1488,12 @@ async function main() {
   }
 
   // 1) Usuarios ------------------------------------------------
-  const gerenteId = await upsertUsuario("gerente@noctium.local", "GERENTE");
-  const mesaEntradaId = await upsertUsuario("mesa.entrada@noctium.local", "MESA_ENTRADA");
+  // Cuentas internas (PERSONAL): gerente@ y mesa.entrada@ siguen siendo las
+  // que figuran como autoras de los datos del seed.
+  const usuarioPersonalIds = new Map<string, string>();
+  for (const p of PERSONAL) usuarioPersonalIds.set(p.email, await upsertUsuario(p.email, p.rol));
+  const gerenteId = usuarioPersonalIds.get("gerente@noctium.local")!;
+  const mesaEntradaId = usuarioPersonalIds.get("mesa.entrada@noctium.local")!;
 
   const usuarioProfesorIds = new Map<number, string>();
   for (let i = 0; i < PROFESORES.length; i++) {
@@ -1481,20 +1507,82 @@ async function main() {
     if (!email) continue;
     usuarioAlumnoIds.set(i, await upsertUsuario(email, "ALUMNO", ALUMNOS[i].cuenta === "activa"));
   }
-  const totalUsuarios = 2 + usuarioProfesorIds.size + usuarioAlumnoIds.size;
+  const totalUsuarios = usuarioPersonalIds.size + usuarioProfesorIds.size + usuarioAlumnoIds.size;
   console.log(`✓ ${totalUsuarios} usuarios creados (1 inactivo)`);
 
-  // 2) Formas de pago (catálogo) --------------------------------
-  const formaPagoIds: string[] = [];
-  for (const nombre of FORMAS_PAGO) {
-    const fp = await prisma.formaPago.upsert({
-      where: { nombreFormaPago: nombre },
-      update: { activaFormaPago: true, nombreNormalizadaFormaPago: normalizarTexto(nombre) },
-      create: { nombreFormaPago: nombre, nombreNormalizadaFormaPago: normalizarTexto(nombre), activaFormaPago: true, creadoPorUsuarioId: gerenteId },
-    });
-    formaPagoIds.push(fp.idFormaPago);
+  // 1b) Fichas del personal (PR-0.md §2.7): una por cuenta interna, con el
+  // email de la cuenta. Solo se crean si faltan (por DNI): una segunda corrida
+  // no pisa lo que cambien HU-F-03/F-05 ni HU-G-03/G-05.
+  for (const p of PERSONAL) {
+    const identidad = {
+      usuarioId: usuarioPersonalIds.get(p.email)!,
+      nacimiento: new Date(Date.UTC(p.nacimiento[0], p.nacimiento[1] - 1, p.nacimiento[2])),
+      telefono: p.telefono === null ? null : ContactoSchema.parse({ telefono: p.telefono, email: p.email }).telefono ?? null,
+    };
+    if (p.rol === "MESA_ENTRADA") {
+      await prisma.fichaMesaEntrada.upsert({
+        where: { dniFichaMesaEntrada: p.dni },
+        update: {},
+        create: {
+          usuarioId: identidad.usuarioId,
+          nombreFichaMesaEntrada: p.nombre,
+          apellidoFichaMesaEntrada: p.apellido,
+          nombreNormalizadoFichaMesaEntrada: normalizarTexto(p.nombre),
+          apellidoNormalizadoFichaMesaEntrada: normalizarTexto(p.apellido),
+          dniFichaMesaEntrada: p.dni,
+          fechaNacimientoFichaMesaEntrada: identidad.nacimiento,
+          generoFichaMesaEntrada: p.genero,
+          telefonoFichaMesaEntrada: identidad.telefono,
+          emailFichaMesaEntrada: p.email,
+          creadoPorUsuarioId: gerenteId,
+        },
+      });
+    } else {
+      await prisma.fichaGerente.upsert({
+        where: { dniFichaGerente: p.dni },
+        update: {},
+        create: {
+          usuarioId: identidad.usuarioId,
+          nombreFichaGerente: p.nombre,
+          apellidoFichaGerente: p.apellido,
+          nombreNormalizadoFichaGerente: normalizarTexto(p.nombre),
+          apellidoNormalizadoFichaGerente: normalizarTexto(p.apellido),
+          dniFichaGerente: p.dni,
+          fechaNacimientoFichaGerente: identidad.nacimiento,
+          generoFichaGerente: p.genero,
+          telefonoFichaGerente: identidad.telefono,
+          emailFichaGerente: p.email,
+          creadoPorUsuarioId: gerenteId,
+        },
+      });
+    }
   }
-  console.log(`✓ ${formaPagoIds.length} formas de pago creadas`);
+  console.log(
+    `✓ ${PERSONAL.filter((p) => p.rol === "MESA_ENTRADA").length} fichas de mesa de entrada y ${PERSONAL.filter((p) => p.rol === "GERENTE").length} de gerente creadas`,
+  );
+
+  // 2) Formas de pago (catálogo) --------------------------------
+  // Por id estable del catálogo migrado. La rama de actualización está vacía:
+  // conserva nombre, activaFormaPago y esEfectivo que haya cambiado HU-I-07.
+  // Con la base recién migrada las cuatro ya existen; la creación solo cubre
+  // una base donde falte alguna (sin duplicar por nombre).
+  const formaPagoIds: string[] = [];
+  for (const fp of FORMAS_PAGO) {
+    const forma = await prisma.formaPago.upsert({
+      where: { idFormaPago: fp.id },
+      update: {},
+      create: {
+        idFormaPago: fp.id,
+        nombreFormaPago: fp.nombre,
+        nombreNormalizadaFormaPago: normalizarTexto(fp.nombre),
+        activaFormaPago: true,
+        esEfectivo: fp.esEfectivo,
+        creadoPorUsuarioId: gerenteId,
+      },
+    });
+    formaPagoIds.push(forma.idFormaPago);
+  }
+  console.log(`✓ ${formaPagoIds.length} formas de pago (${FORMAS_PAGO.filter((f) => f.esEfectivo).length} de efectivo)`);
 
   // 3) Alumnos -------------------------------------------------
   const alumnoIds: string[] = [];
@@ -1622,12 +1710,15 @@ async function main() {
         activaMateria: m.activa,
         creadoPorUsuarioId: gerenteId,
         nombreNormalizadaMateria: normalizarTexto(m.nombre),
+        // Solo al crear (la rama update no la toca): HU-L-06/L-07 la cambian
+        // con su historial. El seed no crea HistorialTarifa inicial (spec L 2.7).
+        tarifaHoraMateria: m.tarifa,
       },
     });
     materiaIds.set(m.nombre, mat.idMateria);
   }
   console.log(
-    `✓ ${materiaIds.size} materias creadas (${MATERIAS.filter((m) => !m.codigo).length} sin código, ${MATERIAS.filter((m) => !m.activa).length} inactiva)`,
+    `✓ ${materiaIds.size} materias creadas con tarifa (${MATERIAS.filter((m) => !m.codigo).length} sin código, ${MATERIAS.filter((m) => !m.activa).length} inactiva)`,
   );
 
   // 6) Aulas ---------------------------------------------------
@@ -1680,31 +1771,22 @@ async function main() {
   }
   console.log(`✓ ${totalAsociaciones} asociaciones profesor-materia y ${totalHorarios} horarios de atención creados`);
 
-  // 8) Turnos + TurnoAlumno ------------------------------------
-  // Los hechos de Sprint 2 tienen FK RESTRICT. Limpiar únicamente las fichas
-  // cuyo ID fijo pertenece a esta seed antes de recrear turnos demo.
-  // Si hay pagos/clases manuales sobre seed-turno-*, el borrado del turno
-  // falla y los conserva; no se tocan silenciosamente datos de otra persona.
-  await prisma.resultadoExamen.deleteMany({ where: { idResultadoExamen: IDS_S2.examen } });
-  await prisma.claseDictadaAlumno.deleteMany({ where: { claseDictadaId: IDS_S2.clase } });
-  await prisma.claseDictada.deleteMany({ where: { idClaseDictada: IDS_S2.clase } });
-  await prisma.pago.deleteMany({ where: { idPago: { in: [...IDS_S2.pagos] } } });
-  await prisma.pago.deleteMany({ where: { idPago: { startsWith: PREFIJO_PAGO_HISTORICO } } });
-  // Arrastra también el historial de Indicadores ("seed-s2-turno-hist-*") y
-  // los "seed-s2-turno-historico-*" vacíos de versiones previas del seed.
-  await prisma.turno.deleteMany({ where: { idTurno: { startsWith: "seed-s2-turno-" } } });
-  // Borrar y recrear (no upsert): al re-correr otro día las fechas cambian, y
-  // mover los turnos de a uno puede chocar transitoriamente con la posición
-  // vieja de otro en la exclusión de reservas_turno. El borrado arrastra
-  // turno_alumno y reservas_turno (ON DELETE CASCADE) y también limpia ids
-  // "seed-turno-*" que ya no existan en TURNOS.
-  await prisma.turno.deleteMany({ where: { idTurno: { startsWith: "seed-turno-" } } });
+  // 8) Turnos (clases de prueba) --------------------------------
+  // Seed base del Sprint 3 (PR-0.md §2.0 «Seed» y §2.16): solo las clases,
+  // sin inscripciones, pagos, clases dictadas ni exámenes; esos datos los crea
+  // el seed de escenarios llamando a los servicios de dominio. Cada clase se
+  // crea solo si falta (ids fijos "seed-turno-XX"): no se borra ni se mueve
+  // al resembrar, así conserva su fecha de la primera corrida y todo lo que le
+  // hayan agregado después (las inscripciones y los pagos son hechos que no se
+  // borran, Regla N.° 1). Para empezar de cero: `npx prisma migrate reset`.
+  //
+  // El trigger turno_sincronizar_reservas reserva profesor y aula al insertar
+  // un turno DISPONIBLE; los alumnos se reservan al inscribirlos (solo las
+  // inscripciones VIGENTE, desde 20261008120100_sprint3_modelo).
+  let turnosCreados = 0;
   for (const t of turnosSeed) {
-    // El trigger turno_sincronizar_reservas reserva profesor y aula al
-    // insertar un turno DISPONIBLE/COMPLETO; turno_alumno_sincronizar_reserva
-    // reserva a cada alumno al inscribirlo. Ninguno valida cupo, estado ni
-    // fecha (solo la exclusión de superposiciones), así que un turno puede
-    // crearse directo como COMPLETO o en el pasado y después recibir alumnos.
+    const existente = await prisma.turno.findUnique({ where: { idTurno: t.id }, select: { idTurno: true } });
+    if (existente) continue;
     await prisma.turno.create({
       data: {
         idTurno: t.id,
@@ -1712,7 +1794,7 @@ async function main() {
         horaInicioTurno: horaTime(t.hora),
         duracionMinutosTurno: t.duracionMin,
         cupoMaximoTurno: capacidadDeAula(t.aula),
-        estadoTurno: estadoDeTurno(t),
+        estadoTurno: estadoSeedBase(t),
         prioridadTurno: t.prioridad ?? "NORMAL",
         materiaId: materiaIds.get(t.materia)!,
         profesorId: t.profesor !== null ? profesorIds[t.profesor] : null,
@@ -1720,49 +1802,13 @@ async function main() {
         creadoPorUsuarioId: mesaEntradaId,
       },
     });
-    if (t.alumnos.length > 0) {
-      await prisma.turnoAlumno.createMany({
-        data: t.alumnos.map((i) => ({ turnoId: t.id, alumnoId: alumnoIds[i] })),
-      });
-    }
+    turnosCreados++;
   }
-  const porEstado = (estado: EstadoTurno) => turnosSeed.filter((t) => estadoDeTurno(t) === estado).length;
+  const porEstado = (estado: EstadoTurno) => turnosSeed.filter((t) => estadoSeedBase(t) === estado).length;
   const pasados = turnosSeed.filter((t) => fechasTurnos.get(t.id)! < hoy).length;
   console.log(
-    `✓ ${turnosSeed.length} turnos creados (${porEstado("DISPONIBLE")} DISPONIBLE, ${porEstado("COMPLETO")} COMPLETO, ${porEstado("PENDIENTE")} PENDIENTE; ${pasados} en el pasado, ${historico.turnos.length} del historial de Indicadores)`,
+    `✓ ${turnosSeed.length} turnos (${turnosCreados} creados en esta corrida; ${porEstado("DISPONIBLE")} DISPONIBLE, ${porEstado("PENDIENTE")} PENDIENTE, ${porEstado("CANCELADO")} CANCELADO; ${pasados} en el pasado), sin inscripciones`,
   );
-  console.log(`✓ ${turnosSeed.reduce((total, t) => total + t.alumnos.length, 0)} inscripciones alumno-turno creadas`);
-
-  // Pagos: los de muestra de HU-I-01 (PAGOS_S2) y los del historial de
-  // Indicadores (DEMO INCREMENTO 2 — Paso 6). validarDatos() ya verificó que
-  // cada alumno esté inscripto en su turno.
-  await prisma.pago.createMany({
-    data: pagosSeed.map((p) => ({
-      idPago: p.id, turnoId: p.turnoId, alumnoId: alumnoIds[p.alumno], montoPago: p.monto,
-      formaPagoId: formaPagoIds[p.forma], fechaPago: p.fecha, creadoPorUsuarioId: mesaEntradaId,
-    })),
-  });
-
-  // HU-E-01: el 26 ya tiene constancia; el 27 queda libre para registrar en UI.
-  const claseId = IDS_S2.clase;
-  await prisma.claseDictada.create({ data: {
-    idClaseDictada: claseId, turnoId: "seed-turno-26",
-    fechaClaseDictada: fechasTurnos.get("seed-turno-26")!,
-    materiaId: materiaIds.get("Matemática")!, profesorId: profesorIds[0],
-    creadoPorUsuarioId: mesaEntradaId,
-  } });
-  await prisma.claseDictadaAlumno.createMany({ data: rango(0, 7).map((i) => ({
-    claseDictadaId: claseId, alumnoId: alumnoIds[i],
-  })) });
-  await prisma.resultadoExamen.create({ data: {
-    idResultadoExamen: IDS_S2.examen, alumnoId: alumnoIds[0],
-    materiaId: materiaIds.get("Matemática")!, fechaExamen: fechasTurnos.get("seed-turno-26")!,
-    notaExamen: "8.5", creadoPorUsuarioId: mesaEntradaId,
-  } });
-  console.log(`✓ Sprint 2: 6 alumnos históricos, ${pagosSeed.length} pagos, 1 clase dictada y 1 examen`);
-  for (const m of serie) {
-    console.log(`  Indicadores ${m.mes}${m.enCurso ? " (en curso)" : ""}: ocupación ${m.ocupacion}% · ingresos $${m.ingresos.toLocaleString("es-AR")}`);
-  }
 
   // 9) Parámetros del sistema ----------------------------------
   for (const [clave, valor] of Object.entries(PARAMETROS)) {
@@ -1772,19 +1818,32 @@ async function main() {
       create: { clave, valor },
     });
   }
-  console.log(`✓ ${Object.keys(PARAMETROS).length} parámetros del sistema creados`);
+  // Parámetros de HU-N-01 y datos del centro: solo si faltan (no se pisan).
+  for (const [clave, valor] of Object.entries(PARAMETROS_CONFIGURABLES)) {
+    await prisma.parametroSistema.upsert({
+      where: { clave },
+      update: {},
+      create: { clave, valor },
+    });
+  }
+  console.log(
+    `✓ ${Object.keys(PARAMETROS).length} parámetros del sistema y ${Object.keys(PARAMETROS_CONFIGURABLES).length} parámetros configurables / datos del centro`,
+  );
 
   // 10) RolPermiso (HU-A-02) ------------------------------------
-  // Matriz RBAC: se puebla incremental por módulo (ver PERMISOS). Las
-  // acciones exclusivas de Mesa de Entrada que alguna migración insertó
-  // también para otros roles (profesores:crear/editar/leer, p. ej. GERENTE en
-  // 20260923200000_profesor_nombre_normalizado_y_leer_permiso) dejan filas
-  // viejas en bases existentes: se borran acá, porque el upsert con
-  // update: {} no las tocaría.
+  // Matriz RBAC completa (ver PERMISOS; la misma que dejan las migraciones).
+  // Las acciones exclusivas de Mesa de Entrada que alguna migración insertó
+  // también para otros roles (profesores:crear/editar, p. ej. GERENTE en
+  // 20260923015526_profesor_contacto_modificado_por) y las filas revocadas
+  // (PERMISOS_REVOCADOS) dejan filas viejas en bases existentes: se borran
+  // acá, porque el upsert con update: {} no las tocaría.
   for (const accion of ACCIONES_SOLO_MESA_ENTRADA) {
     await prisma.rolPermiso.deleteMany({
       where: { rolPermiso: { not: "MESA_ENTRADA" }, accionPermiso: accion },
     });
+  }
+  for (const [rol, accion] of PERMISOS_REVOCADOS) {
+    await prisma.rolPermiso.deleteMany({ where: { rolPermiso: rol, accionPermiso: accion } });
   }
   for (const [rol, accion] of PERMISOS) {
     await prisma.rolPermiso.upsert({
