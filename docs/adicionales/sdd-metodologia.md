@@ -114,3 +114,4 @@ Un criterio de aceptación que no se pudo verificar se documenta como "Bloqueado
 | J | Calendario |
 | K | Aulas |
 | L | Materias |
+| N | Configuración del centro |
