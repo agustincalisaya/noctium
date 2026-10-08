@@ -1,7 +1,21 @@
 ```markdown
 # Especificación Técnica — Módulo J (Calendario)
-## Noctium — Sprint 2
+## Noctium — Sprint 2 · Sprint 3 (nota, sin cambios de contrato)
 ## Revisión 2 — Sprint 2: vistas día, semana y mes (HU-J-03); incluye la Revisión 2.1 (corrección tras re-auditoría, 29/09/2026)
+
+## Nota de Sprint 3 (08/10/2026) — sin cambios de contrato
+
+**Fuente:** backlog definitivo del Sprint 3 (40 HU · 107 SP). **Ninguna HU del Sprint 3 es de este módulo**; esta nota solo deja por escrito qué efectos tiene el sprint sobre él y qué se prueba. **Nada de lo desarrollado en los Sprints 1 y 2 cambia:** ni rutas, ni schemas, ni `code` de error, ni la forma de `eventos[]`, ni los permisos (`calendario:leer` sigue como está).
+
+| Origen | Efecto sobre el calendario | Qué hay que hacer |
+|---|---|---|
+| HU-D-08, criterio 5 (`spec_modulo_D.md` 2.10 y 3.14) | Un profesor **inactivo** no se ofrece en el selector de HU-J-01. Ya se cumple: el selector usa `listarOpcionesProfesoresActivos`, que devuelve solo activos. Para Mesa de Entrada y Gerente, 2.1 paso 1 ya responde `404 PROFESOR_NO_ENCONTRADO` si el profesor no está activo (`obtenerOpcionProfesorActivo`) | **Nada en el código.** Agregar una prueba con un profesor inactivo: no figura en el selector y su ruta responde 404 |
+| HU-D-08, criterios 2 y 3 (cancelar o pasar a otro profesor las clases futuras) | Una clase cancelada por la baja **desaparece** del calendario (3.1 y 3.6, sin cambios). Una clase pasada a otro profesor sale de la agenda del anterior y aparece en la del nuevo, porque `listarTurnosParaCalendario` filtra por el `profesorId` actual de la clase | **Nada en el código** |
+| HU-D-08, criterio 4 | La cuenta de un profesor inactivo no puede ingresar (sesiones revocadas). `obtenerOpcionProfesorDeUsuario` **no filtra por activo** (`spec_modulo_D.md` P-D12) y no hace falta que lo haga | Nada |
+| HU-C-20, HU-C-22 y HU-C-24 (`spec_modulo_C.md` Revisión 6) | `listarTurnosParaCalendario` **conserva firma y forma**; `inscriptos`, `cupo` y `alumnos_inscriptos` cuentan ahora solo inscripciones vigentes (2.16.6 de C): una reserva sin pagar cuenta mientras no venza | Nada en el código. Revisar que las pruebas de Sprint 2 con `inscriptos` sigan pasando (el dato de prueba tiene inscripciones vigentes) |
+| HU-C-19 y HU-C-23 (texto «clase» en lugar de «turno») | Los textos visibles de las pantallas del calendario salen del archivo central; los nombres técnicos (`turno_id`, rutas, enums) **no cambian** | Lo hace HU-C-19, que migra los textos existentes |
+
+HU-J-01, HU-J-02 y HU-J-03 conservan sus contratos tal cual están más abajo.
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
