@@ -6,7 +6,8 @@
 // `npx prisma migrate reset` también lo corre (prisma.config.ts → migrations.seed).
 // Solo validar los datos, sin conectarse a la base:
 //                SEED_SOLO_VALIDAR=1 npx tsx prisma/seed.ts
-// Validar como si hoy fuera otra fecha (solo junto con SEED_SOLO_VALIDAR):
+// Fijar «hoy» (el reloj del dominio, ahora()) en otra fecha, para validar o
+// para sembrar (por ejemplo, en el CI):
 //                SEED_SOLO_VALIDAR=1 SEED_FECHA_HOY=2026-10-15 npx tsx prisma/seed.ts
 //
 // SPRINT 3 (PR-0.md §2.16): este archivo es el SEED BASE — catálogos, formas
@@ -119,6 +120,8 @@ import { clavesOrdenProfesor } from "../src/lib/profesor-listado";
 import { ContactoSchema } from "../src/server/shared/contacto.schema";
 import { crearIdentidadAlumnoSchema } from "../src/server/alumnos/alumno.schema";
 import { DURACIONES_PERMITIDAS_TURNO_MIN } from "../src/server/turnos/turno.schema";
+import { ahora, conReloj } from "../src/server/shared/reloj";
+import { fechaCentro, instanteCentro } from "../src/server/shared/fechas-centro";
 import {
   DIAS_SEMANA,
   diaSemanaDeFecha,
@@ -138,15 +141,6 @@ const BCRYPT_COST = 12;
 // ------------------------------------------------------------
 
 const DIAS: DiaSemana[] = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES"];
-
-/** Fecha calendario del centro como valor @db.Date, independiente del TZ del contenedor. */
-function fechaDeHoy(ahora: Date): Date {
-  const partes = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(ahora);
-  const valor = (tipo: string) => Number(partes.find((parte) => parte.type === tipo)?.value);
-  return new Date(Date.UTC(valor("year"), valor("month") - 1, valor("day")));
-}
 
 /** Suma días calendario a un @db.Date. */
 function sumarDias(fecha: Date, dias: number): Date {
@@ -1461,9 +1455,9 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
 
 async function main() {
   const soloValidar = process.env.SEED_SOLO_VALIDAR === "1";
-  const fechaForzada = process.env.SEED_FECHA_HOY;
-  if (fechaForzada && !soloValidar) throw new Error("SEED_FECHA_HOY solo se admite junto con SEED_SOLO_VALIDAR=1");
-  const hoy = fechaForzada ? new Date(`${fechaForzada}T00:00:00.000Z`) : fechaDeHoy(new Date());
+  // «Hoy» sale del reloj del dominio (PR-0.md §2.16): SEED_FECHA_HOY lo fija
+  // (ver el final del archivo) y, si no, es el día real del centro.
+  const hoy = fechaCentro(ahora());
   const turnosSeed = TURNOS;
   const fechasTurnos = calcularFechasTurnos(hoy, turnosSeed);
   validarDatos(hoy, turnosSeed, fechasTurnos);
@@ -1857,7 +1851,15 @@ async function main() {
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }
 
-main()
+// SEED_FECHA_HOY (AAAA-MM-DD) fija el reloj del dominio para todo el seed, a
+// las 12:00 del centro de ese día: lo usan el CI y la validación con otra
+// fecha. Sin la variable, el reloj es el real. Las clases se crean solo si
+// faltan, así que conservan la fecha de la primera corrida.
+const fechaSeed = process.env.SEED_FECHA_HOY;
+if (fechaSeed !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(fechaSeed)) {
+  throw new Error("SEED_FECHA_HOY tiene que tener el formato AAAA-MM-DD");
+}
+(fechaSeed ? conReloj(instanteCentro(fechaSeed, "12:00"), main) : main())
   .catch((e) => {
     console.error(e);
     process.exit(1);

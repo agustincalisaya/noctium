@@ -823,6 +823,178 @@ Las pantallas toman `estado` de esas respuestas.
 6. `tokens_recuperacion.usuarioId` y `cajas.usuarioId` son FK `RESTRICT` a `usuarios`: una cuenta con enlaces o cajas no se puede borrar (no hay borrado de cuentas en el sprint).
 7. **Base de desarrollo:** las tres migraciones y el seed se probaron sobre bases descartables del mismo PostgreSQL local (`noctium_pr0_shadow` y `noctium_pr0_mig`). El `prisma migrate reset` sobre `noctium_dev` necesita el consentimiento explícito que pide Prisma cuando lo ejecuta un agente.
 
+### 5.2 Etapa 2, parte 1 — infraestructura de los servicios
+
+Esta parte deja la base sobre la que se apoyan los servicios de 2.13: errores de dominio y archivo central de textos, `bloquear`, `transaccion`, el reloj, el historial único, la regla «vigente a un momento dado» y las fábricas de prueba. No toca ningún archivo de 2.0. `tsc` sigue con los mismos 15 errores de 5.1 y todo archivo nuevo compila.
+
+**Archivos nuevos**
+
+| Archivo | Qué es |
+|---|---|
+| `src/lib/textos.ts` | Archivo central de textos (HU-C-23): `TEXTOS`, `ClaveTexto`, `texto(clave, valores?)` |
+| `src/server/shared/errores-dominio.ts` | Catálogo `ERRORES_DE_DOMINIO`: clave → `{ code, status }` |
+| `src/server/shared/error-dominio.ts` | `ErrorDeDominio`, `esErrorDeDominio` |
+| `src/server/shared/reloj.ts` | `ahora()`, `conReloj()` |
+| `src/server/shared/fechas-centro.ts` | Zona del centro y helpers de fechas de dominio |
+| `src/server/shared/transaccion.ts` | `transaccion()`, `despuesDelCommit()`, tiempos y traducción de errores |
+| `src/server/shared/bloquear.ts` | `bloquear()` en orden canónico |
+| `src/server/shared/historial.ts` | Historial único: `registrarHistorial`, `encolarHistorial`, actor |
+| `src/server/turnos/inscripcion.vigencia.ts` | «Vigente a un momento dado» (2.2) y recálculo de `Turno.estado` |
+| `src/server/testing/fabricas.ts` | Fábricas de datos de prueba compartidas |
+| `src/server/testing/pg.ts` | Habilitación de las pruebas con PostgreSQL real |
+| `scripts/test-pg.mjs` (`npm run test:pg`) | Corre los `*.pg.test.ts` contra una base descartable |
+
+Pruebas nuevas: `errores-dominio.test.ts` (incluye la prueba de claves de HU-C-23), `reloj.test.ts`, `transaccion.test.ts`, `bloquear.test.ts`, `historial.test.ts`, `inscripcion.vigencia.test.ts`, y con PostgreSQL real `bloquear.pg.test.ts` e `inscripcion.vigencia.pg.test.ts`.
+
+**Firmas reales** (contrato para las HU y para las partes 2 a 4):
+
+```typescript
+// src/server/shared/error-dominio.ts
+class ErrorDeDominio extends ServiceError {
+  readonly codigo: CodigoErrorDominio;          // clave del archivo central (p. ej. "errores.caja.sinCajaAbierta")
+  readonly status: number;                      // HTTP del catálogo
+  readonly datos?: Record<string, unknown>;     // también expuestos como `detalles`
+  constructor(codigo: CodigoErrorDominio, datos?: Record<string, unknown>);
+  // heredados: code (el estable de la API), message (texto de la clave con los huecos completados), detalles
+}
+function esErrorDeDominio(error: unknown, codigo?: CodigoErrorDominio): error is ErrorDeDominio;
+
+// src/lib/textos.ts
+const TEXTOS: { readonly [clave: string]: string };   // `as const`; ClaveTexto = keyof typeof TEXTOS
+function texto(clave: ClaveTexto, valores?: Record<string, unknown>): string;   // huecos `{nombre}`
+
+// src/server/shared/reloj.ts
+function ahora(): Date;
+function conReloj<T>(momento: Date | (() => Date), fn: () => T): T;   // lanza RelojNoModificableError en producción
+
+// src/server/shared/fechas-centro.ts  (UTC−3 fijo, sin horario de verano)
+const ZONA_CENTRO = "America/Argentina/Buenos_Aires";
+function inicioDeTurno(turno: { fechaTurno: Date; horaInicioTurno: Date }): Date;
+function finDeTurno(turno: { fechaTurno: Date; horaInicioTurno: Date; duracionMinutosTurno: number }): Date;
+function fechaCentro(momento: Date): Date;          // día del centro como valor @db.Date
+function inicioDelDiaCentro(momento: Date): Date;
+function finDelDiaCentro(momento: Date): Date;      // exclusivo: 00:00 del día siguiente
+function instanteCentro(fecha: string, hhmm?: string): Date;
+
+// src/server/shared/transaccion.ts
+type Tx = Prisma.TransactionClient;
+type ContextoTransaccion = { despuesDelCommit(tarea: () => unknown): void };
+function transaccion<T>(fn: (tx: Tx, ctx: ContextoTransaccion) => Promise<T>,
+  opciones?: { db?: PrismaClient; tiempos?: Partial<typeof TIEMPOS_TRANSACCION> }): Promise<T>;
+function despuesDelCommit(tx: Tx, tarea: () => unknown): void;   // para los servicios, que reciben solo el tx
+function tieneColaPosterior(tx: Tx): boolean;
+function esErrorDeConcurrencia(error: unknown): boolean;
+
+// src/server/shared/bloquear.ts
+type SolicitudBloqueo = {
+  formasPago?: boolean;
+  recursos?: { aulas?, materias?, profesores?, alumnos?, fichasMesaEntrada?, fichasGerente?: readonly string[] };
+  clases?: readonly string[]; inscripciones?: readonly string[]; operaciones?: readonly string[]; cajas?: readonly string[];
+};
+function bloquear(tx: Tx, solicitud: SolicitudBloqueo): Promise<Partial<Record<TipoBloqueo, string[]>>>;  // ids encontrados y bloqueados
+class ErrorDeBloqueo extends Error {}
+
+// src/server/shared/historial.ts
+type ActorDominio = { tipo: "USUARIO"; usuarioId: string } | { tipo: "PROCESO_AUTOMATICO" };
+const PROCESO_AUTOMATICO: ActorDominio;
+function actorUsuario(usuarioId: string): ActorDominio;
+function columnasActor(actor: ActorDominio): { actorTipo: ActorTipo; usuarioId: string | null };
+type DatosHistorial =
+  | { tipo: "INSCRIPCION"; inscripcionId; vigenciaAnterior; vigenciaNueva; estadoPagoAnterior; estadoPagoNuevo; actor; fecha }
+  | { tipo: "ESTADO"; entidad; entidadId; accion; motivo?; actor; fecha }
+  | { tipo: "EVENTO_TURNO"; tipoEvento; turnoId; usuarioId; payload }
+  | { tipo: "EVENTO_SEGURIDAD"; tipoEvento; usuarioId; email; ip };
+function prepararHistorial(datos: DatosHistorial): DatosHistorial & { id: string };
+function registrarHistorial(registro, opciones?: { db?; reintentos?: number; esperaMs?: number }): Promise<boolean>;
+function encolarHistorial(tx: Tx, datos: DatosHistorial, opciones?): DatosHistorial & { id: string };
+
+// src/server/turnos/inscripcion.vigencia.ts  (módulo C)
+type InscripcionParaVigencia = { vigencia; estadoPago; venceEl: Date | null; estadoClase: EstadoTurno };
+function esVigenteEn(inscripcion: InscripcionParaVigencia, momento: Date): boolean;
+function sqlVigenteEn(alias: string, momento: Date): Prisma.Sql;
+function inscripcionesVigentes(db, turnoId: string, momento: Date): Promise<{ id: string; alumnoId: string }[]>;
+function ocupacion(db, turnoId: string, momento: Date):
+  Promise<{ inscriptos: number; cupo: number | null; estadoGuardado: EstadoTurno; estado: EstadoTurno } | null>;
+function estadoSegunOcupacion(estadoGuardado: EstadoTurno, inscriptos: number, cupo: number | null): EstadoTurno;
+function recalcularEstadoTurno(tx: Tx, turnoId: string, momento: Date):
+  Promise<{ anterior: EstadoTurno; nuevo: EstadoTurno; cambio: boolean } | null>;
+function calcularVencimiento(momento: Date, inicioClase: Date, plazoHoras: number): { venceBaseEl: Date; venceEl: Date };
+```
+
+Fábricas (`src/server/testing/fabricas.ts`; todas reciben `db` como primer parámetro, un `PrismaClient` o un `tx`):
+- `unico(prefijo?)`, `crearUsuarioDePrueba`, `crearFichaMesaEntradaDePrueba`, `crearFichaGerenteDePrueba`;
+- `crearAlumnoDePrueba`, `crearProfesorDePrueba`, `crearMateriaDePrueba` (con tarifa por defecto; `tarifaHora: null` = sin tarifa), `crearAulaDePrueba`;
+- `crearTurnoDePrueba` (DISPONIBLE, a 3 días, 10:00, 60 min, cupo 10, con su propio profesor, aula y materia);
+- `crearInscripcionDePrueba` (por defecto `PAGO_SIN_REGISTRAR`; con `RESERVADA` calcula el vencimiento);
+- `abrirCajaDePrueba`;
+- `crearOperacionDePrueba` (un pago por inscripción; deja cada inscripción `PAGADA` y sin vencimiento).
+
+**Tiempos de `transaccion` (2.10):**
+- `maxWait`: 2000 ms.
+- `timeout`: 8000 ms.
+- Aislamiento: READ COMMITTED.
+- `SET LOCAL lock_timeout = '5000ms'` y `SET LOCAL statement_timeout = '7000ms'` al empezar.
+- `opciones.tiempos` existe solo para que las pruebas provoquen la espera de un bloqueo.
+- Se traducen a `ErrorDeDominio("errores.transaccion.ocupada")` (409 `TRANSACCION_OCUPADA`): P2028, P2034 y 55P03/40P01, vengan en `meta.code` o en el mensaje.
+
+**Decisiones:**
+1. **Archivo central de textos.** No existía (HU-C-23 todavía no se mergeó), así que el PR 0 crea `src/lib/textos.ts` con claves planas `area.subarea.nombre`. HU-C-23 puede reorganizar el archivo y sumar los textos de pantalla, pero tiene que conservar estas claves. La prueba de claves (`errores-dominio.test.ts`) verifica tres cosas: que todo código del catálogo tiene texto, que todo `new ErrorDeDominio("…")` del código usa una clave del catálogo, y que los textos de Sprint 2 que reusa el catálogo son idénticos a los de `POST /api/pagos` y `turno.service.ts`.
+2. **Códigos que ya existían:** conservan su `code` y su texto de hoy. Cuando el texto depende de quién opera, hay dos claves con el mismo `code`: `alumnoYaAsignado`/`alumnoYaAsignadoPropio`, `alumnoNoDisponible`/`…Propio` e `inactivo`/`inactivoPropio`. Los códigos existentes de E (`CLASE_NO_REGISTRADA`, `TURNO_NO_ADMITE_CLASE`, etc.) no están en el catálogo: hoy su `message` es el propio `code`, y las HU de E agregan su clave conservando ese comportamiento.
+3. **Choques de códigos:** ninguno con distinto significado o HTTP. Los que se comparten a propósito:
+   - `MOTIVO_REQUERIDO` (400): D y formas de pago de I;
+   - `FUERA_DE_ALCANCE` (403): pagos y caja;
+   - `CAJA_NO_ABIERTA` (409): dos textos, los criterios 2 y 9 de HU-I-12;
+   - `MATERIA_SIN_TARIFA` (422): un texto para el alumno (P-C2) y otro para mesa de entrada. Para mesa se tomó el de `spec_modulo_L.md` 3.12 («Esta materia…») y no la propuesta de P-C2 («La materia…»).
+4. **Textos propuestos por el PR 0** (la spec no trae literal; marcados «propuesto» en el archivo):
+   - C: `errores.inscripcion.noVigente` y `noEncontrada`;
+   - D: `errores.profesor.yaInactivo`, `yaActivo`, `motivoRequerido` y `destinoIgualOrigen`;
+   - E: todos los de 2.6 a 2.12;
+   - I: `turnoYaEmpezo`, `reservaVencida`, `inscripcionYaPagada`, `motivoAjusteRequerido`, `pago.noEncontrado`/`anulado`/`yaAnulado`/`sinCambios`/`fueraDeAlcance`, `comprobante.noEncontrado`, los de caja salvo los cinco con literal, y `formaPago.yaActiva`/`yaInactiva`/`motivoRequerido`.
+
+   Avisar a los dueños de C, D, E e I para que los confirmen.
+5. **`esVigenteEn`:** la firma de la spec es `(inscripcion, momento)`; el objeto inscripción lleva además `estadoClase`, porque la regla depende del estado de la clase (en una Cancelada no vence nada). Una `RESERVADA` sin `venceEl` (imposible por el CHECK) cuenta como vigente.
+6. **`sqlVigenteEn(alias, momento)`:** decide el estado de la clase con una subconsulta sobre `turnos` (así no necesita un segundo alias). El momento viaja como parámetro (`'…'::timestamptz AT TIME ZONE 'UTC'`), así que no depende del `TimeZone` de la sesión. La prueba con PostgreSQL real verifica que da lo mismo que `esVigenteEn` antes de `venceEl`, en `venceEl` y después, con una reserva, una pagada, una sin plazo, una quitada y una reserva de una clase cancelada.
+7. **`recalcularEstadoTurno`:** el llamador ya bloqueó la clase. Escribe con `updateMany` condicionado al estado anterior y no toca una clase `PENDIENTE` ni `CANCELADO`. `marcarVencidas`, `marcarVencidasDelAlumno` y el resto de las escrituras de la inscripción son de la parte 2.
+8. **`bloquear`:**
+   - Los recursos se toman en el orden en que los lista 2.10: aula, materia, profesor, alumno, ficha de mesa de entrada, ficha de gerente.
+   - Dentro de cada tipo se ordena por id con `COLLATE "C"`, igual que `Array.prototype.sort`: así no importa la collation de la base.
+   - El conjunto «formas de pago» toma todas las activas y no se combina en ninguna dirección: no se pide junto con otros niveles, y una transacción que ya lo tomó no toma más bloqueos.
+   - Un id que no existe no es error: el resultado trae los encontrados y decide el servicio.
+   - En producción, un pedido fuera de orden se registra con `console.error` y se bloquea igual. En desarrollo y en las pruebas lanza `ErrorDeBloqueo`.
+   - El estado de los bloqueos tomados se guarda por transacción, en un `WeakMap` sobre el `tx`.
+9. **`despuesDelCommit`:**
+   - Los servicios reciben solo el `tx`, así que la cola se asocia al `tx` que abre `transaccion()`. Llamarla con un `tx` que no vino de ahí lanza error, para no perder el historial en silencio.
+   - Las tareas corren en orden después del COMMIT y `transaccion` resuelve recién cuando termina la cola.
+   - Si una tarea falla, se registra y la operación igual resuelve: ya confirmó.
+10. **`registrarHistorial`:** id UUID v4 (`node:crypto`), generado antes del commit. Escribe con `createMany({ skipDuplicates: true })`, así reintentar con el mismo id no duplica. Hace 1 intento y hasta 3 reintentos, con espera de 100, 200 y 400 ms. Si todos fallan, registra el error sin datos sensibles y devuelve `false`, sin lanzar.
+11. **Unificación de `emitirEventoTurno` y `EventoSeguridad`.** `registrarHistorial` escribe los cuatro tipos con el mismo mecanismo (transiciones de inscripción, bajas y reactivaciones, eventos de turno y eventos de seguridad), pero los llamadores existentes **no se migraron**:
+   - `emitirEventoTurno` vive en `turno.service.ts`, que es de 2.0 y se adapta en la etapa 3.
+   - Los escritores de `EventoSeguridad` (`autenticacion.service.ts`, `autorregistro.service.ts`) tienen tests que verifican el `data` exacto del `create`. Con el id generado antes, ese `data` cambiaría y habría que debilitar la aserción, cosa que prohíbe 1.1. Además, la spec A pide que el error de `LOGOUT` se propague.
+
+   El código nuevo usa `encolarHistorial`/`registrarHistorial`; los llamadores existentes siguen funcionando igual.
+12. **Reloj:** `ahora()` usa `AsyncLocalStorage`, así que el momento inyectado vale para todo lo que corre dentro de `conReloj`, incluido lo asincrónico, sin pisar otras ejecuciones concurrentes. En producción `conReloj` lanza error.
+13. **`SEED_FECHA_HOY`:** queda alineado con `ahora()`. Si está definida, el seed corre dentro de `conReloj` a las 12:00 del centro de esa fecha; si no, «hoy» es el día real del centro. Ahora también se admite al sembrar, no solo con `SEED_SOLO_VALIDAR=1`, porque 2.16 dice que el CI puede fijarlo y las clases se crean solo si faltan. Formato inválido: el seed se detiene.
+14. **Fábricas:** escriben directo en la base respetando los CHECK y la equivalencia de «Pagada», porque los servicios llegan en la parte 2. `crearOperacionDePrueba` no emite comprobante (eso es de `emitirComprobante`). Cuando estén los servicios, `crearInscripcionDePrueba`, `crearOperacionDePrueba` y `abrirCajaDePrueba` pueden pasar a usarlos sin cambiar de firma.
+15. **Pruebas con PostgreSQL real:**
+   - Variable nueva `HU_PR0_TEST_DATABASE_URL`: las pruebas corren solo si es igual a `DATABASE_URL`.
+   - `npm run test:pg [rutas…]`:
+     1. crea `noctium_pruebas_<aleatorio>` en el servidor local de `DATABASE_URL`, o en el de `PG_PRUEBAS_ADMIN_URL` (solo localhost);
+     2. aplica `prisma migrate deploy`;
+     3. corre los `*.pg.test.ts` de esas rutas sin paralelismo entre archivos, con `TZ=UTC` y con todas las `HU_*_TEST_DATABASE_URL` del repo apuntando a esa base (`HU_PR0`, `HU_C05`, `HU_C06`, `HU_C10`, `HU_C13`, `HU_C15` y `HU_C17`);
+     4. la borra aunque las pruebas fallen.
+   - Sin rutas corre todos los `*.pg.test.ts`. Los de Sprint 2 van a fallar hasta la etapa 3 (2.0), así que por ahora conviene pasarle las rutas nuevas.
+
+**Resultado:**
+- `npm test`: 138 archivos (122 pasan, 16 saltados), 1786 pruebas (1690 pasan, 96 saltadas), 0 fallas.
+- `npm run test:pg -- src/server/shared src/server/turnos/inscripcion.vigencia.pg.test.ts`: 2 archivos y 14 pruebas, todas pasan. La base descartable se borró al terminar.
+- `npm run lint`: 0 errores; queda 1 aviso que ya existía (`src/components/layout/Sidebar.tsx`, `CALENDARIO` sin usar).
+- `npx tsc --noEmit`: los mismos 15 errores de 5.1, en los mismos archivos y líneas.
+
+**Dudas abiertas de esta parte:**
+1. **`statement_timeout` (57014):** con `lock_timeout` (5 s) por debajo de `statement_timeout` (7 s), una espera de bloqueo corta antes por 55P03, que sí se traduce. Un 57014 (consulta que tarda más de 7 s por otro motivo) **no** se traduce a `TRANSACCION_OCUPADA` y sale como error. La lista de 2.10 no lo incluye. Confirmar si debe sumarse.
+2. **Llamadores existentes de eventos de turno y de seguridad:** confirmar si en la etapa 3 se migran a `registrarHistorial` ajustando solo los mocks de persistencia, o si quedan como están. La decisión 11 los deja como están.
+3. **Textos propuestos:** los confirma cada dueño de módulo (decisión 4).
+
 ## 6. Decisiones alineadas y datos que debe completar el equipo
 
 - **Fichas de profesores existentes:** el seed asegura cuentas vinculadas para los profesores elegidos para la demostración y anota cuáles son en «Decisiones tomadas»; las demás fichas pueden permanecer sin cuenta. HU-A-06 sigue aplicándose a altas nuevas.
