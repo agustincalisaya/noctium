@@ -20,6 +20,7 @@ export const TEXTOS = {
   "errores.turno.cancelado": "El turno está cancelado",
   "errores.turno.vencido": "El horario del turno ya pasó",
   "errores.turno.cupoInsuficiente": "El turno alcanzó su cupo máximo",
+  "errores.turno.sinAula": "El turno no tiene aula asignada",
   "errores.alumno.noEncontrado": "El alumno ya no existe",
   "errores.alumno.inactivo": "La ficha del alumno está inactiva",
   "errores.alumno.inactivoPropio": "Tu ficha de alumno no está activa",
@@ -28,6 +29,8 @@ export const TEXTOS = {
   "errores.inscripcion.alumnoNoDisponible": "El alumno ya tiene un turno agendado en ese horario",
   "errores.inscripcion.alumnoNoDisponiblePropio": "Ya tenés otro turno en ese horario",
   "errores.inscripcion.alumnoNoAsignado": "El alumno no está inscripto en este turno",
+  // Inscripción desde mesa de entrada de un alumno inexistente o inactivo (texto de hoy).
+  "errores.inscripcion.alumnoNoDisponibleOInactivo": "El alumno no existe o no está activo",
 
   // --- Inscripción y reservas (spec_modulo_C.md §2.16.7) ---
   // Al alumno (P-C2).
@@ -78,10 +81,8 @@ export const TEXTOS = {
   "errores.pago.fechaFutura": "La fecha de pago no puede ser futura",
 
   // --- Pagos y comprobantes (spec_modulo_I.md §2.7.6, §2.9.5, §2.14.5) ---
-  // propuesto
-  "errores.pago.turnoYaEmpezo": "La clase ya empezó: no se puede registrar el pago.",
-  // propuesto
-  "errores.pago.reservaVencida": "La reserva de esta clase venció.",
+  "errores.pago.turnoYaEmpezo": "La clase de {materia} del {fecha_dia} ya empezó: el pago se hace antes de la clase.",
+  "errores.pago.reservaVencida": "La reserva venció. Inscribí al alumno de nuevo si todavía hay cupo.",
   // propuesto
   "errores.pago.inscripcionYaPagada": "Esta clase ya tiene un pago registrado.",
   // propuesto

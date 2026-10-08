@@ -30,3 +30,25 @@ export async function obtenerMateriasPorIds(
       : [];
   });
 }
+
+/**
+ * Tarifas por hora de las materias pedidas (spec_modulo_L.md §2.10, P-L5):
+ * activas o inactivas, `tarifaHora: null` si la materia no tiene tarifa (el
+ * consumidor rechaza con MATERIA_SIN_TARIFA). Los ids inexistentes se omiten
+ * y los repetidos cuentan una vez; no bloquea filas. C e I calculan el precio
+ * con `precioClase` (src/server/shared/precio-clase.ts) y no leen
+ * `Materia.tarifaHoraMateria` directo (Regla N.° 3).
+ */
+export async function obtenerTarifasPorIds(
+  ids: string[],
+  db: Prisma.TransactionClient = prisma,
+): Promise<{ id: string; tarifaHora: number | null }[]> {
+  const unicos = [...new Set(ids)];
+  if (unicos.length === 0) return [];
+  const materias = await db.materia.findMany({
+    where: { idMateria: { in: unicos } },
+    select: { idMateria: true, tarifaHoraMateria: true },
+  });
+  const porId = new Map(materias.map((materia) => [materia.idMateria, materia.tarifaHoraMateria]));
+  return unicos.flatMap((id) => (porId.has(id) ? [{ id, tarifaHora: porId.get(id)! }] : []));
+}

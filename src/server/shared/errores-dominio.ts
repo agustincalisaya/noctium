@@ -18,6 +18,7 @@ export const ERRORES_DE_DOMINIO = {
   "errores.turno.cancelado": { code: "TURNO_CANCELADO", status: 409 },
   "errores.turno.vencido": { code: "TURNO_VENCIDO", status: 409 },
   "errores.turno.cupoInsuficiente": { code: "CUPO_INSUFICIENTE", status: 409 },
+  "errores.turno.sinAula": { code: "TURNO_SIN_AULA", status: 409 },
   "errores.alumno.noEncontrado": { code: "ALUMNO_NO_ENCONTRADO", status: 404 },
   "errores.alumno.inactivo": { code: "ALUMNO_INACTIVO", status: 409 },
   "errores.alumno.inactivoPropio": { code: "ALUMNO_INACTIVO", status: 409 },
@@ -26,6 +27,7 @@ export const ERRORES_DE_DOMINIO = {
   "errores.inscripcion.alumnoNoDisponible": { code: "ALUMNO_NO_DISPONIBLE", status: 409 },
   "errores.inscripcion.alumnoNoDisponiblePropio": { code: "ALUMNO_NO_DISPONIBLE", status: 409 },
   "errores.inscripcion.alumnoNoAsignado": { code: "ALUMNO_NO_ASIGNADO", status: 404 },
+  "errores.inscripcion.alumnoNoDisponibleOInactivo": { code: "ALUMNO_NO_DISPONIBLE", status: 409 },
 
   // Módulo C (spec_modulo_C.md §2.16.7).
   "errores.inscripcion.materiaSinTarifa": { code: "MATERIA_SIN_TARIFA", status: 422 },

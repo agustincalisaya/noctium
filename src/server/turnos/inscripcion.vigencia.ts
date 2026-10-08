@@ -36,6 +36,14 @@ export function esVigenteEn(inscripcion: InscripcionParaVigencia, momento: Date)
 const ALIAS_VALIDO = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
+ * Un instante como parámetro SQL comparable con las columnas `timestamp(3)`
+ * (Prisma las guarda en UTC), sin depender del TimeZone de la sesión.
+ */
+export function sqlInstante(momento: Date): Prisma.Sql {
+  return Prisma.sql`(${momento.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
+}
+
+/**
  * Fragmento SQL equivalente a `esVigenteEn` para consultas crudas y agregadas,
  * sobre la fila `alias` de `turno_alumno`. `momento` viaja como parámetro (el
  * SQL nunca usa `now()`) y se compara en UTC, igual que guarda Prisma.
@@ -43,7 +51,7 @@ const ALIAS_VALIDO = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export function sqlVigenteEn(alias: string, momento: Date): Prisma.Sql {
   if (!ALIAS_VALIDO.test(alias)) throw new Error(`sqlVigenteEn: alias inválido "${alias}"`);
   const a = Prisma.raw(`"${alias}"`);
-  const instante = Prisma.sql`(${momento.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
+  const instante = sqlInstante(momento);
   return Prisma.sql`(${a}."vigencia" = 'VIGENTE' AND (
     ${a}."estadoPago" <> 'RESERVADA'
     OR ${a}."venceEl" IS NULL

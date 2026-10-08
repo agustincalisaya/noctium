@@ -54,6 +54,23 @@ const PUBLICOS = [
     ruta: "server/pagos/pago.publico.ts",
     permitidos: ["@prisma/client", "@/lib/prisma", "@/server/alumnos/alumno.publico"],
   },
+  // PR 0 (Sprint 3): fachadas nuevas.
+  {
+    ruta: "server/turnos/inscripcion.publico.ts",
+    permitidos: ["@/server/turnos/inscripcion.service", "@/server/turnos/inscripcion.vigencia"],
+  },
+  {
+    ruta: "server/pagos/caja.publico.ts",
+    permitidos: ["@/server/pagos/caja.service"],
+  },
+  {
+    ruta: "server/personal/personal.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
+  {
+    ruta: "server/materias/materia.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
 ];
 
 function permitidoEnPublico(especificador: string, permitidos: string[]) {

@@ -995,6 +995,186 @@ Fábricas (`src/server/testing/fabricas.ts`; todas reciben `db` como primer par�
 2. **Llamadores existentes de eventos de turno y de seguridad:** confirmar si en la etapa 3 se migran a `registrarHistorial` ajustando solo los mocks de persistencia, o si quedan como están. La decisión 11 los deja como están.
 3. **Textos propuestos:** los confirma cada dueño de módulo (decisión 4).
 
+
+### 5.3 Etapa 2, parte 2 — inscripción, tarifas, apertura de caja, cobro y comprobante
+
+**Respuestas del responsable del PR 0 a las dudas de la parte 1:**
+- `statement_timeout` (57014) **no** se traduce a `TRANSACCION_OCUPADA`: queda como está.
+- `emitirEventoTurno` y los escritores de `EventoSeguridad` quedan como están, también en la etapa 3. El código nuevo usa `encolarHistorial`/`registrarHistorial`.
+- Los textos marcados «propuesto» los confirman los dueños de cada módulo; el responsable del PR 0 les avisa.
+- Las pruebas con PostgreSQL se corren siempre pasando las rutas nuevas a `npm run test:pg`.
+
+**Archivos nuevos**
+
+| Módulo | Archivo | Contenido |
+|---|---|---|
+| L | `src/server/shared/precio-clase.ts` | `precioClase` (helper compartido, 2.4) |
+| L | `src/server/materias/materia.publico.ts` (función nueva en un archivo existente) | `obtenerTarifasPorIds` |
+| N | `src/server/shared/parametros-vigentes.ts` | `parametrosVigentes`, `datosCentro` |
+| C | `src/server/turnos/inscripcion.service.ts` | Servicio de inscripción |
+| C | `src/server/turnos/inscripcion.publico.ts` | Fachada: reexporta el servicio y `inscripcion.vigencia.ts` |
+| I | `src/server/pagos/caja.service.ts` y `caja.publico.ts` | `abrirCaja`, `cajaAbiertaDe` |
+| I | `src/server/pagos/operacion.service.ts` | `registrarOperacion` |
+| I | `src/server/pagos/comprobante.service.ts` y `comprobante.schema.ts` | `emitirComprobante`, `emitirReemplazo`, contrato Zod de `datos` |
+| I | `src/server/pagos/pago.vigente.ts` | Valor vigente de una operación y conteo de pagos no anulados |
+| F | `src/server/personal/personal.publico.ts` | Fachada mínima: `obtenerNombresPersonal`, `bloquearIntegranteActivo` |
+
+Pruebas nuevas:
+- unitarias: `src/server/shared/precio-clase.test.ts` (precio, parámetros, tarifas y contrato del comprobante);
+- con PostgreSQL real: `src/server/turnos/inscripcion.service.pg.test.ts` y `src/server/pagos/operacion.service.pg.test.ts`;
+- `src/server/publico.aislamiento.test.ts` suma, sin quitar nada, las cuatro fachadas nuevas o ampliadas.
+
+**Firmas reales** (contrato para las HU):
+
+```typescript
+// L — src/server/materias/materia.publico.ts y src/server/shared/precio-clase.ts
+function obtenerTarifasPorIds(ids: string[], db?): Promise<{ id: string; tarifaHora: number | null }[]>;
+function precioClase(materia: { tarifaHora: number | null }, duracionMin: number,
+  opciones?: { paraAlumno?: boolean }): number;   // MATERIA_SIN_TARIFA 422; falla si no es entero
+
+// N — src/server/shared/parametros-vigentes.ts (lee la base en cada llamada)
+function parametrosVigentes(db?): Promise<{ plazoPagoHoras: number; cancelacionAnticipacionHoras: number; umbralPresentismo: number }>;
+function datosCentro(db?): Promise<{ nombre: string; domicilio: string; telefono: string }>;
+
+// C — src/server/turnos/inscripcion.publico.ts
+type OrigenInscripcion = "ALUMNO" | "CENTRO" | "PAGO";
+type InscripcionResumen = { id; turnoId; alumnoId; vigencia; estadoPago; reservadaEl; inicioPlazo; venceBaseEl; venceEl;
+  precio; reabiertaPorAnulacion; finalizadaEl };
+function crearInscripcion(tx, datos: { turnoId; alumnoId; origen: OrigenInscripcion; conReserva: boolean; actor: ActorDominio;
+  alumnoActivo?: boolean; bloqueosTomados?: boolean; momento?: Date }):
+  Promise<{ inscripcion: InscripcionResumen; estadoTurno: EstadoTurno; completado: boolean; inscriptos: number; cupo: number; alumnoIds: string[] }>;
+function exigeInscripcionConPago(db, datos: { turnoId; alumnoId; momento?: Date }):
+  Promise<{ exige: boolean; motivo: "RESERVA_VENCIDA" | "CANCELADA_SIN_PAGO" | null }>;
+function finalizarInscripcion(tx, datos: { inscripcionId; vigencia: "CANCELADA_ALUMNO" | "RESERVA_VENCIDA" | "BAJA_ALUMNO" | "QUITADA_CENTRO";
+  actor: ActorDominio; fecha?: Date; soloSiReservaPendiente?: boolean }):
+  Promise<{ inscripcionId; turnoId; alumnoId; vigencia; estadoPago; estadoTurno: { anterior; nuevo; cambio } | null }>;
+function marcarPagada(tx, inscripcionId: string, pagosNoAnulados: number, actor: ActorDominio): Promise<CambioEstadoPago>;
+function recalcularEstadoPago(tx, inscripcionId: string, pagosNoAnulados: number, actor: ActorDominio): Promise<CambioEstadoPago>;
+//   CambioEstadoPago = { cambio: boolean; anterior: EstadoPagoInscripcion; nuevo: EstadoPagoInscripcion; venceEl: Date | null }
+function recalcularVencimientos(tx, turnoId: string, opciones?: { momento?: Date }): Promise<{ marcadas: number; recalculadas: number }>;
+function marcarVencidas(tx, turnoId: string, opciones?: { momento?: Date }): Promise<number>;
+function marcarVencidasDelAlumno(tx, alumnoId: string, datos: { momento: Date; clases: readonly string[] }): Promise<number>;
+function clasesConReservasVencidas(db, momento: Date): Promise<string[]>;
+function clasesConReservasVencidasDelAlumno(db, alumnoId: string, momento: Date): Promise<string[]>;
+function inscripcionVigenteDelPar(alumnoId: string, turnoId: string, db?): Promise<InscripcionResumen | null>;
+function inscripcionMasRecienteDelPar(alumnoId: string, turnoId: string, db?): Promise<InscripcionResumen | null>;
+function obtenerClasesBasicas(turnoIds: string[], db?): Promise<{ turno_id; fecha; hora_inicio; hora_fin; estado;
+  materia: { id; nombre }; profesor: { id; nombre_para_mostrar } | null; inicio: Date }[]>;
+// y, sin cambios desde la parte 1: esVigenteEn, sqlVigenteEn, sqlInstante, inscripcionesVigentes, ocupacion, calcularVencimiento
+
+// I — caja (src/server/pagos/caja.service.ts; cajaAbiertaDe también en caja.publico.ts)
+function cajaAbiertaDe(db, usuarioId: string): Promise<{ id: string; abiertaEl: Date } | null>;
+function abrirCaja(tx, datos: { usuarioId: string; fondoInicial: string }): Promise<{ id: string; abiertaEl: Date; fondoInicial: string }>;
+
+// I — cobro (src/server/pagos/operacion.service.ts)
+type ItemOperacion = ({ inscripcionId: string } | { crearInscripcion: { turnoId: string } }) & { monto: string; motivoAjuste?: string | null };
+function registrarOperacion(tx, datos: { alumnoId; items: ItemOperacion[]; formaPagoId; fechaPago?: Date; usuarioId;
+  modo: "completo" | "compatSprint2" }): Promise<{
+    operacion: { id; alumnoId; formaPagoId; fechaPago; registradaEl; cajaId };
+    pagos: { id; turnoId; inscripcionId; precio; monto: string; motivoAjuste: string | null }[];
+    comprobante: { id; numero: number; numeroVisible: string; datos: ComprobanteDatos } }>;
+
+// I — comprobante (src/server/pagos/comprobante.service.ts y comprobante.schema.ts)
+function emitirComprobante(tx, operacionId: string): Promise<{ id; numero; numeroVisible; datos }>;
+function emitirReemplazo(tx, comprobanteId: string): Promise<{ id; numero; numeroVisible; datos }>;
+function comprobanteVigenteDe(tx, operacionId: string): Promise<{ id; numero } | null>;
+const ComprobanteDatosSchema;                       // contrato único de Comprobante.datos (R3-PR0-I7)
+function formatearNumeroComprobante(numero: number): string;   // "0001-00000123"
+
+// I — valor vigente (src/server/pagos/pago.vigente.ts)
+function operacionVigente(db, operacionId: string): Promise<OperacionVigente | null>;
+function contarPagosNoAnulados(db, inscripcionId: string): Promise<number>;
+
+// F — src/server/personal/personal.publico.ts
+function obtenerNombresPersonal(usuarioIds: string[], db?): Promise<{ usuario_id: string; nombre_completo: string }[]>;
+function bloquearIntegranteActivo(tx, usuarioId: string): Promise<{ fichaId: string }>;   // INTEGRANTE_INACTIVO
+```
+
+**Decisiones y desvíos de las specs** (para avisar a cada dueño):
+
+1. **Archivos de 2.0 sin tocar; consolidar en la etapa 3:**
+   - `registrarPago` (`pago.service.ts`) pasa a envolver `registrarOperacion` en modo `compatSprint2`, con la inscripción vigente del par y un solo ítem. La spec I ubica el punto de entrada de HU-I-10 en `pago.service.ts`, pero el servicio de dominio queda en `operacion.service.ts`.
+   - `listarPagosDeTurno` y `sumarPagosPorMes` (`pago.publico.ts`) pasan a leer con `pago.vigente.ts`. `cajaAbiertaDe` puede reexportarse además desde `pago.publico.ts`.
+   - El núcleo `inscribirAlumnoEnTurno`, `asignarParticipantesTurno` y `quitarAlumnoTurno` (`turno.service.ts`) pasan a `crearInscripcion` y `finalizarInscripcion`.
+   - Las lecturas de parámetros de `turno.generacion.service.ts` y `turno.validaciones.ts` pasan a `parametrosVigentes()` (2.6).
+2. **Alumno inactivo o inexistente (R6-PR0-10).** Hoy la inscripción desde mesa de entrada (HU-C-04 §2.5) responde `409 ALUMNO_NO_DISPONIBLE` «El alumno no existe o no está activo» con `{ alumno_id }`, no `ALUMNO_NO_ENCONTRADO`/`ALUMNO_INACTIVO`. Gana lo existente (1.1), así que `crearInscripcion` con origen `CENTRO` conserva ese código y ese texto (clave nueva `errores.inscripcion.alumnoNoDisponibleOInactivo`). Con origen `ALUMNO` y `PAGO` responde `409 ALUMNO_INACTIVO` «La ficha del alumno está inactiva» (el texto de hoy del autoservicio) y `404 ALUMNO_NO_ENCONTRADO` «El alumno ya no existe». En todos los casos decide la fila del alumno ya bloqueada, aunque el llamador pase `alumnoActivo: true` (R3-PR0-B3). Avisar a los dueños de C, B e I.
+3. **Orden de validación de `crearInscripcion`:** clase inexistente, cancelada, pendiente, sin aula y vencida, después cupo, alumno, repetido y superposición (el orden de hoy de HU-C-04 §2.5, así los Route Handlers conservan sus respuestas), y al final tarifa y re-reserva (spec C §2.17.2).
+   - La superposición se evalúa contra `reservas_turno`, con la misma condición que el EXCLUDE, después de marcar las reservas vencidas del alumno. Así no depende de `alumnoConTurnoSuperpuesto` de `turno.service.ts`, que es de 2.0.
+   - Si igual salta el EXCLUDE, se informa `ALUMNO_NO_DISPONIBLE`.
+   - «Vencida» compara el inicio exacto de la clase con `ahora()`, que da el mismo resultado que la comparación por minuto de hoy.
+4. **Regla de re-reserva:** solo la aplica `crearInscripcion` con origen `ALUMNO` y `conReserva: true`. `CENTRO` no la aplica (2.13) y `PAGO` ya la verificó quien cobra. `exigeInscripcionConPago` cuenta también una reserva vigente según la columna pero vencida sin marcar.
+5. **Firmas que difieren de 2.13:**
+   - `marcarPagada` y `recalcularEstadoPago` reciben además `actor`, para el historial de la transición.
+   - `exigeInscripcionConPago` recibe `db` primero, como las demás lecturas que se usan dentro de un `tx`.
+   - `marcarVencidas` y `recalcularVencimientos` admiten `opciones.momento`, para usar el momento único de la operación.
+   - `crearInscripcion` suma `bloqueosTomados` y `momento` (los usa `registrarOperacion`; 2.16 ya lo preveía).
+6. **`finalizarInscripcion`:**
+   - `fecha` es la `finalizadaEl` que se registra (por defecto `ahora()`).
+   - Con `soloSiReservaPendiente`, la condición es `estadoPago = RESERVADA AND venceEl > ahora()` tal como la escribe 2.13, también si la clase está cancelada.
+7. **`inscripcionVigenteDelPar`:** devuelve la fila con `vigencia = VIGENTE` aunque sea una reserva vencida sin marcar. Quien opera marca primero con `marcarVencidas`, y para decidir si cuenta se usa `esVigenteEn`.
+8. **Vencimiento perezoso:** `marcarVencidas` y `marcarVencidasDelAlumno` escriben en una sola sentencia (`UPDATE … FROM turnos … RETURNING`) la vigencia, `finalizadaEl = venceEl` y el actor «Proceso automático», como piden los CHECK. Recalculan `Turno.estado` solo en las clases donde marcaron algo y encolan una transición de historial por reserva.
+9. **`registrarOperacion`:**
+   - Bloquea en una sola llamada: alumno → clases de los ítems y clases con reservas vencidas del alumno → inscripciones existentes → caja.
+   - La inscripción creada con «Se inscribe al confirmar el pago» nace `PAGADA` y no se vuelve a pasar por `marcarPagada`: bloquearla después de la caja rompería el orden canónico.
+   - En `compatSprint2`, una reserva vencida se informa `ALUMNO_NO_INSCRIPTO` (el código de Sprint 2), no `RESERVA_VENCIDA`.
+   - La caja se valida al final. Si la caja que se leyó antes de bloquear apareció cerrada al bloquearla, el texto es el del criterio 9 de HU-I-12 («Tu caja se cerró…»).
+   - `motivoAjuste` se guarda solo si el monto difiere del precio. `ajustadoPorUsuarioId` se guarda siempre que difiere, también en compatibilidad sin motivo.
+   - Los errores de un ítem llevan en `detalles` `{ turno_id, materia, fecha, fecha_dia }`: `fecha` es AAAA-MM-DD (lo que pide la spec) y `fecha_dia` es DD/MM/AAAA, para el texto de `TURNO_YA_EMPEZO`. También se agregan a los errores que vienen de `crearInscripcion`, como cupo o tarifa.
+10. **Textos:** `TURNO_YA_EMPEZO` y `RESERVA_VENCIDA` dejan de ser propuestos: ahora son los literales de la spec I §2.7.4. Claves nuevas: `errores.turno.sinAula` (`TURNO_SIN_AULA`, texto de hoy) y `errores.inscripcion.alumnoNoDisponibleOInactivo`.
+11. **Comprobante:**
+   - `datos` se valida con `ComprobanteDatosSchema` al emitir.
+   - `registrado_por.nombre_completo` admite `null` si la cuenta que registró no tiene ficha del personal: el ejemplo de la spec trae siempre un texto.
+   - El número sale de `nextval('comprobante_numero_seq')` convertido a número dentro de la transacción del cobro.
+   - `emitirReemplazo` lanza `ComprobanteError` si el comprobante ya fue reemplazado o si la operación no tiene pagos vigentes (en la anulación total no se emite nada: decide `anularPago`, parte 3).
+12. **Caja:**
+   - `abrirCaja` exige la ficha de mesa de entrada activa con `bloquearIntegranteActivo` (`INTEGRANTE_INACTIVO`) y valida `fondoInicial` (≥ 0, hasta 2 decimales).
+   - La unicidad la garantiza el índice parcial: la apertura concurrente perdedora recibe `CAJA_YA_ABIERTA`.
+   - Las cuentas `mesa.entrada@` y `mesa.entrada2@` del seed tienen ficha.
+13. **Fachada mínima de F (`personal.publico.ts`):** la necesitan la caja (integrante activo, spec I §2.10.1) y el comprobante (nombre de quien registró, spec I §2.9.2). HU-F y HU-G la amplían sin cambiar estas dos firmas. Avisar al dueño de F.
+14. **`obtenerClasesBasicas` (C, P-I9):** devuelve además `inicio` (instante de inicio de la clase), que necesita el cobro.
+15. **Errores de programación** (`RangeError`, `ComprobanteError`, `Error` de `marcarPagada` con 0 pagos y de `precioClase` no entero): no son `ErrorDeDominio` porque no pueden venir de un pedido válido. Salen como 500.
+16. **Anulación en las pruebas:** `anularPago` es de la parte 3. Las pruebas de equivalencia anulan con un registro de `AnulacionPago` y `recalcularEstadoPago`, que es lo que hará ese servicio.
+
+**Pruebas con PostgreSQL real que pidió esta parte:**
+- **(a)** una inscripción y un cobro con inscripción del mismo alumno en clases superpuestas, en paralelo y repetido 4 veces: uno confirma, el otro recibe `ALUMNO_NO_DISPONIBLE`, sin interbloqueo ni `TRANSACCION_OCUPADA`.
+- **(b)** seis inscripciones simultáneas a la última plaza: entra una, las demás reciben `CUPO_INSUFICIENTE` y la clase queda `COMPLETO`.
+- **(c)** «Pagada ⇔ al menos un pago no anulado», verificada sobre todas las inscripciones vigentes de la base después de cada transición:
+  - pagar;
+  - anular el último pago antes de la clase (reserva reabierta);
+  - anular uno de varios pagos;
+  - reintegro por clase cancelada;
+  - clase ya iniciada;
+  - reintegro a quien canceló.
+- **(d)** ocho cobros simultáneos de cuatro integrantes: números de comprobante únicos y correlativos, y cada comprobante válido para el contrato.
+
+Además se prueban:
+- apertura de caja con ficha inactiva o sin ficha, y apertura concurrente;
+- los dos modos de cobro, con todos sus rechazos y con varias clases en una operación;
+- «Se inscribe al confirmar el pago»;
+- vencimiento perezoso, re-reserva, finalización y `soloSiReservaPendiente`;
+- `recalcularVencimientos` y la reapertura por anulación;
+- que una inscripción finalizada libera la franja y permite volver a inscribir sin violar `reservas_turno` (R6-PR0-8).
+
+**Resultado:**
+- `npm test`: 141 archivos (123 pasan, 18 saltados), 1829 pruebas (1703 pasan, 126 saltadas), 0 fallas.
+- `npm run test:pg -- src/server/shared src/server/turnos/inscripcion.vigencia.pg.test.ts src/server/turnos/inscripcion.service.pg.test.ts src/server/pagos/operacion.service.pg.test.ts`: 4 archivos y 44 pruebas, todas pasan. La base descartable se borró.
+- `npm run lint`: 0 errores; queda el aviso que ya existía.
+- `npx tsc --noEmit`: los mismos 15 errores de 5.1.
+
+**Dudas abiertas de esta parte:**
+1. **Decisión 2:** que `CENTRO` conserve `ALUMNO_NO_DISPONIBLE` en lugar de los códigos de R6-PR0-10. Confirmar con los dueños de C y B.
+2. **`detalles.fecha_dia`** en los errores por ítem del cobro. Confirmar con el dueño de I, o mover el formato del texto a la interfaz.
+3. **`registrado_por.nombre_completo` nulo** cuando la cuenta no tiene ficha. Confirmar con el dueño de I.
+4. **Parámetro `actor`** en `marcarPagada` y `recalcularEstadoPago`. Avisar a los dueños de C e I.
+5. **`soloSiReservaPendiente` en una clase cancelada** (las reservas no vencen, pero la condición literal compara `venceEl`). Confirmar con el dueño de C.
+
+**Respuestas del responsable del PR 0 a las dudas de esta parte:**
+1. `crearInscripcion` con origen `CENTRO` conserva `ALUMNO_NO_DISPONIBLE` (1.1). Se avisa a los dueños de C, B e I.
+2. `detalles.fecha_dia` se queda. Se avisa al dueño de I.
+3. `registrado_por.nombre_completo` nulo se queda: si falta, HU-I-11 muestra el correo de la cuenta. Se avisa al dueño de I.
+4. El parámetro `actor` de `marcarPagada` y `recalcularEstadoPago` se queda. Se avisa a los dueños de C e I.
+5. `soloSiReservaPendiente` queda literal, como en 2.13. Lo confirma el dueño de C.
+
 ## 6. Decisiones alineadas y datos que debe completar el equipo
 
 - **Fichas de profesores existentes:** el seed asegura cuentas vinculadas para los profesores elegidos para la demostración y anota cuáles son en «Decisiones tomadas»; las demás fichas pueden permanecer sin cuenta. HU-A-06 sigue aplicándose a altas nuevas.
