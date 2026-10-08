@@ -1,6 +1,88 @@
 ```markdown
 # Especificación Técnica — Módulo C (Turno)
-## Noctium — Sprint 1 (Revisión 4) · Sprint 2 (Revisión 5.1)
+## Noctium — Sprint 1 (Revisión 4) · Sprint 2 (Revisión 5.1) · Sprint 3 (Revisión 6)
+
+## Revisión 6 — Sprint 3: modelo de inscripción con vigencia y estado de pago, resumen y reserva del alumno (HU-C-20, HU-C-22), vencimiento y gestión de reservas (HU-C-24, HU-C-26), cancelación propia (HU-C-14) y aula por fecha en la generación masiva (HU-C-21)
+
+**Metodología:** Specification-Driven Development (SDD)
+**Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
+**Referencias normativas (Revisión 6):** `docs/RULES.md` (Reglas N.° 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) · Backlog del Sprint 3 (v18, 06/10/2026; convenciones 5, 8 a, 8 b, 8 d y 9, y las HU-C-14, C-20, C-21, C-22, C-24 y C-26) · `PR-0.md` §1.1 (principio de compatibilidad), §2.0 a §2.2, §2.4, §2.6, §2.9, §2.10, §2.13, §2.15 y §2.16 · `spec_modulo_L.md` Revisión 3 (§2.10 `obtenerTarifasPorIds`, regla 3.12) · `spec_modulo_I.md` (pagos y caja) · `spec_modulo_E.md` (historial) · `spec_modulo_B.md` (baja del alumno, búsqueda) · `schema.prisma`
+
+**HU contractualizadas en la Revisión 6 (Sprint 3):** HU-C-20 (Confirmar inscripción con un resumen de la clase), HU-C-22 (Reservar una clase y pagarla en el centro antes del vencimiento), HU-C-24 (Vencer las reservas sin pago y gestionarlas desde mesa de entrada), HU-C-14 (Cancelar mi inscripción a una clase), HU-C-26 (Ver y gestionar las reservas pendientes de todas las clases) y HU-C-21 (Cambiar el aula de las fechas ocupadas al generar varias clases).
+
+**Fuera de esta spec (explícito):** HU-C-23 (Centralizar los textos de la interfaz) y HU-C-25 (Confirmar cada operación antes de guardarla) son transversales y no se contractualizan acá (corresponden a `DESIGN.md`). Los textos que muestra la interfaz salen del archivo central de HU-C-23; donde esta spec cita un texto de pantalla (por ejemplo, la referencia a «`DESIGN.md` §6» de 2.10), prevalece ese archivo. HU-C-19 (término «Clase» en la interfaz) cambia solo la capa de presentación: los `code` y las rutas de este módulo conservan la palabra «turno» (HU-C-19, criterio 3). Esta spec sigue usando «turno» para el dato y la regla, y «clase» para lo que se muestra (convención 2 del backlog).
+
+**Regla del equipo (08/10/2026) — nada de lo ya desarrollado se rompe.** El Sprint 3 se acomoda a lo que se hizo en los Sprints 1 y 2, no al revés. Esta revisión es **aditiva**: no renumera ninguna sección, no reescribe ninguna de las anteriores (solo les agrega una nota de «Revisión 6» al comienzo cuando el comportamiento interno cambia) y no cambia ningún contrato HTTP de Sprint 2.
+
+| Lo que ya existe | Qué se conserva | Qué cambia por dentro (y quién lo manda) |
+|---|---|---|
+| 2.2 `PATCH .../participantes` | Ruta, cuerpo, respuesta `{ id, alumno_ids, profesor_id, cupo_maximo, estado }`, todos los `code` | Reconciliación de inscripciones en vez de `deleteMany` + `createMany` (convención 8 a). Nuevo error `422 MATERIA_SIN_TARIFA` (HU-L-06, criterio 5). Desde HU-C-24, quedan como reserva (2.18.3) |
+| 2.5 agregar y quitar un alumno | Rutas, respuestas, `code` (`CUPO_INSUFICIENTE`, `ALUMNO_YA_ASIGNADO`, `ALUMNO_NO_DISPONIBLE` con `{ alumno_id }`, `ALUMNO_NO_ASIGNADO`…) | Quitar no borra: `QUITADA_CENTRO` (convención 8 a, HU-C-22 criterio 3). Campos opcionales nuevos en la respuesta de agregar |
+| 2.4 listado y detalle | Todos los campos | Cuentan y muestran solo inscripciones vigentes; `estado` se decide con la ocupación real (HU-C-24, criterio 2). Campos opcionales nuevos por alumno en el detalle, **que el Profesor no recibe** (no ve precios). `puede_ver_historial` conserva el campo; su valor para el Profesor pasa a calcularse con el alcance de 8 g: `true` para los inscriptos vigentes de una clase suya, que C resuelve con los datos del detalle sin llamar a E (`spec_modulo_E.md` 2.5.3) |
+| 2.10 cancelar y 2.11 reprogramar | Rutas, cuerpo, respuestas, `code` | Marcan antes las reservas ya vencidas (HU-C-24, criterio 2). Reprogramar recalcula los vencimientos (HU-C-22, criterio 2) |
+| 2.14.1 «Mis turnos» | Ruta, parámetros, paginación, `totales` y los campos de cada ítem | Cada ítem suma el objeto `inscripcion` (HU-C-22, criterios 4 y 6). Se listan también las inscripciones finalizadas (HU-C-14, criterio 5) |
+| 2.14.2 «Solicitar turno» | `opciones`; `POST .../inscripcion` sin body y su respuesta `{ id, alumnos_inscriptos, estado }`; todos los `code` | Resumen previo (endpoint nuevo de solo lectura). La inscripción queda como reserva con plazo (HU-C-22). Errores nuevos para condiciones nuevas |
+| 2.9 generación masiva | Rutas, `GenerarTurnosSchema` (campos nuevos opcionales), códigos | Aula por fecha y fechas excluidas (HU-C-21), solo si el pedido las usa |
+| 2.15 servicios públicos | Firma y forma del resultado de cada función | Cuentan solo inscripciones vigentes |
+| Cualquier endpoint que inscribe (2.2, 2.5, 2.14.2) | Todo | **Cambio inevitable:** si la materia no tiene tarifa se rechaza con `422 MATERIA_SIN_TARIFA` (HU-L-06, criterio 5; `PR-0.md` §1.1). Con las materias del seed no ocurre |
+| Eventos de §4 | Nombres y payloads existentes | Campos extra opcionales y un evento nuevo |
+
+**Contradicciones entre Sprint 2, el backlog y el PR 0, y cómo se resuelven.** No hay ninguna que obligue a romper un contrato; las que siguen son de redacción o de reglas internas.
+
+| # | Contradicción | Resolución |
+|---|---|---|
+| T1 | 2.5 y 3.13 dicen que la baja de `TurnoAlumno` es **física**; la convención 8 (a) y HU-C-22 (criterio 3) exigen que la inscripción **no se borre** | Manda el backlog: vigencia en lugar de baja física (3.14). El contrato HTTP de quitar no cambia |
+| T2 | `Turno.estado` se guarda y se muestra; HU-C-24 (criterio 2) exige que una clase llena solo por reservas vencidas se muestre Disponible aunque el proceso no corrió | `Turno.estado` se sigue guardando y manteniendo, pero ninguna lectura decide con él (2.16.5, 3.16) |
+| T3 | R5-6 / Q5 (aprobado por el PO el 29/09) dice que un turno vencido **sí** admite registrar un pago; HU-C-22 y HU-I-10 (criterios 3 y 7) dicen que el pago se hace **antes** de la clase | `POST /api/pagos` **conserva siempre** el comportamiento de Sprint 2 (modo de compatibilidad del PR 0, `PR-0.md` §2.13), y R5-6 sigue valiendo para ese endpoint. «Antes de la clase» rige en el flujo nuevo de HU-I-10 (`POST /api/pagos/operaciones`), que usan las pantallas de cobro (P-C7). Lo define `spec_modulo_I.md` (T1, P-I1); 3.8 lo anota |
+| T4 | 3.7 pide bloquear la fila del turno a mano; el PR 0 fija un orden de bloqueo único (recurso → clase → inscripción → operación → caja) | Se usa `bloquear(...)` con la misma garantía (3.17) |
+| T5 | Los servicios del módulo lanzan `ServiceError(code)`; el PR 0 introduce `ErrorDeDominio(clave)` | `ErrorDeDominio` **extiende** `ServiceError` y lleva el mismo `code` que hoy en las condiciones existentes (2.16.7) |
+| T6 | Sprint 2 usa `eventos_turno` (usuario obligatorio); el PR 0 agrega un historial de estados de la inscripción con actor «Proceso automático» | Conviven (§4): el historial registra cada transición de la inscripción; `eventos_turno` sigue registrando lo que hace un usuario sobre la clase |
+
+**Changelog de la Revisión 6 (trazabilidad Backlog → Spec):**
+| HU / sección | Estado previo | Acción |
+|---|---|---|
+| Modelo de inscripción (convención 8 a) | `TurnoAlumno` con PK compuesta, sin estado, borrado físico | Nueva sección 2.16: extensión de `TurnoAlumno` con vigencia, estado de pago, plazo y precio; qué cambia por dentro en 2.2, 2.4, 2.5, 2.10, 2.11, 2.14 y 2.15 sin cambiar sus contratos |
+| HU-C-20 | Sin contrato (HU-C-12 inscribía directamente al tocar «Inscribirme») | Nueva sección 2.17.1: resumen de la clase (endpoint de solo lectura) |
+| HU-C-22 | Sin contrato | Nuevas secciones 2.17.2 a 2.17.5: reserva con plazo, precio congelado, regla de re-reserva y estado de pago en «Mis turnos» |
+| HU-C-24 | Sin contrato | Nueva sección 2.18: proceso de vencimiento, validación por fecha, inscripción desde el centro, reservas en el detalle, plazo nuevo tras anulación y clases canceladas |
+| HU-C-14 | Diferida desde Sprint 2 (criterio 6 de HU-C-05 y 5 de HU-C-13) | Nueva sección 2.19 |
+| HU-C-26 | Sin contrato | Nueva sección 2.20 |
+| HU-C-21 | Sin contrato; 2.9 exigía una sola aula para todo el rango | Nueva subsección 2.9.1 (al final de 2.9) |
+| HU-C-04 / HU-C-18 (2.2, 2.5) | Inscribían sin plazo de pago | Notas de Revisión 6; el cambio lo pide HU-C-24, criterio 3 (2.18.3) |
+| HU-C-05 / HU-C-06 (2.10, 2.11) | Sin vencimiento de reservas | Notas de Revisión 6 (2.16.6 y 2.18.2) |
+| HU-C-12 / HU-C-13 (2.14) | Inscripción directa; «Mis turnos» sin estado de pago | Notas de Revisión 6 en 2.14, 2.14.1 y 2.14.2 |
+| §3 Reglas | 3.1 a 3.13 | + 3.14 a 3.20 al final del bloque, sin renumerar. Notas en 3.1, 3.4, 3.7, 3.8 y 3.13 |
+| §4 Trazabilidad | Opción (b) | Nota de Revisión 6: historial de estados de la inscripción, eventos ampliados y `turno:inscripcion_cancelada` |
+| Parámetros | — | + `plazo_pago_horas` y `cancelacion_anticipacion_horas` |
+
+**Puntos a confirmar antes de implementar (Revisión 6):**
+| # | Punto | Quién |
+|---|---|---|
+| P-C1 | **Vencimiento mostrado en el resumen.** HU-C-20 (criterio 3) y HU-C-22 (criterio 2) muestran «tenés que pagarlo antes del <fecha y hora>» *antes* de reservar, cuando el vencimiento todavía no existe (corre desde que se confirma). Esta spec muestra el que **correspondería si se reservara en ese instante** (`vence_pago_el`) y la confirmación informa el **definitivo**, que puede diferir en minutos. Si el PO prefiere otra redacción («tenés 24 horas desde que reservás…»), es solo un texto | PO |
+| P-C2 | **Materia sin tarifa y resguardo de re-inscripción.** Por la regla del equipo, `Materia.tarifaHora` admite vacío (`spec_modulo_L.md` P-L1), así que una materia creada sin tarifa puede tener clases. Esta spec **sigue ofreciendo** esas clases en «Solicitar clase» y rechaza en el resumen y en la reserva con `422 MATERIA_SIN_TARIFA`. El backlog no trae el texto: propuesta «Esta clase todavía no tiene precio. Comunicate con el centro.» (alumno) y «La materia todavía no tiene tarifa. Pedile al gerente que la defina.» (mesa de entrada). Para `INSCRIPCION_REQUIERE_PAGO` (mesa de entrada): «El alumno ya tuvo una reserva sin pagar en esta clase: se inscribe recién al confirmar el pago.» | PO |
+| P-C3 | **Clase cancelada con reserva pendiente.** HU-C-24 (criterio 6) dice que sus reservas dejan de vencer y el alumno las ve como clase cancelada; HU-C-22 (criterio 4) no dice qué etiqueta de pago lleva. Esta spec la rotula `PAGO_SIN_REGISTRAR` (informativo, sin invitar a pagar) | PO |
+| P-C4 | **Una tarjeta por clase en «Mis turnos».** El backlog no dice qué pasa si el alumno canceló y volvió a inscribirse en la misma clase (dos inscripciones). Esta spec muestra una tarjeta por clase (la vigente o, si no hay, la más reciente) y los totales de las pestañas cuentan tarjetas. Las clases `PENDIENTE` no se listan | PO |
+| P-C5 | **Nombres propuestos:** permiso `turnos:cancelar_propia` (ALUMNO; el PR 0 lo prevé sin nombrarlo), `reservas:leer` (lo nombra el PR 0), y las rutas `POST /api/procesos/vencer-reservas`, `POST /api/turnos/[id]/inscripcion/cancelacion`, `GET /api/turnos/[id]/inscripcion/resumen`, `GET /api/reservas/{resumen,pendientes,vencidas}`, `POST /api/reservas/[inscripcionId]/quitar` y `GET /api/turnos/generacion/aulas-libres`. Los fija la tabla cerrada de `PR-0.md` §2.9 y las rutas por rol | SM |
+| P-C6 | **Filtro por alumno de HU-C-26** («mismo criterio que HU-B-05»). `construirFiltroBusquedaAlumno` está hoy en el módulo B. Se pide a `spec_modulo_B.md` que lo publique en `alumno.publico.ts`; si no, queda la excepción de solo lectura de 3.11 (columnas normalizadas de Alumno por relación, como la búsqueda de 2.7) | SM |
+| P-C7 | **R5-6 / Q5 y Q6a (aprobados por el PO el 29/09).** El backlog del Sprint 3 (HU-C-22 criterio 4, HU-I-10 criterios 3 y 7) pide que el cobro de una clase ya iniciada no se ofrezca. Por la regla del equipo, el endpoint de Sprint 2 conserva su comportamiento para siempre (T3) y la regla nueva rige solo en el flujo de HU-I-10. Se informa al PO | PO (informativo) |
+| P-C8 | **Reserva reabierta por anulación y cancelación del alumno.** HU-C-22 (criterio 4) excluye de la regla de re-reserva a la reserva reabierta que **vence**; no dice qué pasa si el alumno la **cancela**. Esta spec la trata igual (no cuenta: el alumno había pagado) | PO |
+
+**Pedidos al PR 0 (surgen de esta revisión; el PR 0 se actualiza una vez, con todas las specs listas):**
+| # | Pedido | Dónde |
+|---|---|---|
+| R6-PR0-1 | `crearInscripcion`, `finalizarInscripcion`, `marcarVencidas` y `marcarVencidasDelAlumno` **no cambian `Turno.estado` de una clase `PENDIENTE` ni `CANCELADO`**: solo recalculan `DISPONIBLE ⇄ COMPLETO` en clases confirmadas. La salida de `PENDIENTE` es exclusiva de 2.2 paso 8 | 2.16.5, 3.16; `PR-0.md` §2.2 |
+| R6-PR0-2 | `ErrorDeDominio` con el `code` y el **texto literal** de hoy para las condiciones existentes de 2.16.7, y los códigos nuevos con su HTTP: `MATERIA_SIN_TARIFA` 422, `RESERVA_PREVIA_SIN_PAGO` 409, `INSCRIPCION_REQUIERE_PAGO` 409, `RESERVA_NO_PENDIENTE` 409, `INSCRIPCION_NO_VIGENTE` 409, `CANCELACION_FUERA_DE_PLAZO` 409, `INSCRIPCION_NO_ENCONTRADA` 404 | 2.16.7; `PR-0.md` §2.13 |
+| R6-PR0-3 | Lecturas de módulo C para las operaciones de 2.2, 2.5 y 2.19: inscripción **vigente** de un par (alumno, clase) e inscripción **más reciente** del par, ambas con `db` opcional | `PR-0.md` §2.13 |
+| R6-PR0-4 | `exigeInscripcionConPago` devuelve el motivo (reserva vencida o cancelada sin pago) y respeta que no cuenta la reserva reabierta por anulación ni la pagada (P-C8) | `PR-0.md` §2.13 |
+| R6-PR0-5 | `listarReservasPendientes`, `listarReservasVencidas` y `resumenReservas` devuelven los campos de 2.20 (alumno con DNI y cantidad de reservas pendientes, clase con aula, profesor, precio guardado, `vence_el`, filtro `vencen` = `en_3_horas` / `hoy` / `manana`, y `sin_marcar` en vencidas) | 2.20; `PR-0.md` §2.13 |
+| R6-PR0-6 | `parametrosVigentes()` expone `plazo_pago_horas` y `cancelacion_anticipacion_horas` | `PR-0.md` §2.6 |
+| R6-PR0-7 | Tabla cerrada de permisos: `turnos:cancelar_propia` (ALUMNO) y `reservas:leer` (MESA_ENTRADA); ruta `/reservas` en `rutas-por-rol` y en el `matcher`; la ruta del proceso de vencimiento **fuera** del control de sesión (se autentica con `CRON_SECRET`) | 2.18.1, 2.19, 2.20; `PR-0.md` §2.9 |
+| R6-PR0-8 | Prueba con PostgreSQL real: el trigger de `reservas_turno` proyecta solo inscripciones `VIGENTE`, y finalizar una inscripción libera al alumno para otra clase superpuesta | 2.16.8; `PR-0.md` §2.0 |
+| R6-PR0-9 | `marcarVencidas` devuelve la cantidad marcada y existe la lectura `clasesConReservasVencidas(db, momento)` para el proceso (2.18.1) | `PR-0.md` §2.2 |
+| R6-PR0-10 | `crearInscripcion` conserva `ALUMNO_NO_ENCONTRADO` (404) y `ALUMNO_INACTIVO` (409) y acepta un `alumnoActivo` ya resuelto (autoservicio, 2.5 paso 2); obtiene la tarifa con `obtenerTarifasPorIds` (`spec_modulo_L.md` §2.10) y calcula con `precioClase` | 2.16.6, 3.18; `PR-0.md` §2.13 |
+
+**Efectos en otras specs (se anotan al escribirlas):** `spec_modulo_I.md` (el pago apunta a la inscripción; modo de compatibilidad de `POST /api/pagos`; mensajes de HU-I-10), `spec_modulo_E.md` (el historial de clases del alumno muestra el resultado de cada inscripción —Cancelada por el alumno, Reserva vencida, Quitada, Baja—; `profesorAtendioAlumno` y Q13/Q7b se reemplazan por el alcance de 8 g), `spec_modulo_B.md` (HU-B-07 finaliza inscripciones con `BAJA_ALUMNO`; publicar `construirFiltroBusquedaAlumno`), `spec_modulo_H.md` (la ocupación y las series cuentan inscripciones vigentes), `spec_modulo_J.md` y `spec_modulo_K.md` (cuentan vigentes a través de los servicios públicos de 2.15).
+
 
 ## Nota aditiva — 01/10/2026: servicios públicos para Indicadores (`spec_modulo_H.md` Revisión 2)
 
@@ -370,6 +452,11 @@ export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 
 ### 2.2. Asignar profesor y alumnos al turno — carga inicial y confirmación (HU-C-04) — IMPLEMENTADA, REABIERTA EN REVISIÓN 3, sin cambios en Revisión 4
 
+> **Nota posterior (08/10/2026).** Sin cambios de contrato. Al pasar a `DISPONIBLE` el bloqueo suma al profesor y se relee que siga activo (HU-D-08), y el alumno se relee ya bloqueado (HU-B-07): ver 2.21.3.
+
+> **Revisión 6 (Sprint 3, convención 8 a).** Ruta, cuerpo, respuesta y `code` de error **sin cambios**. Por dentro, el paso 7 deja de hacer `deleteMany` + `createMany` de `TurnoAlumno`: reconcilia las inscripciones (las que salen del conjunto quedan `QUITADA_CENTRO`, las nuevas se crean con `crearInscripcion` y las que se mantienen no se tocan; ver 2.16.6). Se suman los errores `422 MATERIA_SIN_TARIFA` (HU-L-06, criterio 5) y, solo como resguardo, `409 INSCRIPCION_REQUIERE_PAGO` (2.18.3). Los pasos 4 y 5 consideran solo inscripciones vigentes. Desde HU-C-24 las inscripciones quedan como reserva con plazo y la respuesta suma `inscripciones` (2.18.3). El paso 8 sigue siendo la única salida de `PENDIENTE` (3.16).
+
+
 > **Revisión 5 (HU-C-18, R5-2).** Sigue siendo la operación que **confirma** el turno y el **quinto y último paso** del wizard (Agregar Alumnos). Cambios: (1) `AsignarParticipantesTurnoSchema.profesor_id` pasa a **opcional**; (2) si el turno ya tiene `profesorId` y no se envía, se usa el existente; si se envía uno distinto, se revalida como en el paso 5 y reemplaza al anterior (solo mientras `PENDIENTE`); (3) si el turno no tiene profesor y no se envía: `409 TURNO_SIN_PROFESOR`, "Elegí un profesor antes de confirmar el turno"; (4) el paso 4 **revalida siempre** que el profesor (enviado o ya asignado) exista y esté activo (`404 PROFESOR_NO_ENCONTRADO`) y siga dictando la materia (`409 PROFESOR_NO_DICTA_MATERIA`); `SIN_PROFESORES_PARA_MATERIA` (404) solo aplica cuando se envía un profesor nuevo. El resto de los pasos, la transición y los eventos **no cambian**. Precondición existente `TURNO_SIN_AULA` se mantiene: el aula ahora se elige en el paso 4, antes de este.
 
 Esta operación es el **combo inicial**: carga profesor + el conjunto completo de alumnos de una sola vez. **Cambio de Revisión 3: pasa a ser el último paso del flujo** (antes era el segundo; ahora requiere que el turno ya tenga aula asignada, ver 2.3) — es la operación que **confirma** el turno y dispara la transición a `Disponible`/`Completo` (antes esa transición ocurría al asignar aula). Para agregar o quitar un alumno de a uno una vez que el turno ya está confirmado, ver **2.5** (sin cambios).
@@ -507,6 +594,9 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 ### 2.4. Listado y detalle de turnos (HU-C-01) — sin cambios en Revisión 4
 
+> **Revisión 6.** `alumnos_inscriptos` y la lista `alumnos` cuentan solo inscripciones **vigentes**, y `estado` se decide con la ocupación real (2.16.5). El detalle suma por alumno `inscripcion` y `puede_registrar_pago` (2.18.4). Sin otros cambios de contrato. Esos campos por alumno **no se envían al Profesor** (no ve precios, HU-L-06 criterio 7): solo con `pagos:leer`. `puede_ver_historial` conserva el campo, pero su valor para el Profesor lo calcula C con la primera condición de la convención 8 g (`PR-0.md` §2.9): el alumno es un inscripto vigente de una clase suya, dato que el detalle ya tiene, así que **no llama a E** (Regla N.° 3; `spec_modulo_E.md` 2.5.3). Reemplaza a `profesorAtendioAlumno` (Q7b), que E conserva exportada pero ya no usa. El alcance del Gerente al detalle (modo consulta) lo fija `PR-0.md` §2.9.
+
+
 > **Revisión 5 (HU-C-09, HU-C-10, HU-C-02, HU-C-08).** El presentador `presentar()` agrega: `prioridad` (`"NORMAL" | "ALTA" | "URGENTE"`), y `creado_en`. **El detalle** (`GET /api/turnos/[id]`) agrega además: `creado_por` (email vía `obtenerEmailDeUsuario()`; `null` si no hay dato, nunca el id), `cupo_maximo`, `duracion_minutos`, el listado completo de `alumnos`, `pagos` (`listarPagosDeTurno()`, cada uno con su **alumno**, monto, forma de pago y fecha, solo si el rol tiene `pagos:leer`), `clase_dictada` (`{ id, registrada_en } | null`, vía `obtenerClaseDictadaDeTurno()` de `spec_modulo_E.md` §2.4) y `acciones_habilitadas` (lista de las acciones que el estado y el rol permiten: `cancelar` (turno `DISPONIBLE`/`COMPLETO` vigente, permiso `turnos:cancelar`; **nunca** para un `PENDIENTE`, HU-C-05 AC2), `descartar` (solo `PENDIENTE`, permiso `turnos:cancelar`, N-1, 2.10), `reprogramar` (`DISPONIBLE`/`COMPLETO` vigente, permiso `turnos:reprogramar`), `prioridad` (cualquier estado salvo `CANCELADO`, permiso `turnos:priorizar`), `registrar_pago` (condición de `spec_modulo_I.md` §2.4) y `registrar_clase` (condición de `spec_modulo_E.md` §2.1 paso 4: turno `DISPONIBLE`/`COMPLETO`, `fecha + hora_fin ≤ ahora`, sin clase dictada previa y, para el Profesor, solo sus propios turnos)). Cada alumno inscripto lleva el enlace "Ver historial" cuando el rol tiene `historial:leer` (`spec_modulo_E.md` §2.3, Q13 ratificado por el PO el 29/09/2026). Cada elemento de `alumnos[]` lleva `puede_ver_historial: boolean`: para Gerente y Mesa de Entrada es `true`; para el Profesor es el resultado de `profesorAtendioAlumno()` (`spec_modulo_E.md` §2.4, Q7b) y el enlace se oculta cuando es `false`. Es el punto de entrada del Gerente y del Profesor a la ficha del alumno. Un profesor que consulta un turno que no es suyo recibe `403 SIN_PERMISO`, y recibe **el mismo** `403` si el id no existe (respuesta neutra, igual que `spec_modulo_J.md` §2.1: no puede distinguir un turno inexistente de uno ajeno); Gerente y Mesa de Entrada reciben `404 TURNO_NO_ENCONTRADO` ante un id inexistente. Los datos no asignados de un `PENDIENTE` se muestran `"Sin asignar"` (D4). **`creado_por`:** `Usuario` no tiene nombre (solo `emailUsuario`) y el personal de mesa de entrada no tiene ficha; se muestra el **email** vía el servicio público de Módulo A `obtenerEmailDeUsuario()` (nunca un `SELECT` sobre `usuarios`). Si `creadoPorUsuarioId` es `null` (p. ej. turnos de seed) o el servicio devuelve `null` (cuenta inexistente), `creado_por` es `null` en la API y la UI muestra «Sin registrar». El listado agrega los parámetros de 2.7 (`q`, `profesor_id`) y muestra el indicador visual de prioridad `ALTA`/`URGENTE` (texto o ícono, no solo color). Vista de la pantalla: mapa de pantallas §1, fila "Detalle de turno".
 >
 > Decisiones del PO (30/09/2026): «Creado por» muestra el email; no se implementa «Total registrado» (no figura en los criterios de HU-C-09 ni de HU-I-01). `creado_por` no se incluye en el listado en esta entrega (decisión del SM, 30/09/2026).
@@ -555,6 +645,9 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 ---
 
 ### 2.5. Agregar o quitar un alumno individual (HU-C-04, ampliación) — IMPLEMENTADA, sin cambios en Revisión 4
+
+> **Revisión 6.** Rutas, respuestas y `code` sin cambios. «Agregar» usa `crearInscripcion` y «quitar» **ya no hace baja física**: la inscripción pasa a `QUITADA_CENTRO` (3.14 y 2.16.6). Condiciones nuevas: `422 MATERIA_SIN_TARIFA` y, desde HU-C-24, `409 INSCRIPCION_REQUIERE_PAGO` (2.18.3), con los campos opcionales `inscripcion` y `ofrecer_pago` en la respuesta de agregar. La «Decisión resuelta» y el paso 2 de «quitar» que hablan de baja física de la fila intermedia quedan superados por 3.14.
+
 
 > **Revisión 5 (HU-C-12).** El cuerpo de "agregar" se extrae a `inscribirAlumnoEnTurno(turnoId, alumnoId, { origen, alumnoActivo? }, tx)`, que 2.14 reutiliza para la autoinscripción del alumno (`alumnoActivo` solo lo envía el autoservicio, ver paso 2). Sin cambios de comportamiento ni de contrato para Mesa de Entrada (`origen: "MESA_ENTRADA"`). Un turno `CANCELADO` responde `409 TURNO_CANCELADO` tanto al agregar como al quitar.
 
@@ -660,6 +753,9 @@ Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al c
 ---
 
 ### 2.7. Búsqueda en el listado y filtro por profesor (HU-C-02, HU-C-08) — NUEVA en Revisión 5
+
+> **Revisión 6.** Contrato sin cambios. El filtro de búsqueda por alumno (relación `alumnos`) considera solo inscripciones **vigentes** (`sqlVigenteEn`): un alumno quitado o con una reserva vencida no hace aparecer la clase.
+
 
 **Ruta:** la misma de 2.4, `GET /api/turnos` — **no es una pantalla nueva** (mapa de pantallas §1, filas HU-C-02 y HU-C-08).
 **Server Action equivalente:** — (solo Route Handler)
@@ -786,6 +882,11 @@ export const DisponibilidadProfesorQuerySchema = z.object({
 
 ### 2.9. Generar turnos a partir del horario del profesor (HU-C-17) — NUEVA en Revisión 5
 
+> **Nota posterior (08/10/2026).** Sin cambios de contrato. El bloqueo suma al profesor y se relee que siga activo (HU-D-08, 2.21.3).
+
+> **Revisión 6 (HU-C-21).** Los criterios 4 y 6 de HU-C-17 («una sola aula para todo el rango», «un conflicto se resuelve cambiando el aula para todo el rango») y la última viñeta del criterio 5 quedan reemplazados por 2.9.1, que agrega campos **opcionales**. Sin ellos, esta sección rige tal cual. También quedan superadas las frases «nunca un aula por fecha» y «una sola para todo el rango» de los pasos 5 y 6 y de «Reglas que no cambian», y «aula distinta por fecha» del «Fuera de alcance». «Cualquier proceso programado» del «Fuera de alcance» sigue valiendo para la generación (el proceso de 2.18.1 no genera clases).
+
+
 **Pantalla:** no tiene ruta propia ni ítem de menú aparte: vive en `/turnos/nuevo` detrás del control «Turno individual / Generar varios turnos» (decisión de PO 27/09, mapa de pantallas §1; HU-C-17 AC10). Página completa, feedback por banner.
 
 **Pasos del modo «Generar varios turnos» (HU-C-17 AC1; HU-C-18 AC6):** 1. Materia → 2. Profesor → 3. Franja → 4. Duración → 5. Hora de inicio → 6. Aula → 7. Rango de fechas (desde–hasta) → Vista previa → Confirmar. Este modo **ya nace con el orden Materia → Profesor de HU-C-18** y no depende de esa historia, pero **comparte con el modo individual los mismos componentes de los pasos Materia y Profesor** (no hay una versión propia para el modo masivo), alimentados por los mismos orígenes: Materia, con las materias activas que ya usa el modo individual (2.1 paso 1); Profesor, con `GET /api/turnos/profesores/por-materia?materia_id=` (2.8.1, permiso `turnos:crear`), que devuelve solo a quienes dictan la materia elegida. Cambiar la materia o el profesor limpia los pasos siguientes (misma regla que «Atrás» en 2.1). Desde el paso 3 el modo masivo se separa del individual: la franja sale del endpoint de franjas (abajo) y no de 2.8.2; la duración usa el mismo `DURACIONES_PERMITIDAS_TURNO_MIN`; el aula es una sola para todo el rango (AC4).
@@ -856,9 +957,62 @@ export const GenerarTurnosSchema = z.object({
 
 **Fuera de alcance:** aula distinta por fecha, excepciones por licencia, generación con alumnos, y cualquier proceso programado.
 
+#### 2.9.1. Aula distinta por fecha ocupada y exclusión de fechas (HU-C-21) — NUEVA en Revisión 6
+
+> **Compatibilidad.** Extiende 2.9 **sin cambiar** sus rutas, sus códigos de error ni el comportamiento de un pedido que no use los campos nuevos: sin `aulas_por_fecha`, sin `fechas_excluidas` y sin `resolver_automaticamente`, la vista previa y la confirmación son exactamente las de Sprint 2 (una sola aula para todo el rango; cualquier conflicto bloquea la generación). Los campos nuevos son **opcionales**. HU-C-21 **reemplaza** el criterio 4 de HU-C-17 («una sola aula para todo el rango»), el criterio 6 («un conflicto se resuelve cambiando el aula para todo el rango») y la última viñeta del criterio 5 («Elegí otra aula para todo el rango»); en 2.9 esas frases quedan superadas por esta sección. Sigue siendo **todo o nada** sobre las fechas incluidas.
+
+**Qué cambia en el pedido** (`GenerarTurnosSchema`, `.strict()`; `aula_id` sigue siendo obligatorio y es el aula por defecto de todo el rango):
+
+```typescript
+// Campos nuevos, todos opcionales (vista previa y confirmación):
+aulas_por_fecha: z.array(z.object({ fecha: fechaCalendarioValidaSchema, aula_id: z.string().cuid() })).optional(),  // aula distinta solo para esas fechas (criterio 2)
+fechas_excluidas: z.array(fechaCalendarioValidaSchema).optional(),                                                  // fechas que no se generan (criterio 4)
+// Solo en la vista previa (la confirmación lo rechaza con 400 VALIDATION_ERROR):
+resolver_automaticamente: z.boolean().optional() // "Resolver todas" (criterio 3)
+```
+Ambas listas quedan acotadas por `generacion_maxima_turnos` (las fechas calculadas ya lo están). Una fecha de `aulas_por_fecha` o de `fechas_excluidas` que no pertenece a las fechas calculadas del rango, o repetida: `400 VALIDATION_ERROR`. Una fecha no puede estar a la vez en las dos listas.
+
+**Cálculo (vista previa y confirmación, mismo cálculo):**
+1. Las fechas de `fechas_excluidas` **no se validan ni se crean**. Si después de excluir no queda ninguna fecha: `400 SIN_FECHAS_EN_RANGO` (el mismo código de 2.9 paso 3).
+2. Para cada fecha incluida, el aula es la de `aulas_por_fecha` si existe y, si no, `aula_id`. Cada aula elegida se valida como en 2.9 paso 1 (`404 AULA_NO_ENCONTRADA` / `409 AULA_INACTIVA`) y su disponibilidad se valida **por fecha** (`AULA_OCUPADA`) contra el intervalo real, con la misma fórmula de 3.3.
+3. Los resguardos de profesor (`PROFESOR_OCUPADO`) y de duplicado (`TURNO_EXISTENTE`) de 2.9 paso 5 **no cambian**. Esas fechas no se resuelven cambiando el aula: solo se pueden **excluir** (criterio 5). La interfaz las rotula «Profesor con otra clase»; el aviso «Elegí otra aula para todo el rango» se reemplaza por el de esta historia.
+4. **Cupo (criterio 6):** el cupo de cada clase es la **capacidad de su aula**; si el aula de una fecha tiene distinta capacidad que el aula por defecto, la fila lo indica (por ejemplo, «cupo 6 en lugar de 8»).
+5. **«Resolver todas» (criterio 3, solo vista previa con `resolver_automaticamente: true`):** a cada fecha con `AULA_OCUPADA` le asigna el aula activa libre en ese horario de **menor capacidad que sea igual o mayor a la del aula por defecto**; ante empate, la primera por nombre. No pisa las fechas que ya tienen aula en `aulas_por_fecha` ni las fechas excluidas: solo resuelve las que siguen en conflicto. Las fechas que no se pueden resolver quedan en `CONFLICTO` para elegir a mano. El resultado vuelve en la respuesta; el cliente lo reenvía como `aulas_por_fecha` en la confirmación. **La confirmación nunca resuelve por su cuenta**: valida lo que recibe.
+6. **Sin aulas libres (criterio 4):** una fecha con `AULA_OCUPADA` para la que no existe ninguna aula activa libre en ese horario se marca `sin_aulas_libres: true` («Sin aulas libres en este horario») y solo puede excluirse.
+
+**Vista previa — `POST /api/turnos/generacion/vista-previa`.** Cada elemento de `fechas[]` conserva `fecha`, `estado` y `motivos`, y suma:
+```json
+{ "fecha": "2026-10-12", "estado": "OK", "motivos": [],
+  "aula": { "id": "cuid", "nombre": "Aula 3" }, "aula_cambiada": true,
+  "cupo": 6, "cupo_aula_por_defecto": 8,
+  "excluida": false, "sin_aulas_libres": false, "solo_excluible": false }
+```
+- `estado`: `OK` | `CONFLICTO` (`motivos` con los códigos de 2.9: `AULA_OCUPADA`, `PROFESOR_OCUPADO`, `TURNO_EXISTENTE`). Una fecha excluida tiene `excluida: true` y no tiene conflictos (`estado: "OK"`, `motivos: []`).
+- `solo_excluible`: `true` si el conflicto no se resuelve cambiando el aula (`PROFESOR_OCUPADO` o `TURNO_EXISTENTE`).
+- El resumen de la respuesta suma `cantidad_incluida`, `con_aula_cambiada` y `excluidas`. `hay_conflictos` considera solo las fechas incluidas.
+
+**Aulas libres de una fecha (criterio 2) — `GET /api/turnos/generacion/aulas-libres?fecha=&hora_inicio=&duracion_min=`** (permiso `turnos:crear`; solo lectura). Devuelve `{ "data": [{ "id", "nombre", "capacidad" }], "error": null }` con **solo las aulas activas libres** en esa fecha y horario, con su capacidad, ordenadas por capacidad y nombre. Reutiliza `listarAulasActivasParaTurno` y la disponibilidad de 2.3 (Módulo K y `aulaConTurnoSuperpuesto`), sin reimplementarlas. Errores: `400` (parámetros) · `403 SIN_PERMISO`. Al elegir una, la fila pasa a «Libre · <Aula nueva> (cambiada)» y las demás fechas mantienen el aula original.
+
+**Confirmación — `POST /api/turnos/generacion`.** Mismo flujo de 2.9 (recalcular dentro de la transacción; todo o nada; defensa de motor con la exclusión GiST y `esConflictoDeReserva()`), con estas diferencias:
+- Crea un `Turno` `DISPONIBLE` por cada fecha **incluida**, con el `aulaId` y el `cupoMaximoTurno` de **su** aula (criterio 6). Las excluidas no se crean.
+- **Revalida la disponibilidad de cada aula elegida y la del profesor en cada fecha incluida** (criterio 7): si queda algún conflicto, `409 GENERACION_CON_CONFLICTOS` con el detalle por fecha, y no se crea ninguna.
+- `201 Created`: `{ "data": { "generacion_id", "cantidad", "turno_ids", "aulas_cambiadas": 2, "fechas_excluidas": 1 }, "error": null }` (criterio 8: cuántas clases se generaron, en cuántas se cambió el aula y cuántas fechas se excluyeron). Los campos de Sprint 2 se conservan.
+- Eventos (§4): por turno, `turno:configurado` (con `generacion_id`), `turno:aula_asignada` (con el aula y el cupo de **esa** clase) y `turno:disponibilizado`, como en 2.9.
+
+**Confirmación de HU-C-25:** «Confirmar generación» es una acción modificada en este sprint, así que la interfaz pide antes la confirmación con los datos concretos (materia, profesor, cantidad de clases, cuántas con aula cambiada y cuántas fechas excluidas).
+
+**Plan de recorte (convención 7, paso 4):** «Resolver todas» se implementa como una opción **independiente** (`resolver_automaticamente`), de modo que se pueda recortar sin tocar el cambio de aula por fecha ni la exclusión.
+
+**Cómo se cumplen los criterios:** HU-C-21 1 y 2 → vista previa y «aulas libres»; 3 → paso 5; 4 → paso 6 y `fechas_excluidas`; 5 → paso 3; 6 → paso 4; 7 → confirmación; 8 → respuesta `201`.
+
 ---
 
 ### 2.10. Cancelar un turno (HU-C-05) — NUEVA en Revisión 5
+
+> **Nota posterior (08/10/2026).** Sin cambios. `turnos:cancelar` sigue siendo exclusivo de Mesa de Entrada. La cancelación que hace el Gerente desde la baja de un profesor (HU-D-08) usa una función aparte con el mismo núcleo (2.21.2).
+
+> **Revisión 6.** Ruta, respuesta y `code` sin cambios. El paso 1 suma `marcarVencidas` después del bloqueo. El paso 4 sigue sin tocar las inscripciones: las vigentes siguen vigentes y sus reservas dejan de vencer (2.18.6). Los textos de pantalla salen del archivo central de HU-C-23 (HU-C-19 cambia «turno» por «clase»). La cancelación de un turno propio por el alumno (HU-C-14) está en 2.19 y la anulación o corrección de pagos (HU-I-06) existe desde el Sprint 3: la advertencia de N-3 («no se reembolsan automáticamente») se conserva.
+
 
 **Ruta:** `POST /api/turnos/[id]/cancelacion` (sin body)
 **Server Action equivalente:** — (no implementada: `src/server/turnos/actions.ts` no existe y el frontend llama directamente al Route Handler, ver Convenciones generales; nombre previsto `cancelarTurnoAction()`, a confirmar contra el código)
@@ -905,6 +1059,11 @@ export const GenerarTurnosSchema = z.object({
 ---
 
 ### 2.11. Reprogramar un turno (HU-C-06) — NUEVA en Revisión 5
+
+> **Nota posterior (08/10/2026).** Sin cambios de contrato. El bloqueo suma al profesor y se relee que siga activo (HU-D-08, 2.21.3). Cambiar el profesor de una clase confirmada sigue fuera de esta ruta: lo hace `cambiarProfesorDeTurno` (2.21.2).
+
+> **Revisión 6.** Ruta, cuerpo, respuesta y `code` sin cambios. Antes de cambiar fecha u hora se llama a `marcarVencidas` con el vencimiento anterior y, después, a `recalcularVencimientos` (2.16.6 y 2.17.3). El paso 4 evalúa a «cada alumno inscripto» = inscripciones vigentes.
+
 
 **Ruta:** `PATCH /api/turnos/[id]/reprogramacion`
 **Server Action equivalente:** — (no implementada: `src/server/turnos/actions.ts` no existe y el frontend llama directamente al Route Handler, ver Convenciones generales; nombre previsto `reprogramarTurnoAction()`, a confirmar contra el código)
@@ -995,11 +1154,17 @@ export const ActualizarPrioridadSchema = z.object({ prioridad: z.enum(PRIORIDADE
 
 ### 2.14. Autoservicio del alumno: solicitar y consultar turnos propios (HU-C-12, HU-C-13) — NUEVA en Revisión 5
 
+> **Revisión 6.** 2.14.1 y 2.14.2 conservan su contrato y se extienden con 2.17 (resumen, reserva y estado de pago). El «Fuera de alcance: que el alumno cancele o cambie su inscripción» queda cubierto por 2.19 (cancelar); cambiar de clase sigue fuera de alcance.
+
+
 **Aclaración de alcance (propuesta de orden de flujo, §4):** el alumno **no crea turnos**. Se **inscribe en un turno ya existente**, elige Materia → Profesor → Horario entre las combinaciones que ya existen, y **no elige aula** (ya viene con el turno).
 
 **Identidad:** el alumno se resuelve siempre a partir de la sesión: `obtenerAlumnoDeUsuario(session.sub)` (Módulo B, 2.8). Nunca se acepta un `alumno_id` del cliente. Si la cuenta no tiene ficha vinculada: `403 SIN_PERMISO`.
 
 #### 2.14.1. Mis turnos (HU-C-13)
+
+> **Revisión 6.** Cada ítem suma el objeto `inscripcion` (situación de pago, vencimiento, precio y si se puede cancelar) y se listan también las inscripciones finalizadas, una tarjeta por clase (2.17.4). Los campos, los parámetros, la paginación y `totales` de Sprint 2 no cambian.
+
 
 **Ruta:** `GET /api/turnos/propios?vista=proximos|anteriores&pagina=`
 **Server Action equivalente:** — (solo Route Handler)
@@ -1032,6 +1197,9 @@ export const MisTurnosQuerySchema = z.object({
 ---
 
 #### 2.14.2. Solicitar turno (HU-C-12)
+
+> **Revisión 6.** «Inscribirme» pasa por el resumen de 2.17.1; el `POST` conserva su contrato y deja la inscripción como reserva con plazo desde HU-C-22 (2.17.2). La leyenda «El pago se abona en el centro» de abajo se conserva hasta que se mergee HU-C-22 y después la reemplaza la de la reserva. «Inscripción abierta» se decide con `ocupacion` (2.17.2). Se suman `409 RESERVA_PREVIA_SIN_PAGO` y `422 MATERIA_SIN_TARIFA`. Del «Fuera de alcance» de más abajo, la frase sobre el cobro en línea queda superada: el backlog sacó el pago en línea (el centro cobra en el mostrador) y la tarifa por materia existe desde HU-L-06.
+
 
 **Pantalla:** "Solicitar turno", **página completa propia** (revisión del 28/09 del mapa de pantallas), accedida desde el botón de "Mis turnos". Tres columnas (Materia / Profesor / Horario), resumen al pie y botón "Inscribirme".
 **Server Action equivalente:** — (no implementada: `src/server/turnos/actions.ts` no existe y el frontend llama directamente al Route Handler, ver Convenciones generales; nombre previsto `inscribirseEnTurnoAction()`, a confirmar contra el código)
@@ -1074,6 +1242,11 @@ export const MisTurnosQuerySchema = z.object({
 
 ### 2.15. Servicios públicos del módulo — NUEVA en Revisión 5
 
+> **Nota posterior (08/10/2026).** La tabla de abajo **no cambia**. Las funciones que piden HU-B-07 y HU-D-08 se declaran en 2.21.
+
+> **Revisión 6.** Todas las funciones conservan **firma y forma del resultado**; cambia el origen del dato: cuentan solo inscripciones vigentes (2.16.6) y los estados `DISPONIBLE`/`COMPLETO` se deciden con `ocupacion` (2.16.5). `obtenerAlumnosInscriptosDeTurno` devuelve ids de **alumno** con inscripción vigente (no ids de `TurnoAlumno`, que ahora tiene id propio). En `ajustarCuposPorCapacidadDeAula`, una reserva vencida sin marcar no genera conflicto de capacidad.
+
+
 Conforme a la Regla N.° 3: se declaran en `src/server/turnos/turno.publico.ts`. Otros módulos las invocan **en lugar de consultar** `turnos`, `turno_alumno` ni `reservas_turno`. No son endpoints ni exigen un permiso `turnos:*`: el control de acceso lo hace la ruta del módulo consumidor. El parámetro opcional `db` acepta un `Prisma.TransactionClient` del llamador y, si se omite, usa `prisma`; la emisión posterior al COMMIT se invoca sin el `tx` ya cerrado. **`turno.publico.ts` no importa nada de los demás módulos** (evita el ciclo con `turno.disponibilidad.ts`, ver "Convenciones generales").
 
 | Función | Devuelve | Consumidores |
@@ -1113,11 +1286,560 @@ Conforme a la Regla N.° 3: se declaran en `src/server/turnos/turno.publico.ts`.
 
 ---
 
+### 2.16. Modelo de inscripción del Sprint 3: vigencia, estado de pago y precio (convención 8 a) — NUEVA en Revisión 6
+
+> **Compatibilidad (`PR-0.md` §1.1).** Esta sección **no cambia ningún endpoint de los Sprints 1 y 2**: cambia qué se guarda por dentro cuando alguien se inscribe, sale de una clase o la cancela. Lo que ve el cliente de las operaciones de 2.2, 2.4, 2.5, 2.10, 2.11, 2.14 y 2.15 (ruta, cuerpo, forma de la respuesta, códigos HTTP y `code` de error) **se conserva**; las únicas diferencias son las de la tabla de 2.16.6, y cada una la manda el backlog.
+
+#### 2.16.1. Qué es una inscripción
+
+Hoy la inscripción es `TurnoAlumno`: clave primaria compuesta `(turnoId, alumnoId)`, sin estado ni identificador propio (`schema.prisma`). El backlog (convención 8 a y HU-C-22, criterio 3) exige que una inscripción **no se borre** y que un alumno pueda tener, en la misma clase, una inscripción finalizada y otra vigente. Por eso `TurnoAlumno` **se extiende** (decidido en `PR-0.md` §2.0): mismo modelo, misma tabla `turno_alumno` y misma relación `Turno.alumnos`, ahora con **identificador propio** y con las columnas de abajo. No se crea un modelo nuevo, así que los `include`/`select` de `alumnos` que ya existen siguen compilando y solo necesitan el filtro de vigencia (2.16.3).
+
+Los nombres de abajo son **conceptuales**: los nombres reales de las columnas los fija el PR 0 con el sufijo de entidad del schema. Esta spec no los redefine.
+
+| Dato | Qué guarda | Quién lo escribe |
+|---|---|---|
+| `vigencia` | Si la inscripción sigue en pie: `VIGENTE`, `CANCELADA_ALUMNO`, `RESERVA_VENCIDA`, `BAJA_ALUMNO`, `QUITADA_CENTRO` | `crearInscripcion` y `finalizarInscripcion` |
+| `estadoPago` | Solo tiene sentido si la inscripción es `VIGENTE`: `RESERVADA`, `PAGADA`, `PAGO_SIN_REGISTRAR`. Al finalizar la inscripción se conserva **congelado** con su último valor (lo lee la regla de re-reserva, 2.17) | `crearInscripcion`, `marcarPagada` y `recalcularEstadoPago` |
+| `reservadaEl` | Momento de la reserva o de la inscripción | `crearInscripcion` |
+| `inicioPlazo` | Momento desde el que corre el plazo vigente. Se guarda **aparte** de `reservadaEl` porque una anulación de pago lo reinicia (HU-C-24, criterio 5) | `crearInscripcion`, `recalcularEstadoPago` |
+| `venceBaseEl` | `inicioPlazo` + plazo de pago aplicado al iniciar ese plazo, **sin** el tope del inicio de la clase. `null` si nunca estuvo `RESERVADA` o si pasó a `PAGADA`; al finalizar la inscripción se conserva congelado | ídem y `marcarPagada` |
+| `venceEl` | Vencimiento efectivo: el menor entre `venceBaseEl` y el inicio de la clase. Mismo criterio de `null` y de congelado que `venceBaseEl` | `crearInscripcion`, `recalcularVencimientos`, `recalcularEstadoPago`, `marcarPagada` |
+| `precio` | Entero en pesos: tarifa por hora de la materia × duración / 60, **congelado** al crear la inscripción (HU-L-06, criterios 3 a 5) | `crearInscripcion` |
+| `reabiertaPorAnulacion` | Marca de la reserva reabierta por la anulación de un pago (HU-C-24, criterio 5) | `recalcularEstadoPago` |
+| `finalizadaEl`, `finalizadaPor` | Fecha y usuario (o «Proceso automático») del cambio de vigencia | `finalizarInscripcion`, `marcarVencidas` |
+
+Cada transición (vigencia y estado de pago anteriores y nuevos, actor y fecha) queda además en el **historial de estados de la inscripción** que crea el PR 0 (Regla N.° 2, `PR-0.md` §2.1 y §2.10). El actor es un usuario o el «Proceso automático» (`actorTipo`).
+
+#### 2.16.2. Transiciones permitidas
+
+| Desde | Hacia | Lo dispara | HU |
+|---|---|---|---|
+| (no existe) | `VIGENTE` · `RESERVADA` | El alumno reserva desde «Solicitar clase» (2.17) | HU-C-22 |
+| (no existe) | `VIGENTE` · `RESERVADA` | Mesa de entrada inscribe y no se paga en el momento (2.18) | HU-C-24, criterio 3 |
+| (no existe) | `VIGENTE` · `PAGADA` | Inscripción al confirmar el pago (excepción de HU-C-24, criterio 3) | HU-I-10 |
+| (no existe) | `VIGENTE` · `PAGO_SIN_REGISTRAR` | **Interino**: inscripción sin plazo, como hoy (2.16.4) | — |
+| `VIGENTE` · `RESERVADA` | `VIGENTE` · `PAGADA` | Se registra un pago | HU-I-10 |
+| `VIGENTE` · `PAGO_SIN_REGISTRAR` | `VIGENTE` · `PAGADA` | Se registra un pago | HU-I-10, HU-I-01 |
+| `VIGENTE` · `PAGADA` | `VIGENTE` · `RESERVADA` (plazo nuevo) | Se anula el último pago y la clase no empezó (2.18) | HU-C-24, criterio 5 |
+| `VIGENTE` · `PAGADA` | `VIGENTE` · `PAGO_SIN_REGISTRAR` | Se anula el último pago y la clase ya empezó o está cancelada | HU-C-24, criterio 5 |
+| `VIGENTE` | `RESERVA_VENCIDA` | Venció una reserva sin pago (proceso o vencimiento al operar) | HU-C-24 |
+| `VIGENTE` | `CANCELADA_ALUMNO` | El alumno cancela su inscripción (2.19) | HU-C-14 |
+| `VIGENTE` | `QUITADA_CENTRO` | Mesa de entrada quita al alumno (2.5, 2.2, 2.20) | HU-C-04, HU-C-26 |
+| `VIGENTE` | `BAJA_ALUMNO` | Se desactiva al alumno (`spec_modulo_B.md`) | HU-B-07 |
+
+Una inscripción con `vigencia` distinta de `VIGENTE` **no vuelve a ser vigente**: si el alumno vuelve a inscribirse, se crea otra fila. `CANCELADA_ALUMNO`, `RESERVA_VENCIDA`, `BAJA_ALUMNO` y `QUITADA_CENTRO` son terminales. Cada pago se vincula a **su** inscripción (`inscripcionId`, `PR-0.md` §2.3): los pagos de una inscripción cancelada no cuentan para una inscripción nueva del mismo alumno en la misma clase, que nace sin pagos (HU-C-22, criterio 3).
+
+#### 2.16.3. Quién cuenta como inscripto: un solo servicio
+
+«Vigente a un momento dado» es un **único servicio público del módulo C** (`PR-0.md` §2.2) y lo usan los módulos C, E, H, I y J. Esta spec no lo reimplementa: lo **usa**. Dentro del módulo C, todo lo que hoy cuenta o recorre `TurnoAlumno` pasa a usarlo:
+
+- `esVigenteEn(inscripcion, momento)`: `vigencia = VIGENTE` y, si está `RESERVADA` en una clase `DISPONIBLE`/`COMPLETO`, `momento < venceEl`. Una reserva vence cuando el momento es **igual o posterior** a `venceEl`. En una clase `CANCELADO` las reservas dejan de vencer.
+- `inscripcionesVigentes(db, turnoId, momento)` y `ocupacion(db, turnoId, momento)`: para el cupo, la superposición de horarios y el estado Disponible/Completa que se muestra.
+- `sqlVigenteEn(alias, momento)`: el fragmento equivalente para las consultas crudas (por ejemplo, los `COUNT` de `turno.publico.ts` y el promedio de ocupación de 2.15).
+- `marcarVencidas(tx, turnoId)` y `marcarVencidasDelAlumno(tx, alumnoId, { momento, clases })`: marcan como `RESERVA_VENCIDA` las reservas ya vencidas, con la misma condición atómica que el proceso programado (Regla N.° 7).
+
+**Regla:** ninguna función del módulo C lee `vigencia`, `estadoPago` ni `venceEl` por su cuenta para decidir si alguien cuenta como inscripto. Si la regla de vigencia cambia, cambia en un solo lugar.
+
+#### 2.16.4. Escrituras: `crearInscripcion` y `finalizarInscripcion`
+
+**Toda escritura sobre inscripciones pasa por el servicio de inscripción** (`PR-0.md` §2.13, `inscripcion.service.ts` y fachada `inscripcion.publico.ts`). Las rutas y servicios de 2.2, 2.5 y 2.14 dejan de hacer `create`, `createMany`, `delete` o `deleteMany` sobre `TurnoAlumno`.
+
+| Operación de este módulo | Servicio | `origen` | `conReserva` hoy (interino, `PR-0.md` §2.15) | `conReserva` desde |
+|---|---|---|---|---|
+| «Solicitar clase» del alumno (2.14.2, 2.17) | `crearInscripcion` | `ALUMNO` (evento: `AUTOSERVICIO`) | `false` → `PAGO_SIN_REGISTRAR`, sin plazo, como hoy | HU-C-22: `true` |
+| Agregar un alumno desde mesa de entrada (2.5) | `crearInscripcion` | `CENTRO` (evento: `MESA_ENTRADA`) | `false` | HU-C-24: `true` |
+| Confirmar la clase con sus alumnos (2.2, paso «Agregar alumnos» del wizard de HU-C-18) | `crearInscripcion` por alumno | `CENTRO` | `false` | HU-C-24: `true` |
+| Inscribir al confirmar el pago | `crearInscripcion` | `PAGO` | — | HU-I-10 |
+| Quitar un alumno (2.5) o salir del conjunto en 2.2 | `finalizarInscripcion` → `QUITADA_CENTRO` | — | — | — |
+| Cancelar la propia inscripción (2.19) | `finalizarInscripcion` → `CANCELADA_ALUMNO` | — | — | HU-C-14 |
+
+Mapeo de nombres: el campo `origen` del payload de los eventos de 2.15/§4 conserva sus valores `MESA_ENTRADA` y `AUTOSERVICIO`; el parámetro `origen` del servicio del PR 0 usa `CENTRO` y `ALUMNO`. El valor `PAGO` es nuevo y se agrega al evento.
+
+**Interino.** Entre el merge del PR 0 y el de cada HU el comportamiento visible es el de hoy (`PR-0.md` §2.15): la inscripción queda `PAGO_SIN_REGISTRAR`, sin plazo, y ninguna pantalla muestra reservas. HU-C-22 pasa a `conReserva = true` la inscripción del alumno y HU-C-24 la del centro. Cada HU reemplaza solo la parte interina que le corresponde y lo dice en su PR.
+
+#### 2.16.5. Estado guardado y estado mostrado de la clase
+
+`Turno.estado` (`DISPONIBLE`/`COMPLETO`) **se sigue guardando y manteniendo** (`crearInscripcion`, `finalizarInscripcion`, `marcarVencidas` y `marcarVencidasDelAlumno` lo recalculan en la misma transacción, con la clase bloqueada). Pero el valor guardado puede quedar viejo por el vencimiento perezoso (una reserva vence a una hora exacta aunque nadie opere sobre la clase). Por eso **ninguna lectura decide con él** (HU-C-24, criterio 2):
+
+- Las lecturas que **ofrecen o muestran** clases (opciones de «Solicitar clase», listado y detalle de 2.4, «Mis clases», calendario y servicios públicos de 2.15) filtran `estadoTurno IN ("DISPONIBLE","COMPLETO")` y deciden Disponible/Completa con `ocupacion(db, turnoId, ahora())`.
+- Una clase guardada como `COMPLETO` que solo está llena por reservas vencidas se **ofrece y se muestra como Disponible**.
+- El campo `estado` de las respuestas de 2.4, 2.5, 2.14 y 2.15 conserva su nombre y sus valores; lo único que cambia es de dónde sale. `PENDIENTE` y `CANCELADO` se muestran tal cual.
+- **Un `PENDIENTE` nunca cambia de estado por una inscripción.** `crearInscripcion` y `finalizarInscripcion` solo recalculan `DISPONIBLE ⇄ COMPLETO` en clases ya confirmadas. La salida de `PENDIENTE` sigue siendo exclusiva de 2.2 paso 8 (y de la generación masiva, 2.9) — ver 3.1. *(Pedido al PR 0, ver Revisión 6.)*
+
+#### 2.16.6. Qué cambia por dentro en cada operación existente
+
+Ninguna fila de esta tabla cambia ruta, cuerpo, respuesta ni `code` de error. Las columnas «Por dentro» y «Observable» son las únicas diferencias.
+
+| Operación | Por dentro | Observable por el cliente |
+|---|---|---|
+| **2.2** `PATCH /api/turnos/[id]/participantes`, paso 7 | El `deleteMany` + `createMany` de `TurnoAlumno` se reemplaza por una **reconciliación** del conjunto: (a) se leen las inscripciones vigentes del turno; (b) cada una cuyo alumno **no** está en `alumno_ids` pasa a `QUITADA_CENTRO` (con usuario y fecha); (c) para cada alumno de `alumno_ids` que no tiene inscripción vigente se llama a `crearInscripcion` (`origen = CENTRO`); (d) los que ya la tienen **no se tocan** (conservan su precio y sus pagos). Los pasos 4 y 5 (disponibilidad del alumno) consideran solo inscripciones **vigentes** (`sqlVigenteEn`). El resto no cambia: el cupo `alumno_ids.length <= cupoMaximoTurno`, el `alumno_ids` del evento y la transición son los de hoy. | Lo mismo que hoy. Condiciones nuevas: `422 MATERIA_SIN_TARIFA` si la materia no tiene tarifa (regla 3.12 de `spec_modulo_L.md`): no se crea ninguna inscripción y la clase sigue `PENDIENTE`; y, solo como resguardo desde HU-C-24, `409 INSCRIPCION_REQUIERE_PAGO` (2.18.3) |
+| **2.4** listado y detalle | `alumnos_inscriptos` («3/5») y la lista `alumnos` del detalle cuentan y muestran solo inscripciones **vigentes** (2.16.3). `estado` se decide con `ocupacion` (2.16.5) | Igual que hoy mientras no haya reservas vencidas ni inscripciones finalizadas |
+| **2.5** agregar, `POST /api/turnos/[id]/alumnos` | El núcleo `inscribirAlumnoEnTurno` pasa a llamar a `crearInscripcion`. Paso 1: antes de decidir `COMPLETO`/`DISPONIBLE` se llama a `marcarVencidas` y `marcarVencidasDelAlumno` (lo hace `crearInscripcion`), y se evalúa con `ocupacion`. Paso 3 (`ALUMNO_YA_ASIGNADO`): hay una inscripción **vigente** del alumno. Paso 4 (`ALUMNO_NO_DISPONIBLE`): superposición con inscripciones vigentes de otras clases, con el mismo código, el mismo literal y el mismo `{ alumno_id }`. Paso 5: la guarda de cupo cuenta vigentes (3.7). | La respuesta suma los campos opcionales `inscripcion: { id, estado_pago, vence_el, precio }`. Condiciones nuevas: `422 MATERIA_SIN_TARIFA`; y, desde HU-C-24, `409 INSCRIPCION_REQUIERE_PAGO` (2.18) |
+| **2.5** quitar, `DELETE /api/turnos/[id]/alumnos/[alumnoId]` | El paso 2 ya no hace baja física: `finalizarInscripcion(QUITADA_CENTRO)` con condición atómica sobre la vigencia. Antes llama a `marcarVencidas`. El paso 3 (`COMPLETO → DISPONIBLE`) lo hace el servicio. | `404 ALUMNO_NO_ASIGNADO` cuando el alumno **no tiene inscripción vigente** (incluye la reserva que venció y se marcó justo antes). Sin otro cambio |
+| **2.10** cancelar | Después de bloquear, `marcarVencidas` (las reservas ya vencidas se marcan con su vencimiento real). Las demás inscripciones vigentes **no se tocan** y dejan de vencer (HU-C-24, criterio 6). El `alumno_ids` del evento `turno:cancelado` son las vigentes | Igual |
+| **2.11** reprogramar | Antes de cambiar fecha u hora, `marcarVencidas` con el vencimiento anterior (para no reactivar una reserva vencida). Después, `recalcularVencimientos`: `venceEl = min(venceBaseEl, nuevoInicio)` para las que siguen vigentes, sin aplicar el plazo configurado al momento de reprogramar (HU-C-22, criterio 2). Como el trigger regenera las reservas de los alumnos de la clase en el nuevo horario, también se llama a `marcarVencidasDelAlumno` para cada alumno de la clase (una reserva vencida sin marcar de otra clase superpuesta no puede generar un conflicto falso). El paso 4 evalúa a «cada alumno inscripto» = vigentes | Igual |
+| **2.14.1** «Mis turnos» | Ver 2.17.4 | Campos nuevos por ítem; los de hoy no cambian |
+| **2.14.2** «Solicitar turno» | Ver 2.17 | Respuesta con campos extra; condiciones de error nuevas |
+| **2.7** búsqueda del listado (por alumno inscripto) | El filtro por la relación `alumnos` considera solo inscripciones **vigentes**: un alumno quitado o con una reserva vencida no hace aparecer la clase | Igual que hoy mientras no haya inscripciones finalizadas |
+| **2.15** servicios públicos | `bloquearTurnoParaOperacion`: `alumno_ids` y `vencido` conservan su forma; los ids son los de alumnos con inscripción **vigente**. `obtenerAlumnosInscriptosDeTurno`: `string[]` de ids de alumno **vigentes**. `ajustarCuposPorCapacidadDeAula`: cuenta vigentes. `listarTurnosFuturosDeProfesorPorMateria`, `listarTurnosParaCalendario` y `promediarOcupacionTurnosPorMes`: cuentan vigentes (con `sqlVigenteEn` en las consultas crudas) y filtran el estado con `ocupacion` | **Firma y forma del resultado sin cambios** (`PR-0.md` §1.1, regla 2) |
+
+#### 2.16.7. Errores
+
+- **Se conservan los `code` de hoy** para todas las condiciones que ya existían: `TURNO_NO_ENCONTRADO`, `TURNO_PENDIENTE`, `TURNO_CANCELADO`, `TURNO_VENCIDO`, `CUPO_INSUFICIENTE`, `ALUMNO_NO_ENCONTRADO`, `ALUMNO_INACTIVO`, `ALUMNO_YA_ASIGNADO`, `ALUMNO_NO_DISPONIBLE` (con `{ alumno_id }`), `ALUMNO_NO_ASIGNADO`. `ErrorDeDominio` **extiende `ServiceError`** y lleva ese mismo `code` (`PR-0.md` §2.13); los Route Handlers de 2.2, 2.5 y 2.14 siguen mapeando por `error.code` **sin cambios**.
+- **El texto** de esos errores sigue siendo el literal que hoy devuelve el endpoint (por ejemplo, «El alumno ya tiene un turno agendado en ese horario»). Sale de una clave del archivo central (HU-C-23) con ese mismo literal; el único cambio de texto posterior es el de HU-C-19 («turno» → «clase»), que manda el backlog.
+- **Códigos nuevos** (solo para condiciones nuevas; `MATERIA_SIN_TARIFA` hace fallar un pedido que en Sprint 2 andaba, pero lo manda HU-L-06 criterio 5 y figura entre los cambios inevitables de `PR-0.md` §1.1): `422 MATERIA_SIN_TARIFA` (`PR-0.md` §2.4), `409 RESERVA_PREVIA_SIN_PAGO` (2.17), `409 INSCRIPCION_REQUIERE_PAGO` (2.18), `409 RESERVA_NO_PENDIENTE` (2.20), `404 INSCRIPCION_NO_ENCONTRADA`, `409 CANCELACION_FUERA_DE_PLAZO` y `409 INSCRIPCION_NO_VIGENTE` (2.19) y `409 CAJA_NO_ABIERTA` (`spec_modulo_I.md`).
+
+#### 2.16.8. Pruebas obligatorias (módulo C)
+
+1. **Los tests de Sprint 2 de 2.2, 2.5, 2.10, 2.11 y 2.14 siguen pasando.** Solo se tocan los mocks de persistencia (`prisma.turnoAlumno.*`); las aserciones de respuesta, `code` y regla se mantienen (`PR-0.md` §1.1, regla 3). Cada test que verificaba un `deleteMany` pasa a verificar el cambio de vigencia.
+2. **Quitar y volver a inscribir**: quitar a un alumno deja una fila `QUITADA_CENTRO` y permite inscribirlo de nuevo (dos filas, una vigente); el índice parcial impide dos vigentes del mismo alumno en la clase.
+3. **Cupo y superposición con reservas vencidas, sin que el proceso corra**: una clase llena solo por reservas vencidas admite una inscripción y se muestra Disponible; el alumno con una reserva vencida sin marcar puede inscribirse en otra clase superpuesta.
+4. **Un `PENDIENTE` no cambia de estado** al crear o finalizar inscripciones; sale de `PENDIENTE` solo con 2.2 paso 8.
+5. **2.2 con conjunto reemplazado**: los alumnos que se mantienen conservan su fila (mismo id, mismo precio); los que salen quedan `QUITADA_CENTRO`; los nuevos se crean.
+6. **Concurrencia con PostgreSQL real**: dos inscripciones simultáneas al último lugar (una gana, la otra `CUPO_INSUFICIENTE`); una inscripción y una cancelación de la misma clase; sin interbloqueo (orden de bloqueo canónico, 3.17).
+7. **Contrato**: las respuestas de 2.5 y 2.14.2 conservan los campos de Sprint 2 (`id`, `alumnos_inscriptos`, `estado`).
+
+---
+
+### 2.17. Resumen de la inscripción y reserva del lugar por el alumno (HU-C-20, HU-C-22) — NUEVA en Revisión 6
+
+> **Compatibilidad.** «Solicitar turno» (2.14.2) **no se reemplaza**: se extiende. `GET /api/turnos/inscripcion/opciones` y `POST /api/turnos/[id]/inscripcion` conservan ruta, parámetros, cuerpo (sin body), campos de la respuesta y `code` de error de Sprint 2. Lo nuevo es (a) un endpoint de **solo lectura** con los datos del resumen, (b) campos adicionales en la respuesta del `POST`, (c) tres condiciones de error nuevas y (d) que la inscripción queda como **reserva con plazo** (HU-C-22). Hasta que se mergee HU-C-22 rige el comportamiento interino de 2.16.4.
+
+**Pantalla:** el resumen es un paso nuevo de «Solicitar clase» (HU-C-12): al tocar «Inscribirme» ya no se inscribe, se abre el resumen con «Confirmar reserva» y «Volver» (HU-C-20, criterios 1 y 4). El mapa de pantallas es normativo para el diseño; esta spec fija los **datos** y las **reglas**. El resumen es la confirmación de HU-C-25 para esta operación (HU-C-25, criterio 3). Los textos literales (HU-C-20 criterios 2 y 3; HU-C-22 criterio 2) viven en el archivo central de textos (HU-C-23); esta spec solo indica qué dato va en cada hueco.
+
+**Identidad:** igual que 2.14: el alumno sale de la sesión con `obtenerAlumnoDeUsuario(session.sub)`; nunca se acepta un `alumno_id` del cliente.
+
+#### 2.17.1. Resumen de la clase — `GET /api/turnos/[id]/inscripcion/resumen`
+
+**Server Action equivalente:** — (solo Route Handler)
+**Servicio:** `src/server/turnos/turno.resumen-inscripcion.service.ts` → `obtenerResumenInscripcion()` (nombre del archivo a confirmar contra el código)
+**Permiso requerido:** `turnos:solicitar_propio` (rol ALUMNO)
+**Solo lectura:** no bloquea ni escribe. Es informativo: la decisión la toma el `POST` (2.17.2), que revalida todo.
+
+**Respuesta `200 OK`:**
+```json
+{
+  "data": {
+    "turno_id": "cuid",
+    "materia": { "id": "cuid", "nombre": "Física I" },
+    "profesor": { "id": "cuid", "nombre_para_mostrar": "Pérez, Ana" },
+    "fecha": "2026-10-13",
+    "hora_inicio": "16:00",
+    "hora_fin": "18:00",
+    "duracion_min": 120,
+    "aula": { "id": "cuid", "nombre": "Aula 2" },
+    "cupo": 8,
+    "lugares_disponibles": 3,
+    "precio": 24000,
+    "plazo_pago_horas": 24,
+    "vence_pago_el": "2026-10-09T15:30:00-03:00",
+    "limite_cancelacion_en_linea": "2026-10-12T16:00:00-03:00",
+    "limite_cancelacion_pasado": false
+  },
+  "error": null
+}
+```
+
+**Cómo se arma cada dato:**
+- **Materia, profesor, día, horario, duración y aula** (HU-C-20 criterio 1): los de la clase. El aula **sí** se muestra acá (HU-C-20 lo pide) aunque `opciones` (2.14.2) sigue sin devolverla (HU-C-12, criterio 1). La fecha completa («Martes 13 de octubre de 2026») la arma la interfaz en la zona horaria del centro; la API devuelve `fecha` y las horas como en 2.14.
+- **`lugares_disponibles`** = `cupo − ocupacion(db, turnoId, ahora())`: una reserva vencida sin marcar no ocupa lugar (2.16.5).
+- **`precio`** (HU-C-20 criterio 2, HU-L-06 criterio 3): `precioClase(materia, duracion_min)` = tarifa por hora × duración / 60. La tarifa se obtiene por el servicio público de Materias (`obtenerTarifasPorIds`, `spec_modulo_L.md` §2.10), no leyendo `Materia` directo (Regla N.° 3). Es el **precio que quedará congelado** al reservar.
+- **`plazo_pago_horas`** y **`vence_pago_el`** (HU-C-20 criterio 3, HU-C-22 criterio 2): el plazo vigente (`plazo_pago_horas` de `ParametroSistema`, por `parametrosVigentes()`; 24 por defecto) y `calcularVencimiento(ahora(), inicioClase, plazo).venceEl` = el menor entre *ahora + plazo* y el inicio de la clase. **Es el vencimiento si el alumno reservara en este instante**; el definitivo se informa al confirmar (P-C1).
+- **`limite_cancelacion_en_linea`** (HU-C-20 criterio 3): `inicio de la clase − cancelacion_anticipacion_horas` (24 h por defecto, `parametrosVigentes()`). **`limite_cancelacion_pasado`** = ese instante ya pasó al momento de mostrar el resumen; lo calcula el servidor para que la interfaz no compare relojes. Si es `true`, la última oración del criterio 3 se reemplaza por «Si ya pagaste, ya no vas a poder cancelar en línea; comunicate con el centro.» (texto central). El límite que se muestra es informativo: al cancelar rige el valor vigente en ese momento (HU-C-14, 2.19).
+
+**Interino (HU-C-20 antes de HU-C-22).** Hasta que se mergee HU-C-22 la inscripción queda sin plazo (2.16.4): `plazo_pago_horas` y `vence_pago_el` van `null` y la interfaz no muestra la leyenda del plazo ni la del criterio 3 (que depende del plazo y de HU-C-14, verificación diferida). El precio, los datos de la clase y los dos botones sí se muestran desde HU-C-20.
+
+**Condiciones previas** (mismos códigos que el `POST`; todas se evalúan antes de armar la respuesta):
+1. La clase existe: `404 TURNO_NO_ENCONTRADO`.
+2. Está `DISPONIBLE` o `COMPLETO` (estado decidido con `ocupacion`, 2.16.5); si no (`PENDIENTE`, `CANCELADO`): `409 TURNO_NO_DISPONIBLE` (misma traducción que el `POST`, 2.14.2).
+3. No empezó: `409 TURNO_VENCIDO`.
+4. Hay lugar: `409 CUPO_INSUFICIENTE`.
+5. El alumno está activo (`409 ALUMNO_INACTIVO`) y no tiene una inscripción vigente en la clase (`409 ALUMNO_YA_ASIGNADO`).
+6. La materia tiene tarifa: si no, `422 MATERIA_SIN_TARIFA` (P-C2).
+
+La superposición con otras clases del alumno y la regla de re-reserva (2.17.2) **no** se evalúan acá: HU-C-20 (criterio 5) y HU-C-22 (criterio 4) las ubican «al confirmar».
+
+**Errores esperados:** `403 SIN_PERMISO` (falta `turnos:solicitar_propio` o la cuenta no tiene ficha de alumno) · `404 TURNO_NO_ENCONTRADO` · `409 TURNO_NO_DISPONIBLE` · `409 TURNO_VENCIDO` · `409 CUPO_INSUFICIENTE` · `409 ALUMNO_INACTIVO` · `409 ALUMNO_YA_ASIGNADO` · `422 MATERIA_SIN_TARIFA`.
+
+#### 2.17.2. Confirmar la reserva — `POST /api/turnos/[id]/inscripcion` (HU-C-22)
+
+**Contrato de Sprint 2 sin cambios:** sin body; respuesta `200 OK` con `{ id, alumnos_inscriptos, estado }`; las condiciones y los `code` de 2.14.2 se conservan, con la misma traducción a segunda persona.
+
+**Comportamiento (dentro de la transacción de `crearInscripcion`, `origen = ALUMNO`, `conReserva = true` desde HU-C-22):**
+1. **Bloqueo** en orden canónico (2.16, 3.17): al alumno, la clase y las clases donde el alumno tiene reservas vencidas sin marcar, en una sola llamada. Después `marcarVencidasDelAlumno` y `marcarVencidas` (HU-C-24, criterio 2).
+2. **Validaciones de 2.14.2 pasos 1 a 3**, sin cambios: clase existente y `DISPONIBLE` (con `ocupacion`), no vencida, alumno activo, no inscripto, sin superposición con otra clase vigente del alumno, con cupo. *(HU-C-20 criterio 5: si algo cambió mientras el alumno miraba el resumen, se informa el motivo con estos mismos códigos y no se inscribe.)*
+3. **Tarifa**: si la materia no tiene tarifa, `422 MATERIA_SIN_TARIFA`; no se crea nada.
+4. **Regla de re-reserva (HU-C-22, criterio 4)**: si el alumno ya tuvo en esa clase una reserva que **venció** o que **canceló sin haberla pagado** (HU-C-14), responde `409 RESERVA_PREVIA_SIN_PAGO` con el mensaje «Ya tuviste una reserva sin pagar en esta clase. Para volver a inscribirte, acercate al centro y abonala en el momento.» y no inscribe. Solo puede inscribirse en el centro pagando en el momento (2.18). **No cuentan** para la regla: la cancelación de una inscripción sin reserva (`PAGO_SIN_REGISTRAR`, anterior a esta historia), las inscripciones `QUITADA_CENTRO` o `BAJA_ALUMNO`, las reservas que el alumno **había pagado** (el `estadoPago` congelado es `PAGADA`) ni una reserva **reabierta por anulación** que después venció (HU-C-24, criterio 5). La aplica `crearInscripcion` (`origen = ALUMNO`, con reserva) sobre las filas anteriores del par (alumno, clase); la misma regla está disponible como consulta en `exigeInscripcionConPago` (`PR-0.md` §2.13). El servidor la valida al confirmar, no en la interfaz.
+5. **Alta de la reserva**: `crearInscripcion` guarda `vigencia = VIGENTE`, `estadoPago = RESERVADA`, `reservadaEl = inicioPlazo = ahora()`, `venceBaseEl = ahora() + plazo_pago_horas`, `venceEl = min(venceBaseEl, inicio de la clase)` y el **precio congelado** (HU-C-22 criterio 6). Un cambio posterior del plazo o de la tarifa **no** modifica una reserva ya hecha. La reserva ocupa lugar y cuenta para la superposición desde ese momento.
+6. Recalcula `Turno.estado` (`DISPONIBLE → COMPLETO` si se llenó, 2.16.5) y, después del `COMMIT`, el servicio registra el historial de estados y se emite `turno:alumno_agregado` con `origen: "AUTOSERVICIO"` (+ `turno:completado` si hubo transición), como hoy.
+
+**Respuesta `200 OK`** (campos de Sprint 2 + campos nuevos opcionales):
+```json
+{ "data": { "id": "cuid", "alumnos_inscriptos": "4/5", "estado": "DISPONIBLE",
+            "inscripcion": { "id": "cuid", "estado_pago": "RESERVADA", "vence_el": "2026-10-09T15:31:00-03:00", "precio": 24000 } },
+  "error": null }
+```
+La interfaz informa «Reservaste tu lugar. Acercate al centro a pagar antes del <día, fecha y hora>. Si no, la reserva se cancela sola.» (HU-C-22 criterio 2) con el `vence_el` **definitivo** de esta respuesta. Esa leyenda **reemplaza** al aviso «El pago se abona en el centro» de Sprint 2 (HU-C-12 criterio 6) desde que se mergea HU-C-22; hasta entonces, el aviso de Sprint 2 se conserva.
+
+**Errores esperados (2.17.2):** los de 2.14.2 (`403 SIN_PERMISO`, `404 TURNO_NO_ENCONTRADO`, `409 TURNO_NO_DISPONIBLE`, `409 TURNO_VENCIDO`, `409 CUPO_INSUFICIENTE`, `409 ALUMNO_INACTIVO`, `409 ALUMNO_YA_ASIGNADO`, `409 ALUMNO_NO_DISPONIBLE`) **más** `409 RESERVA_PREVIA_SIN_PAGO` y `422 MATERIA_SIN_TARIFA`. Si el servidor rechaza al confirmar, el motivo se muestra en el mismo mensaje de confirmación y no se guarda nada (HU-C-25, criterio 6).
+
+**Opciones (`GET /api/turnos/inscripcion/opciones`): cambios de criterio, no de contrato.** «Inscripción abierta» pasa a decidirse con `ocupacion`: clase `DISPONIBLE` **o** `COMPLETO` guardada, con inicio futuro y `lugares > 0` contando solo reservas no vencidas, y el alumno sin inscripción vigente en ella (HU-C-24, criterio 2). Una clase guardada `COMPLETO` que solo está llena por reservas vencidas se ofrece. Las clases cuya materia no tiene tarifa se siguen ofreciendo; el rechazo llega en el resumen (P-C2).
+
+#### 2.17.3. Plazo de pago (HU-C-22, criterio 2)
+
+- El plazo corre **desde que se hizo la reserva**, dura `plazo_pago_horas` (24 por defecto; HU-N-01 lo hace configurable) y termina **siempre antes del inicio** de la clase: vale lo que ocurra primero.
+- Un cambio posterior del parámetro **no afecta** a las reservas ya hechas: `venceBaseEl` se guarda al iniciar el plazo.
+- **Reprogramación (2.11):** el nuevo vencimiento es el menor entre `venceBaseEl` (momento de la reserva —o de la anulación que la reabrió, 2.18— más el plazo vigente en ese momento) y el **nuevo** inicio de la clase. Una reserva reprogramada hacia **atrás** puede vencer antes; hacia adelante recupera hasta su `venceBaseEl`, nunca más.
+- La validación de toda operación que depende de una reserva se hace contra `venceEl`, no contra el estado que dejó el proceso (2.18).
+
+#### 2.17.4. «Mis turnos» (2.14.1): estado de pago y precio (HU-C-22, criterios 4 y 6)
+
+**Contrato de Sprint 2 sin cambios:** `GET /api/turnos/propios?vista=&pagina=`, `MisTurnosQuerySchema`, las dos pestañas, la paginación de a 10 y `totales`. Cada ítem conserva `turno_id`, `fecha`, `hora_inicio`–`hora_fin`, `materia`, `profesor`, `aula`, `estado` y `clase_dictada`. **Se agrega** a cada ítem el objeto `inscripcion`:
+
+```json
+"inscripcion": {
+  "id": "cuid",
+  "situacion": "RESERVADA",
+  "vence_el": "2026-10-09T15:31:00-03:00",
+  "precio": 24000,
+  "cancelacion": "PERMITIDA"
+}
+```
+
+- **`situacion`** es el estado **para mostrar** de la inscripción (no es `estado_pago` de 2.17.2: combina vigencia, estado de pago, vencimiento y estado de la clase). La calcula el servidor con `esVigenteEn` y el estado de la clase; los textos están en el archivo central):
+
+| `situacion` | Cuándo | Texto de la interfaz (HU-C-22 criterio 4) |
+|---|---|---|
+| `RESERVADA` | Vigente, `estadoPago = RESERVADA`, no vencida, clase `DISPONIBLE`/`COMPLETO` que no empezó | «Reservada · pagar antes del <fecha y hora>» (usa `vence_el`) |
+| `PAGADA` | Vigente con `estadoPago = PAGADA` | «Pagada» |
+| `PAGO_PENDIENTE` | Vigente en `PAGO_SIN_REGISTRAR`, clase `DISPONIBLE`/`COMPLETO` que no empezó | «Pago pendiente · se abona en el centro» |
+| `PAGO_SIN_REGISTRAR` | Vigente sin pago ni reserva vigente cuando la clase ya empezó o está `CANCELADO` (por ejemplo, una inscripción anterior a HU-C-22 o una cuyo último pago se anuló) | «Pago sin registrar»: estado informativo, **sin invitación a pagar ni acción de cobro** |
+| `RESERVA_VENCIDA` | `RESERVA_VENCIDA`, o una reserva ya vencida que el proceso todavía no marcó | «Reserva vencida» |
+| `CANCELADA_ALUMNO` | El alumno canceló (HU-C-14) | «Cancelaste tu inscripción» |
+| `QUITADA_CENTRO` | Mesa de entrada la quitó | «Inscripción quitada por el centro» |
+| `BAJA_ALUMNO` | Se dio de baja al alumno (HU-B-07) | «Inscripción dada de baja por el centro» |
+
+- **`precio`**: el guardado en la inscripción (HU-C-22 criterio 6), no el de la tarifa actual. «Mis turnos» lo muestra en cada inscripción **vigente**.
+- **`cancelacion`**: la calcula el servidor con la misma función que usa el `POST` de 2.19 (una sola regla): `PERMITIDA` (se ofrece «Cancelar mi inscripción»), `FUERA_DE_PLAZO` (inscripción vigente en una clase que no empezó, pero ya pasó la anticipación mínima: la acción se muestra deshabilitada con la leyenda «Ya no podés cancelar en línea. Comunicate con el centro») o `NO_APLICA` (todo lo demás: la acción no aparece).
+- **Qué ítems se listan:** una tarjeta **por clase** (el alumno no ve dos tarjetas de la misma clase): la inscripción vigente si la hay y, si no, la más reciente. Las clases `PENDIENTE` no se listan (no tienen inscripciones fuera de la transacción de 2.2, 3.2). El resto de la regla de 2.14.1 (cualquier otro estado de la clase, incluido `CANCELADO`; pestañas por fecha y hora de inicio) no cambia. Los totales de las pestañas cuentan tarjetas (P-C4).
+- Una clase `CANCELADO` con una reserva pendiente (las reservas de una clase cancelada dejan de vencer, 2.18.6) se muestra como clase cancelada y su `situacion` es `PAGO_SIN_REGISTRAR`: informativo, sin invitación a pagar ni acción de cobro (P-C3).
+
+#### 2.17.5. Cómo se cumplen los criterios
+
+| Criterio | Cómo se cumple |
+|---|---|
+| HU-C-20, 1 | 2.17.1: materia, profesor, día y fecha completa, inicio y fin, duración, aula y lugares disponibles |
+| HU-C-20, 2 | 2.17.1: `precio` = `precioClase`; leyenda de precio fijo en el archivo central |
+| HU-C-20, 3 | 2.17.1: `vence_pago_el`, `limite_cancelacion_en_linea` y `limite_cancelacion_pasado`. Verificación diferida: la regla de cancelación (2.19) y el valor configurable (HU-N-01) |
+| HU-C-20, 4 | Interfaz: «Confirmar reserva» llama al `POST` (2.17.2); «Volver» regresa sin perder lo elegido |
+| HU-C-20, 5 | 2.17.2 pasos 1 y 2: se revalidan cupo y superposición bajo bloqueo; el motivo se informa y no se inscribe |
+| HU-C-22, 1 | 2.17.2 paso 5: inscripción `RESERVADA`, ocupa lugar y cuenta para la superposición |
+| HU-C-22, 2 | 2.17.3 y 2.17.2: plazo, vencimiento, mensajes y reprogramación |
+| HU-C-22, 3 | 2.16.2 (`PAGADA` ⇔ al menos un pago no anulado: `PR-0.md` §2.1 y su prueba; los pagos de una inscripción cancelada no cuentan para la nueva) y 2.16.6 (quitar no borra, deja fecha y usuario y no impide volver a inscribir). Verificación diferida: HU-I-10 |
+| HU-C-22, 4 | 2.17.4 (etiquetas) y 2.17.2 paso 4 (re-reserva). Verificación diferida: HU-C-24, HU-C-14 y HU-B-07 |
+| HU-C-22, 5 | 2.19: una reserva sin pagar se cancela hasta su vencimiento, sin el límite de anticipación |
+| HU-C-22, 6 | 2.17.2 paso 5 (precio congelado) y 2.17.4 (`precio` en «Mis turnos») |
+
+---
+
+### 2.18. Vencimiento de reservas, inscripción desde el centro y reservas en el detalle de la clase (HU-C-24) — NUEVA en Revisión 6
+
+> **Compatibilidad.** Esta sección agrega un proceso programado, validaciones de vencimiento dentro de operaciones que ya existen y dos cambios que el backlog pide expresamente sobre HU-C-04 y HU-C-18 («hasta ahora inscribían sin plazo de pago»). **No cambia ruta, cuerpo ni `code` de error de 2.2, 2.5, 2.10 ni 2.11**; las respuestas solo suman campos opcionales. Hasta que se mergee HU-C-24 la inscripción desde el centro sigue siendo `PAGO_SIN_REGISTRAR` sin plazo (2.16.4) y el vencimiento ocurre solo al operar (`marcarVencidas`).
+
+#### 2.18.1. Vencimiento automático (criterio 1)
+
+- **Qué hace:** una reserva sin pago (`vigencia = VIGENTE`, `estadoPago = RESERVADA`) cuya `venceEl` ya pasó se cancela: queda `RESERVA_VENCIDA`, se libera el lugar (una clase `COMPLETO` vuelve a `DISPONIBLE`) y **la inscripción no se borra**. Se registra como fecha de la vencida el **vencimiento** (`venceEl`), no el momento en que se marcó, y como actor, «Proceso automático» (`actorTipo = PROCESO_AUTOMATICO`). Se ve en el historial de clases del alumno (`spec_modulo_E.md`, HU-E-02) y en la serie «Reservas vencidas» de HU-H-10.
+- **Servicio:** `src/server/turnos/reserva.vencimiento.service.ts` → `vencerReservas(momento = ahora())`. Lo implementa HU-C-24 sobre `marcarVencidas` del PR 0 (`PR-0.md` §2.2): no reimplementa la condición de vencimiento.
+  1. Obtiene, con la lectura del PR 0 `clasesConReservasVencidas(db, momento)` (sin bloquear, ordenadas por id), las clases `DISPONIBLE`/`COMPLETO` con al menos una reserva vencida a `momento`. Esa lectura aplica la regla de `esVigenteEn`; el proceso no escribe la condición de vencimiento por su cuenta.
+  2. Procesa **una clase por transacción** (`transaccion`): bloquea la clase con `bloquear({ clases: [id] })` y llama a `marcarVencidas(tx, id)`, que actualiza con la condición atómica `vigencia = VIGENTE AND estadoPago = RESERVADA AND venceEl <= momento` (Regla N.° 7) y recalcula `Turno.estado`. Como cada transacción toma una sola clase, el proceso no puede interbloquearse con las operaciones de los usuarios (orden canónico, 3.17).
+  3. Si una clase falla, registra el error y sigue con las demás; la siguiente corrida la reintenta.
+- **Idempotente:** una reserva ya vencida no se vuelve a procesar ni se cancela dos veces (la condición atómica no la alcanza).
+- **No toca:** clases `CANCELADO` (en una clase cancelada las reservas dejan de vencer, criterio 6), clases `PENDIENTE`, reservas pagadas ni ningún pago.
+- **Zona horaria:** todas las comparaciones usan `ahora()` y los instantes guardados; las fechas y horas que se muestran se calculan en `America/Argentina/Buenos_Aires` (`PR-0.md` §2.2).
+- **Cómo se dispara:** cada 5 minutos en el entorno reproducible de demostración, que puede ser local y no requiere despliegue público (criterio 1, alineado con el PR 0). El documento de developers fija el mecanismo y cómo reproducirlo (por ejemplo, un programador local que llama al endpoint de abajo). Esta spec fija el contrato del endpoint.
+
+**Ruta:** `POST /api/procesos/vencer-reservas` (sin body; ruta a confirmar contra el código)
+**Autenticación:** **sin sesión de usuario.** Exige `Authorization: Bearer <CRON_SECRET>`, con el secreto leído de la variable de entorno `CRON_SECRET` (Regla N.° 9) y comparado en tiempo constante. Sin el secreto o con uno distinto: `401` sin ejecutar nada ni revelar por qué. **Es la única excepción documentada a la Regla N.° 10** (`PR-0.md` §2.10): la ruta no usa `withPermission`.
+**Permiso:** ninguno. **Trazabilidad:** cada vencimiento queda en el historial de estados de la inscripción con el actor «Proceso automático» (Regla N.° 2). No se escribe `eventos_turno`: su columna `usuarioId` es obligatoria y el proceso no es un usuario.
+
+**Respuesta `200 OK`:**
+```json
+{ "data": { "reservas_vencidas": 3, "clases_afectadas": 2, "ejecutado_el": "2026-10-09T15:35:00-03:00" }, "error": null }
+```
+Una corrida sin nada que vencer responde `200` con ceros.
+
+#### 2.18.2. Validación por fecha de vencimiento (criterio 2)
+
+Toda operación que **depende de una reserva** compara contra `venceEl`, no contra el estado que dejó el proceso. Una reserva vencida que el proceso todavía no marcó se trata como vencida:
+
+| Operación | Dónde | Qué hace antes de decidir |
+|---|---|---|
+| Inscribir (alumno) | 2.14.2, 2.17.2 | `marcarVencidasDelAlumno` + `marcarVencidas` |
+| Inscribir (mesa de entrada) | 2.5 agregar, 2.2 | ídem |
+| Quitar a un alumno | 2.5 quitar, 2.20 | `marcarVencidas` |
+| Cancelar la propia inscripción | 2.19 | `marcarVencidas` |
+| Cancelar la clase | 2.10 | `marcarVencidas` (después las demás reservas dejan de vencer) |
+| Reprogramar la clase | 2.11 | `marcarVencidas` con el vencimiento anterior, `marcarVencidasDelAlumno` por cada alumno de la clase y, después, `recalcularVencimientos` |
+| Registrar un pago | `spec_modulo_I.md` | `marcarVencidas`; una reserva vencida no se cobra (mensaje de HU-I-10: «La reserva venció. Inscribí al alumno de nuevo si todavía hay cupo.») |
+| Desactivar al alumno | `spec_modulo_B.md` (HU-B-07) | `marcarVencidas` por cada clase |
+| Registrar la clase dictada | `spec_modulo_E.md` | `marcarVencidas` |
+
+Consecuencias: una reserva vencida **no cuenta** para el cupo, la superposición de horarios del alumno ni la unicidad de la inscripción; las clases con lugar que ofrece «Solicitar clase» y el estado Disponible/Completa que muestran todas las pantallas se deciden con `ocupacion` (2.16.5). **Se prueba con el proceso detenido.**
+
+#### 2.18.3. Inscripción desde el centro (criterio 3)
+
+Desde HU-C-24, `crearInscripcion(origen = CENTRO, conReserva = true)` reemplaza al comportamiento interino de 2.16.4 en 2.5 (agregar) y 2.2 (confirmar). Es un cambio de HU-C-04 y HU-C-18 que **pide el backlog**; el contrato HTTP no cambia.
+
+- **Quedan como reserva con el mismo plazo** (2.17.3), con el **precio vigente al inscribir** (HU-L-06, criterio 4).
+- **Al terminar la inscripción se ofrece «Registrar pago»**, que abre HU-I-10 con el alumno y la clase ya elegidos. La respuesta suma los campos opcionales que lo permiten:
+  - 2.5 agregar: `inscripcion: { id, estado_pago: "RESERVADA", vence_el, precio }` (como en 2.17.2) y `ofrecer_pago: true`.
+  - 2.2 confirmar: `inscripciones: [{ alumno_id, inscripcion_id, estado_pago, vence_el, precio }]`, una por alumno. Cuando se inscriben varios alumnos en la misma operación, la interfaz ofrece «Registrar pago» **junto a cada uno**, y cada uno abre HU-I-10 con ese alumno y esa clase; los que no se pagan en ese momento quedan como reserva.
+- **Excepción (re-inscripción):** si el alumno ya tuvo en esa clase una reserva vencida o cancelada sin pago (HU-C-22, criterio 4; servicio `exigeInscripcionConPago`), **no se lo inscribe**. 2.5 agregar responde **`409 INSCRIPCION_REQUIERE_PAGO`** con `{ alumno_id }` y un texto dirigido a mesa de entrada (propuesto en P-C2; el de HU-C-22 criterio 4 está dirigido al alumno), y la interfaz ofrece «Registrar pago» con la clase marcada y el estado «Se inscribe al confirmar el pago». La inscripción se crea recién al confirmar el pago en HU-I-10 (`origen = PAGO`, ya `PAGADA`), en la misma transacción y revalidando el cupo y la superposición de horarios; si se sale del flujo sin confirmar, el alumno no queda inscripto.
+  - **En 2.2 esta excepción no puede darse** (la clase es nueva y no tiene historia de inscripciones). Por seguridad, si `exigeInscripcionConPago` devolviera `true` para un alumno de `alumno_ids`, 2.2 responde el mismo `409 INSCRIPCION_REQUIERE_PAGO` con ese alumno y no confirma la clase (un alumno alcanzado por la excepción no queda inscripto junto con los demás).
+- **Confirmación (HU-C-25):** inscribir desde el centro es una operación modificada en este sprint, así que antes de guardar la interfaz pide la confirmación con los datos concretos (alumno, materia, día y hora).
+- **Mientras no esté HU-C-24**: inscripción sin plazo (`PAGO_SIN_REGISTRAR`), sin «Registrar pago» al terminar, como hoy.
+
+#### 2.18.4. Reservas pendientes en el detalle de la clase (criterio 4)
+
+`GET /api/turnos/[id]` (2.4) conserva todos sus campos. Cada elemento de `alumnos[]` suma, solo para inscripciones **vigentes** y **solo si el rol tiene `pagos:leer`** (mesa de entrada y gerente; el **Profesor no ve precios**, HU-L-06 criterio 7, así que para él se omiten ambos campos, igual que `pagos` en 2.4):
+
+```json
+{ "...": "campos de hoy", "inscripcion": { "id": "cuid", "estado_pago": "RESERVADA", "vence_el": "2026-10-09T15:31:00-03:00", "precio": 24000 }, "puede_registrar_pago": true }
+```
+
+- `inscripcion.estado_pago` ∈ `RESERVADA | PAGADA | PAGO_SIN_REGISTRAR`; `vence_el` solo si está `RESERVADA`.
+- `puede_registrar_pago` es `true` solo en una clase `DISPONIBLE`/`COMPLETO` que **todavía no empezó**, para una inscripción `RESERVADA` no vencida o `PAGO_SIN_REGISTRAR`, y para quien tiene el permiso de registrar pagos (`pagos:crear`, solo mesa de entrada: el Gerente ve el detalle en modo consulta y no cobra). Es el acceso directo a «Registrar pago» (HU-I-10, criterio 9). En una clase que ya empezó o está `CANCELADO` **no se ofrece cobro** (HU-C-22, criterio 4).
+- Mesa de entrada ve así qué alumnos tienen la reserva pendiente y cuándo vence. `acciones_habilitadas.registrar_pago` **conserva siempre** la condición de Sprint 2 (`spec_modulo_I.md` §2.4), que admite clases ya iniciadas. La pantalla de cobro y el atajo del detalle usan el campo nuevo `puede_registrar_pago` (clase que no empezó), no esa bandera.
+
+#### 2.18.5. Plazo nuevo después de una anulación (criterio 5)
+
+La ejecuta el servicio de pagos al anular un pago (`recalcularEstadoPago`, `PR-0.md` §2.13; la pantalla es HU-I-06). La regla, para quien la verifique desde este módulo:
+
+- Si se anula el **último pago no anulado** de una inscripción que **sigue vigente**, en una clase `DISPONIBLE`/`COMPLETO` que **todavía no empezó**, la inscripción vuelve a `RESERVADA` con un plazo nuevo contado **desde la anulación** (`inicioPlazo = ahora()`, `venceBaseEl = ahora() + plazo vigente`, `venceEl = min(venceBaseEl, inicio de la clase)`) y `reabiertaPorAnulacion = true`. Si ese plazo vence, se cancela como cualquier reserva vencida.
+- Si la clase ya empezó o está `CANCELADO`, la inscripción queda `PAGO_SIN_REGISTRAR` (estado informativo, sin acción de cobro); en una clase cancelada no se crea reserva.
+- Si la inscripción ya no está vigente (por ejemplo, el reintegro a un alumno que canceló), no se crea ninguna reserva.
+- **Una reserva reabierta que vence no cuenta** para la regla de re-reserva (2.17.2 paso 4): el alumno había pagado (decisión del PO, 05/10/2026).
+
+#### 2.18.6. Clases canceladas por el centro (criterio 6)
+
+El proceso (2.18.1) y la validación (2.18.2) solo vencen reservas de clases `DISPONIBLE`/`COMPLETO`. Al cancelar una clase (2.10), antes se marcan las ya vencidas; **las demás reservas dejan de vencer**, el alumno las ve como clase cancelada (2.17.4) y no cuentan como reservas vencidas (HU-C-22, criterio 4; HU-H-10, criterio 1).
+
+#### 2.18.7. Cómo se cumplen los criterios
+
+| Criterio | Cómo se cumple |
+|---|---|
+| HU-C-24, 1 | 2.18.1. Verificación diferida: HU-E-02 (historial), HU-H-10 (serie), HU-C-14 |
+| HU-C-24, 2 | 2.18.2 y 2.16.5; prueba con el proceso detenido |
+| HU-C-24, 3 | 2.18.3. El «Registrar pago» abre HU-I-10 (`spec_modulo_I.md`) |
+| HU-C-24, 4 | 2.18.4 |
+| HU-C-24, 5 | 2.18.5 (la ejecuta HU-I-06; verificación diferida) |
+| HU-C-24, 6 | 2.18.6 |
+
+---
+
+### 2.19. Cancelar mi inscripción a una clase (HU-C-14) — NUEVA en Revisión 6
+
+> **Compatibilidad.** Reemplaza el «Fuera de alcance» de 2.14.2 («que el alumno cancele o cambie su inscripción, Sprint 3»). Es una operación **nueva**: no modifica ninguna ruta existente. Depende de 2.16 (finalizar una inscripción sin borrarla) y de 2.17 («Mis turnos» ya trae el objeto `inscripcion`).
+
+**Ruta:** `POST /api/turnos/[id]/inscripcion/cancelacion` (sin body; mismo patrón que 2.10, porque no borra nada: la inscripción pasa a `CANCELADA_ALUMNO`)
+**Server Action equivalente:** — (solo Route Handler)
+**Servicio:** `src/server/turnos/turno.cancelacion-propia.service.ts` → `cancelarInscripcionPropia()` (nombre del archivo a confirmar contra el código) y la función pura `evaluarCancelacion(inscripcion, turno, ahora, parametros)`, que usan también `GET /api/turnos/propios` (campo `cancelacion`, 2.17.4) y el `POST`, para que haya una sola regla.
+**Permiso requerido:** `turnos:cancelar_propia` (rol ALUMNO; propuesto, P-C5)
+**Identidad:** el alumno sale de la sesión (`obtenerAlumnoDeUsuario`); nunca se acepta un `alumno_id` del cliente. Si la cuenta no tiene ficha vinculada: `403 SIN_PERMISO`.
+
+**Regla de cancelación (`evaluarCancelacion`, HU-C-14 criterios 1 y 2):**
+1. Solo una inscripción **vigente** en una clase `DISPONIBLE`/`COMPLETO` que **todavía no empezó** se puede cancelar. No aplica a clases `CANCELADO` ni pasadas, ni a inscripciones ya canceladas, vencidas, dadas de baja o quitadas por el centro.
+2. **Anticipación mínima:** la acción está habilitada hasta `inicio de la clase − cancelacion_anticipacion_horas` (24 h por defecto, `parametrosVigentes()`, configurable con HU-N-01; **rige el valor vigente al momento de cancelar**), inclusive. Se calcula sobre el inicio **actual** de la clase: si la clase se reprograma (2.11), el límite se recalcula solo. Pasado el límite: `cancelacion = FUERA_DE_PLAZO` y el `POST` responde `409 CANCELACION_FUERA_DE_PLAZO` («Ya no podés cancelar en línea. Comunicate con el centro»).
+3. **Excepción de la reserva sin pagar (HU-C-22, criterio 5):** una inscripción `RESERVADA` (sin pago) se puede cancelar **en cualquier momento antes de su vencimiento**, sin el límite de anticipación. Una inscripción `PAGO_SIN_REGISTRAR` o `PAGADA` **sí** está sujeta al límite.
+
+**Comportamiento (una transacción):**
+1. Leer (sin bloquear) la clase (`404 TURNO_NO_ENCONTRADO`) y la inscripción **más reciente** del par (alumno, clase) para conocer qué bloquear. Si el alumno nunca estuvo inscripto en la clase: `404 INSCRIPCION_NO_ENCONTRADA`; si la más reciente ya no es vigente: `409 INSCRIPCION_NO_VIGENTE`.
+2. `bloquear({ clases: [turnoId], inscripciones: [inscripcionId] })` en el orden canónico (3.17) y `marcarVencidas(tx, turnoId)`. **Se vuelve a leer la inscripción ya bloqueada** (HU-C-14, criterio 6).
+3. Revalidar con la inscripción bloqueada: la clase no está `CANCELADO` (`409 TURNO_CANCELADO`) ni vencida (`409 TURNO_VENCIDO`); la inscripción sigue vigente (`409 INSCRIPCION_NO_VIGENTE`, incluye la reserva que venció mientras tanto); y se cumple `evaluarCancelacion`. **Si mientras el alumno confirmaba se registró un pago, deja de regir la excepción de la reserva sin pagar y se aplica la anticipación mínima** (criterio 6): como la inscripción se evalúa bloqueada, su `estadoPago` ya es `PAGADA`.
+4. `finalizarInscripcion(tx, { inscripcionId, vigencia: CANCELADA_ALUMNO, actor: usuario })`, con condición atómica sobre la vigencia. **La inscripción no se borra**: queda con fecha y hora para el historial (HU-E-02). Se libera el lugar y deja de contar para la superposición de horarios; si la clase estaba `COMPLETO`, vuelve a `DISPONIBLE` (lo recalcula el servicio, 2.16.5). **La clase no se cancela**: sigue vigente para el resto de los alumnos.
+5. **Pagos:** no se modifican ni se reintegran desde el sistema (criterio 7). Si la inscripción estaba `PAGADA`, la respuesta lo indica (`con_pagos: true`) y la interfaz informa «Si abonaste esta clase, consultá en el centro por el reintegro». Si el centro devuelve el dinero, lo registra anulando el pago con el motivo «Reintegro» (HU-I-06, criterio 6; verificación diferida): como la inscripción ya no es vigente, esa anulación no crea ninguna reserva (2.18.5).
+6. Después del `COMMIT`: historial de estados de la inscripción (lo escribe el servicio) y el evento `turno:inscripcion_cancelada` (§4), más `turno:disponible_nuevamente` si hubo transición.
+
+**Confirmación (HU-C-25):** antes de llamar, la interfaz pide «¿Estás seguro de que querés cancelar tu inscripción a <Materia> del <fecha> a las <hora>? Esta acción no se puede deshacer.» (HU-C-14, criterio 3). Si al confirmar el servidor rechaza, el motivo se muestra en el mismo mensaje.
+
+**Respuesta `200 OK`:**
+```json
+{ "data": { "id": "cuid", "inscripcion_id": "cuid", "vigencia": "CANCELADA_ALUMNO", "con_pagos": false, "alumnos_inscriptos": "3/5", "estado": "DISPONIBLE" }, "error": null }
+```
+La interfaz informa «Cancelaste tu inscripción».
+
+**Después de cancelar (criterio 5):** la clase sigue apareciendo en «Mis turnos» con la etiqueta «Cancelaste tu inscripción» (`situacion = CANCELADA_ALUMNO`, 2.17.4), y el alumno puede volver a inscribirse desde «Solicitar clase» si hay cupo. **Si lo que canceló era una reserva sin pagar** (`estadoPago = RESERVADA`, `reabiertaPorAnulacion = false`), solo puede volver a inscribirse en el centro pagando en el momento (regla de re-reserva, 2.17.2 paso 4); si canceló una inscripción `PAGO_SIN_REGISTRAR`, una ya pagada o una reserva reabierta por anulación (P-C8), puede volver a reservar en línea.
+
+**Errores esperados:**
+- `403 SIN_PERMISO` — falta `turnos:cancelar_propia` o la cuenta no tiene ficha de alumno.
+- `404 TURNO_NO_ENCONTRADO` — la clase no existe.
+- `404 INSCRIPCION_NO_ENCONTRADA` — el alumno nunca estuvo inscripto en la clase.
+- `409 INSCRIPCION_NO_VIGENTE` — la inscripción ya no está vigente (cancelada, vencida, dada de baja o quitada).
+- `409 TURNO_CANCELADO` — la clase fue cancelada por el centro.
+- `409 TURNO_VENCIDO` — la clase ya empezó.
+- `409 CANCELACION_FUERA_DE_PLAZO` — pasó la anticipación mínima y la inscripción no es una reserva sin pagar.
+
+**Cómo se cumplen los criterios:**
+| Criterio | Cómo se cumple |
+|---|---|
+| HU-C-14, 1 | Campo `cancelacion` de «Mis turnos» (2.17.4): `PERMITIDA` solo para inscripciones vigentes en clases `DISPONIBLE`/`COMPLETO` que no empezaron |
+| HU-C-14, 2 | `evaluarCancelacion` (reglas 1 a 3); `FUERA_DE_PLAZO` deshabilitada con la leyenda. Verificación diferida: valor configurable (HU-N-01) |
+| HU-C-14, 3 | Confirmación de HU-C-25 |
+| HU-C-14, 4 | Pasos 3 y 4. Verificación diferida: historial (HU-E-02) |
+| HU-C-14, 5 | «Después de cancelar» y 2.17.4 |
+| HU-C-14, 6 | Pasos 2 y 3: revalidación con la inscripción bloqueada |
+| HU-C-14, 7 | Paso 5. Verificación diferida: reintegro (HU-I-06) |
+
+---
+
+### 2.20. Reservas pendientes de todas las clases (HU-C-26) — NUEVA en Revisión 6
+
+> **Compatibilidad.** Pantalla y rutas **nuevas**, solo para mesa de entrada. No toca ningún endpoint existente. «Quitar» no reutiliza `DELETE .../alumnos/[alumnoId]` (2.5), que quita cualquier inscripción vigente sin condición, sino una ruta propia con la condición atómica «sigue siendo una reserva pendiente» (criterio 6).
+
+**Pantalla:** «Reservas» en el menú de mesa de entrada (criterio 1). **Permiso de lectura:** `reservas:leer` (solo `MESA_ENTRADA`; lo crea el PR 0 en migración y seed, `PR-0.md` §2.9). El servidor rechaza con `403 SIN_PERMISO` a cualquier otro rol (criterio 8).
+**Lecturas:** una sola vía, las funciones públicas de módulo C del PR 0 (`PR-0.md` §2.13): `listarReservasPendientes`, `listarReservasVencidas` y `resumenReservas`. Esta spec no reimplementa la vigencia (criterio 8).
+
+#### 2.20.1. Totales
+
+`GET /api/reservas/resumen` → `resumenReservas()`:
+```json
+{ "data": { "pendientes": { "cantidad": 12, "importe_total": 288000 }, "vencen_en_3_horas": 2, "vencen_hoy": 5, "vencieron_hoy": 1 }, "error": null }
+```
+- `pendientes`: reservas `RESERVADA` de clases `DISPONIBLE`/`COMPLETO` cuyo vencimiento no pasó, y la suma de sus `precio` guardados.
+- `vencen_en_3_horas`: de esas, las que vencen dentro de los próximos 180 minutos (mismo corte que `vence_pronto`, 2.20.2). `vencen_hoy`: las que vencen antes del fin del día del centro (`finDelDiaCentro`).
+- `vencieron_hoy`: reservas cuyo `venceEl` cayó entre el inicio del día del centro y ahora, **marcadas o no** por el proceso. El pie de la pantalla (criterio 7) usa este mismo número y aclara que el proceso automático revisa cada 5 minutos. No hace falta una tabla de corridas: el dato sale de las inscripciones.
+
+#### 2.20.2. Pestaña «Pendientes»
+
+`GET /api/reservas/pendientes?alumno=&materia_id=&vencen=&pagina=`
+
+```typescript
+export const ReservasPendientesQuerySchema = z.object({
+  alumno: z.string().trim().max(100).optional(),                     // nombre, apellido o DNI; desde 2 caracteres (criterio de HU-B-05)
+  materia_id: z.string().cuid().optional(),
+  vencen: z.enum(["en_3_horas", "hoy", "manana"]).optional(),        // criterio 4
+  pagina: z.coerce.number().int().positive().default(1),
+}).strict();                                                        // de a 10, fijo (criterio 2)
+```
+
+Ítem (criterio 2):
+```json
+{
+  "inscripcion_id": "cuid",
+  "vence_el": "2026-10-09T15:31:00-03:00",
+  "faltan_min": 45,
+  "vence_pronto": true,
+  "alumno": { "id": "cuid", "nombre_para_mostrar": "Ruiz, Jorge", "dni": "30111222", "reservas_pendientes": 2 },
+  "clase": { "turno_id": "cuid", "fecha": "2026-10-13", "hora_inicio": "16:00", "hora_fin": "18:00", "materia": { "id": "cuid", "nombre": "Física I" }, "aula": { "id": "cuid", "nombre": "Aula 2" } },
+  "profesor": { "id": "cuid", "nombre_para_mostrar": "Pérez, Ana" },
+  "precio": 24000
+}
+```
+- Orden por `vence_el` ascendente, con el id de la inscripción como desempate. Paginación de a 10 con el mismo formato `paginacion` de 2.14.1.
+- `faltan_min` lo calcula el servidor (la interfaz arma «en 45 min» / «en 3 h»); `vence_pronto` es `true` si faltan 180 minutos o menos (la interfaz lo muestra en rojo, con texto además del color).
+- **Las reservas cuyo vencimiento ya pasó no se listan**, aunque el proceso no las haya marcado (criterio 2); tampoco las de clases `CANCELADO`.
+- `alumno.reservas_pendientes`: cuántas reservas pendientes tiene ese alumno (sobre el conjunto sin filtrar).
+- **Filtros** (criterio 4): se combinan, vuelven a la página 1 y se actualizan sin recargar. El filtro `alumno` usa el mismo umbral y la misma normalización que HU-B-05 (`spec_modulo_B.md` §2.7, `construirFiltroBusquedaAlumno`); ver P-C6 sobre cómo lo expone Alumnos. «Limpiar filtros» omite todos los parámetros.
+
+#### 2.20.3. Pestaña «Vencidas · últimos 7 días»
+
+`GET /api/reservas/vencidas?alumno=&materia_id=&pagina=` — solo consulta (criterio 3).
+
+Ítem:
+```json
+{ "inscripcion_id": "cuid", "vencio_el": "2026-10-09T09:00:00-03:00", "sin_marcar": false,
+  "alumno": { "id": "cuid", "nombre_para_mostrar": "Ruiz, Jorge", "dni": "30111222" },
+  "clase": { "turno_id": "cuid", "fecha": "2026-10-09", "hora_inicio": "16:00", "hora_fin": "18:00", "materia": { "id": "cuid", "nombre": "Física I" } },
+  "precio": 24000 }
+```
+- Reservas vencidas en los últimos 7 días (días del centro), de la más reciente a la más antigua por `vencio_el`. Incluye las `RESERVA_VENCIDA` y las **vencidas que el proceso todavía no marcó** (`sin_marcar = true`, etiqueta «Vencida · sin marcar todavía»). En una clase `CANCELADO` no vence nada (2.18.6): sus reservas pendientes no se listan acá.
+
+#### 2.20.4. Acciones por fila
+
+- **«Registrar pago»** (criterio 5): sin endpoint propio. Si el alumno tiene **una sola** reserva pendiente, abre el registro de pago de esa clase (atajo de HU-I-10, criterio 9); si tiene varias, abre HU-I-10 con el alumno elegido y esa clase marcada, para pagar varias en una operación. **Exige caja abierta** del usuario (HU-I-12, criterio 2): si no la tiene, la pantalla de pago responde `409 CAJA_NO_ABIERTA` (`spec_modulo_I.md`). La lista da `alumno.id`, `clase.turno_id` y `alumno.reservas_pendientes` para decidir el atajo.
+- **«Quitar»** (criterio 6): `POST /api/reservas/[inscripcionId]/quitar` (sin body).
+  **Permiso:** `turnos:asignar_participantes` (mesa de entrada, el mismo que quitar un alumno en 2.5). **Servicio:** `quitarReservaPendiente()`.
+  1. `bloquear({ clases: [turnoId], inscripciones: [inscripcionId] })` y `marcarVencidas(tx, turnoId)`.
+  2. `finalizarInscripcion(tx, { inscripcionId, vigencia: QUITADA_CENTRO, actor: usuario, soloSiReservaPendiente: true })`. Si mientras tanto la reserva se **pagó o venció**, no se quita y responde **`409 RESERVA_NO_PENDIENTE`** con «Esta reserva ya no está pendiente: se pagó o venció.».
+  3. La inscripción queda `QUITADA_CENTRO` con fecha y usuario, se libera el lugar (`COMPLETO → DISPONIBLE` si corresponde) y **no impide volver a inscribir** al alumno. Después del `COMMIT`: historial de estados y `turno:alumno_quitado` (§4).
+  - Respuesta `200 OK`: `{ "data": { "inscripcion_id": "cuid", "vigencia": "QUITADA_CENTRO", "alumnos_inscriptos": "3/5", "estado": "DISPONIBLE" }, "error": null }`.
+  - Confirmación de HU-C-25 en la interfaz («¿Estás seguro de que querés quitar a <Alumno> de <Materia> del <fecha> a las <hora>? Esta acción no se puede deshacer.»).
+
+**Errores esperados (2.20):** `400 VALIDATION_ERROR` (parámetros inválidos o adicionales) · `403 SIN_PERMISO` (falta `reservas:leer`, o `turnos:asignar_participantes` en «Quitar») · `404 INSCRIPCION_NO_ENCONTRADA` (en «Quitar») · `409 RESERVA_NO_PENDIENTE` (en «Quitar»).
+
+#### 2.20.5. Cómo se cumplen los criterios
+
+| Criterio | Cómo se cumple |
+|---|---|
+| HU-C-26, 1 | 2.20.1 (cuatro totales y el importe a cobrar) |
+| HU-C-26, 2 | 2.20.2 |
+| HU-C-26, 3 | 2.20.3 |
+| HU-C-26, 4 | 2.20.2 (filtros y paginación) |
+| HU-C-26, 5 | 2.20.4 «Registrar pago» |
+| HU-C-26, 6 | 2.20.4 «Quitar» |
+| HU-C-26, 7 | 2.20.1 (`vencieron_hoy`) |
+| HU-C-26, 8 | `reservas:leer` solo `MESA_ENTRADA`, 403 al resto; lecturas del PR 0 |
+
+
+---
+
+### 2.21. Funciones y cambios internos que piden las bajas de alumno y de profesor (HU-B-07, HU-D-08) — NUEVA (nota posterior a la Revisión 6, 08/10/2026)
+
+**Origen.** `spec_modulo_B.md` (2.13) y `spec_modulo_D.md` (2.13.3) piden a este módulo funciones nuevas y un cambio interno. Esta sección es la **contraparte** de C: fija los contratos que C debe publicar. Todo es **aditivo**: ninguna ruta, función ni `code` de error de las secciones 2.1 a 2.20 cambia de firma ni de resultado, y los tests de Sprint 1 y 2 siguen pasando sin tocarse. Cada HU agrega lo suyo **dentro de su propio PR** (`PR-0.md` §2.13: la HU agrega a la fachada del dueño la lectura que le falta).
+
+#### 2.21.1. Para HU-B-07 (baja de alumno)
+
+| Función (fachada de C) | Contrato |
+|---|---|
+| `darDeBajaInscripcionesDeAlumno(tx, { alumnoId, actor })` | `{ quitadas: { inscripcion_id, turno_id }[], reservas_vencidas_marcadas: number }`. El llamador **ya tiene bloqueada la ficha del alumno**. C toma, en **una sola** llamada a `bloquear`, las clases candidatas por id ascendente y sus inscripciones. Las clases candidatas se leen antes de bloquear y se revalidan ya bloqueadas: solo se procesan las `DISPONIBLE` o `COMPLETO` con inicio posterior a `ahora()`. Marca primero con `marcarVencidasDelAlumno` las reservas vencidas (no son bajas); después finaliza con `finalizarInscripcion(vigencia: "BAJA_ALUMNO", actor)` cada inscripción que sigue `VIGENTE`, con condición atómica, y recalcula el estado de cada clase (`COMPLETO → DISPONIBLE`). No toca clases pasadas o en curso, `PENDIENTE` ni `CANCELADO`, ni pagos. Idempotente |
+| `alumnoTieneRegistros(alumnoId, db?)` | `boolean`, solo lectura: el alumno tiene alguna inscripción —en cualquier vigencia— en una clase cuyo inicio ya pasó (`≤ ahora()`) |
+| `listarInscripcionesDeAlumno(alumnoId, { desde?, hasta? }, db?)` | **Ya prevista** (`PR-0.md` §2.13; `spec_modulo_E.md` R2-PR0-3). No es nueva |
+
+#### 2.21.2. Para HU-D-08 (baja de profesor)
+
+Siete funciones. Su contrato completo (parámetros, resultado y errores) es el de `spec_modulo_D.md` 2.13.3, que es la fuente; acá se fijan las obligaciones de C.
+
+| Función | Resumen |
+|---|---|
+| `contarTurnosFuturosDeProfesor(profesorId, db?)` | `{ confirmados, pendientes }` de todas las materias; mismo criterio estricto de «futuro» (`>`) que `contarTurnosFuturosDeProfesorPorMateria` (2.15) |
+| `listarTurnosFuturosDeProfesor(profesorId, { materiaId?, pagina, porPagina }, db?)` | Página de clases futuras `DISPONIBLE` o `COMPLETO`, con las materias y su cantidad **sin** el filtro y una `seleccion` (hasta 500) que sí lo aplica. Cuenta inscriptos con el servicio único de 2.16.3 |
+| `obtenerTurnosBasicos(turnoIds, db?)` | `{ turno_id, materia_id, profesor_id, estado, fecha, hora_inicio, hora_fin }[]`, solo lectura |
+| `profesorTieneClasesPasadas(profesorId, db?)` | `boolean`: alguna clase que no sea `PENDIENTE` con inicio `≤ ahora()`, cancelada o no |
+| `evaluarCambioDeProfesor(profesorDestinoId, turnoIds, db?)` | Por clase: `SE_PUEDE`, `FUERA_DE_HORARIO`, `OCUPADO` o `NO_DISPONIBLE`. Solo lectura |
+| `cancelarTurnoPorBajaDeProfesor(tx, { turnoId, profesorId, actor })` | El **mismo núcleo que 2.10** (`cancelarTurno`), sin comprobar `turnos:cancelar` (lo comprueba la ruta de D con `profesores:cambiar_estado` y `gerentePuedeGestionarClaseDeBaja`). Una sola llamada a `bloquear` con el profesor y la clase. Las inscripciones y los pagos no se tocan; las reservas sin pagar dejan de vencer (2.18.6) |
+| `cambiarProfesorDeTurno(tx, { turnoId, profesorOrigenId, profesorDestinoId, actor })` | **Operación nueva**: hoy C no cambia el profesor de una clase `DISPONIBLE` o `COMPLETO` (2.1 solo modifica `PENDIENTE`; 2.11 no admite profesor). Una sola llamada a `bloquear` con los dos profesores (por id ascendente) y la clase. Revalida estado, vigencia, destino activo, que dicte la materia, horario de atención y ausencia de superposición; actualiza `profesorId` con condición atómica. El trigger `turno_sincronizar_reservas` ya escucha `UPDATE OF "profesorId"` (2.11, «Relevado»), así que mueve la reserva del profesor sin migración. No toca inscripciones, pagos, aula, fecha, hora ni estado. Errores: `TURNO_NO_ENCONTRADO`, `TURNO_CANCELADO`, `TURNO_PENDIENTE`, `TURNO_VENCIDO`, `TURNO_MODIFICADO`, `PROFESOR_INACTIVO`, `PROFESOR_NO_DICTA_MATERIA`, `PROFESOR_FUERA_DE_HORARIO`, `PROFESOR_OCUPADO` (incluida la violación de la exclusión GiST traducida con `turno.reserva-error.ts`) |
+
+**Dónde viven (a confirmar contra el código).** `cambiarProfesorDeTurno` y `evaluarCambioDeProfesor` necesitan funciones de D. Se implementan en un archivo de servicio nuevo de C (por ejemplo `turno.baja-profesor.service.ts`, que puede importar la fachada de D, como ya hace `turno.service.ts`) y `turno.publico.ts` las **reexporta** sin importar a D (2.15 pide que no importe otros módulos). Si `publico.aislamiento.test.ts` no admite el reexporte, C usa una segunda fachada propia para estas siete. D nunca importa archivos internos de C.
+
+#### 2.21.3. El bloqueo del profesor y la relectura del alumno en las operaciones que ya existen
+
+Se suman a 3.17, sin cambiar rutas, cuerpos, firmas ni códigos:
+- **Profesor (HU-D-08, criterio 2, última viñeta).** Las operaciones que dejan una clase `DISPONIBLE` o `COMPLETO` con un profesor —confirmar una `PENDIENTE` (2.2), la generación masiva (2.9 y 2.9.1) y la reprogramación (2.11)— agregan **al profesor** a la lista `recursos` de **su** llamada única a `bloquear` (nivel 1 del orden, junto con el aula y la materia, por id ascendente) y, ya bloqueado, **vuelven a leer** `obtenerOpcionProfesorActivo(profesorId, tx)`. Si no está activo, rechazan con el `code` que cada operación usa hoy para un profesor inactivo. La alta de una `PENDIENTE` (2.1) no reserva recursos (3.2) y no lo necesita.
+- **Alumno (HU-B-07, R3-PR0-B3).** Toda operación que inscribe (2.2, 2.5, 2.14.2/2.17.2, 2.18.3 y la inscripción de HU-I-10) llama a `verificarAlumnoActivo(alumnoId, tx)` **después** de bloquear al alumno, **también** cuando el llamador trae un `alumnoActivo` leído antes (autoservicio): ese valor solo sirve para responder rápido, la decisión es la posterior. Conserva `ALUMNO_NO_ENCONTRADO` y `ALUMNO_INACTIVO`. Es la única forma de que una inscripción y una baja simultáneas no puedan confirmarse las dos.
+
+#### 2.21.4. Eventos
+
+`turno:cancelado` conserva su payload y suma el campo **opcional** `origen` (`"BAJA_PROFESOR"` cuando viene de `cancelarTurnoPorBajaDeProfesor`); los consumidores que no lo conocen lo ignoran. Se suma `turno:profesor_cambiado` con payload `{ turno_id, profesor_anterior_id, profesor_nuevo_id, usuario_id }`, que se escribe con `emitirEventoTurno` **después del commit de esa clase** (opción (b)). Si `tipoEvento` de `eventos_turno` es un enum, el PR 0 lo amplía con una migración aditiva (R3-PR0-D8). La finalización de una inscripción por la baja de un alumno deja su transición en el historial de la inscripción (2.16.1).
+
+#### 2.21.5. Pruebas obligatorias de esta sección
+
+1. Las de Sprint 1 y 2 de 2.1 a 2.20 pasan sin tocarse; `ALUMNO_INACTIVO` y los `code` de profesor se conservan.
+2. `darDeBajaInscripcionesDeAlumno`: solo clases futuras `DISPONIBLE` o `COMPLETO`; `COMPLETO → DISPONIBLE`; reserva vencida marcada y no contada como baja (borde `venceEl = ahora`); idempotente; ignora clases pasadas, en curso, `PENDIENTE` y `CANCELADO`.
+3. `cambiarProfesorDeTurno`: mueve la reserva del profesor (PostgreSQL real), no toca inscripciones, pagos, aula, fecha ni hora; destino ocupado, fuera de horario, inactivo o que no dicta la materia rechazan sin escribir; una clase que cambió de profesor o de estado entre la lectura y el bloqueo responde `TURNO_MODIFICADO`.
+4. `cancelarTurnoPorBajaDeProfesor` deja el mismo resultado que 2.10 (aula, profesor y alumnos liberados; inscripciones y pagos intactos) y no exige `turnos:cancelar`.
+5. Concurrencia: una clase nueva (2.2, 2.9, 2.11) contra la baja del profesor, y una inscripción contra la baja del alumno: nunca quedan las dos; el orden de bloqueo no genera interbloqueo.
+6. `contarTurnosFuturosDeProfesor` coincide con la suma de `contarTurnosFuturosDeProfesorPorMateria` de sus materias.
+
+---
+
 ## 3. Reglas de Negocio Estrictas (Capa de Servicios)
 
 Toda la lógica listada reside exclusivamente en `src/server/turnos/` (`turno.service.ts` y los colaboradores por área). Route Handlers y Server Actions son capa delgada (Regla N.° 4 de `docs/RULES.md`). Reparto por área: `turno.service.ts` (2.1, 2.2, 2.4, 2.5, 2.7, 2.12 y el autoservicio 2.14, que reutiliza el núcleo de 2.5), `turno.aula.service.ts` (2.3), `turno.profesor.service.ts` (2.6, 2.8), `turno.generacion.service.ts` (2.9), `turno.cancelacion.service.ts` (2.10), `turno.reprogramacion.service.ts` (2.11) y `turno.publico.ts` (2.15), con `turno.disponibilidad.ts`, `turno.validaciones.ts` y `turno.schema.ts` como colaboradores compartidos.
 
 ### 3.1. Máquina de cuatro estados
+
+> **Revisión 6.** Complemento en 3.16: las operaciones de inscripción nunca sacan a un turno de `PENDIENTE` ni de `CANCELADO`. Un lugar también se libera por vencimiento de una reserva (2.18), cancelación propia (2.19) y «Quitar» de las reservas pendientes (2.20), además de 2.5.
+
 `PENDIENTE → {DISPONIBLE, COMPLETO}` (2.2) es la transición de confirmación, sin reversión. Desde la Revisión 5 `PENDIENTE` tiene además una salida (`→ CANCELADO`, descarte, N-1 en 2.10) y hay un solo camino que crea un turno ya `DISPONIBLE`, sin pasar por `PENDIENTE` (generación masiva, 2.9, R5-9). `DISPONIBLE | COMPLETO → CANCELADO` (2.10) es manual y terminal (3.9). `DISPONIBLE ⇄ COMPLETO` sí es reversible y automático, gobernado exclusivamente por la comparación entre la cantidad de alumnos inscriptos y `cupoMaximoTurno` (2.5). Ningún endpoint permite fijar `COMPLETO` o `DISPONIBLE` manualmente.
 
 ### 3.2. Un turno `PENDIENTE` nunca reserva recursos
@@ -1127,6 +1849,9 @@ Toda consulta de disponibilidad (2.1 paso 5b, 2.2 paso 5, 2.3 paso 2, 2.5 paso 4
 Sin cambios respecto a Revisión 1: intervalos semiabiertos (`a1 < b2 AND b1 < a2`), definida en `spec_modulo_D.md` §3.4, ya implementada en `intervalosSeSuperponen()`. **Nota Revisión 4:** esta fórmula nunca asumió una duración fija — opera sobre los dos extremos del intervalo, cualquiera sea su ancho. No requiere cambios para soportar duración variable.
 
 ### 3.4. Defensa de concurrencia: tabla `reservas_turno` + exclusión GiST unificada (extensión `btree_gist`) — DISEÑO REAL, RATIFICADO (D8), sin cambios de diseño en Revisión 4
+
+> **Revisión 6.** El diseño de la exclusión no cambia. Los triggers pasan a proyectar solo las inscripciones `VIGENTE` y a reaccionar al cambio de vigencia (`PR-0.md` §2.0), porque la inscripción ya no se borra (3.14).
+
 
 **Reemplaza por completo el diseño propuesto en Revisión 2** (constraints `EXCLUDE` directos sobre `turnos`, nunca migrados, que además no podían cubrir el caso de alumno). Implementado como parte de HU-C-15, auditado y ratificado por el Scrum Master el 24/09.
 
@@ -1175,6 +1900,9 @@ Sin cambios — ver sección 2, "Convenciones generales".
 **Revisión 3:** la transacción que evalúa la transición ya no vive en 2.3 (asignar aula) — se movió a 2.2 (asignar profesor y alumnos), que es ahora el último paso. `asignarParticipantesTurno()` sigue resolviéndose en una única `prisma.$transaction`, y el resultado de la transición puede ser `DISPONIBLE` o `COMPLETO`. A diferencia de Revisión 2, esta transacción ya no es la única barrera contra una condición de carrera: la defensa de motor de 3.4 (`reservas_turno` + GiST) está implementada y ratificada.
 
 ### 3.7. Guarda de concurrencia para el cupo
+
+> **Revisión 6.** El patrón se conserva; el bloqueo se toma con `bloquear` en el orden canónico (3.17) y el conteo es de inscripciones **vigentes** con `ocupacion` (3.15).
+
 Dos casos distintos, con soluciones distintas:
 
 - **Alta/baja individual de alumno (2.5, HU-C-04):** la condición de cupo depende de un **conteo sobre una tabla relacionada** (`TurnoAlumno`), que un `updateMany` simple no puede expresar de forma atómica. Patrón obligatorio: (1) dentro de la transacción, bloquear la fila del turno con `SELECT "idTurno", "cupoMaximoTurno" FROM turnos WHERE "idTurno" = $1 FOR UPDATE` (vía `tx.$queryRaw`); (2) recién con la fila bloqueada, contar `TurnoAlumno` del turno; (3) comparar contra `cupoMaximoTurno` e insertar/rechazar. El `FOR UPDATE` serializa dos altas concurrentes sobre el mismo turno.
@@ -1183,6 +1911,9 @@ Dos casos distintos, con soluciones distintas:
 ---
 
 ### 3.8. Turnos vencidos: qué se puede y qué no (Revisión 5, R5-6)
+
+> **Revisión 6.** `POST /api/pagos` conserva **siempre** el comportamiento de Sprint 2, y la salvedad «sí admiten registrar un pago» de R5-6 sigue valiendo para ese endpoint (T3 y P-C7 de la Revisión 6). El flujo de cobro de HU-I-10 (`POST /api/pagos/operaciones`) sí rechaza el pago de una clase ya iniciada (HU-C-22 criterio 4; HU-I-10 criterios 3 y 7). Las demás reglas de esta sección no cambian.
+
 Un turno está **vencido** cuando `fecha + hora_inicio` ya pasó (`turnoSigueVigente()`, 2, "Guard de vigencia"). Desde la Revisión 5 el guard `409 TURNO_VENCIDO` se aplica también a **cancelar** un `DISPONIBLE`/`COMPLETO` (2.10; no a descartar un `PENDIENTE`, salvedad N-1), **reprogramar** (2.11) y **autoinscribirse** (2.14), además de 2.2, 2.3 y 2.5. **No** se aplica a: cambiar prioridad (2.12), registrar un pago (`spec_modulo_I.md` §2.4) ni registrar la clase dictada (`spec_modulo_E.md` §2.1), porque son operaciones que tienen sentido, o son necesarias, después de que la clase ocurrió. Consecuencia útil: un turno con clase dictada registrada nunca puede cancelarse ni reprogramarse. **Ratificado por el PO (29/09/2026) — Q5**
 
 ### 3.9. `CANCELADO` es terminal y no reserva nada (Revisión 5)
@@ -1192,6 +1923,9 @@ Ninguna operación de este módulo saca a un turno de `CANCELADO`. Sus `reservas
 `turno.disponibilidad.ts` expone `calcularTramosLibres(franja, ocupados)` y `iniciosPosibles(tramo, duracion, granularidad)`, funciones puras sobre minutos desde las 00:00. Las usan 2.8 (opciones del wizard), 2.9 (encaje en la franja y conflictos) y 2.11 (validación). Está prohibido reimplementar el cálculo en un componente de frontend: el frontend solo **muestra** lo que devuelve 2.8. La fórmula de superposición sigue siendo `intervalosSeSuperponen()` (3.3, sin cambios).
 
 ### 3.11. Lecturas del listado y detalle: excepciones documentadas a la Regla N.° 3 (Revisión 5, R5-7 y HU-C-09)
+
+> **Revisión 6.** La excepción no se amplía. El filtro por alumno de la pantalla de reservas (2.20.2) se resuelve con el criterio de P-C6 (publicar `construirFiltroBusquedaAlumno` en el módulo B o, si no, esta misma excepción de solo lectura).
+
 `listarTurnos()` ya lee de otros módulos, por relaciones de Prisma, los datos que muestra (profesor, materia, aula, alumnos). La búsqueda de 2.7 filtra por las **columnas normalizadas** de esas mismas relaciones (`apellidoNormalizadoAlumno`, `nombreNormalizadoAlumno`, `apellidoNormalizadoProfesor`, `nombreNormalizadoProfesor`, `nombreNormalizadaMateria`, `nombreNormalizadaAula`). Se documenta como **excepción de solo lectura**, en vez de crear cuatro servicios públicos que devuelvan listas de ids potencialmente enormes para un patrón de 2 letras. Si en Sprint 3 se agregan filtros combinados (HU-C-02 AC6), se reevalúa mover el filtro a servicios públicos. La excepción **no** se extiende a escrituras.
 
 **Extensión aprobada para HU-C-09 (29/09/2026):** el detalle que reutiliza `presentar()` puede leer por las relaciones existentes los campos básicos enumerados en §2.4 de Alumno, Materia, Profesor y Aula. La alternativa de crear consultas públicas separadas para cada relación se descarta para esta HU porque duplicaría la composición ya compartida con el listado; el alcance queda restringido a proyección de datos para mostrar, después de `turnos:leer` y del control de turno propio para Profesor. No se consulta directamente `usuarios` (creador/modificador), `pagos` ni `clases_dictadas`: A/I/E conservan sus servicios públicos. No se autoriza ampliar el filtro de búsqueda, consultar campos de contacto, validar ni escribir en dominios externos mediante esta excepción.
@@ -1200,8 +1934,35 @@ Ninguna operación de este módulo saca a un turno de `CANCELADO`. Sus `reservas
 La generación de 2.9 nunca crea turnos parciales. Como los turnos generados nacen `DISPONIBLE` (backlog v2), el trigger `turno_sincronizar_reservas` reserva profesor y aula en cada `INSERT`, y la exclusión GiST es la defensa final contra dos corridas simultáneas o contra un turno creado por otra vía entre el cálculo y la inserción. **No se usa advisory lock.** La vista previa es solo informativa: la confirmación recalcula todo dentro de su transacción y **nunca** confía en ella. Esta es la **única** ruta por la que un turno se crea directamente `DISPONIBLE`; cualquier otra sigue el camino `PENDIENTE` → 2.2.
 
 ### 3.13. Excepciones documentadas a las Reglas N.° 1 y N.° 8 (Revisión 5)
+
+> **Revisión 6.** La baja física del vínculo de inscripción (`TurnoAlumno`) que esta sección y 2.5 tomaban como excepción **queda superada** por 3.14: la inscripción se finaliza con una vigencia. Siguen siendo excepciones las filas de `reservas_turno` y el vínculo `ProfesorMateria`.
+
 - **Regla N.° 1 (sin `DELETE`):** se eliminan filas de `reservas_turno` al cancelar (2.10) y se elimina el vínculo `ProfesorMateria` al quitar una materia (HU-D-07). Ambas son tablas de proyección o asociación, no entidades de dominio (mismo criterio que la baja de `TurnoAlumno` en 2.5). El `Turno` nunca se borra: se cancela.
 - **Regla N.° 8 (inmutabilidad):** el pago y el historial académico son registros de hecho consumado y **no viven en este módulo**; ver `spec_modulo_I.md` §3.6 y `spec_modulo_E.md` §3.1. `Turno` no es un registro de hecho consumado (se reprograma, se cancela).
+
+
+### 3.14. Una inscripción no se borra: vigencia en vez de baja física (Revisión 6, convención 8 a)
+La inscripción (`TurnoAlumno` extendido, 2.16) se **finaliza**, no se elimina: quitar a un alumno, cancelar la propia inscripción, vencer una reserva o dar de baja al alumno cambian su `vigencia` y dejan fecha y usuario (o «Proceso automático»). Esto **reemplaza** dos frases de Sprint 2: el paso 2 de «quitar» en 2.5 («baja física de la fila intermedia») y la mención de «la baja de `TurnoAlumno` en 2.5» en 3.13, que presentaba el vínculo de inscripción como una tabla de asociación sin historial. La Regla N.° 1 de `RULES.md` rige ahora también para las inscripciones. Lo que **no** cambia es el contrato HTTP de quitar (2.16.6). La excepción de 3.13 para `reservas_turno` (tabla de proyección) sigue vigente: el trigger proyecta solo las inscripciones `VIGENTE` y borra la reserva al finalizarse (`PR-0.md` §2.0).
+
+### 3.15. Quién cuenta como inscripto sale de un solo servicio (Revisión 6)
+Cupo, superposición de horarios, unicidad de la inscripción, estado Disponible/Completa, cantidad «3/5» y lista de alumnos se resuelven con `esVigenteEn`, `inscripcionesVigentes`, `ocupacion` y `sqlVigenteEn` (2.16.3). Una reserva vencida que el proceso todavía no marcó **no cuenta**. Está prohibido reimplementar la regla en un componente, una consulta o una función pública del módulo.
+
+### 3.16. Estado guardado de la clase y estado decidido (Revisión 6)
+`Turno.estado` se mantiene dentro de las operaciones que cambian inscripciones, pero ninguna lectura decide con él: se decide con `ocupacion(db, turnoId, ahora())` (2.16.5). **Complemento de 3.1:** las operaciones de inscripción nunca sacan a un turno de `PENDIENTE` ni de `CANCELADO`; la salida de `PENDIENTE` sigue siendo exclusiva de 2.2 paso 8 y de 2.9.
+
+### 3.17. Bloqueo en orden canónico para las operaciones que escriben inscripciones (Revisión 6)
+
+> **Nota posterior (08/10/2026).** Se suman el profesor (recurso) y la relectura del alumno bajo bloqueo: 2.21.3.
+El patrón de 3.7 (bloquear la fila del turno con `FOR UPDATE`, contar, comparar, escribir) **se conserva**, pero el bloqueo se toma con `bloquear(tx, { recursos, clases, inscripciones })` en el orden único de `RULES.md` (recurso —aula, materia, profesor, alumno— → clase → inscripción → operación de pago → caja; dentro de cada tipo, por id ascendente), en una sola llamada por transacción. La garantía es la misma que en Sprint 2 y se suma que ninguna operación nueva puede interbloquearse con otra. Las operaciones de 2.17, 2.18, 2.19 y 2.20 toman, como máximo, al alumno, la clase y la inscripción; el proceso de vencimiento toma **una sola clase por transacción** (2.18.1).
+
+### 3.18. Precio congelado (Revisión 6, HU-L-06 y HU-C-22 criterio 6)
+Toda inscripción guarda su `precio` al crearse (`precioClase`: tarifa por hora de la materia × duración / 60, con la tarifa vigente en ese instante) y **no se recalcula nunca**: un cambio de tarifa, individual o masivo, rige solo para las inscripciones nuevas. La tarifa se obtiene por el servicio público de Materias (`spec_modulo_L.md` §2.10), no leyendo `Materia` directo. Si la materia no tiene tarifa, no se crea la inscripción (`422 MATERIA_SIN_TARIFA`, regla 3.12 de `spec_modulo_L.md`).
+
+### 3.19. Nadie retiene un lugar sin pagar (Revisión 6, HU-C-22 criterio 4)
+Un alumno que ya tuvo en una clase una reserva vencida o cancelada sin haberla pagado no puede volver a reservarla en línea: solo puede inscribirse en el centro pagando en el momento (2.17.2 paso 4 y 2.18.3). No alcanzan a la regla la cancelación de una inscripción sin reserva, las inscripciones quitadas por el centro o dadas de baja, las reservas que el alumno había pagado ni una reserva reabierta por anulación que después vence.
+
+### 3.20. Compatibilidad con lo ya desarrollado (Revisión 6, `PR-0.md` §1.1)
+Ninguna operación de este módulo de los Sprints 1 y 2 cambia ruta, método, cuerpo del pedido, forma de la respuesta, códigos HTTP ni `code` de error, salvo los cambios inevitables que manda el backlog y que lista la tabla de compatibilidad del comienzo de la Revisión 6 (por ejemplo, `422 MATERIA_SIN_TARIFA`). Se admiten campos **opcionales** nuevos en el pedido, campos **extra** en la respuesta y códigos nuevos **solo** para condiciones nuevas. Las funciones públicas de 2.15 conservan firma y forma del resultado. Si una instrucción de una HU del Sprint 3 solo se puede cumplir rompiendo algo de lo anterior, se mantiene lo anterior y se avisa a la persona a cargo de esta spec: no se resuelve por inferencia.
 
 ---
 
@@ -1230,6 +1991,24 @@ Este módulo usa la **opción (b)** de la Regla N.° 2: escritura directa y sín
 
 **Revisión 5 — trazabilidad (Regla N.° 2).** Todas las mutaciones nuevas del módulo usan la opción (b): escritura en `eventos_turno` después del `COMMIT`, mediante `emitirEventoTurno()` o, para el lote de 2.15, `emitirEventosTurno()`. `eventos_turno.turnoId` es obligatorio, por eso la generación masiva (2.9) emite eventos por turno y no uno global; el `generacion_id` en el payload los agrupa. Además, la fila `Turno` guarda `modificadoPorUsuarioId` y `updatedAtTurno` (columnas a verificar contra `schema.prisma`; si no existen, las agrega la migración 2 de la Revisión 5), que 2.10 a 2.12 actualizan en la misma operación. Los pagos y el historial académico **no** viven en este módulo (`spec_modulo_I.md`, `spec_modulo_E.md`).
 
+**Revisión 6 — trazabilidad de las inscripciones (Regla N.° 2).** Conviven dos registros, cada uno con su propósito:
+
+- **`eventos_turno`** (opción (b), sin cambios de esquema): sigue registrando el ciclo de vida de la **clase** y las operaciones de un **usuario**. Su columna `usuarioId` es obligatoria, por eso **no** registra lo que hace el «Proceso automático».
+- **Historial de estados de la inscripción** (lo crea el PR 0, `PR-0.md` §2.1 y §2.10): registra **cada transición de vigencia y de estado de pago** con actor (usuario o «Proceso automático»), fecha y valores anterior y nuevo. Lo escribe el servicio de inscripción **después del `COMMIT`**, con reintento. Es la fuente de «Reserva vencida» en el historial de clases (HU-E-02) y de las series de HU-H-10.
+
+Eventos de `eventos_turno` nuevos o ampliados en esta revisión:
+
+| Evento | Disparado por | Payload mínimo |
+|---|---|---|
+| `turno:alumno_agregado` (ampliado) | 2.5, autoinscripción (2.14.2 / 2.17) e inscripción al confirmar el pago (HU-I-10) | agrega `inscripcion_id` y `estado_pago` al payload existente; `origen` suma el valor `"PAGO"` |
+| `turno:alumno_quitado` (ampliado) | 2.5 y «Quitar» de 2.20 | agrega `inscripcion_id` al payload existente |
+| `turno:inscripcion_cancelada` (nuevo) | Cancelación propia (2.19) | `turno_id, alumno_id, inscripcion_id, estado_pago, usuario_id` |
+| `turno:completado` / `turno:disponible_nuevamente` | Transición causada por una operación de un usuario sobre las inscripciones (2.5, 2.17, 2.19, 2.20) | Sin cambios de payload. Cuando la transición la causa el proceso de vencimiento, **no** se emite evento (no hay usuario): queda en el historial de estados |
+| `turno:participantes_asignados` | 2.2 | Sin cambios de payload |
+| `turno:configurado` / `turno:aula_asignada` / `turno:disponibilizado` (2.9.1) | Generación masiva con aula por fecha | Sin cambios de payload; `aula_id` y `cupo_maximo` son los de cada clase |
+
+La generación masiva (2.9.1), el proceso (2.18.1), la cancelación propia (2.19) y «Quitar» (2.20) **no** usan columnas de auditoría nuevas en `Turno`: la fila de la inscripción lleva `finalizadaEl` y `finalizadaPor`.
+
 ---
 
 ## Parámetros configurables (referencia)
@@ -1243,4 +2022,6 @@ Este módulo usa la **opción (b)** de la Regla N.° 2: escritura directa y sín
 | `ANTICIPACION_MAXIMA_DIAS` (fila `anticipacion_maxima_dias` de `ParametroSistema`; valor de seed: `30`) | 2.1, 2.8 y 2.11 (con el tope `max(fecha actual del turno, hoy + N)`, N-4). **No** aplica a 2.9 (R5-8) |
 | `generacion_maxima_meses` | **Revisión 5 — nuevo, fila de `ParametroSistema`.** Amplitud máxima de una generación masiva, en meses calendario: `fecha_hasta` no puede superar `fecha_desde` + N meses. Valor: `6`. 2.9. **Ratificado por el PO (29/09/2026) — Q3** |
 | `generacion_maxima_turnos` | **Revisión 5 — nuevo, fila de `ParametroSistema`.** Tope de turnos creados por corrida de 2.9. Valor: `40`, **confirmado por el PO (29/09/2026)**. Cada corrida usa **una sola franja** (`horario_id`), así que 6 meses son a lo sumo ~27 fechas (26 semanas + 1): en la práctica el tope de 40 no se alcanza y funciona como resguardo. |
+| `plazo_pago_horas` | **Revisión 6 — nuevo, fila de `ParametroSistema`** (lo carga la migración del PR 0; HU-N-01 lo hace configurable). Plazo para pagar una reserva, contado desde que se hizo (24 por defecto). Se lee con `parametrosVigentes()`. 2.17 y 2.18. Un cambio no afecta a las reservas ya hechas |
+| `cancelacion_anticipacion_horas` | **Revisión 6 — nuevo, fila de `ParametroSistema`** (PR 0 / HU-N-01). Anticipación mínima para que el alumno cancele en línea una inscripción que no es una reserva sin pagar (24 por defecto). Rige el valor vigente al momento de cancelar. 2.17.1 y 2.19 |
 ```

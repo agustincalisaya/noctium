@@ -1,7 +1,18 @@
 ```markdown
 # Especificación Técnica — Módulo K (Aulas)
-## Noctium — Sprint 1 · Sprint 2 (Revisión 2)
+## Noctium — Sprint 1 · Sprint 2 (Revisión 2) · Sprint 3 (nota, sin cambios de contrato)
 ## Revisión 2 — Sprint 2: modificación de aula (HU-K-03) y alineación al template de specs
+
+## Nota de Sprint 3 (08/10/2026) — sin cambios de contrato
+
+**Fuente:** backlog definitivo del Sprint 3 (40 HU · 107 SP). **Ninguna HU del Sprint 3 es de este módulo.** HU-K-04 (desactivar aula) **salió del backlog el 05/10/2026** y, como no hay Sprint 4, queda fuera del producto: las menciones de esta spec a «HU-K-04, Sprint 3» (HU-K-03 AC5 y «Fuera de alcance») se leen como **«no se implementa»**. El aula sigue sin baja lógica y `is_active` sigue sin ser editable desde 2.4. **Nada de lo desarrollado en los Sprints 1 y 2 cambia:** rutas, schemas, `code` de error y permisos quedan como están.
+
+| Origen | Efecto sobre Aulas | Qué hay que hacer |
+|---|---|---|
+| HU-C-20, HU-C-22 y HU-C-24 (`spec_modulo_C.md` Revisión 6, 2.16) | `ajustarCuposPorCapacidadDeAula` **conserva firma y forma del resultado**. Ahora cuenta solo inscripciones **vigentes**, y una reserva vencida sin marcar **no** genera conflicto de capacidad (`spec_modulo_C.md` 2.15). La regla 3.4 de esta spec sigue valiendo | **Nada en el código de K.** Revisar que las pruebas de Sprint 2 de 2.4 sigan pasando (usan inscripciones vigentes) |
+| HU-C-21 (aula distinta por fecha ocupada, `spec_modulo_C.md` 2.9.1) | C consulta las aulas activas por las funciones públicas de 2.3, **sin cambios** | Nada |
+| HU-C-19 y HU-C-23 (texto «clase» en lugar de «turno») | Los textos visibles de las pantallas de Aulas salen del archivo central. El mensaje del `409 CAPACIDAD_MENOR_A_INSCRIPTOS` se muestra como «…alumnos ya inscriptos en **clases** que usan esta aula»; el `code` y la regla **no cambian**. Si una prueba de Sprint 2 compara el texto literal, la ajusta HU-C-19 | Lo hace HU-C-19 |
+| HU-D-08 (`spec_modulo_D.md` 2.13.3) | Cambiar el profesor de una clase **no toca el aula** ni el cupo | Nada |
 
 **Metodología:** Specification-Driven Development (SDD)
 **Stack:** Next.js 16 (App Router) · Node.js 24 · PostgreSQL 16 (Docker) · Prisma ORM (`prisma-client`) · Zod
