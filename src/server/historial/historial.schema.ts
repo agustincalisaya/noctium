@@ -7,3 +7,5 @@ export const HistorialQuerySchema = z.object({
 }).strict();
 
 export type HistorialQuery = z.infer<typeof HistorialQuerySchema>;
+
+export const MiHistorialQuerySchema = HistorialQuerySchema;

@@ -1,0 +1,63 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { PrismaClient } from "@prisma/client";
+import { basePgHabilitada, clientePg } from "@/server/testing/pg";
+import { crearAlumnoDePrueba, crearTurnoDePrueba, crearUsuarioDePrueba, crearInscripcionDePrueba } from "@/server/testing/fabricas";
+import { registrarClaseDictada, corregirAsistenciaClaseDictada, anularClaseDictada } from "./clase-dictada.service";
+import { registrarObservacionClase } from "./observacion-clase.service";
+import { registrarIndicacion } from "./indicacion.service";
+import { registrarResultadoExamen, anularResultadoExamen, corregirResultadoExamen } from "./resultado-examen.service";
+import { obtenerMiHistorial, obtenerHistorialAlumno } from "./historial.service";
+import { transaccion } from "@/server/shared/transaccion";
+import { actorUsuario } from "@/server/shared/historial";
+import { inicioDeTurno } from "@/server/shared/fechas-centro";
+
+describe.skipIf(!basePgHabilitada)("E08 PostgreSQL real", () => {
+  let db: PrismaClient;
+  beforeAll(() => { db = clientePg(); });
+  afterAll(async () => { await db?.$disconnect(); });
+  it("aísla dueños, mezcla tres tipos, pagina, filtra y oculta datos internos/anulados", async () => {
+    const mesa = { id: (await crearUsuarioDePrueba(db, { rol: "MESA_ENTRADA" })).idUsuario, rol: "MESA_ENTRADA" as const };
+    const user = await crearUsuarioDePrueba(db, { rol: "ALUMNO" });
+    const alumno = await crearAlumnoDePrueba(db);
+    await db.alumno.update({ where: { idAlumno: alumno.idAlumno }, data: { usuarioId: user.idUsuario } });
+    const sesion = { id: user.idUsuario, rol: "ALUMNO" as const };
+    const otro = await crearAlumnoDePrueba(db);
+    const clases: { turno: Awaited<ReturnType<typeof crearTurnoDePrueba>>; id: string }[] = [];
+    for (const [indice, control] of [true, false, true].entries()) {
+      const turno = await crearTurnoDePrueba(db, { enDias: -4 - indice });
+      const inscripcion = await crearInscripcionDePrueba(db, { turnoId: turno.idTurno, alumnoId: alumno.idAlumno, creadoPorUsuarioId: mesa.id, reservadaEl: new Date(inicioDeTurno(turno).getTime() - 60000) });
+      const clase = await transaccion(tx => registrarClaseDictada(tx, { turnoId: turno.idTurno, actor: actorUsuario(mesa.id), asistencias: control ? [{ inscripcionId: inscripcion.idInscripcion, estado: "PRESENTE" }] : undefined }));
+      await transaccion(tx => registrarObservacionClase(tx, turno.idTurno, { temas_vistos: "Funciones públicas", observaciones_internas: "Secreto interno E08" }, mesa));
+      clases.push({ turno, id: clase.id });
+    }
+    await corregirAsistenciaClaseDictada(clases[0]!.turno.idTurno, mesa, { motivo: "Corrección E08", asistencias: [{ alumno_id: alumno.idAlumno, estado: "AUSENTE" }] });
+    const indicacion = await transaccion(tx => registrarIndicacion(tx, alumno.idAlumno, { materia_id: clases[2]!.turno.materiaId, clase_dictada_id: clases[2]!.id, indicacion: "Indicación conservada E08" }, mesa));
+    await anularClaseDictada(clases[2]!.turno.idTurno, mesa, "No se dio E08");
+    const examenes = [];
+    for (let i = 0; i < 12; i++) examenes.push(await registrarResultadoExamen(alumno.idAlumno, { materia_id: clases[0]!.turno.materiaId, fecha_examen: clases[0]!.turno.fechaTurno, nota: "8", observaciones: `Interno examen ${i}` }, mesa));
+    await corregirResultadoExamen(alumno.idAlumno, examenes[0]!.id, { nota: "9.5", motivo: "Corrección nota" }, mesa);
+    await anularResultadoExamen(alumno.idAlumno, examenes[1]!.id, { motivo: "Anulado E08" }, mesa);
+    const primera = await obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, sesion);
+    const segunda = await obtenerMiHistorial({ pagina: 2, por_pagina: 10 }, sesion);
+    expect(primera.paginacion).toEqual({ total: 14, pagina_actual: 1, total_paginas: 2, por_pagina: 10 });
+    expect(primera.items).toHaveLength(10); expect(segunda.items).toHaveLength(4);
+    const todos = [...primera.items, ...segunda.items];
+    expect(new Set(todos.map(x => x.id)).size).toBe(14);
+    expect(todos.some(x => x.id === examenes[1]!.id || x.id === clases[2]!.id)).toBe(false);
+    expect(todos.find(x => x.id === examenes[0]!.id)).toMatchObject({ nota: "9.5" });
+    expect(todos.find(x => x.id === clases[0]!.id)).toMatchObject({ asistencia: "AUSENTE", temas_vistos: "Funciones públicas" });
+    expect(todos.find(x => x.id === clases[1]!.id)).toMatchObject({ asistencia: null });
+    expect(todos.find(x => x.id === indicacion.id)).toMatchObject({ indicacion: "Indicación conservada E08" });
+    expect(todos.map(x => x.fecha)).toEqual(todos.map(x => x.fecha).sort().reverse());
+    expect(JSON.stringify(primera)).not.toMatch(/Secreto|Interno|observaciones|registrada_por|turno_id|puede_corregir|alumno/);
+    expect(primera.asistencia_por_materia.find(a => a.materia_id === clases[0]!.turno.materiaId)).toMatchObject({ presentes: 0, ausentes: 1, porcentaje: 0 });
+    const filtrado = await obtenerMiHistorial({ pagina: 1, por_pagina: 10, materia_id: clases[1]!.turno.materiaId }, sesion);
+    expect(filtrado.items.every(x => x.materia.id === clases[1]!.turno.materiaId)).toBe(true);
+    expect(filtrado.paginacion.total).toBe(1);
+    await expect(obtenerHistorialAlumno(otro.idAlumno, { pagina: 1, por_pagina: 10 }, sesion)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    const vacio = await crearUsuarioDePrueba(db, { rol: "ALUMNO" });
+    await expect(obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, { id: vacio.idUsuario, rol: "ALUMNO" })).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    await db.alumno.update({ where: { idAlumno: otro.idAlumno }, data: { usuarioId: vacio.idUsuario } });
+    expect((await obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, { id: vacio.idUsuario, rol: "ALUMNO" })).items).toEqual([]);
+  }, 15000);
+});

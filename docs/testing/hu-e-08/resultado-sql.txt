@@ -1,0 +1,10 @@
+         idAlumno          |      emailUsuario      | clases_vigentes | examenes_vigentes 
+---------------------------+------------------------+-----------------+-------------------
+ cmv1974pr000ojmlayplt1xd0 | alumno01@noctium.local |              16 |                11
+(1 row)
+
+ turnos | inscripciones | clases | examenes | indicaciones | pagos 
+--------+---------------+--------+----------+--------------+-------
+     80 |           228 |     17 |       11 |            4 |    24
+(1 row)
+

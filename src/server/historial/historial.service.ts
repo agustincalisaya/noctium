@@ -1,6 +1,6 @@
 import type { Prisma, RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { obtenerAlumnoBasico } from "@/server/alumnos/alumno.publico";
+import { obtenerAlumnoBasico, obtenerAlumnoDeUsuario } from "@/server/alumnos/alumno.publico";
 import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
 import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
@@ -9,6 +9,7 @@ import { ahora } from "@/server/shared/reloj";
 import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
 import { profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
 import { opcionesDeIndicacion as obtenerOpcionesDeIndicacion } from "./indicacion.service";
+import type { MiHistorialData } from "@/types/historial.types";
 import type { HistorialQuery } from "./historial.schema";
 
 const MENSAJES = {
@@ -79,6 +80,10 @@ export async function obtenerHistorialAlumno(
   query: HistorialQuery,
   usuario: UsuarioHistorial,
 ) {
+  if (usuario.rol === "ALUMNO") {
+    const propio = await obtenerAlumnoDeUsuario(usuario.id);
+    if (!propio || propio.id !== alumnoId) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  }
   const profesorId = await autorizarAlcanceAlumno(alumnoId, usuario, query.materia_id);
   const alumno = await obtenerAlumnoBasico(alumnoId);
   if (!alumno) throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
@@ -156,7 +161,7 @@ export async function obtenerHistorialAlumno(
         examen."creadoPorUsuarioId" AS resultado_creado_por
       FROM "resultados_examen" AS examen
       WHERE examen."alumnoId" = ${alumnoId}
-        AND (${usuario.rol !== "PROFESOR"}::boolean OR NOT EXISTS (
+        AND (${usuario.rol !== "PROFESOR" && usuario.rol !== "ALUMNO"}::boolean OR NOT EXISTS (
           SELECT 1 FROM "anulaciones_resultado_examen" ae
           WHERE ae."resultadoExamenId" = examen."idResultadoExamen"
         ))
@@ -362,4 +367,23 @@ export async function profesorPuedeVerHistorial(
 ): Promise<boolean> {
   return (await existeInscripcionVigenteConProfesor(alumnoId, profesorId, materiaId, db))
     || (await profesorPuedeRegistrarIndicacion(profesorId, alumnoId, materiaId, db));
+}
+
+/** Dueño obtenido exclusivamente de la sesión; DTO público por lista permitida. */
+export async function obtenerMiHistorial(query: HistorialQuery, usuario: UsuarioHistorial): Promise<MiHistorialData> {
+  if (usuario.rol !== "ALUMNO") throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  const alumno = await obtenerAlumnoDeUsuario(usuario.id);
+  if (!alumno) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  const historial = await obtenerHistorialAlumno(alumno.id, query, usuario);
+  return {
+    materias_disponibles: historial.materias_disponibles,
+    asistencia_por_materia: historial.asistencia_por_materia,
+    paginacion: historial.paginacion,
+    items: historial.items.map(item => {
+      const base = { id: item.id, fecha: item.fecha, materia: item.materia };
+      if (item.tipo === "CLASE_DICTADA") return { ...base, tipo: item.tipo, profesor: item.profesor, asistencia: item.asistencia, temas_vistos: item.observacion?.temas_vistos ?? null };
+      if (item.tipo === "EXAMEN") return { ...base, tipo: item.tipo, nota: item.nota };
+      return { ...base, tipo: item.tipo, indicacion: item.indicacion };
+    }),
+  };
 }

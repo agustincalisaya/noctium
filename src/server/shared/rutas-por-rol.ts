@@ -16,6 +16,7 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   profesor: ["PROFESOR"],
   gerente: ["GERENTE"],
   alumno: ["ALUMNO"],
+  "mi-historial": ["ALUMNO"],
   profesores: ["MESA_ENTRADA"],
   aulas: ["GERENTE"],
   alumnos: ["MESA_ENTRADA", "GERENTE", "PROFESOR"],
