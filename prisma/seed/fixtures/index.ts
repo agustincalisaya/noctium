@@ -11,6 +11,7 @@
 // inscripciones, pagos, comprobantes ni cajas), busca sus datos por id o
 // clave estable antes de crearlos (correr el seed dos veces no cambia nada) y
 // anota en su PR qué agrega.
+import { fixtureHuE09 } from "./hu-e-09";
 import { fixtureHuH06 } from "./hu-h-06";
 import type { PrismaClient } from "@prisma/client";
 
@@ -20,7 +21,7 @@ export type ContextoFixtures = { prisma: PrismaClient };
 type Fixture = { nombre: string; correr: (contexto: ContextoFixtures) => Promise<void> };
 
 /** Fixtures en orden de ejecución: una línea por HU. */
-const FIXTURES: Fixture[] = [{ nombre: "hu-h-06", correr: fixtureHuH06 }];
+const FIXTURES: Fixture[] = [{ nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "hu-h-06", correr: fixtureHuH06 }];
 
 export async function correrFixtures(contexto: ContextoFixtures): Promise<void> {
   for (const fixture of FIXTURES) {

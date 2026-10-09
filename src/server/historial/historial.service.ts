@@ -5,7 +5,7 @@ import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
 import { ServiceError } from "@/server/shared/service-error";
 import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
-import { profesorAtendioAlumno, profesorPuedeRegistrarIndicacion } from "./historial.publico";
+import { profesorAtendioAlumno, profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
 import type { HistorialQuery } from "./historial.schema";
 
 const MENSAJES = {
@@ -13,7 +13,10 @@ const MENSAJES = {
   ALUMNO_NO_ENCONTRADO: "No se encontró el alumno",
 } as const;
 
+import { sqlAsistenciaVigente, sqlClaseDictadaVigente } from "@/server/historial/valor-vigente";
+
 type FilaHistorial = {
+  asistencia: "PRESENTE" | "AUSENTE" | null;
   total: bigint;
   materias_disponibles: string[];
   tipo: "CLASE_DICTADA" | "EXAMEN" | null;
@@ -68,11 +71,12 @@ export async function obtenerHistorialAlumno(
         NULL::text AS observaciones,
         clase."turnoId" AS turno_id,
         clase."createdAtClaseDictada" AS creado_en,
-        clase."idClaseDictada" AS registro_id
+        clase."idClaseDictada" AS registro_id,
+        ${sqlAsistenciaVigente("inscripto")} AS asistencia
       FROM "clases_dictadas" AS clase
       INNER JOIN "clases_dictadas_alumnos" AS inscripto
         ON inscripto."claseDictadaId" = clase."idClaseDictada"
-      WHERE inscripto."alumnoId" = ${alumnoId}
+      WHERE inscripto."alumnoId" = ${alumnoId} AND ${sqlClaseDictadaVigente("clase")}
       UNION ALL
       SELECT
         'EXAMEN'::text AS tipo,
@@ -83,7 +87,8 @@ export async function obtenerHistorialAlumno(
         examen."observaciones" AS observaciones,
         NULL::text AS turno_id,
         examen."createdAtResultadoExamen" AS creado_en,
-        examen."idResultadoExamen" AS registro_id
+        examen."idResultadoExamen" AS registro_id,
+        NULL::"EstadoAsistencia" AS asistencia
       FROM "resultados_examen" AS examen
       WHERE examen."alumnoId" = ${alumnoId}
     ),
@@ -105,7 +110,7 @@ export async function obtenerHistorialAlumno(
     )
     SELECT conteo.total, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
-      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id
+      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id, pagina.asistencia
     FROM conteo CROSS JOIN materias
     LEFT JOIN pagina ON TRUE
     ORDER BY pagina.fecha DESC NULLS LAST, pagina.creado_en DESC NULLS LAST, pagina.registro_id DESC NULLS LAST
@@ -136,6 +141,7 @@ export async function obtenerHistorialAlumno(
         materia: { id: fila.materia_id, nombre: nombreMateria },
         profesor,
         turno_id: fila.turno_id,
+        asistencia: fila.asistencia ?? null,
       };
     }
     return {
@@ -147,7 +153,20 @@ export async function obtenerHistorialAlumno(
     };
   });
 
+  // Resumen completo: no cambia con el filtro ni con la página.
+  // El campo aditivo no amplía el alcance del Profesor. Hasta E-02 no hay
+  // contexto obligatorio de materia en la navegación existente: sin él no
+  // se entrega resumen; con él se verifica el alcance específico de E.
+  let asistenciaPorMateria: Awaited<ReturnType<typeof asistenciaDeAlumno>> = [];
+  if (usuario.rol !== "PROFESOR") asistenciaPorMateria = await asistenciaDeAlumno(alumnoId);
+  else if (query.materia_id) {
+    const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    if (profesor && await profesorPuedeVerHistorial(profesor.id, alumnoId, query.materia_id)) {
+      asistenciaPorMateria = await asistenciaDeAlumno(alumnoId, query.materia_id);
+    }
+  }
   return {
+    asistencia_por_materia: asistenciaPorMateria,
     alumno: { id: alumno.id, nombre_completo: `${alumno.apellido}, ${alumno.nombre}` },
     materias_disponibles: materias
       .map(({ id, nombre }) => ({ id, nombre }))

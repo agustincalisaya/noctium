@@ -8,7 +8,6 @@ import type { TurnoDetalle } from "@/types/turno.types";
 import { TurnoAlumnosCard } from "./turno-alumnos-card";
 import { TurnoDatosCard } from "./turno-datos-card";
 import { TurnoDetalleEncabezado } from "./turno-detalle-encabezado";
-import { TurnoClaseCard } from "./turno-clase-card";
 import { TurnoPagoCard } from "./turno-pago-card";
 import { AsignarPrioridadDialog } from "./asignar-prioridad-dialog";
 import { CancelarTurnoDialog } from "./cancelar-turno-dialog";
@@ -62,19 +61,18 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
     {cargando ? <p role="status">Cargando turno</p> : error ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turnoActual && (
       // Mockup pág. 5: columnas proporcionales 2:1 con datos y alumnos; a la derecha
       // con «Pago» y «Clase» en los roles que pueden registrar, como en el mockup.
-      <div className={`grid gap-[18px] ${turnoActual.pagos || puedeRegistrarClase || turnoActual.clase_dictada ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
+      <div className={`grid gap-[18px] ${turnoActual.pagos ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
         <div className="min-w-0 space-y-[18px]">
           <TurnoDatosCard turno={turnoActual} />
-          <TurnoAlumnosCard turno={turnoActual} gestionable={gestionable} onCambio={() => cargar(true)} />
+          <TurnoAlumnosCard turno={turnoActual} gestionable={gestionable} puedeRegistrarClase={puedeRegistrarClase} onCambio={() => cargar(true)} />
         </div>
-        {(turnoActual.pagos || puedeRegistrarClase || turnoActual.clase_dictada) && <aside aria-label="Pago y clase" className="min-w-0 space-y-[18px]">
+        {(turnoActual.pagos) && <aside aria-label="Pago y clase" className="min-w-0 space-y-[18px]">
           {turnoActual.pagos && <TurnoPagoCard pagos={turnoActual.pagos} accion={puedeRegistrarPago && (turnoActual.estado === "DISPONIBLE" || turnoActual.estado === "COMPLETO") ? <RegistrarPagoDialog
             turnoId={turnoActual.id}
             contexto={`${turnoActual.materia} · ${diaAbreviadoYFecha(turnoActual.fecha)}, ${turnoActual.hora_inicio}–${turnoActual.hora_fin}`}
             deshabilitado={!turnoActual.acciones_habilitadas.includes("registrar_pago")}
             onRegistrado={() => cargar(true)}
           /> : undefined} />}
-          {(puedeRegistrarClase || turnoActual.clase_dictada) && <TurnoClaseCard turno={turnoActual} puedeRegistrarClase={puedeRegistrarClase} onRegistrada={() => cargar(true)} />}
         </aside>}
       </div>
     )}

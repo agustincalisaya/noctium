@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queryRaw, alumno, materias, profesores, profesorUsuario, profesorAtendio } = vi.hoisted(() => ({
-  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), profesorAtendio: vi.fn(),
+const { queryRaw, alumno, materias, profesores, profesorUsuario, profesorAtendio, asistencia, vigente, propia } = vi.hoisted(() => ({
+  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), profesorAtendio: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: queryRaw } }));
@@ -11,7 +11,9 @@ vi.mock("@/server/profesores/profesor.publico", () => ({
   obtenerNombresProfesores: profesores,
   obtenerOpcionProfesorDeUsuario: profesorUsuario,
 }));
-vi.mock("./historial.publico", () => ({ profesorAtendioAlumno: profesorAtendio }));
+vi.mock("./historial.publico", () => ({ profesorAtendioAlumno: profesorAtendio, asistenciaDeAlumno: asistencia, profesorPuedeRegistrarIndicacion: propia }));
+
+vi.mock("@/server/turnos/inscripcion.publico", () => ({ existeInscripcionVigenteConProfesor: vigente }));
 
 const { obtenerHistorialAlumno } = await import("./historial.service");
 
@@ -34,7 +36,9 @@ beforeEach(() => {
   profesores.mockResolvedValue({ "profesor-1": "Acuña, Sergio" });
   profesorUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Acuña, Sergio" });
   profesorAtendio.mockResolvedValue(true);
+  vigente.mockResolvedValue(true); propia.mockResolvedValue(false);
   queryRaw.mockResolvedValue([registroExamen, registroClase]);
+  asistencia.mockResolvedValue([{ materia_id: "materia-1", presentes: 1, ausentes: 1, sin_control: 1, porcentaje: 50 }]);
 });
 
 describe("HU-E-05 obtenerHistorialAlumno", () => {
@@ -42,11 +46,12 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
     const resultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, mesa);
 
     expect(resultado).toEqual({
+      asistencia_por_materia: [{ materia_id: "materia-1", presentes: 1, ausentes: 1, sin_control: 1, porcentaje: 50 }],
       alumno: { id: "alumno-1", nombre_completo: "Acosta, Emilia" },
       materias_disponibles: [{ id: "materia-1", nombre: "Programación I" }],
       items: [
         { tipo: "EXAMEN", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5", observaciones: "Parcial de cinemática" },
-        { tipo: "CLASE_DICTADA", fecha: "2026-09-28", materia: { id: "materia-1", nombre: "Programación I" }, profesor: "Acuña, Sergio", turno_id: "turno-1" },
+        { tipo: "CLASE_DICTADA", fecha: "2026-09-28", materia: { id: "materia-1", nombre: "Programación I" }, profesor: "Acuña, Sergio", turno_id: "turno-1", asistencia: null },
       ],
       paginacion: { total: 2, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
     });
@@ -69,6 +74,8 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("materia_id = ?::text");
     expect(sql).toContain("LIMIT ? OFFSET ?");
+    expect(sql).toContain("IS NULL");
+    expect(asistencia).toHaveBeenCalledWith("alumno-1");
     expect(parametros).toContain("alumno-1");
     expect(parametros).toContain("materia-1");
     expect(parametros).toContain(10);
@@ -100,5 +107,24 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
     expect(profesorUsuario).toHaveBeenCalledWith("usuario-profesor", expect.objectContaining({ $queryRaw: queryRaw }));
     expect(alumno).not.toHaveBeenCalled();
     expect(queryRaw).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("HU-E-09 resumen aditivo de Profesor", () => {
+  const profesor = { id: "usuario-profesor", rol: "PROFESOR" as const };
+  it("solo solicita la materia autorizada, nunca todas las materias", async () => {
+    const r = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "materia-1" }, profesor);
+    expect(asistencia).toHaveBeenCalledExactlyOnceWith("alumno-1", "materia-1");
+    expect(r.asistencia_por_materia).toHaveLength(1);
+  });
+  it("sin contexto de materia no entrega resumen nuevo de todas las materias", async () => {
+    const r = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, profesor);
+    expect(r.asistencia_por_materia).toEqual([]); expect(asistencia).not.toHaveBeenCalled();
+  });
+  it("materia ajena no entrega resumen aunque el contrato anterior permita historial general", async () => {
+    vigente.mockResolvedValue(false); propia.mockResolvedValue(false);
+    const r = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "ajena" }, profesor);
+    expect(r.asistencia_por_materia).toEqual([]); expect(asistencia).not.toHaveBeenCalled();
   });
 });
