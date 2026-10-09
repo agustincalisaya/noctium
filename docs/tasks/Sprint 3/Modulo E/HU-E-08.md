@@ -1,7 +1,7 @@
 # TASK: HU-E-08 — Consultar propio historial académico
 
 Sprint 3 · Iván · 3 SP · Issue #176 · Rama `feat/hu-e-08-mi-historial`.
-Estado: relevamiento del 09/10/2026 aprobado explícitamente por el usuario; E11 y refactor documental integrados en develop `c0bcd34`; implementación y validación local completadas; PR y CI pendientes.
+Estado: relevamiento del 09/10/2026 aprobado explícitamente por el usuario; E11 y refactor documental integrados en develop `c0bcd34`; implementación y validación local completadas; PR #225 publicado; tres checks remotos aprobados sobre f7dd340.
 
 ## 0. Relevamiento previo a implementación
 
@@ -67,6 +67,6 @@ Checks: npm test, test:pg en base creada por runner local descartable, lint, tex
 - [x] E11 integrado y rama actualizada desde develop.
 - [x] Todos los criterios, aislamiento y ausencia de datos internos verificados.
 - [x] Evidencia SQL/HTTP/Playwright y checks reales.
-- [ ] PR independiente a develop, Closes #176, sin merge automático.
+- [x] PR independiente #225 a develop, Closes #176, sin merge automático.
 
 Organización documental: task ubicada en `Sprint 3/Modulo E` conforme al PR #223 (solo movimientos, integrado en develop).

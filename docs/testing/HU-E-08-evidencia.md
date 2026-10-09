@@ -26,3 +26,7 @@ Colección Postman preparada; no ejecutada en la aplicación Postman. Playwright
 ## Entorno y alcance
 
 Node 24, PostgreSQL 17 local 55443, runner crea/elimina bases descartables propias. Checks pesados serializados. Sin merge automático. E02 se conserva en una rama independiente; H03/H10 fuera de alcance.
+
+## CI remoto
+
+PR #225, commit `f7dd340`: validate-and-build, textos y CodeQL aprobados. La actualización posterior de esta evidencia vuelve a ejecutar CI sobre el SHA final.
