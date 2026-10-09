@@ -61,3 +61,7 @@ Flujo final08/01: selección masiva Ausente/Presente, cambio individual, confirm
 ## CI remoto observado
 
 Sobre el commit de código `d17fbcc`: [Textos C23](https://github.com/agustincalisaya/noctium/actions/runs/37930866237) aprobado y CodeQL aprobado. [CI build](https://github.com/agustincalisaya/noctium/actions/runs/37930866207) aprobado. Los commits posteriores de evidencia sólo modifican documentación/capturas.
+
+## Resolución después del merge de H06
+
+Se actualizó la rama E09 con develop28fdbed. Se conservaron las reglas y textos de ambas historias y los fixtures E09/H06 en ese orden; no se agregó H07.47 pruebas de detalle/catálogo aprobadas, comprobador de claves aprobado y build webpack/TypeScript aprobado en esta rama. Diff check aprobado.
