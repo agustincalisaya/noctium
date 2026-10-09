@@ -6,6 +6,8 @@ import { emitirEventoTurno } from "./turno.service";
 import { turnoSigueVigente } from "./turno.validaciones";
 import { aulaConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso } from "./turno.reserva-error";
+import { ahora } from "@/server/shared/reloj";
+import { filtroVigenteEn } from "./inscripcion.vigencia";
 import type { AsignarAulaTurnoInput } from "./turno.schema";
 
 function validarIntervalo(turno: { horaInicioTurno: Date; duracionMinutosTurno: number }) {
@@ -24,7 +26,7 @@ function validarIntervalo(turno: { horaInicioTurno: Date; duracionMinutosTurno: 
 export async function listarOpcionesAulaTurno(turnoId?: string) {
   const turno = turnoId ? await prisma.turno.findUnique({
     where: { idTurno: turnoId },
-    select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, _count: { select: { alumnos: true } } },
+    select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, _count: { select: { alumnos: { where: filtroVigenteEn(ahora()) } } } },
   }) : null;
   if (turnoId && !turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
   if (turno && turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "El turno ya está confirmado");
@@ -54,7 +56,7 @@ export async function asignarAulaTurno(turnoId: string, input: AsignarAulaTurnoI
 
     const turno = await tx.turno.findUnique({
       where: { idTurno: turnoId },
-      select: { idTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, _count: { select: { alumnos: true } } },
+      select: { idTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, _count: { select: { alumnos: { where: filtroVigenteEn(ahora()) } } } },
     });
     if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
     validarIntervalo(turno);

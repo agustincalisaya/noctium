@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { transaction, queryRaw, updateMany, turnoAlumnoFindMany, eventoCreate, prohibidos } = vi.hoisted(() => ({
+const { transaction, queryRaw, updateMany, turnoAlumnoFindMany, eventoCreate, prohibidos, marcarVencidas } = vi.hoisted(() => ({
+  // turnoAlumnoFindMany: las inscripciones vigentes de la clase (inscripcionesVigentes, PR-0.md §2.2).
   transaction: vi.fn(), queryRaw: vi.fn(), updateMany: vi.fn(), turnoAlumnoFindMany: vi.fn(), eventoCreate: vi.fn(),
   prohibidos: { reservaDelete: vi.fn(), turnoAlumnoDelete: vi.fn(), pagoAny: vi.fn(), turnoDelete: vi.fn() },
+  marcarVencidas: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
   $transaction: transaction,
   eventoTurno: { create: eventoCreate },
 } }));
+vi.mock("@/server/turnos/inscripcion.service", () => ({ marcarVencidas }));
+vi.mock("@/server/turnos/inscripcion.vigencia", () => ({ inscripcionesVigentes: turnoAlumnoFindMany }));
 
 const { cancelarTurno } = await import("@/server/turnos/turno.cancelacion.service");
 
@@ -17,6 +21,8 @@ const fila = (estadoTurno: string, horario = FUTURO) => ({ idTurno: "turno-1", e
 
 // Cliente transaccional mínimo: cualquier acceso a borrados o a pagos queda registrado.
 const tx = () => ({
+  // transaccion() (PR-0.md §2.16) fija los tiempos de la transacción al empezar.
+  $executeRawUnsafe: vi.fn(),
   $queryRaw: queryRaw,
   turno: { updateMany, delete: prohibidos.turnoDelete, deleteMany: prohibidos.turnoDelete },
   turnoAlumno: { findMany: turnoAlumnoFindMany, delete: prohibidos.turnoAlumnoDelete, deleteMany: prohibidos.turnoAlumnoDelete },
@@ -27,7 +33,8 @@ const tx = () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   queryRaw.mockResolvedValue([fila("DISPONIBLE")]);
-  turnoAlumnoFindMany.mockResolvedValue([{ alumnoId: "alumno-1" }, { alumnoId: "alumno-2" }]);
+  turnoAlumnoFindMany.mockResolvedValue([{ id: "insc-2", alumnoId: "alumno-2" }, { id: "insc-1", alumnoId: "alumno-1" }]);
+  marcarVencidas.mockResolvedValue(0);
   updateMany.mockResolvedValue({ count: 1 });
   eventoCreate.mockResolvedValue({});
   transaction.mockImplementation(async (callback: (cliente: unknown) => Promise<unknown>) => callback(tx()));
@@ -55,6 +62,9 @@ describe("HU-C-05 cancelarTurno", () => {
         alumno_ids: ["alumno-1", "alumno-2"], usuario_id: "mesa-1",
       },
     } });
+    // Antes de cancelar se marcan las reservas ya vencidas (PR-0.md §2.0); el evento lista solo las vigentes.
+    expect(marcarVencidas).toHaveBeenCalledWith(expect.anything(), "turno-1", { momento: expect.any(Date) });
+    expect(marcarVencidas.mock.invocationCallOrder[0]).toBeLessThan(updateMany.mock.invocationCallOrder[0]);
   });
 
   it("no borra reservas, inscripciones, pagos ni el turno: la liberación es del trigger", async () => {
@@ -73,6 +83,8 @@ describe("HU-C-05 cancelarTurno", () => {
     turnoAlumnoFindMany.mockResolvedValue([]);
     await expect(cancelarTurno("turno-1", "mesa-1")).resolves.toEqual({ id: "turno-1", estado: "CANCELADO" });
     expect(eventoCreate.mock.calls[0][0].data.payloadEvento).toMatchObject({ estado_anterior: "PENDIENTE", aula_id: null, alumno_ids: [] });
+    // En una clase PENDIENTE no hay reservas que vencer.
+    expect(marcarVencidas).not.toHaveBeenCalled();
   });
 
   it.each([

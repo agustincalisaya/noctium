@@ -73,7 +73,11 @@ describe("HU-C-09 alcance por rol (AC2)", () => {
         materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
         profesor: { select: { idProfesor: true, apellidoProfesor: true, nombreProfesor: true, dniProfesor: true } },
         aula: { select: { idAula: true, nombreAula: true, capacidadAula: true } },
-        alumnos: { include: { alumno: { select: { idAlumno: true, apellidoAlumno: true, nombreAlumno: true, dniAlumno: true } } } },
+        // Solo las inscripciones vigentes ahora (PR-0.md §2.0 y §2.2).
+        alumnos: {
+          include: { alumno: { select: { idAlumno: true, apellidoAlumno: true, nombreAlumno: true, dniAlumno: true } } },
+          where: expect.objectContaining({ vigencia: "VIGENTE" }),
+        },
       },
     });
   });

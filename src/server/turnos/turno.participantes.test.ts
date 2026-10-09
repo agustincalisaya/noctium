@@ -1,14 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServiceError } from "@/server/shared/service-error";
 
-const { tx, evento, vigente, activo, profesores, opcion, dicta, horario, aulaActiva, materiaActiva } = vi.hoisted(() => ({
+const { tx, evento, vigente, activo, profesores, opcion, dicta, horario, aulaActiva, materiaActiva, inscripcion } = vi.hoisted(() => ({
   tx: {
+    // transaccion() y bloquear() (PR-0.md §2.16) usan las dos primeras.
+    $executeRawUnsafe: vi.fn(), $queryRawUnsafe: vi.fn(),
     turno: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
-    turnoAlumno: { deleteMany: vi.fn(), createMany: vi.fn() },
   },
   evento: vi.fn(), vigente: vi.fn(), activo: vi.fn(), profesores: vi.fn(), opcion: vi.fn(), dicta: vi.fn(), horario: vi.fn(), aulaActiva: vi.fn(), materiaActiva: vi.fn(),
+  // Persistencia de la inscripción (PR-0.md §2.0): el servicio de C reemplaza al deleteMany/createMany.
+  inscripcion: { crear: vi.fn(), finalizar: vi.fn(), vigentes: vi.fn(), vencidasDelAlumno: vi.fn() },
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn((callback) => callback(tx)), eventoTurno: { create: evento } } }));
+// Cada transacción recibe su propio tx (copia con los mismos mocks): bloquear() guarda su estado por transacción.
+vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: vi.fn((callback) => callback({ ...tx })), eventoTurno: { create: evento } } }));
 vi.mock("@/server/alumnos/alumno.service", () => ({ verificarAlumnoActivo: activo }));
 vi.mock("@/server/alumnos/alumno.publico", () => ({ verificarAlumnoActivo: activo }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorActivo: opcion, profesorActivoDictaMateria: dicta, listarProfesoresActivosPorMateria: profesores, estaDentroDeHorarioAtencion: horario }));
@@ -16,6 +20,11 @@ vi.mock("@/server/turnos/turno.validaciones", () => ({ turnoSigueVigente: vigent
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
 vi.mock("@/server/aulas/aula.publico", () => ({ verificarAulaActiva: aulaActiva }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: vi.fn() }));
+vi.mock("./inscripcion.service", () => ({
+  crearInscripcion: inscripcion.crear, finalizarInscripcion: inscripcion.finalizar,
+  clasesConReservasVencidasDelAlumno: inscripcion.vencidasDelAlumno, inscripcionVigenteDelPar: vi.fn(), marcarVencidas: vi.fn(),
+}));
+vi.mock("./inscripcion.vigencia", async (original) => ({ ...(await original<typeof import("./inscripcion.vigencia")>()), inscripcionesVigentes: inscripcion.vigentes }));
 
 const { asignarParticipantesTurno } = await import("./turno.service");
 const { AsignarParticipantesTurnoSchema } = await import("./turno.schema");
@@ -47,8 +56,9 @@ beforeEach(() => {
   // segunda respuesta de `conflictos()`, y clearAllMocks no la descarta.
   tx.turno.findMany.mockReset().mockResolvedValue([]);
   tx.turno.updateMany.mockResolvedValue({ count: 1 });
-  tx.turnoAlumno.deleteMany.mockResolvedValue({ count: 1 });
-  tx.turnoAlumno.createMany.mockResolvedValue({ count: 3 });
+  tx.$executeRawUnsafe.mockResolvedValue(0); tx.$queryRawUnsafe.mockResolvedValue([]);
+  inscripcion.crear.mockResolvedValue({}); inscripcion.finalizar.mockResolvedValue({});
+  inscripcion.vigentes.mockResolvedValue([]); inscripcion.vencidasDelAlumno.mockResolvedValue([]);
   evento.mockResolvedValue({}); vigente.mockReturnValue(true); activo.mockResolvedValue(true);
   profesores.mockResolvedValue([{ id: P, nombre: "Ana", apellido: "Pérez" }]); opcion.mockResolvedValue({ id: P }); dicta.mockResolvedValue(true); horario.mockResolvedValue(true);
   aulaActiva.mockResolvedValue({ idAula: AULA, capacidadAula: 3 }); materiaActiva.mockResolvedValue({ idMateria: turno.materiaId });
@@ -81,7 +91,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   it("sin profesor persistido ni enviado responde TURNO_SIN_PROFESOR", async () => {
     await expect(asignarParticipantesTurno(TURNO, { alumno_ids: [A] }, USUARIO)).rejects.toMatchObject({ code: "TURNO_SIN_PROFESOR", message: "Elegí un profesor antes de confirmar el turno" });
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
-    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
+    expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("el profesor persistido inactivo o desvinculado de la materia impide confirmar", async () => {
     tx.turno.findUnique.mockResolvedValue({ ...turno, profesorId: P });
@@ -90,7 +100,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     dicta.mockResolvedValueOnce(false);
     await expect(asignarParticipantesTurno(TURNO, { alumno_ids: [A] }, USUARIO)).rejects.toMatchObject({ code: "PROFESOR_NO_DICTA_MATERIA" });
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
-    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
+    expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("profesor_id explícito conserva la compatibilidad legacy", async () => {
     await expect(ejecutar([A])).resolves.toMatchObject({ profesor_id: P, estado: "DISPONIBLE" });
@@ -110,17 +120,19 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     activo.mockRejectedValueOnce(new ServiceError("ALUMNO_NO_ENCONTRADO", "El alumno ya no existe"));
     await expect(ejecutar([A])).rejects.toMatchObject({ code: "ALUMNO_NO_ENCONTRADO", detalles: { alumno_id: A } });
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
-    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
+    expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("asigna profesor y alumnos hasta el cupo, reemplaza vínculos y confirma COMPLETO", async () => {
     await expect(ejecutar()).resolves.toEqual({ id: TURNO, alumno_ids: [A, B, C], profesor_id: P, cupo_maximo: 3, estado: "COMPLETO" });
     expect(tx.turno.updateMany).toHaveBeenNthCalledWith(1, { where: { idTurno: TURNO, estadoTurno: "PENDIENTE", updatedAtTurno: turno.updatedAtTurno }, data: { profesorId: P, modificadoPorUsuarioId: USUARIO } });
-    expect(tx.turno.updateMany).toHaveBeenNthCalledWith(2, { where: { idTurno: TURNO, estadoTurno: "PENDIENTE" }, data: { estadoTurno: "COMPLETO" } });
-    expect(tx.turnoAlumno.deleteMany).toHaveBeenCalledWith({ where: { turnoId: TURNO } });
-    expect(tx.turnoAlumno.createMany).toHaveBeenCalledWith({ data: [A, B, C].map((alumnoId) => ({ turnoId: TURNO, alumnoId })) });
-    expect(tx.turnoAlumno.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(tx.turnoAlumno.createMany.mock.invocationCallOrder[0]);
-    // El trigger de reservas lee turno_alumno al cambiar estadoTurno: la transición va después del createMany.
-    expect(tx.turnoAlumno.createMany.mock.invocationCallOrder[0]).toBeLessThan(tx.turno.updateMany.mock.invocationCallOrder[1]);
+    // La clase se confirma y las inscripciones la pasan a COMPLETO al llenar el cupo (crearInscripcion recalcula el estado, PR-0.md §2.2).
+    expect(tx.turno.updateMany).toHaveBeenNthCalledWith(2, { where: { idTurno: TURNO, estadoTurno: "PENDIENTE" }, data: { estadoTurno: "DISPONIBLE" } });
+    expect(inscripcion.crear.mock.calls.map(([, datos]) => datos)).toEqual([A, B, C].map((alumnoId) => ({
+      turnoId: TURNO, alumnoId, origen: "CENTRO", conReserva: false, actor: { tipo: "USUARIO", usuarioId: USUARIO }, bloqueosTomados: true, momento: expect.any(Date),
+    })));
+    expect(inscripcion.finalizar).not.toHaveBeenCalled();
+    // El trigger de reservas proyecta cada inscripción vigente: las altas van después de confirmar la clase.
+    expect(tx.turno.updateMany.mock.invocationCallOrder[1]).toBeLessThan(inscripcion.crear.mock.invocationCallOrder[0]);
     expect(evento).toHaveBeenCalledWith({ data: expect.objectContaining({ tipoEvento: "turno:participantes_asignados", payloadEvento: { turno_id: TURNO, alumno_ids: [A, B, C], profesor_id: P, usuario_id: USUARIO } }) });
     expect(tipos()).toEqual(["turno:participantes_asignados", "turno:completado"]);
     expect(evento.mock.calls[1]![0].data.payloadEvento).toEqual({ turno_id: TURNO, alumno_ids: [A, B, C], cupo_maximo: 3, usuario_id: USUARIO });
@@ -184,7 +196,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_VENCIDO" });
     tx.turno.updateMany.mockResolvedValueOnce({ count: 0 });
     await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_MODIFICADO" });
-    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
+    expect(inscripcion.crear).not.toHaveBeenCalled();
     expect(evento).not.toHaveBeenCalled();
   });
   it("identifica al alumno inactivo en detalles", async () => {
@@ -207,7 +219,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   it("rechaza un turno DISPONIBLE/COMPLETO superpuesto del profesor con horario concreto", async () => {
     conflictos([otroTurno("10:30", 60)]);
     await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_NO_DISPONIBLE", message: "El profesor ya tiene un turno agendado de 10:30 a 11:30" });
-    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
+    expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("permite turnos contiguos y consulta solo DISPONIBLE/COMPLETO, excluyendo el propio", async () => {
     conflictos([otroTurno("11:00", 60)], [otroTurno("09:00", 60, [A])]);
@@ -220,10 +232,17 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   it("identifica al alumno con un turno superpuesto", async () => {
     conflictos([], [otroTurno("10:30", 60, [C])]);
     await expect(ejecutar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: C } });
-    expect(tx.turnoAlumno.deleteMany).not.toHaveBeenCalled();
+    expect(inscripcion.crear).not.toHaveBeenCalled();
+  });
+  it("el reemplazo no borra: las vigentes que no siguen pasan a QUITADA_CENTRO y las que siguen no se tocan", async () => {
+    inscripcion.vigentes.mockResolvedValueOnce([{ id: "insc-a", alumnoId: A }, { id: "insc-viejo", alumnoId: "ckalumno00000000000000009" }]);
+    await expect(ejecutar()).resolves.toMatchObject({ alumno_ids: [A, B, C] });
+    expect(inscripcion.finalizar).toHaveBeenCalledTimes(1);
+    expect(inscripcion.finalizar).toHaveBeenCalledWith(tx, { inscripcionId: "insc-viejo", vigencia: "QUITADA_CENTRO", actor: { tipo: "USUARIO", usuarioId: USUARIO }, fecha: expect.any(Date) });
+    expect(inscripcion.crear.mock.calls.map(([, datos]) => datos.alumnoId)).toEqual([B, C]);
   });
   it("no emite evento si falla el reemplazo dentro de la transacción", async () => {
-    tx.turnoAlumno.createMany.mockRejectedValueOnce(new Error("inserción fallida"));
+    inscripcion.crear.mockRejectedValueOnce(new Error("inserción fallida"));
     await expect(ejecutar()).rejects.toThrow("inserción fallida");
     expect(evento).not.toHaveBeenCalled();
   });
@@ -232,6 +251,6 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     const resultados = await Promise.allSettled([ejecutar(), ejecutar()]);
     expect(resultados.filter((resultado) => resultado.status === "fulfilled")).toHaveLength(1);
     expect(resultados.filter((resultado) => resultado.status === "rejected" && resultado.reason instanceof ServiceError && resultado.reason.code === "TURNO_MODIFICADO")).toHaveLength(1);
-    expect(tx.turnoAlumno.createMany).toHaveBeenCalledTimes(1);
+    expect(inscripcion.crear).toHaveBeenCalledTimes(3);
   });
 });

@@ -94,6 +94,73 @@ enum TipoEventoSeguridad {
   // Módulo A para esta HU — no se toca nada más de ese módulo.
   CODIGO_VERIFICACION_GENERADO
   AUTORREGISTRO_DERIVADO_MESA_ENTRADA
+  // Sprint 3 (PR 0, spec_modulo_A.md §4 Revisión 3): cuentas de HU-A-06 y
+  // recuperación de HU-A-05. Se agregan con ADD VALUE en su propia migración.
+  CUENTA_CREADA
+  PASSWORD_CAMBIADA
+  RECUPERACION_SOLICITADA
+  RECUPERACION_LIMITADA
+  RECUPERACION_ENVIO_FALLIDO
+  RECUPERACION_CONFIRMADA
+}
+
+// ------------------------------------------------------------
+// Enums del Sprint 3 (PR 0)
+// ------------------------------------------------------------
+
+// Si la inscripción sigue en pie (convención 8 a, PR-0.md §2.1). Toda
+// vigencia distinta de VIGENTE es terminal.
+enum VigenciaInscripcion {
+  VIGENTE
+  CANCELADA_ALUMNO
+  RESERVA_VENCIDA
+  BAJA_ALUMNO
+  QUITADA_CENTRO
+}
+
+// Estado de pago de la inscripción (solo tiene sentido si es VIGENTE; al
+// finalizarla queda congelado con su último valor).
+enum EstadoPagoInscripcion {
+  RESERVADA
+  PAGADA
+  PAGO_SIN_REGISTRAR
+}
+
+// Actor de las columnas «…UsuarioId + actorTipo» (PR-0.md §2.1): USUARIO
+// exige el usuario; PROCESO_AUTOMATICO lo exige null (CHECK en la migración).
+enum ActorTipo {
+  USUARIO
+  PROCESO_AUTOMATICO
+}
+
+enum EstadoCaja {
+  ABIERTA
+  CERRADA
+}
+
+enum TipoMovimientoCaja {
+  INGRESO
+  EGRESO
+}
+
+// HU-E-09: null en ClaseDictadaAlumno = registrada sin control de asistencia.
+enum EstadoAsistencia {
+  PRESENTE
+  AUSENTE
+}
+
+// Historial de bajas y reactivaciones (PR-0.md §2.13 y §2.14).
+enum EntidadHistorialEstado {
+  ALUMNO
+  PROFESOR
+  FICHA_MESA_ENTRADA
+  FICHA_GERENTE
+  FORMA_PAGO
+}
+
+enum AccionHistorialEstado {
+  DESACTIVAR
+  REACTIVAR
 }
 
 // ------------------------------------------------------------
@@ -111,11 +178,49 @@ model Usuario {
   activoUsuario    Boolean    @default(true)
   createdAtUsuario DateTime   @default(now())
   updatedAtUsuario DateTime   @updatedAt
+  // HU-A-06 (spec_modulo_A.md §2.6.5): contraseña inicial pendiente de cambio.
+  debeCambiarPasswordUsuario  Boolean   @default(false)
+  // RNF-SEG-04: toda sesión con iat_sesion anterior se rechaza. Se guarda
+  // truncado a segundos, igual que el claim iat_sesion.
+  sesionesValidasDesdeUsuario DateTime?
 
   alumno   Alumno?
   profesor Profesor?
+  fichaMesaEntrada   FichaMesaEntrada?
+  fichaGerente       FichaGerente?
+  tokensRecuperacion TokenRecuperacion[]
+  cajas              Caja[]
 
   @@map("usuarios")
+}
+
+// Enlace de recuperación de contraseña (HU-A-05, spec_modulo_A.md §2.7.5).
+// Solo se guarda el SHA-256 del valor enviado.
+model TokenRecuperacion {
+  idTokenRecuperacion   String    @id @default(cuid())
+  usuarioId             String
+  tokenHashRecuperacion String    @unique
+  venceEnToken          DateTime
+  // Usado, o invalidado por un enlace nuevo.
+  consumidoEnToken      DateTime?
+  creadoEnToken         DateTime  @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [idUsuario])
+
+  @@index([usuarioId, consumidoEnToken])
+  @@map("tokens_recuperacion")
+}
+
+// Tabla operativa del límite de solicitudes por email (HU-A-05), mismo patrón
+// que IntentoLoginFallido: solo sirve para contar.
+model SolicitudRecuperacion {
+  idSolicitudRecuperacion String   @id @default(cuid())
+  emailSolicitud          String
+  ipSolicitud             String
+  creadoEnSolicitud       DateTime @default(now())
+
+  @@index([emailSolicitud, creadoEnSolicitud])
+  @@map("solicitudes_recuperacion")
 }
 
 // Lista de revocación de JWT (HU-A-02 / HU-A-03, RNF-SEG-04):
@@ -190,9 +295,16 @@ model FormaPago {
   activaFormaPago Boolean @default(true)
   createdAtFormaPago DateTime @default(now())
   creadoPorUsuarioId String?
+  // Arqueo de caja (HU-I-12): solo la forma «Efectivo» del catálogo
+  // (formapago-efectivo) la tiene. Ninguna pantalla la edita.
+  esEfectivo Boolean @default(false)
 
   alumnos Alumno[]
   pagos Pago[]
+  operaciones OperacionPago[]
+  correccionesOperacionAnterior CorreccionOperacion[] @relation("CorreccionOperacionFormaAnterior")
+  correccionesOperacionNueva    CorreccionOperacion[] @relation("CorreccionOperacionFormaNueva")
+  ajustesCaja AjusteCaja[]
 
   @@map("formas_pago")
 }
@@ -250,6 +362,9 @@ model Alumno {
   pagos                    Pago[]
   codigosVerificacion      CodigoVerificacion[]
   solicitudesAutorregistro SolicitudAutorregistro[]
+  operacionesPago          OperacionPago[]
+  correccionesAsistencia   CorreccionAsistenciaAlumno[]
+  indicaciones             Indicacion[]
 
   @@map("alumnos")
 }
@@ -420,13 +535,37 @@ model Materia {
   creadoPorUsuarioId String?
   modificadoPorUsuarioId String?
   version Int @default(0)
+  // Tarifa por hora en pesos (HU-L-06). Admite null = «sin tarifa»: el alta
+  // de materia de Sprint 1 no la recibe (PR-0.md §2.4, spec_modulo_L.md P-L1).
+  // CHECK > 0 en la migración. C e I la leen con obtenerTarifasPorIds.
+  tarifaHoraMateria Int?
 
   profesores ProfesorMateria[]
   turnos     Turno[]
   clasesDictadas ClaseDictada[]
   resultadosExamen ResultadoExamen[]
+  historialTarifas HistorialTarifa[]
+  indicaciones     Indicacion[]
 
   @@map("materias")
+}
+
+// Cambios de tarifa (HU-L-06 individual, HU-L-07 masivo). Se inserta en la
+// misma transacción que el cambio (PR-0.md §2.4, excepción documentada).
+model HistorialTarifa {
+  idHistorialTarifa String   @id @default(cuid())
+  materiaId         String
+  // null: primera definición de la tarifa de una materia sin tarifa.
+  tarifaAnterior    Int?
+  tarifaNueva       Int
+  usuarioId         String
+  fecha             DateTime
+  masivo            Boolean  @default(false)
+
+  materia Materia @relation(fields: [materiaId], references: [idMateria])
+
+  @@index([materiaId, fecha])
+  @@map("historial_tarifas")
 }
 
 // Tabla intermedia N:M Profesor <-> Materia
@@ -514,24 +653,85 @@ model Turno {
   alumnos  TurnoAlumno[]
   reservas ReservaTurno[]
   pagos Pago[]
-  claseDictada ClaseDictada?
+  // 1:N desde el Sprint 3 (PR-0.md §2.0 y §2.8): la unicidad «una clase
+  // dictada no anulada por turno» es un índice único parcial de la migración.
+  clasesDictadas ClaseDictada[]
 
   @@map("turnos")
 }
 
-// Tabla intermedia N:M Turno <-> Alumno: un turno grupal tiene uno o varios
-// alumnos, hasta Turno.cupoMaximoTurno (spec_modulo_C.md Revisión 3).
+// Inscripción de un alumno en un turno (spec_modulo_C.md Revisión 6, §2.16).
+// Mismo modelo y misma tabla de Sprint 1 y 2, extendidos (PR-0.md §2.0): id
+// propio y baja lógica por vigencia, así un alumno puede tener en la misma
+// clase inscripciones finalizadas y una vigente. SQL manual de la migración:
+//  - índice único parcial: una sola inscripción VIGENTE por (alumno, turno);
+//  - CHECK de actor, de vigencia/finalización, de estado de pago/vencimiento
+//    y de precio > 0;
+//  - el trigger turno_alumno_sincronizar_reserva proyecta solo las VIGENTE.
+// Toda escritura pasa por el servicio de inscripción (PR-0.md §2.13).
 model TurnoAlumno {
+  idInscripcion String @id @default(cuid())
   turnoId  String
   alumnoId String
 
+  vigencia              VigenciaInscripcion   @default(VIGENTE)
+  estadoPago            EstadoPagoInscripcion
+  // Fechas de dominio: se guardan con ahora(), sin @default(now()) (PR-0.md §2.2).
+  reservadaEl           DateTime
+  // Momento desde el que corre el plazo vigente (se reinicia al reabrir por anulación).
+  inicioPlazo           DateTime?
+  // inicioPlazo + plazo aplicado, sin el tope del inicio de la clase.
+  venceBaseEl           DateTime?
+  // min(venceBaseEl, inicio de la clase). null salvo RESERVADA.
+  venceEl               DateTime?
+  // Entero en pesos, congelado al crear (precioClase).
+  precio                Int
+  reabiertaPorAnulacion Boolean               @default(false)
+
+  // Cambio de vigencia: fecha y actor (usuario o «Proceso automático»).
+  finalizadaEl           DateTime?
+  finalizadaPorUsuarioId String?
+  finalizadaPorActorTipo ActorTipo?
+
+  // Auditoría de la fila (Regla N.° 2, opción a).
+  creadoPorUsuarioId   String?
+  createdAtInscripcion DateTime @default(now())
+
   turno  Turno  @relation(fields: [turnoId], references: [idTurno], onDelete: Cascade)
   alumno Alumno @relation(fields: [alumnoId], references: [idAlumno], onDelete: Cascade)
+  pagos     Pago[]
+  historial HistorialInscripcion[]
 
-  @@id([turnoId, alumnoId])
+  @@index([turnoId, vigencia])
+  @@index([alumnoId, vigencia])
   @@map("turno_alumno")
 }
 
+// Transiciones de la inscripción (Regla N.° 2): se escribe después del commit
+// (despuesDelCommit, PR-0.md §2.10 y §2.16). El id se genera antes del commit
+// para que el reintento sea idempotente.
+model HistorialInscripcion {
+  idHistorialInscripcion String                 @id @default(cuid())
+  inscripcionId          String
+  // null en la creación de la inscripción.
+  vigenciaAnterior       VigenciaInscripcion?
+  vigenciaNueva          VigenciaInscripcion
+  estadoPagoAnterior     EstadoPagoInscripcion?
+  estadoPagoNuevo        EstadoPagoInscripcion
+  actorTipo              ActorTipo
+  usuarioId              String?
+  fecha                  DateTime
+
+  inscripcion TurnoAlumno @relation(fields: [inscripcionId], references: [idInscripcion], onDelete: Cascade)
+
+  @@index([inscripcionId, fecha])
+  @@map("historial_inscripciones")
+}
+
+// Pago de una clase (uno por inscripción y operación). Conserva todas sus
+// columnas de Sprint 2 como valores ORIGINALES e inmutables (PR-0.md §2.3,
+// spec_modulo_I.md T6): el valor vigente de monto, forma y fecha sale de las
+// correcciones. Se escribe solo con registrarOperacion.
 model Pago {
   idPago String @id @default(cuid())
   turnoId String
@@ -541,37 +741,327 @@ model Pago {
   fechaPago DateTime @db.Date
   createdAtPago DateTime @default(now())
   creadoPorUsuarioId String?
+  // Sprint 3
+  operacionId          String
+  inscripcionId        String
+  // Precio de la clase (el de la inscripción), entero en pesos.
+  precio               Int
+  // Cuando montoPago difiere de precio. Admite vacío por el modo compatSprint2.
+  motivoAjuste         String?          @db.VarChar(300)
+  ajustadoPorUsuarioId String?
   turno Turno @relation(fields: [turnoId], references: [idTurno])
   alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])
   formaPago FormaPago @relation(fields: [formaPagoId], references: [idFormaPago])
+  operacion            OperacionPago    @relation(fields: [operacionId], references: [idOperacionPago])
+  inscripcion          TurnoAlumno      @relation(fields: [inscripcionId], references: [idInscripcion])
+  correcciones         CorreccionPago[]
+  anulacion            AnulacionPago?
+  ajustesCaja          AjusteCaja[]
+
   @@index([turnoId, createdAtPago])
   @@index([alumnoId, createdAtPago])
+  @@index([inscripcionId])
+  @@index([operacionId])
   @@map("pagos")
 }
 
+// Un cobro hecho en el mostrador (HU-I-10). Guarda los mismos valores
+// originales de forma, fecha y usuario que cada Pago (base de las
+// CorreccionOperacion). El total no se guarda.
+model OperacionPago {
+  idOperacionPago    String   @id @default(cuid())
+  alumnoId           String
+  formaPagoId        String
+  fechaPago          DateTime @db.Date
+  creadoPorUsuarioId String
+  registradaEl       DateTime
+  cajaId             String
+
+  alumno       Alumno                @relation(fields: [alumnoId], references: [idAlumno])
+  formaPago    FormaPago             @relation(fields: [formaPagoId], references: [idFormaPago])
+  caja         Caja                  @relation(fields: [cajaId], references: [idCaja])
+  pagos        Pago[]
+  comprobantes Comprobante[]
+  correcciones CorreccionOperacion[]
+
+  @@index([alumnoId, fechaPago])
+  @@index([cajaId])
+  @@map("operaciones_pago")
+}
+
+// Cambio de monto de un pago (Regla N.° 8: registro nuevo).
+model CorreccionPago {
+  idCorreccionPago        String   @id @default(cuid())
+  pagoId                  String
+  montoAnterior           Decimal  @db.Decimal(11, 2)
+  montoNuevo              Decimal  @db.Decimal(11, 2)
+  motivo                  String   @db.VarChar(300)
+  creadoPorUsuarioId      String
+  createdAtCorreccionPago DateTime @default(now())
+
+  pago        Pago         @relation(fields: [pagoId], references: [idPago])
+  ajustesCaja AjusteCaja[]
+
+  @@index([pagoId, createdAtCorreccionPago])
+  @@map("correcciones_pago")
+}
+
+// Anulación de un pago (Regla N.° 8). Una por pago. Actor con CHECK.
+model AnulacionPago {
+  idAnulacionPago        String    @id @default(cuid())
+  pagoId                 String    @unique
+  motivo                 String    @db.VarChar(300)
+  actorTipo              ActorTipo @default(USUARIO)
+  creadoPorUsuarioId     String?
+  createdAtAnulacionPago DateTime  @default(now())
+
+  pago        Pago         @relation(fields: [pagoId], references: [idPago])
+  ajustesCaja AjusteCaja[]
+
+  @@map("anulaciones_pago")
+}
+
+// Cambio de forma O de fecha de pago de una operación (una fila por campo
+// que cambia; CHECK: exactamente uno de los dos pares). Alcanza a todos los
+// pagos de la operación.
+model CorreccionOperacion {
+  idCorreccionOperacion        String    @id @default(cuid())
+  operacionId                  String
+  formaPagoAnteriorId          String?
+  formaPagoNuevaId             String?
+  fechaPagoAnterior            DateTime? @db.Date
+  fechaPagoNueva               DateTime? @db.Date
+  motivo                       String    @db.VarChar(300)
+  creadoPorUsuarioId           String
+  createdAtCorreccionOperacion DateTime  @default(now())
+
+  operacion         OperacionPago @relation(fields: [operacionId], references: [idOperacionPago])
+  formaPagoAnterior FormaPago?    @relation("CorreccionOperacionFormaAnterior", fields: [formaPagoAnteriorId], references: [idFormaPago], onDelete: Restrict)
+  formaPagoNueva    FormaPago?    @relation("CorreccionOperacionFormaNueva", fields: [formaPagoNuevaId], references: [idFormaPago], onDelete: Restrict)
+  ajustesCaja       AjusteCaja[]
+
+  @@index([operacionId, createdAtCorreccionOperacion])
+  @@map("correcciones_operacion")
+}
+
+// Comprobante interno de una operación (HU-I-11). `numero` sale de la
+// secuencia comprobante_numero_seq (migración), tomada en la transacción del
+// pago; formato visible «0001-» + 8 dígitos. `datos` es la copia fija (JSON)
+// de todo lo que muestra. Las marcas «ANULADO» y «Reemplazado por» no se
+// guardan: se derivan.
+model Comprobante {
+  idComprobante String   @id @default(cuid())
+  numero        Int      @unique
+  operacionId   String
+  datos         Json
+  emitidoEl     DateTime
+  reemplazaAId  String?  @unique
+
+  operacion      OperacionPago @relation(fields: [operacionId], references: [idOperacionPago])
+  reemplazaA     Comprobante?  @relation("ReemplazoComprobante", fields: [reemplazaAId], references: [idComprobante], onDelete: Restrict)
+  reemplazadoPor Comprobante?  @relation("ReemplazoComprobante")
+
+  @@index([operacionId])
+  @@map("comprobantes")
+}
+
+// Caja de un integrante de mesa de entrada (HU-I-12). Índice único parcial de
+// la migración: como máximo una caja ABIERTA por integrante. Después del
+// cierre es inmutable (los cambios van como AjusteCaja en una caja abierta).
+model Caja {
+  idCaja              String     @id @default(cuid())
+  // Integrante dueño de la caja.
+  usuarioId           String
+  estado              EstadoCaja @default(ABIERTA)
+  abiertaEl           DateTime
+  fondoInicial        Decimal    @db.Decimal(11, 2)
+  // Se guarda al declararlo (antes del cierre), una sola vez.
+  efectivoDeclarado   Decimal?   @db.Decimal(11, 2)
+  cerradaEl           DateTime?
+  // El integrante, o el gerente en el cierre por ausencia.
+  cerradaPorUsuarioId String?
+  cerradaPorActorTipo ActorTipo?
+  porAusencia         Boolean    @default(false)
+  efectivoEsperado    Decimal?   @db.Decimal(11, 2)
+  // Con signo: declarado − esperado.
+  diferencia          Decimal?   @db.Decimal(11, 2)
+  motivo              String?    @db.VarChar(300)
+  // Resumen fijo del cierre (no se recalcula).
+  resumen             Json?
+
+  usuario     Usuario          @relation(fields: [usuarioId], references: [idUsuario])
+  operaciones OperacionPago[]
+  movimientos MovimientoCaja[]
+  ajustes     AjusteCaja[]
+
+  @@index([usuarioId, estado])
+  @@map("cajas")
+}
+
+// Ingreso o egreso manual de efectivo (HU-I-12). No se edita.
+model MovimientoCaja {
+  idMovimientoCaja        String             @id @default(cuid())
+  cajaId                  String
+  tipo                    TipoMovimientoCaja
+  monto                   Decimal            @db.Decimal(11, 2)
+  concepto                String             @db.VarChar(200)
+  creadoPorUsuarioId      String
+  createdAtMovimientoCaja DateTime           @default(now())
+
+  caja      Caja                 @relation(fields: [cajaId], references: [idCaja])
+  anulacion AnulacionMovimiento?
+
+  @@index([cajaId, createdAtMovimientoCaja])
+  @@map("movimientos_caja")
+}
+
+model AnulacionMovimiento {
+  idAnulacionMovimiento        String    @id @default(cuid())
+  movimientoId                 String    @unique
+  motivo                       String    @db.VarChar(300)
+  actorTipo                    ActorTipo @default(USUARIO)
+  creadoPorUsuarioId           String?
+  createdAtAnulacionMovimiento DateTime  @default(now())
+
+  movimiento MovimientoCaja @relation(fields: [movimientoId], references: [idMovimientoCaja])
+
+  @@map("anulaciones_movimiento")
+}
+
+// Dinero que se mueve al corregir o anular un pago de una caja CERRADA: se
+// registra en una caja abierta (cajaId). Exactamente un origen (CHECK). El
+// cambio de forma de pago genera un par (uno por forma, con signo opuesto).
+model AjusteCaja {
+  idAjusteCaja          String   @id @default(cuid())
+  cajaId                String
+  pagoId                String
+  correccionPagoId      String?
+  correccionOperacionId String?
+  anulacionPagoId       String?
+  formaPagoId           String
+  // Con signo, distinto de 0.
+  monto                 Decimal  @db.Decimal(11, 2)
+  creadoPorUsuarioId    String
+  createdAtAjusteCaja   DateTime @default(now())
+
+  caja                Caja                 @relation(fields: [cajaId], references: [idCaja])
+  pago                Pago                 @relation(fields: [pagoId], references: [idPago])
+  correccionPago      CorreccionPago?      @relation(fields: [correccionPagoId], references: [idCorreccionPago], onDelete: Restrict)
+  correccionOperacion CorreccionOperacion? @relation(fields: [correccionOperacionId], references: [idCorreccionOperacion], onDelete: Restrict)
+  anulacionPago       AnulacionPago?       @relation(fields: [anulacionPagoId], references: [idAnulacionPago], onDelete: Restrict)
+  formaPago           FormaPago            @relation(fields: [formaPagoId], references: [idFormaPago])
+
+  @@index([cajaId, createdAtAjusteCaja])
+  @@index([pagoId])
+  @@map("ajustes_caja")
+}
+
+// Registro de clase dictada (HU-E-01). Desde el Sprint 3 (spec_modulo_E.md
+// §2.5.1): la unicidad es el índice parcial «una no anulada por turno»
+// (clases_dictadas_turno_no_anulada_key) y la marca de anulación se escribe
+// una sola vez (excepción documentada a la Regla N.° 8).
 model ClaseDictada {
   idClaseDictada String @id @default(cuid())
-  turnoId String @unique
+  turnoId               String
   fechaClaseDictada DateTime @db.Date
   materiaId String
   profesorId String
   createdAtClaseDictada DateTime @default(now())
   creadoPorUsuarioId String?
+  // Sprint 3: false con el flujo de HU-E-01 (estados null), true con HU-E-09.
+  conControlAsistencia  Boolean                @default(false)
+  anuladaEl             DateTime?
+  anuladaPorUsuarioId   String?
+  motivoAnulacion       String?                @db.VarChar(300)
   turno Turno @relation(fields: [turnoId], references: [idTurno])
   materia Materia @relation(fields: [materiaId], references: [idMateria])
   profesor Profesor @relation(fields: [profesorId], references: [idProfesor])
   alumnos ClaseDictadaAlumno[]
+  correcciones          CorreccionAsistencia[]
+  observacion           ObservacionClase?
+  indicaciones          Indicacion[]
+
+  @@index([turnoId])
+  @@index([profesorId, materiaId])
   @@map("clases_dictadas")
 }
 
 model ClaseDictadaAlumno {
   claseDictadaId String
   alumnoId String
+  // HU-E-09: null = registrada sin control de asistencia.
+  estadoAsistencia EstadoAsistencia?
   clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada])
   alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])
+
   @@id([claseDictadaId, alumnoId])
   @@index([alumnoId])
   @@map("clases_dictadas_alumnos")
+}
+
+// Corrección de asistencia (HU-E-11): registro nuevo con sus propios estados
+// y su propia marca de control (Regla N.° 8).
+model CorreccionAsistencia {
+  idCorreccionAsistencia String   @id @default(cuid())
+  claseDictadaId         String
+  motivo                 String   @db.VarChar(300)
+  conControlAsistencia   Boolean  @default(true)
+  createdAtCorreccion    DateTime @default(now())
+  creadoPorUsuarioId     String?
+
+  clase   ClaseDictada                 @relation(fields: [claseDictadaId], references: [idClaseDictada])
+  alumnos CorreccionAsistenciaAlumno[]
+
+  @@index([claseDictadaId, createdAtCorreccion])
+  @@map("correcciones_asistencia")
+}
+
+model CorreccionAsistenciaAlumno {
+  correccionId   String
+  alumnoId       String
+  // Valor vigente antes de la corrección (null si la clase no tenía control).
+  estadoAnterior EstadoAsistencia?
+  estadoNuevo    EstadoAsistencia
+
+  correccion CorreccionAsistencia @relation(fields: [correccionId], references: [idCorreccionAsistencia])
+  alumno     Alumno               @relation(fields: [alumnoId], references: [idAlumno])
+
+  @@id([correccionId, alumnoId])
+  @@index([alumnoId])
+  @@map("correcciones_asistencia_alumnos")
+}
+
+// Observaciones de la clase (HU-E-07): a lo sumo una por registro de clase dictada.
+model ObservacionClase {
+  idObservacionClase    String   @id @default(cuid())
+  claseDictadaId        String   @unique
+  temasVistos           String   @db.VarChar(1000)
+  observacionesInternas String?  @db.VarChar(1000)
+  createdAtObservacion  DateTime @default(now())
+  creadoPorUsuarioId    String?
+
+  clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada])
+
+  @@map("observaciones_clase")
+}
+
+// Indicación académica (HU-E-04). La clase dictada es opcional y se conserva
+// aunque se anule (se oculta al leer).
+model Indicacion {
+  idIndicacion        String   @id @default(cuid())
+  alumnoId            String
+  materiaId           String
+  claseDictadaId      String?
+  texto               String   @db.VarChar(1000)
+  createdAtIndicacion DateTime @default(now())
+  creadoPorUsuarioId  String?
+
+  alumno  Alumno        @relation(fields: [alumnoId], references: [idAlumno])
+  materia Materia       @relation(fields: [materiaId], references: [idMateria])
+  clase   ClaseDictada? @relation(fields: [claseDictadaId], references: [idClaseDictada], onDelete: Restrict)
+
+  @@index([alumnoId, materiaId, createdAtIndicacion])
+  @@map("indicaciones")
 }
 
 model ResultadoExamen {
@@ -585,8 +1075,41 @@ model ResultadoExamen {
   creadoPorUsuarioId String?
   alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])
   materia Materia @relation(fields: [materiaId], references: [idMateria])
+  correcciones             CorreccionResultadoExamen[]
+  anulacion                AnulacionResultadoExamen?
+
   @@index([alumnoId, fechaExamen])
   @@map("resultados_examen")
+}
+
+// HU-E-10: el ResultadoExamen original no se toca (Regla N.° 8).
+model CorreccionResultadoExamen {
+  idCorreccionResultado String   @id @default(cuid())
+  resultadoExamenId     String
+  fechaAnterior         DateTime @db.Date
+  notaAnterior          Decimal  @db.Decimal(4, 1)
+  fechaNueva            DateTime @db.Date
+  notaNueva             Decimal  @db.Decimal(4, 1)
+  motivo                String   @db.VarChar(300)
+  createdAtCorreccion   DateTime @default(now())
+  creadoPorUsuarioId    String?
+
+  resultadoExamen ResultadoExamen @relation(fields: [resultadoExamenId], references: [idResultadoExamen])
+
+  @@index([resultadoExamenId, createdAtCorreccion])
+  @@map("correcciones_resultado_examen")
+}
+
+model AnulacionResultadoExamen {
+  idAnulacionResultado String   @id @default(cuid())
+  resultadoExamenId    String   @unique
+  motivo               String   @db.VarChar(300)
+  createdAtAnulacion   DateTime @default(now())
+  creadoPorUsuarioId   String?
+
+  resultadoExamen ResultadoExamen @relation(fields: [resultadoExamenId], references: [idResultadoExamen])
+
+  @@map("anulaciones_resultado_examen")
 }
 
 // Proyección técnica mantenida por triggers PostgreSQL para impedir
@@ -626,4 +1149,98 @@ model ParametroSistema {
   valor String
 
   @@map("parametros_sistema")
+}
+
+// Cambios de parámetros del centro (HU-N-01, Regla N.° 2 opción b): se
+// escribe después del commit.
+model HistorialParametro {
+  idHistorialParametro String   @id @default(cuid())
+  clave                String
+  valorAnterior        String
+  valorNuevo           String
+  usuarioId            String
+  fecha                DateTime
+
+  @@index([fecha])
+  @@index([usuarioId])
+  @@map("historial_parametros")
+}
+
+// ------------------------------------------------------------
+// Historial de bajas y reactivaciones (PR-0.md §2.13 y §2.14):
+// registrarCambioEstado / listarHistorialEstados. Se escribe después del
+// commit, con reintento; el id se genera antes del commit (idempotencia).
+// ------------------------------------------------------------
+
+model HistorialEstado {
+  idHistorialEstado String                 @id @default(cuid())
+  entidad           EntidadHistorialEstado
+  entidadId         String
+  accion            AccionHistorialEstado
+  motivo            String?                @db.VarChar(300)
+  actorTipo         ActorTipo
+  usuarioId         String?
+  fecha             DateTime
+
+  @@index([entidad, entidadId, fecha])
+  @@index([usuarioId])
+  @@map("historial_estados")
+}
+
+// ------------------------------------------------------------
+// Fichas del personal (HU-F y HU-G, spec_modulo_F.md §1 y spec_modulo_G.md):
+// la ficha y la cuenta son una unidad; el email de la ficha es el de la
+// cuenta. DNI único por tipo de ficha (activas e inactivas).
+// ------------------------------------------------------------
+
+model FichaMesaEntrada {
+  idFichaMesaEntrada                  String   @id @default(cuid())
+  usuarioId                           String?  @unique
+  activoFichaMesaEntrada              Boolean  @default(true)
+  nombreFichaMesaEntrada              String
+  apellidoFichaMesaEntrada            String
+  // normalizarTexto(): orden y búsqueda del listado (P-F1), igual que Profesor.
+  nombreNormalizadoFichaMesaEntrada   String
+  apellidoNormalizadoFichaMesaEntrada String
+  dniFichaMesaEntrada                 String   @unique
+  fechaNacimientoFichaMesaEntrada     DateTime @db.Date
+  generoFichaMesaEntrada              Genero?
+  telefonoFichaMesaEntrada            String?
+  emailFichaMesaEntrada               String
+  creadoPorUsuarioId                  String?
+  modificadoPorUsuarioId              String?
+  createdAtFichaMesaEntrada           DateTime @default(now())
+  updatedAtFichaMesaEntrada           DateTime @updatedAt
+  // Concurrencia optimista (Regla N.° 7).
+  version                             Int      @default(0)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
+
+  @@index([apellidoNormalizadoFichaMesaEntrada, nombreNormalizadoFichaMesaEntrada, dniFichaMesaEntrada], map: "fichas_mesa_entrada_orden_listado_idx")
+  @@map("fichas_mesa_entrada")
+}
+
+model FichaGerente {
+  idFichaGerente                  String   @id @default(cuid())
+  usuarioId                       String?  @unique
+  activoFichaGerente              Boolean  @default(true)
+  nombreFichaGerente              String
+  apellidoFichaGerente            String
+  nombreNormalizadoFichaGerente   String
+  apellidoNormalizadoFichaGerente String
+  dniFichaGerente                 String   @unique
+  fechaNacimientoFichaGerente     DateTime @db.Date
+  generoFichaGerente              Genero?
+  telefonoFichaGerente            String?
+  emailFichaGerente               String
+  creadoPorUsuarioId              String?
+  modificadoPorUsuarioId          String?
+  createdAtFichaGerente           DateTime @default(now())
+  updatedAtFichaGerente           DateTime @updatedAt
+  version                         Int      @default(0)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [idUsuario], onDelete: SetNull)
+
+  @@index([apellidoNormalizadoFichaGerente, nombreNormalizadoFichaGerente, dniFichaGerente], map: "fichas_gerente_orden_listado_idx")
+  @@map("fichas_gerente")
 }

@@ -3,6 +3,9 @@ import { PrismaClient } from "@prisma/client";
 import { asignarAulaTurno } from "./turno.aula.service";
 import { asignarParticipantesTurno } from "./turno.service";
 
+// Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
+const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
+
 // Ejecutar solo contra una base temporal con las migraciones aplicadas.
 const habilitada = Boolean(process.env.HU_C15_TEST_DATABASE_URL && process.env.DATABASE_URL === process.env.HU_C15_TEST_DATABASE_URL);
 const db = habilitada ? new PrismaClient() : null;
@@ -18,7 +21,7 @@ async function crearTurno(n: number, dia: number, inicio: string, profesor: stri
   const id = `${prefijo}-turno-${n}`;
   await db!.turno.create({ data: { idTurno: id, fechaTurno: fecha(dia), horaInicioTurno: hora(inicio),
     duracionMinutosTurno: duracion, cupoMaximoTurno: 3, materiaId: materia, profesorId: profesor, aulaId: aula, estadoTurno: "PENDIENTE" } });
-  for (const alumnoId of inscritos) await db!.turnoAlumno.create({ data: { turnoId: id, alumnoId } });
+  for (const alumnoId of inscritos) await db!.turnoAlumno.create({ data: { turnoId: id, alumnoId, ...SIN_PLAZO } });
   return id;
 }
 
@@ -44,7 +47,8 @@ async function confirmarAmbos(uno: string, dos: string, reservas = 3) {
 
 describe.skipIf(!habilitada)("HU-C-15 / HU-C-04 (Revisión 3): exclusión real en PostgreSQL aislado", () => {
   beforeAll(async () => {
-    await db!.materia.create({ data: { idMateria: materia, nombreMateria: materia, nombreNormalizadaMateria: materia } });
+    // Con tarifa: inscribir en una materia sin tarifa se rechaza (HU-L-06, PR-0.md §1.1).
+    await db!.materia.create({ data: { idMateria: materia, nombreMateria: materia, nombreNormalizadaMateria: materia, tarifaHoraMateria: 10000 } });
     for (let n = 0; n < 2; n++) {
       await db!.profesor.create({ data: { idProfesor: profesores[n], nombreProfesor: "Profesor", apellidoProfesor: String(n),
         nombreNormalizadoProfesor: "profesor", apellidoNormalizadoProfesor: String(n), dniProfesor: `${Date.now()}${n}`, fechaNacimientoProfesor: fecha(1) } });
@@ -95,10 +99,16 @@ describe.skipIf(!habilitada)("HU-C-15 / HU-C-04 (Revisión 3): exclusión real e
     const b = await crearTurno(9, 4, "10:00", profesores[1], aulas[1], [alumnos[1]]);
     await db!.turno.update({ where: { idTurno: a }, data: { estadoTurno: "DISPONIBLE" } });
     await db!.turno.update({ where: { idTurno: b }, data: { estadoTurno: "DISPONIBLE" } });
-    await expect(db!.turnoAlumno.create({ data: { turnoId: b, alumnoId: alumnos[0] } })).rejects.toThrow();
+    await expect(db!.turnoAlumno.create({ data: { turnoId: b, alumnoId: alumnos[0], ...SIN_PLAZO } })).rejects.toThrow();
     expect(await db!.turnoAlumno.count({ where: { turnoId: b } })).toBe(1);
-    await db!.turnoAlumno.delete({ where: { turnoId_alumnoId: { turnoId: a, alumnoId: alumnos[0] } } });
-    await expect(db!.turnoAlumno.create({ data: { turnoId: b, alumnoId: alumnos[0] } })).resolves.toBeTruthy();
+    // Quitar no borra (PR-0.md §2.0): la inscripción deja de ser vigente y el trigger libera su reserva.
+    await db!.turnoAlumno.updateMany({
+      where: { turnoId: a, alumnoId: alumnos[0], vigencia: "VIGENTE" },
+      data: { vigencia: "QUITADA_CENTRO", finalizadaEl: new Date(), finalizadaPorActorTipo: "PROCESO_AUTOMATICO" },
+    });
+    expect(await db!.$queryRawUnsafe<{ total: bigint }[]>(
+      'SELECT count(*) AS total FROM "reservas_turno" WHERE "turnoId" = $1 AND "tipoRecurso" = $2', a, "ALUMNO")).toEqual([{ total: 0n }]);
+    await expect(db!.turnoAlumno.create({ data: { turnoId: b, alumnoId: alumnos[0], ...SIN_PLAZO } })).resolves.toBeTruthy();
     expect(await db!.$queryRawUnsafe<{ total: bigint }[]>(
       'SELECT count(*) AS total FROM "reservas_turno" WHERE "turnoId" = $1 AND "tipoRecurso" = $2', b, "ALUMNO")).toEqual([{ total: 2n }]);
   });

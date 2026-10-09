@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { abrirCajaDePrueba, crearOperacionDePrueba } from "@/server/testing/fabricas";
 import { reprogramarTurno } from "./turno.reprogramacion.service";
+
+// Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
+const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
 
 // Solo contra una base aislada llamada noctium_test, con las migraciones aplicadas.
 const url = process.env.DATABASE_URL;
@@ -20,13 +24,20 @@ const turnos: string[] = [];
 // Fechas de 2030: con N-4 el tope es la fecha actual del turno, así la suite no depende del día en que corre.
 const entrada = (dia: string, inicio: string) => ({ fecha: fecha(dia), hora_inicio: inicio });
 
+
+/** Un pago de Sprint 2 con las filas que exige desde el PR 0 (2.3): caja abierta, operación e inscripción vigente del par. */
+async function pagoDePrueba(turnoId: string, alumnoId: string, monto: string, fechaPago: Date) {
+  const caja = await abrirCajaDePrueba(db!);
+  const inscripcion = await db!.turnoAlumno.findFirstOrThrow({ where: { turnoId, alumnoId, vigencia: "VIGENTE" } });
+  return crearOperacionDePrueba(db!, { cajaId: caja.idCaja, inscripcionIds: [inscripcion.idInscripcion], formaPagoId: formaPago, monto, fechaPago });
+}
 async function crearTurno(sufijo: string, datos: { dia: string; inicio: string; duracion?: number; profesor: string; aula: string; inscriptos: string[];
   estado?: "PENDIENTE" | "DISPONIBLE" | "COMPLETO"; cupo?: number }) {
   const idTurno = `${prefijo}-${sufijo}`;
   turnos.push(idTurno);
   await db!.turno.create({ data: { idTurno, fechaTurno: fecha(datos.dia), horaInicioTurno: hora(datos.inicio), duracionMinutosTurno: datos.duracion ?? 60,
     materiaId: materia, profesorId: datos.profesor, aulaId: datos.aula, cupoMaximoTurno: datos.cupo ?? 5, estadoTurno: "PENDIENTE", prioridadTurno: "ALTA" } });
-  for (const alumnoId of datos.inscriptos) await db!.turnoAlumno.create({ data: { turnoId: idTurno, alumnoId } });
+  for (const alumnoId of datos.inscriptos) await db!.turnoAlumno.create({ data: { turnoId: idTurno, alumnoId, ...SIN_PLAZO } });
   // Confirmar después de inscribir: el trigger proyecta profesor, aula y alumnos (como §2.2).
   if ((datos.estado ?? "DISPONIBLE") !== "PENDIENTE") await db!.turno.update({ where: { idTurno }, data: { estadoTurno: datos.estado ?? "DISPONIBLE" } });
   return idTurno;
@@ -59,6 +70,7 @@ describe.skipIf(!habilitada)("HU-C-06 reprogramar en PostgreSQL aislado", () => 
     await db.claseDictada.deleteMany({ where: { turnoId: { in: turnos } } });
     await db.eventoTurno.deleteMany({ where: { turnoId: { in: turnos } } });
     await db.pago.deleteMany({ where: { turnoId: { in: turnos } } });
+    await db.operacionPago.deleteMany({ where: { formaPagoId: formaPago } });
     await db.turnoAlumno.deleteMany({ where: { turnoId: { in: turnos } } });
     await db.turno.deleteMany({ where: { idTurno: { in: turnos } } });
     await db.formaPago.deleteMany({ where: { idFormaPago: formaPago } });
@@ -84,13 +96,14 @@ describe.skipIf(!habilitada)("HU-C-06 reprogramar en PostgreSQL aislado", () => 
 
     expect(await fila(id)).toEqual(turnoAntes);
     expect(await reservas(id)).toEqual(reservasAntes);
-    expect(await db!.claseDictada.findUnique({ where: { turnoId: id }, include: { alumnos: true } })).toEqual(clase);
+    // Relación 1:N (PR-0.md §2.0): la clase dictada del turno es la no anulada.
+    expect(await db!.claseDictada.findFirst({ where: { turnoId: id, anuladaEl: null }, include: { alumnos: true } })).toEqual(clase);
     expect(await eventos(id)).toEqual([]);
   });
 
   it("AC3/AC4 (parte 1): cambia solo fecha y hora; conserva estado, duración, materia, profesor, aula, cupo, prioridad, inscripciones y pagos; mueve las reservas", async () => {
     const t1 = await crearTurno("t1", { dia: "2030-10-16", inicio: "10:00", profesor: profesores[0], aula: aulas[0], inscriptos: [alumnos[0], alumnos[1]] });
-    await db!.pago.create({ data: { turnoId: t1, alumnoId: alumnos[0], montoPago: "9000.00", formaPagoId: formaPago, fechaPago: fecha("2030-10-01") } });
+    await pagoDePrueba(t1, alumnos[0], "9000.00", fecha("2030-10-01"));
     const antes = await fila(t1);
 
     await expect(reprogramarTurno(t1, entrada("2030-10-15", "14:00"), usuario)).resolves.toEqual({

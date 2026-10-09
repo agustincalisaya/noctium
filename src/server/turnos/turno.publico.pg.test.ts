@@ -9,6 +9,9 @@ import {
   promediarOcupacionTurnosPorMes,
 } from "./turno.publico";
 
+// Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
+const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
+
 // Misma guarda que turno.reservas.pg.test.ts: nunca escribir en la base habitual.
 const habilitada = Boolean(process.env.HU_C15_TEST_DATABASE_URL
   && process.env.DATABASE_URL === process.env.HU_C15_TEST_DATABASE_URL);
@@ -63,7 +66,7 @@ async function crearTurno(sufijo: string, opciones: CrearTurno) {
   });
   if (opciones.alumnoIds?.length) {
     await db!.turnoAlumno.createMany({
-      data: opciones.alumnoIds.map((alumnoId) => ({ turnoId: id, alumnoId })),
+      data: opciones.alumnoIds.map((alumnoId) => ({ turnoId: id, alumnoId, ...SIN_PLAZO })),
     });
   }
   if (opciones.estado !== "PENDIENTE") {
@@ -375,7 +378,7 @@ describe.skipIf(!habilitada)("emitirEventosTurno: PostgreSQL real aislado", () =
     });
     if (opciones.alumnoIds?.length) {
       await dbEventos!.turnoAlumno.createMany({
-        data: opciones.alumnoIds.map((alumnoId) => ({ turnoId: id, alumnoId })),
+        data: opciones.alumnoIds.map((alumnoId) => ({ turnoId: id, alumnoId, ...SIN_PLAZO })),
       });
     }
     if (opciones.estado !== "PENDIENTE") {

@@ -2,6 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { listarTurnosPropios } from "./turno.service";
 
+// Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
+const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
+
 // Este test solo usa la URL declarada como aislada y ejecuta los fixtures en
 // una transacción que siempre revierte, incluso si una aserción falla.
 const urlAislada = process.env.HU_C13_TEST_DATABASE_URL;
@@ -67,9 +70,10 @@ describe.skipIf(!habilitada)("listarTurnosPropios: PostgreSQL aislado", () => {
             profesorId: idProfesor, aulaId: idAula,
           },
           {
+            // Un turno confirmado tiene cupo: COMPLETO con su único lugar ocupado (el estado mostrado sale de la ocupación vigente, PR-0.md §2.2).
             idTurno: idTurnoCompleto, fechaTurno: fecha(27), horaInicioTurno: hora("11:00"),
             duracionMinutosTurno: 60, estadoTurno: "COMPLETO", materiaId: idMateria,
-            profesorId: idProfesor, aulaId: idAula,
+            profesorId: idProfesor, aulaId: idAula, cupoMaximoTurno: 1,
           },
           {
             idTurno: idTurnoPendiente, fechaTurno: fecha(26), horaInicioTurno: hora("11:00"),
@@ -88,11 +92,11 @@ describe.skipIf(!habilitada)("listarTurnosPropios: PostgreSQL aislado", () => {
           },
         ] });
         await tx.turnoAlumno.createMany({ data: [
-          { turnoId: idTurnoPasado, alumnoId: idAlumno },
-          { turnoId: idTurnoCompleto, alumnoId: idAlumno },
-          { turnoId: idTurnoPendiente, alumnoId: idAlumno },
-          { turnoId: idTurnoLimite, alumnoId: idAlumno },
-          { turnoId: idTurnoAjeno, alumnoId: idOtroAlumno },
+          { turnoId: idTurnoPasado, alumnoId: idAlumno, ...SIN_PLAZO },
+          { turnoId: idTurnoCompleto, alumnoId: idAlumno, ...SIN_PLAZO },
+          { turnoId: idTurnoPendiente, alumnoId: idAlumno, ...SIN_PLAZO },
+          { turnoId: idTurnoLimite, alumnoId: idAlumno, ...SIN_PLAZO },
+          { turnoId: idTurnoAjeno, alumnoId: idOtroAlumno, ...SIN_PLAZO },
         ] });
         await tx.claseDictada.create({
           data: {

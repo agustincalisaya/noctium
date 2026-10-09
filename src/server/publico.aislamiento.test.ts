@@ -48,11 +48,38 @@ const PUBLICOS = [
   },
   {
     ruta: "server/turnos/turno.publico.ts",
-    permitidos: ["@prisma/client", "@/lib/prisma", "./turno.validaciones"],
+    // PR 0: la regla «vigente a un momento dado» es del propio módulo C (2.2).
+    permitidos: ["@prisma/client", "@/lib/prisma", "./turno.validaciones", "@/server/turnos/inscripcion.vigencia"],
   },
   {
     ruta: "server/pagos/pago.publico.ts",
-    permitidos: ["@prisma/client", "@/lib/prisma", "@/server/alumnos/alumno.publico"],
+    // PR 0: valor vigente y contrato del comprobante, del propio módulo I (2.13).
+    permitidos: [
+      "@prisma/client", "@/lib/prisma", "@/server/alumnos/alumno.publico",
+      "@/server/pagos/comprobante.schema", "@/server/pagos/pago.vigente",
+    ],
+  },
+  // PR 0 (Sprint 3): fachadas nuevas.
+  {
+    ruta: "server/turnos/inscripcion.publico.ts",
+    permitidos: ["@/server/turnos/inscripcion.service", "@/server/turnos/inscripcion.vigencia", "@/server/turnos/inscripcion.lecturas"],
+  },
+  {
+    ruta: "server/pagos/caja.publico.ts",
+    permitidos: ["@/server/pagos/caja.service"],
+  },
+  {
+    ruta: "server/personal/personal.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
+  {
+    ruta: "server/materias/materia.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
+  // PR 0, etapa 3: las lecturas de E consolidadas en la fachada de Historial.
+  {
+    ruta: "server/historial/historial.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma", "@/server/historial/valor-vigente"],
   },
 ];
 
@@ -108,6 +135,10 @@ describe("aislamiento de los .publico.ts (Regla N.° 3)", () => {
     [4, "@/server/usuarios/usuario.service"],
     [4, "./forma-pago.publico"],
     [4, "../alumnos/alumno.publico"],
+    [3, "@/server/turnos/inscripcion.service"],
+    [4, "@/server/pagos/operacion.service"],
+    [9, "@/server/turnos/inscripcion.publico"],
+    [9, "@/server/historial/clase-dictada.service"],
   ])("rechaza en el público %i el import %s", (indice, especificador) => {
     const { permitidos } = PUBLICOS[indice]!;
     const imports = [...importaciones(PUBLICOS[indice]!.ruta), { especificador, soloTipo: false }];

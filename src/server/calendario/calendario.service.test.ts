@@ -204,7 +204,8 @@ describe("eventoDeProfesor (HU-J-01 criterio 3)", () => {
   });
 
   it("expone COMPLETO y une los alumnos de un turno grupal con '; '", async () => {
-    const grupal = await evento(filaTurno({ estado: "COMPLETO", alumnos: [["Pérez", "Ana"], ["Ruiz", "Marcos"]] }));
+    // El estado mostrado sale de la ocupación vigente (PR-0.md §2.2): COMPLETO con el cupo lleno.
+    const grupal = await evento(filaTurno({ estado: "COMPLETO", alumnos: [["Pérez", "Ana"], ["Ruiz", "Marcos"]], cupo: 2 }));
     expect(grupal).toMatchObject({ estado: "COMPLETO", alumno: "Pérez, Ana; Ruiz, Marcos" });
   });
 
@@ -415,7 +416,8 @@ describe("obtenerCalendarioProfesor (HU-J-01 criterios 1 y 7, HU-J-03)", () => {
   it("mes: consulta la grilla completa y devuelve un resumen por día, sin eventos", async () => {
     baseConFilas([
       { ...filaTurno({ id: "a", dia: "2026-09-15", estado: "DISPONIBLE" }), profesorId: OTRO.id },
-      { ...filaTurno({ id: "b", dia: "2026-09-15", estado: "COMPLETO" }), profesorId: OTRO.id },
+      // COMPLETO con el cupo lleno: el estado mostrado sale de la ocupación vigente (PR-0.md §2.2).
+      { ...filaTurno({ id: "b", dia: "2026-09-15", estado: "COMPLETO", cupo: 1 }), profesorId: OTRO.id },
       { ...filaTurno({ id: "c", dia: "2026-10-02", estado: "DISPONIBLE" }), profesorId: OTRO.id },
       { ...filaTurno({ id: "d", dia: "2026-09-15", estado: "PENDIENTE" }), profesorId: OTRO.id },
       { ...filaTurno({ id: "e", dia: "2026-09-16", estado: "CANCELADO" }), profesorId: OTRO.id },

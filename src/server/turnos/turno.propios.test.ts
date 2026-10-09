@@ -23,6 +23,9 @@ beforeEach(() => {
     horaInicioTurno: new Date("1970-01-01T12:30:00.000Z"),
     duracionMinutosTurno: 90,
     estadoTurno: "CANCELADO",
+    // Inscriptos vigentes y cupo: el estado mostrado sale de la ocupación vigente (PR-0.md §2.2).
+    cupoMaximoTurno: 4,
+    _count: { alumnos: 1 },
     materia: { nombreMateria: "Matemática I" },
     profesor: { apellidoProfesor: "Ríos", nombreProfesor: "Martín" },
     aula: { nombreAula: "Aula 2" },
@@ -44,7 +47,8 @@ describe("listarTurnosPropios (HU-C-13 §2.14.1)", () => {
       totales: { proximos: 23, anteriores: 41 },
     });
     expect(db.turno.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ alumnos: { some: { alumnoId: "alumno-propio" } } }),
+      // Solo los turnos con una inscripción vigente del alumno (PR-0.md §2.0 y §2.2).
+      where: expect.objectContaining({ alumnos: { some: expect.objectContaining({ alumnoId: "alumno-propio", vigencia: "VIGENTE" }) } }),
       skip: 10,
       take: 10,
       orderBy: [{ fechaTurno: "desc" }, { horaInicioTurno: "desc" }, { idTurno: "desc" }],
@@ -63,7 +67,7 @@ describe("listarTurnosPropios (HU-C-13 §2.14.1)", () => {
     const resultado = await listarTurnosPropios({ vista: "proximos", pagina: 1, por_pagina: 10 }, "usuario-1", tx, ahora);
     const filtroProximos = db.turno.count.mock.calls[0]![0].where;
 
-    expect(filtroProximos.alumnos).toEqual({ some: { alumnoId: "alumno-propio" } });
+    expect(filtroProximos.alumnos).toEqual({ some: expect.objectContaining({ alumnoId: "alumno-propio", vigencia: "VIGENTE" }) });
     expect(filtroProximos.OR).toEqual([
       { fechaTurno: { gt: new Date("2026-09-29T00:00:00.000Z") } },
       { fechaTurno: new Date("2026-09-29T00:00:00.000Z"), horaInicioTurno: { gte: new Date("1970-01-01T09:00:00.000Z") } },

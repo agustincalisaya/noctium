@@ -1,5 +1,7 @@
 import { Prisma, type EstadoTurno } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ahora } from "@/server/shared/reloj";
+import { estadoSegunOcupacion, filtroVigenteEn, inscripcionesVigentes, sqlVigenteEn } from "@/server/turnos/inscripcion.vigencia";
 import { turnoNoHaComenzado, turnoSigueVigente } from "./turno.validaciones";
 
 type Db = Prisma.TransactionClient;
@@ -78,6 +80,7 @@ type FilaTurnoOperacion = {
   materiaId: string;
   profesorId: string | null;
   aulaId: string | null;
+  cupoMaximoTurno: number | null;
 };
 
 function horaDeMinutos(minutos: number) {
@@ -88,18 +91,19 @@ function horaDeMinutos(minutos: number) {
 export async function bloquearTurnoParaOperacion(turnoId: string, tx: Db): Promise<TurnoParaOperacion | null> {
   const [turno] = await tx.$queryRaw<FilaTurnoOperacion[]>`
     SELECT "idTurno", "estadoTurno", "fechaTurno", "horaInicioTurno",
-           "duracionMinutosTurno", "materiaId", "profesorId", "aulaId"
+           "duracionMinutosTurno", "materiaId", "profesorId", "aulaId", "cupoMaximoTurno"
     FROM "turnos" WHERE "idTurno" = ${turnoId} FOR SHARE
   `;
   if (!turno) return null;
 
-  const alumnos = await tx.turnoAlumno.findMany({
-    where: { turnoId }, select: { alumnoId: true }, orderBy: { alumnoId: "asc" },
-  });
+  // Solo las inscripciones vigentes ahora (PR-0.md §2.0 y §2.2), por alumno.
+  const alumnos = (await inscripcionesVigentes(tx, turnoId, ahora()))
+    .map(({ alumnoId }) => alumnoId)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const inicio = turno.horaInicioTurno.getUTCHours() * 60 + turno.horaInicioTurno.getUTCMinutes();
   return {
     id: turno.idTurno,
-    estado: turno.estadoTurno,
+    estado: estadoSegunOcupacion(turno.estadoTurno, alumnos.length, turno.cupoMaximoTurno),
     fecha: turno.fechaTurno.toISOString().slice(0, 10),
     hora_inicio: horaDeMinutos(inicio),
     hora_fin: horaDeMinutos(inicio + turno.duracionMinutosTurno),
@@ -107,7 +111,7 @@ export async function bloquearTurnoParaOperacion(turnoId: string, tx: Db): Promi
     materia_id: turno.materiaId,
     profesor_id: turno.profesorId,
     aula_id: turno.aulaId,
-    alumno_ids: alumnos.map(({ alumnoId }) => alumnoId),
+    alumno_ids: alumnos,
     vencido: !turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno),
   };
 }
@@ -115,7 +119,7 @@ export async function bloquearTurnoParaOperacion(turnoId: string, tx: Db): Promi
 export async function obtenerAlumnosInscriptosDeTurno(turnoId: string, db: Db = prisma): Promise<string[] | null> {
   const turno = await db.turno.findUnique({
     where: { idTurno: turnoId },
-    select: { alumnos: { select: { alumnoId: true }, orderBy: { alumnoId: "asc" } } },
+    select: { alumnos: { where: filtroVigenteEn(ahora()), select: { alumnoId: true }, orderBy: { alumnoId: "asc" } } },
   });
   return turno?.alumnos.map(({ alumnoId }) => alumnoId) ?? null;
 }
@@ -184,7 +188,7 @@ export async function listarTurnosFuturosDeProfesorPorMateria(
   const filas = total === 0 ? [] : await db.$queryRaw<FilaTurnoFuturo[]>`
     SELECT t."idTurno", t."fechaTurno", t."horaInicioTurno", t."duracionMinutosTurno",
            t."cupoMaximoTurno", t."estadoTurno", a."nombreAula",
-           (SELECT COUNT(*) FROM "turno_alumno" ta WHERE ta."turnoId" = t."idTurno") AS inscriptos
+           (SELECT COUNT(*) FROM "turno_alumno" ta WHERE ta."turnoId" = t."idTurno" AND ${sqlVigenteEn("ta", ahora())}) AS inscriptos
     FROM "turnos" t
     LEFT JOIN "aulas" a ON a."idAula" = t."aulaId"
     WHERE t."profesorId" = ${profesorId} AND t."materiaId" = ${materiaId}
@@ -205,7 +209,7 @@ export async function listarTurnosFuturosDeProfesorPorMateria(
         hora_fin: horaDeMinutos(inicio + fila.duracionMinutosTurno),
         aula: fila.nombreAula ?? "Sin asignar",
         alumnos_inscriptos: fila.cupoMaximoTurno === null ? "Sin asignar" : `${inscriptos}/${fila.cupoMaximoTurno}`,
-        estado: fila.estadoTurno,
+        estado: estadoSegunOcupacion(fila.estadoTurno, inscriptos, fila.cupoMaximoTurno) as "DISPONIBLE" | "COMPLETO",
       };
     }),
     total,
@@ -243,7 +247,7 @@ export async function ajustarCuposPorCapacidadDeAula(
   if (turnos.length === 0) return { ok: true, turnos_actualizados: 0, eventos: [] };
 
   const inscripciones = await tx.turnoAlumno.findMany({
-    where: { turnoId: { in: turnos.map(({ idTurno }) => idTurno) } },
+    where: { turnoId: { in: turnos.map(({ idTurno }) => idTurno) }, ...filtroVigenteEn(ahora) },
     select: { turnoId: true, alumnoId: true },
     orderBy: [{ turnoId: "asc" }, { alumnoId: "asc" }],
   });
@@ -345,7 +349,8 @@ export async function promediarOcupacionTurnosPorMes(
       COUNT(*) AS turnos
     FROM "turnos" t
     LEFT JOIN (
-      SELECT "turnoId", COUNT(*) AS inscriptos FROM "turno_alumno" GROUP BY "turnoId"
+      SELECT ta."turnoId", COUNT(*) AS inscriptos FROM "turno_alumno" ta
+      WHERE ${sqlVigenteEn("ta", ahora())} GROUP BY ta."turnoId"
     ) i ON i."turnoId" = t."idTurno"
     WHERE t."fechaTurno" >= CAST(${`${desde}-01`} AS date)
       AND t."fechaTurno" < CAST(${hastaExclusivo} AS date)
@@ -356,4 +361,56 @@ export async function promediarOcupacionTurnosPorMes(
     ORDER BY mes
   `;
   return filas.map(({ mes, promedio, turnos }) => ({ mes, promedio: Number(promedio), turnos: Number(turnos) }));
+}
+
+// ---------------------------------------------------------------------------
+// Lecturas de clases para otros módulos (PR-0.md §2.9 y §2.13,
+// spec_modulo_H.md §2.8.1, spec_modulo_D.md). Solo lectura, sin bloqueo.
+// ---------------------------------------------------------------------------
+
+type EstadoContable = Exclude<EstadoTurno, "PENDIENTE">;
+
+/**
+ * Clases por mes de su fecha y por estado (y por materia o profesor si se
+ * pide), con la suma de sus duraciones. Solo DISPONIBLE, COMPLETO y
+ * CANCELADO: PENDIENTE es un error de programación. Con `por: "profesor"` no
+ * se cuentan las clases sin profesor. No depende de las inscripciones.
+ */
+export async function contarClasesPorMes(
+  rango: { desde: string; hasta: string },
+  opciones: { estados: EstadoContable[]; por?: "materia" | "profesor" },
+  db: Db = prisma,
+): Promise<{ mes: string; estado: EstadoContable; materia_id?: string; profesor_id?: string; cantidad: number; minutos: number }[]> {
+  if (opciones.estados.length === 0) throw new Error("contarClasesPorMes: estados no puede ser vacía");
+  if ((opciones.estados as string[]).includes("PENDIENTE")) throw new Error("contarClasesPorMes: PENDIENTE no se cuenta");
+  if (!/^\d{4}-\d{2}$/.test(rango.desde) || !/^\d{4}-\d{2}$/.test(rango.hasta)) throw new Error("contarClasesPorMes: meses AAAA-MM");
+  const fin = new Date(`${rango.hasta}-01T00:00:00.000Z`);
+  fin.setUTCMonth(fin.getUTCMonth() + 1);
+  const clave = opciones.por === "materia" ? Prisma.sql`t."materiaId"` : opciones.por === "profesor" ? Prisma.sql`t."profesorId"` : Prisma.sql`NULL::text`;
+  const sinProfesor = opciones.por === "profesor" ? Prisma.sql`AND t."profesorId" IS NOT NULL` : Prisma.empty;
+  const filas = await db.$queryRaw<{ mes: string; estado: EstadoContable; clave: string | null; cantidad: number; minutos: number }[]>(Prisma.sql`
+    SELECT to_char(t."fechaTurno", 'YYYY-MM') AS mes, t."estadoTurno"::text AS estado, ${clave} AS clave,
+      count(*)::int AS cantidad, COALESCE(sum(t."duracionMinutosTurno"), 0)::int AS minutos
+    FROM "turnos" t
+    WHERE t."estadoTurno"::text IN (${Prisma.join(opciones.estados)}) ${sinProfesor}
+      AND t."fechaTurno" >= CAST(${`${rango.desde}-01`} AS date) AND t."fechaTurno" < CAST(${fin.toISOString().slice(0, 10)} AS date)
+    GROUP BY 1, 2, 3
+    ORDER BY 1, 2, ${clave} COLLATE "C"`);
+  return filas.map((f) => ({
+    mes: f.mes, estado: f.estado,
+    ...(opciones.por === "materia" ? { materia_id: f.clave! } : {}),
+    ...(opciones.por === "profesor" ? { profesor_id: f.clave! } : {}),
+    cantidad: f.cantidad, minutos: f.minutos,
+  }));
+}
+
+/**
+ * Alcance del gerente en el flujo de baja de un profesor (HU-D-08, PR-0.md
+ * §2.9, R3-PR0-D2): `true` si la clase pertenece al profesor indicado, sin
+ * mirar estado ni fecha (que sea futura y esté Disponible o Completa lo exige
+ * la función de C que la procesa).
+ */
+export async function gerentePuedeGestionarClaseDeBaja(turnoId: string, profesorId: string, db: Db = prisma): Promise<boolean> {
+  const turno = await db.turno.findUnique({ where: { idTurno: turnoId }, select: { profesorId: true } });
+  return turno?.profesorId === profesorId;
 }

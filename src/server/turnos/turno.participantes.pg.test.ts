@@ -3,6 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { asignarParticipantesTurno } from "./turno.service";
 
+// Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
+const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
+
 // Mismo gate que los tests PostgreSQL existentes: nunca escribir en noctium_dev.
 const habilitada = Boolean(process.env.HU_C15_TEST_DATABASE_URL
   && process.env.DATABASE_URL === process.env.HU_C15_TEST_DATABASE_URL);
@@ -20,7 +23,8 @@ const hora = (valor: string) => new Date(`1970-01-01T${valor}:00.000Z`);
 
 describe.skipIf(!habilitada)("asignarParticipantesTurno: rollback en PostgreSQL aislado", () => {
   beforeAll(async () => {
-    await db!.materia.create({ data: { idMateria: materiaId, nombreMateria: prefijo, nombreNormalizadaMateria: prefijo } });
+    // Con tarifa: inscribir en una materia sin tarifa se rechaza (HU-L-06, PR-0.md §1.1).
+    await db!.materia.create({ data: { idMateria: materiaId, nombreMateria: prefijo, nombreNormalizadaMateria: prefijo, tarifaHoraMateria: 10000 } });
     for (const [indice, profesorId] of profesores.entries()) {
       await db!.profesor.create({ data: {
         idProfesor: profesorId, nombreProfesor: "Prueba", apellidoProfesor: String(indice),
@@ -46,7 +50,7 @@ describe.skipIf(!habilitada)("asignarParticipantesTurno: rollback en PostgreSQL 
       idTurno: turnoId, fechaTurno: fecha, horaInicioTurno: hora("10:00"), duracionMinutosTurno: 60,
       cupoMaximoTurno: 3, materiaId, profesorId: profesores[0], aulaId, estadoTurno: "PENDIENTE",
     } });
-    await db!.turnoAlumno.create({ data: { turnoId, alumnoId: alumnos[0] } });
+    await db!.turnoAlumno.create({ data: { turnoId, alumnoId: alumnos[0], ...SIN_PLAZO } });
   });
 
   afterAll(async () => {
@@ -67,15 +71,18 @@ describe.skipIf(!habilitada)("asignarParticipantesTurno: rollback en PostgreSQL 
 
   it("revierte profesor y participantes previos si falla createMany después del UPDATE y DELETE", async () => {
     // El endpoint impide duplicados con Zod. Acá se llama al servicio directamente
-    // para inducir P2002 dentro de la transacción, luego de dos escrituras exitosas.
+    // para inducir un error dentro de la transacción, luego de escrituras exitosas
+    // (profesor, confirmación, QUITADA_CENTRO del participante previo y la primera
+    // alta). Desde el PR 0 el repetido lo detecta crearInscripcion antes del índice
+    // único (ALUMNO_YA_ASIGNADO en vez de P2002, PR-0.md §2.0); la reversión es la misma.
     await expect(asignarParticipantesTurno(turnoId, {
       profesor_id: profesores[1], alumno_ids: [alumnos[1], alumnos[1]],
-    }, `${prefijo}-usuario`)).rejects.toMatchObject({ code: "P2002" });
+    }, `${prefijo}-usuario`)).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO" });
 
     expect(await db!.turno.findUniqueOrThrow({ where: { idTurno: turnoId } }))
       .toMatchObject({ profesorId: profesores[0], estadoTurno: "PENDIENTE" });
-    expect(await db!.turnoAlumno.findMany({ where: { turnoId }, select: { alumnoId: true } }))
-      .toEqual([{ alumnoId: alumnos[0] }]);
+    expect(await db!.turnoAlumno.findMany({ where: { turnoId }, select: { alumnoId: true, vigencia: true } }))
+      .toEqual([{ alumnoId: alumnos[0], vigencia: "VIGENTE" }]);
     expect(await db!.eventoTurno.count({ where: { turnoId } })).toBe(0);
   });
 });

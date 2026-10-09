@@ -10,6 +10,8 @@ import {
 import { formatearApellidoNombre, VALOR_AUSENTE } from "@/lib/profesor-listado";
 import { ServiceError } from "@/server/shared/service-error";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
+import { ahora } from "@/server/shared/reloj";
+import { estadoSegunOcupacion, filtroVigenteEn } from "@/server/turnos/inscripcion.publico";
 import {
   obtenerMateriasDelProfesor,
   obtenerOpcionProfesorActivo,
@@ -99,6 +101,8 @@ export async function listarTurnosDelCalendario({
       profesor: { select: { idProfesor: true, apellidoProfesor: true, nombreProfesor: true } },
       aula: { select: { idAula: true, nombreAula: true } },
       alumnos: {
+        // Solo las inscripciones vigentes ahora (PR-0.md §2.0 y §2.2).
+        where: filtroVigenteEn(ahora()),
         select: { alumno: { select: { apellidoAlumno: true, nombreAlumno: true } } },
         orderBy: [
           { alumno: { apellidoNormalizadoAlumno: "asc" } },
@@ -126,7 +130,7 @@ export async function listarTurnosDelCalendario({
       fecha: fechaISO(turno.fechaTurno),
       hora_inicio: horaInicio,
       hora_fin: minutosAHora(horaAMinutos(horaInicio) + turno.duracionMinutosTurno),
-      estado: turno.estadoTurno === "COMPLETO" ? "COMPLETO" : "DISPONIBLE",
+      estado: estadoSegunOcupacion(turno.estadoTurno, alumnos.length, turno.cupoMaximoTurno) === "COMPLETO" ? "COMPLETO" : "DISPONIBLE",
       prioridad: turno.prioridadTurno,
       materia: { id: turno.materia.idMateria, nombre: turno.materia.nombreMateria },
       profesor: turno.profesor
