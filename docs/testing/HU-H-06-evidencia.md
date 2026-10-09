@@ -58,3 +58,7 @@ PR propio: https://github.com/agustincalisaya/noctium/pull/218. Base develop, si
 Se integró `b7c3b42` (HU-C-23 y componente HU-C-25) en cada rama por separado, preservando únicamente el diff de la historia frente a develop. Claves de UI migradas a `ui.historial.asistencia.*` / `ui.indicadores.*`, sin modificar claves legacy de dominio. Comprobador de referencias TypeScript aprobado. Suite completa sobre la integración actualizada: **1913 aprobados**, 177 PostgreSQL omitidos en la corrida unitaria; la verificación PostgreSQL de177 casos anterior sigue aplicando, sin cambios adicionales en los servicios ni persistencia. Lint actualizado: cero errores y el warning preexistente de Sidebar.
 
 Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetido sobre ese build, sin errores de página. Los tres PR quedaron sin conflictos frente a develop al verificar GitHub.
+
+## CI remoto observado
+
+Sobre el commit de código `c63932c`: [Textos C23](https://github.com/agustincalisaya/noctium/actions/runs/37930867369) aprobado y CodeQL aprobado. [CI build](https://github.com/agustincalisaya/noctium/actions/runs/37930869170) aprobado. Los commits posteriores de evidencia sólo modifican documentación/capturas.
