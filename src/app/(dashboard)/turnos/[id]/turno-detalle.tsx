@@ -20,7 +20,7 @@ import { diaAbreviadoYFecha } from "@/lib/turno-detalle";
  * `GET /api/turnos/[id]` y reparte los datos en subcomponentes, uno por zona,
  * para que C-05, C-06, C-10, I-01 y E-01 se enganchen sin pisarse.
  */
-export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionarAlumnos, puedeRegistrarClase = false, puedeRegistrarPago = false }: { id: string; retorno: string; puedeConfigurar: boolean; puedeGestionarAlumnos: boolean; puedeRegistrarClase?: boolean; puedeRegistrarPago?: boolean }) {
+export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionarAlumnos, puedeRegistrarClase = false, puedeRegistrarPago = false, puedeRegistrarIndicacion = false, esProfesor = false }: { id: string; retorno: string; puedeConfigurar: boolean; puedeGestionarAlumnos: boolean; puedeRegistrarClase?: boolean; puedeRegistrarPago?: boolean; puedeRegistrarIndicacion?: boolean; esProfesor?: boolean }) {
   const [turno, setTurno] = useState<TurnoDetalle | null>(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
@@ -64,7 +64,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
       <div className={`grid gap-[18px] ${turnoActual.pagos ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
         <div className="min-w-0 space-y-[18px]">
           <TurnoDatosCard turno={turnoActual} />
-          <TurnoAlumnosCard turno={turnoActual} gestionable={gestionable} puedeRegistrarClase={puedeRegistrarClase} onCambio={() => cargar(true)} />
+          <TurnoAlumnosCard turno={turnoActual} gestionable={gestionable} puedeRegistrarClase={puedeRegistrarClase} puedeRegistrarIndicacion={puedeRegistrarIndicacion} esProfesor={esProfesor} onCambio={() => cargar(true)} />
         </div>
         {(turnoActual.pagos) && <aside aria-label="Pago y clase" className="min-w-0 space-y-[18px]">
           {turnoActual.pagos && <TurnoPagoCard pagos={turnoActual.pagos} accion={puedeRegistrarPago && (turnoActual.estado === "DISPONIBLE" || turnoActual.estado === "COMPLETO") ? <RegistrarPagoDialog

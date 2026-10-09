@@ -1,0 +1,41 @@
+{
+  "ejecutado_en": "2026-10-09",
+  "base": "http://127.0.0.1:3131",
+  "rol": "PROFESOR",
+  "alumno_id": "cmv11e2v3000ojmpth73cnlbv",
+  "materia_id": "cmv11e2yc004jjmptvmwf545x",
+  "solicitudes": [
+    {
+      "metodo": "POST",
+      "ruta": "/api/alumnos/cmv11e2v3000ojmpth73cnlbv/indicaciones",
+      "estado": 201,
+      "cuerpo": {
+        "materia_id": "cmv11e2yc004jjmptvmwf545x",
+        "indicacion": "Revisar la resolución de ecuaciones y justificar cada paso.",
+        "clase_dictada_id": "4f85dad9-3631-484c-9af9-5e191cb87ec6"
+      },
+      "respuesta": {
+        "data": {
+          "id": "cmv12v93n0008jm8gcwi1nq0m",
+          "alumno_id": "cmv11e2v3000ojmpth73cnlbv",
+          "materia_id": "cmv11e2yc004jjmptvmwf545x",
+          "indicacion": "Revisar la resolución de ecuaciones y justificar cada paso.",
+          "clase_dictada_id": "4f85dad9-3631-484c-9af9-5e191cb87ec6",
+          "registrada_en": "2026-10-09T14:45:46.067Z",
+          "registrada_por": "profesor1@noctium.local"
+        },
+        "error": null
+      }
+    },
+    {
+      "metodo": "GET",
+      "ruta": "/api/alumnos/cmv11e2v3000ojmpth73cnlbv/historial?pagina=1&por_pagina=10&materia_id=cmv11e2yc004jjmptvmwf545x",
+      "estado": 200,
+      "verificacion": "La indicación nueva aparece en items con tipo INDICACION; historial limitado a Matemática."
+    }
+  ],
+  "consola": {
+    "errores": 0,
+    "advertencias": 0
+  }
+}
