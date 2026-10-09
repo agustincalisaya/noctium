@@ -45,6 +45,8 @@
 | HU-C-20 | Sin contrato (HU-C-12 inscribía directamente al tocar «Inscribirme») | Nueva sección 2.17.1: resumen de la clase (endpoint de solo lectura) |
 | HU-C-20, sincronización local (09/10/2026) | §2.17.1 pendiente de implementación | Servicio, GET y resumen en `ConfirmarAccionDialog`; contrato K §2.3; comportamiento interino y límite de tarifa GET→POST documentados junto a §2.17.1 |
 | HU-C-22 | Sin contrato | Nuevas secciones 2.17.2 a 2.17.5: reserva con plazo, precio congelado, regla de re-reserva y estado de pago en «Mis turnos» |
+| HU-C-22 — sincronización (09/10/2026) | Modo interino sin reserva propia ni datos de pago en Mis clases | Autoservicio con reserva PR 0; resumen con plazo estimado; POST con inscripción/precio/vencimiento definitivo; presentación propia y banner por id + sesión. Centro conserva modo sin plazo hasta C-24 |
+| HU-C-22 — transición a HU-C-14 (09/10/2026) | §2.17.4 exige `cancelacion`, cuya funcionalidad se difiere en el Excel a HU-C-14 | Excepción interina autorizada por Tomás: Mis clases entrega `id`, `situacion`, `vence_el` y `precio` hasta integrar HU-C-14. Se conserva el contrato final; sin cambio en límites del resumen ni POST de reserva |
 | HU-C-24 | Sin contrato | Nueva sección 2.18: proceso de vencimiento, validación por fecha, inscripción desde el centro, reservas en el detalle, plazo nuevo tras anulación y clases canceladas |
 | HU-C-14 | Diferida desde Sprint 2 (criterio 6 de HU-C-05 y 5 de HU-C-13) | Nueva sección 2.19 |
 | HU-C-26 | Sin contrato | Nueva sección 2.20 |
@@ -1450,6 +1452,13 @@ Ninguna fila de esta tabla cambia ruta, cuerpo, respuesta ni `code` de error. La
 
 **Interino (HU-C-20 antes de HU-C-22).** Hasta que se mergee HU-C-22 la inscripción queda sin plazo (2.16.4): `plazo_pago_horas` y `vence_pago_el` van `null` y la interfaz no muestra la leyenda del plazo ni la del criterio 3 (que depende del plazo y de HU-C-14, verificación diferida). El precio, los datos de la clase y los dos botones sí se muestran desde HU-C-20.
 
+**Sincronización HU-C-22 (09/10/2026).** En la rama de C-22 el resumen ya
+calcula `plazo_pago_horas` y `vence_pago_el` con el momento único de consulta,
+`parametrosVigentes` y `calcularVencimiento` del PR 0. La leyenda del plazo
+usa ese estimado. Las leyendas y acciones de cancelación siguen diferidas
+a C-14; la gestión del parámetro, a N-01. La evidencia de C-22 acredita
+únicamente la parte de plazo/vencimiento de CA3 de C-20.
+
 **Nota de sincronización HU-C-20 (09/10/2026; decisión de alcance de la HU).**
 `obtenerResumenInscripcion(turnoId, usuarioId, db?)` calcula el importe antes
 de existir una inscripción, con `precioClase` y la lectura pública de L.
@@ -1500,6 +1509,18 @@ La superposición con otras clases del alumno y la regla de re-reserva (2.17.2) 
 ```
 La interfaz informa «Reservaste tu lugar. Acercate al centro a pagar antes del <día, fecha y hora>. Si no, la reserva se cancela sola.» (HU-C-22 criterio 2) con el `vence_el` **definitivo** de esta respuesta. Esa leyenda **reemplaza** al aviso «El pago se abona en el centro» de Sprint 2 (HU-C-12 criterio 6) desde que se mergea HU-C-22; hasta entonces, el aviso de Sprint 2 se conserva.
 
+**Sincronización HU-C-22 (09/10/2026).** `solicitarTurnoPropio` activa
+`conReserva` únicamente en autoservicio y suma el objeto previsto de la
+inscripción a los tres campos originales. El Route Handler existente no
+requiere cambios. Tras éxito, Solicitar clase navega a
+`/alumno?inscripcion=exitosa&reserva=<id>`; el banner resuelve esa inscripción
+por id y alumno de sesión, con `obtenerConfirmacionReservaPropia`, fuera de
+la paginación del listado. El id de la URL no acredita precio ni vigencia.
+Al recargar presenta la situación actual: el texto de pagar antes del plazo
+solo aparece para una reserva vigente de clase futura confirmada. Un id
+ajeno/inexistente no revela datos ni confirma éxito; un fallo de consulta
+muestra un error. No se introduce endpoint ni acción de cobro.
+
 **Errores esperados (2.17.2):** los de 2.14.2 (`403 SIN_PERMISO`, `404 TURNO_NO_ENCONTRADO`, `409 TURNO_NO_DISPONIBLE`, `409 TURNO_VENCIDO`, `409 CUPO_INSUFICIENTE`, `409 ALUMNO_INACTIVO`, `409 ALUMNO_YA_ASIGNADO`, `409 ALUMNO_NO_DISPONIBLE`) **más** `409 RESERVA_PREVIA_SIN_PAGO` y `422 MATERIA_SIN_TARIFA`. Si el servidor rechaza al confirmar, el motivo se muestra en el mismo mensaje de confirmación y no se guarda nada (HU-C-25, criterio 6).
 
 **Opciones (`GET /api/turnos/inscripcion/opciones`): cambios de criterio, no de contrato.** «Inscripción abierta» pasa a decidirse con `ocupacion`: clase `DISPONIBLE` **o** `COMPLETO` guardada, con inicio futuro y `lugares > 0` contando solo reservas no vencidas, y el alumno sin inscripción vigente en ella (HU-C-24, criterio 2). Una clase guardada `COMPLETO` que solo está llena por reservas vencidas se ofrece. Las clases cuya materia no tiene tarifa se siguen ofreciendo; el rechazo llega en el resumen (P-C2).
@@ -1512,6 +1533,15 @@ La interfaz informa «Reservaste tu lugar. Acercate al centro a pagar antes del 
 - La validación de toda operación que depende de una reserva se hace contra `venceEl`, no contra el estado que dejó el proceso (2.18).
 
 #### 2.17.4. «Mis turnos» (2.14.1): estado de pago y precio (HU-C-22, criterios 4 y 6)
+
+**Transición autorizada (09/10/2026).**
+
+> Hasta integrar HU-C-14, HU-C-22 entrega id, situacion, vence_el y precio en el objeto inscripcion de Mis clases. El campo cancelacion se incorpora con HU-C-14, sin acciones ni elegibilidad anticipadas en HU-C-22.
+
+Esta excepción se limita al listado/presentación propia. El JSON y la regla
+de `cancelacion` siguientes mantienen el contrato final previsto para HU-C-14;
+no se eliminan requisitos del backlog. No cambia los campos de límite del GET
+de resumen (§2.17.1) ni el contrato del POST de reserva (§2.17.2).
 
 **Contrato de Sprint 2 sin cambios:** `GET /api/turnos/propios?vista=&pagina=`, `MisTurnosQuerySchema`, las dos pestañas, la paginación de a 10 y `totales`. Cada ítem conserva `turno_id`, `fecha`, `hora_inicio`–`hora_fin`, `materia`, `profesor`, `aula`, `estado` y `clase_dictada`. **Se agrega** a cada ítem el objeto `inscripcion`:
 
@@ -1542,6 +1572,18 @@ La interfaz informa «Reservaste tu lugar. Acercate al centro a pagar antes del 
 - **`cancelacion`**: la calcula el servidor con la misma función que usa el `POST` de 2.19 (una sola regla): `PERMITIDA` (se ofrece «Cancelar mi inscripción»), `FUERA_DE_PLAZO` (inscripción vigente en una clase que no empezó, pero ya pasó la anticipación mínima: la acción se muestra deshabilitada con la leyenda «Ya no podés cancelar en línea. Comunicate con el centro») o `NO_APLICA` (todo lo demás: la acción no aparece).
 - **Qué ítems se listan:** una tarjeta **por clase** (el alumno no ve dos tarjetas de la misma clase): la inscripción vigente si la hay y, si no, la más reciente. Las clases `PENDIENTE` no se listan (no tienen inscripciones fuera de la transacción de 2.2, 3.2). El resto de la regla de 2.14.1 (cualquier otro estado de la clase, incluido `CANCELADO`; pestañas por fecha y hora de inicio) no cambia. Los totales de las pestañas cuentan tarjetas (P-C4).
 - Una clase `CANCELADO` con una reserva pendiente (las reservas de una clase cancelada dejan de vencer, 2.18.6) se muestra como clase cancelada y su `situacion` es `PAGO_SIN_REGISTRAR`: informativo, sin invitación a pagar ni acción de cobro (P-C3).
+
+**Sincronización HU-C-22 (09/10/2026).** La lectura de tarjetas cuenta
+clases vinculadas a cualquier inscripción propia y excluye `PENDIENTE`.
+Elige una vigente según `esVigenteEn` y, si no la hay, la más reciente por
+`reservadaEl` e id. La presentación usa un momento único. En Disponible o
+Completa, la igualdad con `venceEl` es `RESERVA_VENCIDA`, incluso si coincide
+con el inicio. En Cancelada, una reserva restante conserva vigencia y
+presenta `PAGO_SIN_REGISTRAR`; una fila previamente finalizada como vencida
+conserva `RESERVA_VENCIDA`. `vence_el` conserva el instante guardado cuando
+existe, y solo la situación `RESERVADA` lo muestra como invitación a pagar.
+El precio de las tarjetas sale de la fila elegida y se muestra solo para
+inscripciones vigentes efectivas; no se recalcula por tarifa actual.
 
 #### 2.17.5. Cómo se cumplen los criterios
 

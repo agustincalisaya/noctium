@@ -1,0 +1,312 @@
+{
+  "info": {
+    "name": "HU-C-22 — Reserva propia y Mis clases",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "PREPARADA, no ejecutada con sesión válida. Ejecutar cada caso por separado en una base NUEVA descartable, migraciones PR 0 y fábricas existentes; NO usar datos habituales. Login real y Cookie Jar fuera de la colección. No exportar cookies, tokens ni contraseñas. Preparar ids y cambiar cuenta según descripción. GET no escribe: comparar SQL antes/después. POST no lleva body ni identidad. I-10/C-24/C-14/B-07/N-01 diferidos; no se invocan APIs futuras. Spec C §2.17.4: excepción interina autorizada el 09/10/2026; propios entrega id, situacion, vence_el y precio. Campo cancelacion/regla diferidos a HU-C-14, sin implementarlos ni acreditarlos por aceptación documental. No cambia límites del GET resumen ni POST reserva."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "turno_id",
+      "value": ""
+    },
+    {
+      "key": "turno_reserva_previa",
+      "value": ""
+    },
+    {
+      "key": "turno_lleno",
+      "value": ""
+    },
+    {
+      "key": "turno_superpuesto",
+      "value": ""
+    },
+    {
+      "key": "turno_sin_tarifa",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 GET resumen — ALUMNO propio",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Clase futura con tarifa. No alta al GET. Valor por defecto24; parámetro solo se prepara como fixture. Comparar HU-C-22.sql."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Sin error\", () => pm.expect(b.error).to.eql(null));",
+              "pm.test(\"Plazo estimado y zona centro\", () => { pm.expect(b.data.plazo_pago_horas).to.be.a(\"number\").above(0); pm.expect(b.data.vence_pago_el).to.match(/-03:00$/); pm.expect(Number.isInteger(b.data.precio)).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 POST reserva — ALUMNO propio",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion",
+        "description": "Ejecutar una sola vez por fixture; plazo/precio calculados al POST, no exigir igualdad con GET. Ver SQL: fila, precio, plazo, cupo, horario y trazabilidad. No guardar id/cookie en colección exportada."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Sin error\", () => pm.expect(b.error).to.eql(null));",
+              "pm.test(\"Legacy conservado\", () => { pm.expect(b.data).to.include.all.keys(\"id\", \"alumnos_inscriptos\", \"estado\"); });",
+              "pm.test(\"Inscripción definitiva\", () => { pm.expect(b.data.inscripcion).to.have.keys(\"id\",\"estado_pago\",\"vence_el\",\"precio\"); pm.expect(b.data.inscripcion.id).to.be.a(\"string\").not.empty; pm.expect(b.data.inscripcion.estado_pago).to.eql(\"RESERVADA\"); pm.expect(b.data.inscripcion.vence_el).to.match(/-03:00$/); pm.expect(Number.isInteger(b.data.inscripcion.precio)).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 GET Mis clases — ALUMNO propio",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/propios?vista=proximos&pagina=1&por_pagina=10",
+        "description": "Una tarjeta por clase; efectiva vigente o última histórica, no Pendientes. DTO interino autorizado: id, situacion, vence_el y precio; campo cancelacion/regla diferidos a HU-C-14. Esta colección no acredita ejecución ni contrato final de cancelación."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Sin error\", () => pm.expect(b.error).to.eql(null));",
+              "pm.test(\"DTO interino autorizado, situación y precio propios\", () => { pm.expect(b.data.items).to.be.an(\"array\"); b.data.items.forEach(t => { pm.expect(t.inscripcion).to.have.keys(\"id\",\"situacion\",\"vence_el\",\"precio\"); pm.expect(Number.isInteger(t.inscripcion.precio)).to.eql(true); }); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión — GET /api/turnos/{{turno_id}}/inscripcion/resumen",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Cookie Jar deshabilitado. No acredita sesión válida."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"SESION_INVALIDA\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      }
+    },
+    {
+      "name": "Sin sesión — POST /api/turnos/{{turno_id}}/inscripcion",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion",
+        "description": "Cookie Jar deshabilitado. No acredita sesión válida."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"SESION_INVALIDA\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      }
+    },
+    {
+      "name": "Sin sesión — GET /api/turnos/propios",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/propios",
+        "description": "Cookie Jar deshabilitado. No acredita sesión válida."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"SESION_INVALIDA\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ],
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      }
+    },
+    {
+      "name": "Rol PROFESOR sin permiso",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion",
+        "description": "Iniciar sesión real como PROFESOR, no cambiar RBAC. Sin alta."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"SIN_PERMISO\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reserva previa sin pago",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_reserva_previa}}/inscripcion",
+        "description": "Preparar el caso con fábricas/servicios reales en base descartable. Capturar SQL después de preparar el conflicto y después del rechazo: ninguna alta adicional."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"RESERVA_PREVIA_SIN_PAGO\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"RESERVA_PREVIA_SIN_PAGO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Último cupo ocupado después del GET",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_lleno}}/inscripcion",
+        "description": "Preparar el caso con fábricas/servicios reales en base descartable. Capturar SQL después de preparar el conflicto y después del rechazo: ninguna alta adicional."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"CUPO_INSUFICIENTE\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"CUPO_INSUFICIENTE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Superposición después del GET",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_superpuesto}}/inscripcion",
+        "description": "Preparar el caso con fábricas/servicios reales en base descartable. Capturar SQL después de preparar el conflicto y después del rechazo: ninguna alta adicional."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"ALUMNO_NO_DISPONIBLE\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"ALUMNO_NO_DISPONIBLE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin tarifa al POST",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_sin_tarifa}}/inscripcion",
+        "description": "Preparar el caso con fábricas/servicios reales en base descartable. Capturar SQL después de preparar el conflicto y después del rechazo: ninguna alta adicional."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"MATERIA_SIN_TARIFA\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"MATERIA_SIN_TARIFA\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

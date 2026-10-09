@@ -1,6 +1,15 @@
 /** Estado de un turno (spec_modulo_C.md §2, Revisión 5). */
 export type EstadoTurno = "PENDIENTE" | "DISPONIBLE" | "COMPLETO" | "CANCELADO";
 
+/** Presentación de la inscripción propia (C §2.17.4). */
+export type SituacionInscripcionPropia = "RESERVADA" | "PAGADA" | "PAGO_PENDIENTE" | "PAGO_SIN_REGISTRAR" | "RESERVA_VENCIDA" | "CANCELADA_ALUMNO" | "QUITADA_CENTRO" | "BAJA_ALUMNO";
+export type InscripcionPropia = {
+  id: string;
+  situacion: SituacionInscripcionPropia;
+  vence_el: string | null;
+  precio: number;
+};
+
 /** Resumen informativo previo al POST (C §2.17.1); no reserva ni fija tarifa. */
 export type ResumenInscripcion = {
   turno_id: string;

@@ -11,9 +11,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 const resumen: ResumenInscripcion = {
   turno_id: "turno-confirmacion", materia: { id: "m1", nombre: "Física I" }, profesor: { id: "p1", nombre_para_mostrar: "Pérez, Ana" },
   fecha: "2026-10-13", hora_inicio: "16:00", hora_fin: "18:00", duracion_min: 120, aula: { id: "a1", nombre: "Aula 2" },
-  cupo: 8, lugares_disponibles: 3, precio: 24000, plazo_pago_horas: null, vence_pago_el: null,
+  cupo: 8, lugares_disponibles: 3, precio: 24000, plazo_pago_horas: 24, vence_pago_el: "2026-10-10T12:00:00-03:00",
   limite_cancelacion_en_linea: "2026-10-12T16:00:00-03:00", limite_cancelacion_pasado: false,
 };
+const confirmacion = { id: "turno-confirmacion", alumnos_inscriptos: "6/8", estado: "DISPONIBLE", inscripcion: {
+  id: "reserva-definitiva", estado_pago: "RESERVADA", vence_el: "2026-10-10T12:05:00-03:00", precio: 26000,
+} };
 let root: Root; let container: HTMLDivElement;
 const request = vi.fn();
 const respuesta = (data: unknown, status = 200, message = "motivo") => new Response(JSON.stringify({ data, error: status === 200 ? null : { code: "ERROR", message } }), { status });
@@ -32,7 +35,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", request);
   vi.stubGlobal("scrollTo", vi.fn());
   request.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (init?.method === "POST") return respuesta({ id: "turno-confirmacion" });
+    if (init?.method === "POST") return respuesta(confirmacion);
     if (url.endsWith("/resumen")) return respuesta(resumen);
     if (url.includes("profesor_id=")) return respuesta({ items: [{ turno_id: "turno-seleccion", fecha: "2026-10-13", hora_inicio: "16:00", hora_fin: "18:00", aula: "Aula 2", cupos_libres: 3 }] });
     if (url.includes("materia_id=")) return respuesta({ items: [{ id: "p1", nombre: "Pérez, Ana", turnos_con_lugar: 1 }] });
@@ -43,14 +46,15 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 
 describe("C-20 componente y diálogo reales (jsdom, API simulada)", () => {
-  it("Inscribirme pide GET sin POST y muestra todos los datos y leyenda literal, sin las diferidas", async () => {
+  it("Inscribirme pide GET sin POST y muestra todos los datos, precio y plazo estimado literal; cancelación sigue diferida", async () => {
     await seleccionar(); await click("Inscribirme");
     expect(request).toHaveBeenCalledWith("/api/turnos/turno-seleccion/inscripcion/resumen", expect.objectContaining({ cache: "no-store", signal: expect.any(AbortSignal) }));
     expect(posts()).toHaveLength(0);
     expect(dialogo()!.querySelector("h2")!.textContent).toBe("¿Estás seguro de que querés reservar tu lugar en la clase de Física I del martes 13 de octubre de 2026 a las 16:00?");
     const content = dialogo()!.textContent!;
     for (const valor of ["Física I", "Pérez, Ana", "Martes 13 de octubre de 2026", "16:00–18:00", "120 minutos", "Aula 2", "3", "$ 24.000", texto("ui.turnos.resumen.precioFijo"), "Confirmar reserva", "Volver"]) expect(content).toContain(valor);
-    expect(content).not.toMatch(/Si todavía no pagaste|Si ya pagaste|tenés que pagarlo antes|12 de octubre/);
+    expect(content).toContain("Reservás tu lugar y tenés que pagarlo en el centro antes del sábado 10 de octubre de 2026 a las 12:00. Si no lo pagás, la reserva se cancela sola.");
+    expect(content).not.toMatch(/Si todavía no pagaste|Si ya pagaste|12 de octubre/);
     expect(push).not.toHaveBeenCalled();
   });
   it("Volver conserva materia, profesor y horario; reabrir pide un resumen nuevo", async () => {
@@ -83,10 +87,11 @@ describe("C-20 componente y diálogo reales (jsdom, API simulada)", () => {
     expect(boton("Procesando…").disabled).toBe(true);
     await click("Volver");
     expect(dialogo()).not.toBeNull();
-    await act(async () => { p.resolve(respuesta({ id: "turno-confirmacion" })); });
-    expect(push).toHaveBeenCalledExactlyOnceWith("/alumno?inscripcion=exitosa");
+    await act(async () => { p.resolve(respuesta(confirmacion)); });
+    expect(push).toHaveBeenCalledExactlyOnceWith("/alumno?inscripcion=exitosa&reserva=reserva-definitiva");
+    expect(push.mock.calls[0]![0]).not.toContain("12:00");
   });
-  it.each(["El turno alcanzó su cupo máximo", "Ya tenés otro turno en ese horario"])("rechazo del POST: %s queda en el diálogo sin perder elección", async (motivo) => {
+  it.each(["El turno alcanzó su cupo máximo", "Ya tenés otro turno en ese horario", "Ya tuviste una reserva sin pagar en esta clase. Para volver a inscribirte, acercate al centro y abonala en el momento."])("rechazo del POST: %s queda en el diálogo sin perder elección", async (motivo) => {
     await seleccionar(); await click("Inscribirme");
     request.mockResolvedValueOnce(respuesta(null, 409, motivo));
     await click("Confirmar reserva");

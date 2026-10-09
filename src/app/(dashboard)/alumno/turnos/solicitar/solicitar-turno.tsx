@@ -93,6 +93,7 @@ export function SolicitarTurno() {
   const [resumenInscripcion, setResumenInscripcion] = useState<ResumenInscripcion | null>(null);
   const resumenController = useRef<AbortController | null>(null);
   const envioRef = useRef<Promise<void> | null>(null);
+  const reservaConfirmadaRef = useRef<string | null>(null);
   const navegandoRef = useRef(false);
   const resultadoRef = useRef<HTMLParagraphElement>(null);
 
@@ -172,7 +173,10 @@ export function SolicitarTurno() {
     if (envioRef.current) return envioRef.current;
     if (!resumenInscripcion) return Promise.resolve();
     envioRef.current = fetchOLanzar(`/api/turnos/${encodeURIComponent(resumenInscripcion.turno_id)}/inscripcion`, { method: "POST", cache: "no-store" })
-      .then(() => {})
+      .then((data) => {
+        const inscripcion = (data as { inscripcion: { id: string } }).inscripcion;
+        reservaConfirmadaRef.current = inscripcion.id;
+      })
       .catch((causa: unknown) => { throw causa instanceof Error && !(causa instanceof TypeError) ? causa : new Error(texto("ui.turnos.resumen.errorConfirmacion")); })
       .finally(() => { envioRef.current = null; });
     return envioRef.current;
@@ -257,7 +261,7 @@ export function SolicitarTurno() {
         textoConfirmar={texto("ui.turnos.resumen.confirmar")}
         onCerrar={() => setResumenInscripcion(null)}
         onConfirmar={confirmarReserva}
-        onExito={() => { if (!navegandoRef.current) { navegandoRef.current = true; router.push("/alumno?inscripcion=exitosa"); } }}
+        onExito={() => { if (!navegandoRef.current) { navegandoRef.current = true; router.push(`/alumno?inscripcion=exitosa&reserva=${encodeURIComponent(reservaConfirmadaRef.current!)}`); } }}
         detalle={resumenInscripcion && <div className="space-y-3">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
             <dt>{texto("ui.turnos.solicitar.materia")}</dt><dd className="font-medium text-foreground">{resumenInscripcion.materia.nombre}</dd>
@@ -270,6 +274,12 @@ export function SolicitarTurno() {
             <dt>{texto("ui.turnos.resumen.precio")}</dt><dd className="font-semibold text-foreground">{formatearMonto(resumenInscripcion.precio)}</dd>
           </dl>
           <p>{texto("ui.turnos.resumen.precioFijo")}</p>
+          {resumenInscripcion.vence_pago_el && <p>{texto("ui.turnos.reserva.plazo", {
+            vencimiento: texto("ui.turnos.reserva.fechaHora", {
+              dia: fechaLarga(resumenInscripcion.vence_pago_el.slice(0, 10)).toLocaleLowerCase("es-AR"),
+              hora: resumenInscripcion.vence_pago_el.slice(11, 16),
+            }),
+          })}</p>}
         </div>}
       />
     </div>

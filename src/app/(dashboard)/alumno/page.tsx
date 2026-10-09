@@ -5,9 +5,12 @@ import { CalendarPlus2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatearMonto } from "@/lib/moneda";
+import { fechaLarga, fechaHoraDeInstante } from "@/lib/turno-detalle";
 import { exigirPermiso } from "@/server/shared/with-permission";
-import { listarTurnosPropios } from "@/server/turnos/turno.service";
+import { listarTurnosPropios, obtenerConfirmacionReservaPropia } from "@/server/turnos/turno.service";
 import { MisTurnosQuerySchema } from "@/server/turnos/turno.schema";
+import type { InscripcionPropia } from "@/types/turno.types";
 
 type TurnoPropio = Awaited<ReturnType<typeof listarTurnosPropios>>["items"][number];
 type Vista = "proximos" | "anteriores";
@@ -15,7 +18,7 @@ type Vista = "proximos" | "anteriores";
 export default async function AlumnoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ inscripcion?: string; vista?: string; pagina?: string }>;
+  searchParams: Promise<{ inscripcion?: string; reserva?: string; vista?: string; pagina?: string }>;
 }) {
   const usuario = await exigirPermiso("turnos:leer_propios");
   const params = await searchParams;
@@ -23,10 +26,23 @@ export default async function AlumnoPage({
   const query = parsed.success ? parsed.data : MisTurnosQuerySchema.parse({});
   const turnos = await listarTurnosPropios(query, usuario.id);
   const inscripcionExitosa = params.inscripcion === "exitosa";
+  let confirmacion: InscripcionPropia | null = null;
+  let errorConfirmacion = false;
+  if (inscripcionExitosa && params.reserva) {
+    try {
+      confirmacion = await obtenerConfirmacionReservaPropia(params.reserva, usuario.id);
+    } catch (error) {
+      errorConfirmacion = true;
+      console.error("AlumnoPage: no se pudo consultar la inscripción propia", error);
+    }
+  }
 
   const crearHref = (vista: Vista, pagina: number) => {
     const queryString = new URLSearchParams({ vista, pagina: String(pagina) });
-    if (inscripcionExitosa) queryString.set("inscripcion", "exitosa");
+    if (inscripcionExitosa && params.reserva) {
+      queryString.set("inscripcion", "exitosa");
+      queryString.set("reserva", params.reserva);
+    }
     return `/alumno?${queryString.toString()}`;
   };
 
@@ -34,29 +50,35 @@ export default async function AlumnoPage({
     <section className="mx-auto w-full max-w-7xl space-y-6 py-4 sm:py-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Mis turnos</h1>
-          <p className="text-muted-foreground">Los turnos en los que estás inscripta, incluidos los cancelados.</p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{textoUi("ui.turnos.solicitar.misClases")}</h1>
+          <p className="text-muted-foreground">{textoUi("ui.turnos.propios.descripcion")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
         <Link href="/mi-historial" className={buttonVariants({ variant: "outline" })}>{textoUi("ui.historial.propio.titulo")}</Link>
         <Link href="/alumno/turnos/solicitar" className={buttonVariants({ className: "shrink-0 self-start" })}>
           <CalendarPlus2 className="size-4" aria-hidden />
-          Solicitar turno
+          {textoUi("ui.turnos.solicitar.titulo")}
         </Link>
         </div>
       </header>
 
-      {inscripcionExitosa && (
+      {confirmacion && (
         <div role="status" className="flex items-start gap-3 rounded-lg bg-success p-4 text-success-foreground">
           <CalendarPlus2 className="mt-0.5 size-5 shrink-0" aria-hidden />
           <div>
-            <p className="font-semibold">Te inscribiste correctamente</p>
-            <p className="mt-1 text-sm">El pago se abona en el centro</p>
+            <p className="font-semibold">{textoUi("ui.turnos.propios.confirmacion")}</p>
+            <p className="mt-1 text-sm">{confirmacion.situacion === "RESERVADA" && confirmacion.vence_el
+              ? textoUi("ui.turnos.reserva.confirmada", { vencimiento: textoUi("ui.turnos.reserva.fechaHora", {
+                dia: fechaLarga(confirmacion.vence_el.slice(0, 10)).toLocaleLowerCase("es-AR"),
+                hora: confirmacion.vence_el.slice(11, 16),
+              }) })
+              : situacionInscripcion(confirmacion)}</p>
           </div>
         </div>
       )}
+      {errorConfirmacion && <p role="alert" className="rounded-lg bg-destructive-soft p-4 text-destructive-soft-foreground">{textoUi("ui.turnos.reserva.errorConsulta")}</p>}
 
-      <nav aria-label="Turnos por fecha" className="flex gap-6 border-b border-border">
+      <nav aria-label={textoUi("ui.turnos.propios.porFecha")} className="flex gap-6 border-b border-border">
         <Link
           href={crearHref("proximos", 1)}
           aria-current={query.vista === "proximos" ? "page" : undefined}
@@ -67,7 +89,7 @@ export default async function AlumnoPage({
               : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
-          Próximos <span className="tabular-nums">({turnos.totales.proximos})</span>
+          {textoUi("ui.turnos.propios.proximas")} <span className="tabular-nums">({turnos.totales.proximos})</span>
         </Link>
         <Link
           href={crearHref("anteriores", 1)}
@@ -79,13 +101,13 @@ export default async function AlumnoPage({
               : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
-          Anteriores <span className="tabular-nums">({turnos.totales.anteriores})</span>
+          {textoUi("ui.turnos.propios.anteriores")} <span className="tabular-nums">({turnos.totales.anteriores})</span>
         </Link>
       </nav>
 
       {turnos.items.length > 0 ? (
         <>
-          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label={query.vista === "proximos" ? "Turnos próximos" : "Turnos anteriores"}>
+          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label={textoUi(query.vista === "proximos" ? "ui.turnos.propios.listaProximas" : "ui.turnos.propios.listaAnteriores")}>
             {turnos.items.map((turno) => (
               <li key={turno.turno_id}>
                 <TarjetaTurno turno={turno} vista={query.vista} />
@@ -102,21 +124,21 @@ export default async function AlumnoPage({
         </>
       ) : turnos.paginacion.total > 0 ? (
         <div role="status" className="rounded-xl border border-border bg-card p-5 text-sm">
-          <p className="text-muted-foreground">No hay turnos en esta página.</p>
+          <p className="text-muted-foreground">{textoUi("ui.turnos.propios.paginaVacia")}</p>
           <Link className="mt-2 inline-flex font-medium text-primary underline underline-offset-4" href={crearHref(query.vista, 1)}>
-            Volver a la primera página
+            {textoUi("ui.turnos.propios.primeraPagina")}
           </Link>
         </div>
       ) : query.vista === "proximos" ? (
         <div role="status" className="rounded-xl border border-border bg-card p-6">
-          <p className="font-medium">Todavía no tenés turnos.</p>
+          <p className="font-medium">{textoUi("ui.turnos.propios.sinClases")}</p>
           <Link href="/alumno/turnos/solicitar" className="mt-2 inline-flex font-medium text-primary underline underline-offset-4">
-            Solicitá uno desde acá
+            {textoUi("ui.turnos.propios.solicitar")}
           </Link>
         </div>
       ) : (
         <p role="status" className="rounded-xl border border-border bg-card p-6 text-muted-foreground">
-          No tenés turnos anteriores.
+          {textoUi("ui.turnos.propios.sinAnteriores")}
         </p>
       )}
     </section>
@@ -143,7 +165,7 @@ function TarjetaTurno({ turno, vista }: { turno: TurnoPropio; vista: Vista }) {
           <h2 className="font-semibold leading-snug">{turno.materia}</h2>
           <EstadoBadge estado={turno.estado} />
           {vista === "anteriores" && turno.clase_dictada && (
-            <Badge variant="outline" className="bg-card font-normal text-card-foreground">Clase dictada</Badge>
+            <Badge variant="outline" className="bg-card font-normal text-card-foreground">{textoUi("ui.turnos.propios.dictada")}</Badge>
           )}
         </div>
         <p className="text-sm tabular-nums">
@@ -151,9 +173,28 @@ function TarjetaTurno({ turno, vista }: { turno: TurnoPropio; vista: Vista }) {
           <span aria-hidden> · </span>{turno.profesor}
           <span aria-hidden> · </span>{turno.aula}
         </p>
+        <p className="text-sm">{situacionInscripcion(turno.inscripcion)}</p>
+        {inscripcionVigente(turno.inscripcion) && <p className="text-sm font-medium">{textoUi("ui.turnos.resumen.precio")}: {formatearMonto(turno.inscripcion.precio)}</p>}
       </div>
     </article>
   );
+}
+
+function inscripcionVigente(inscripcion: InscripcionPropia) {
+  return ["RESERVADA", "PAGADA", "PAGO_PENDIENTE", "PAGO_SIN_REGISTRAR"].includes(inscripcion.situacion);
+}
+
+function situacionInscripcion(inscripcion: InscripcionPropia): string {
+  switch (inscripcion.situacion) {
+    case "RESERVADA": return textoUi("ui.turnos.reserva.reservada", { vencimiento: fechaHoraDeInstante(inscripcion.vence_el!) });
+    case "PAGADA": return textoUi("ui.turnos.reserva.pagada");
+    case "PAGO_PENDIENTE": return textoUi("ui.turnos.reserva.pendiente");
+    case "PAGO_SIN_REGISTRAR": return textoUi("ui.turnos.reserva.sinRegistrar");
+    case "RESERVA_VENCIDA": return textoUi("ui.turnos.reserva.vencida");
+    case "CANCELADA_ALUMNO": return textoUi("ui.turnos.reserva.canceladaAlumno");
+    case "QUITADA_CENTRO": return textoUi("ui.turnos.reserva.quitadaCentro");
+    case "BAJA_ALUMNO": return textoUi("ui.turnos.reserva.bajaAlumno");
+  }
 }
 
 function FechaTurno({ fecha }: { fecha: string }) {
@@ -182,11 +223,11 @@ function FechaTurno({ fecha }: { fecha: string }) {
 
 function EstadoBadge({ estado }: { estado: TurnoPropio["estado"] }) {
   if (estado === "CANCELADO") {
-    return <Badge variant="outline" className="border-destructive bg-card text-destructive">Cancelado</Badge>;
+    return <Badge variant="outline" className="border-destructive bg-card text-destructive">{textoUi("ui.turnos.estado.cancelada")}</Badge>;
   }
   const variant = estado === "DISPONIBLE" ? "success" : estado === "PENDIENTE" ? "warning" : "default";
-  const texto = estado === "DISPONIBLE" ? "Disponible" : estado === "PENDIENTE" ? "Pendiente" : "Completo";
-  return <Badge variant={variant}>{texto}</Badge>;
+  const etiqueta = textoUi(estado === "DISPONIBLE" ? "ui.turnos.estado.disponible" : estado === "PENDIENTE" ? "ui.turnos.estado.pendiente" : "ui.turnos.estado.completa");
+  return <Badge variant={variant}>{etiqueta}</Badge>;
 }
 
 function PaginacionTurnos({
@@ -208,17 +249,17 @@ function PaginacionTurnos({
   const paginas = paginasVisibles(pagina, totalPaginas);
 
   return (
-    <nav aria-label="Paginación de turnos" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+    <nav aria-label={textoUi("ui.turnos.propios.paginacion")} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
       <span className="text-sm text-muted-foreground">
-        Mostrando <span className="tabular-nums">{inicio}–{fin}</span> de <span className="tabular-nums">{total}</span>
+        {textoUi("ui.turnos.propios.rango", { desde: inicio, hasta: fin, total })}
       </span>
       <div className="flex flex-wrap items-center gap-1.5">
-        <EnlacePagina href={pagina > 1 ? href(pagina - 1) : null} ariaLabel="Página anterior">Anterior</EnlacePagina>
+        <EnlacePagina href={pagina > 1 ? href(pagina - 1) : null} ariaLabel={textoUi("ui.comun.paginacion.paginaAnterior")}>{textoUi("ui.comun.paginacion.anterior")}</EnlacePagina>
         {paginas.map((numero, indice) => typeof numero === "number" ? (
           <Link
             key={numero}
             href={href(numero)}
-            aria-label={`Página ${numero}`}
+            aria-label={textoUi("ui.comun.paginacion.numero", { pagina: numero })}
             aria-current={pagina === numero ? "page" : undefined}
             className={cn(
               buttonVariants({ variant: pagina === numero ? "default" : "outline", size: "sm" }),
@@ -227,8 +268,8 @@ function PaginacionTurnos({
           >
             {numero}
           </Link>
-        ) : <span key={`${numero}-${indice}`} aria-hidden className="px-1 text-muted-foreground">…</span>)}
-        <EnlacePagina href={pagina < totalPaginas ? href(pagina + 1) : null} ariaLabel="Página siguiente">Siguiente</EnlacePagina>
+        ) : <span key={`${numero}-${indice}`} aria-hidden className="px-1 text-muted-foreground">{textoUi("ui.comun.paginacion.elipsis")}</span>)}
+        <EnlacePagina href={pagina < totalPaginas ? href(pagina + 1) : null} ariaLabel={textoUi("ui.comun.paginacion.paginaSiguiente")}>{textoUi("ui.comun.paginacion.siguiente")}</EnlacePagina>
       </div>
     </nav>
   );

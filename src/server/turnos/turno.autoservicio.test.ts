@@ -40,6 +40,7 @@ const TURNO = "turno-disponible";
 const MATERIA = "materia-matematica";
 const PROFESOR = "profesor-gomez";
 const horario = { fechaTurno: new Date("2026-10-01T00:00:00.000Z"), horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"), duracionMinutosTurno: 60 };
+const inscripcion = { id: "reserva-1", estadoPago: "RESERVADA", venceEl: new Date("2026-10-01T12:00:00Z"), precio: 12000 };
 const disponible = { idTurno: TURNO, ...horario, materiaId: MATERIA, profesorId: PROFESOR, aula: { nombreAula: "Aula 4" }, cupoMaximoTurno: 3, _count: { alumnos: 1 } };
 
 beforeEach(() => {
@@ -51,7 +52,7 @@ beforeEach(() => {
   materias.mockResolvedValue([{ idMateria: MATERIA, nombreMateria: "Matemática" }]);
   profesores.mockResolvedValue([{ id: PROFESOR, nombre: "Ana", apellido: "Gómez" }]);
   tx.$executeRawUnsafe.mockResolvedValue(0);
-  crear.mockResolvedValue({ completado: false, inscriptos: 2, cupo: 3, alumnoIds: ["otro", ALUMNO], estadoTurno: "DISPONIBLE" });
+  crear.mockResolvedValue({ inscripcion, completado: false, inscriptos: 2, cupo: 3, alumnoIds: ["otro", ALUMNO], estadoTurno: "DISPONIBLE" });
   evento.mockResolvedValue({});
 });
 
@@ -96,18 +97,18 @@ describe("HU-C-12 §2.14.2 inscripción", () => {
   const rechaza = (codigo: ConstructorParameters<typeof ErrorDeDominio>[0]) => crear.mockRejectedValueOnce(new ErrorDeDominio(codigo));
 
   it("inscribe a la ficha de la sesión, bloquea turno y emite el origen después de insertar", async () => {
-    await expect(solicitarTurnoPropio(TURNO, USUARIO)).resolves.toEqual({ id: TURNO, alumnos_inscriptos: "2/3", estado: "DISPONIBLE" });
+    await expect(solicitarTurnoPropio(TURNO, USUARIO)).resolves.toEqual({ id: TURNO, alumnos_inscriptos: "2/3", estado: "DISPONIBLE", inscripcion: { id: "reserva-1", estado_pago: "RESERVADA", vence_el: "2026-10-01T09:00:00-03:00", precio: 12000 } });
     expect(alumno).toHaveBeenCalledWith(USUARIO);
-    // crearInscripcion bloquea al alumno y la clase en orden canónico (PR-0.md §2.16) y deja PAGO_SIN_REGISTRAR (2.15).
+    // crearInscripcion bloquea al alumno y la clase en orden canónico (PR-0.md §2.16) y deja RESERVADA (C §2.17.2).
     expect(crear).toHaveBeenCalledWith(expect.anything(), {
-      turnoId: TURNO, alumnoId: ALUMNO, origen: "ALUMNO", conReserva: false, actor: { tipo: "USUARIO", usuarioId: USUARIO }, alumnoActivo: true,
+      turnoId: TURNO, alumnoId: ALUMNO, origen: "ALUMNO", conReserva: true, actor: { tipo: "USUARIO", usuarioId: USUARIO }, alumnoActivo: true,
     });
     expect(crear.mock.invocationCallOrder[0]).toBeLessThan(evento.mock.invocationCallOrder[0]);
     expect(evento.mock.calls[0]![0].data.payloadEvento).toEqual({ turno_id: TURNO, alumno_id: ALUMNO, usuario_id: USUARIO, origen: "AUTOSERVICIO" });
   });
 
   it("pasa a COMPLETO cuando toma el último lugar", async () => {
-    crear.mockResolvedValueOnce({ completado: true, inscriptos: 3, cupo: 3, alumnoIds: ["a", "b", ALUMNO], estadoTurno: "COMPLETO" });
+    crear.mockResolvedValueOnce({ inscripcion, completado: true, inscriptos: 3, cupo: 3, alumnoIds: ["a", "b", ALUMNO], estadoTurno: "COMPLETO" });
     await expect(solicitarTurnoPropio(TURNO, USUARIO)).resolves.toMatchObject({ alumnos_inscriptos: "3/3", estado: "COMPLETO" });
     expect(evento.mock.calls.map(([{ data }]) => data.tipoEvento)).toEqual(["turno:alumno_agregado", "turno:completado"]);
   });

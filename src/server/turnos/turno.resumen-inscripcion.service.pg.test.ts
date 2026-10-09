@@ -32,7 +32,7 @@ describe.skipIf(!basePgHabilitada)("C-20 PostgreSQL descartable: GET y confirmac
     const data = await obtenerResumenInscripcion(turno.idTurno, cuenta.usuarioId, db);
     expect(data).toMatchObject({
       turno_id: turno.idTurno, precio: 12000 * duracionMin / 60, duracion_min: duracionMin,
-      cupo: 10, lugares_disponibles: 10, plazo_pago_horas: null, vence_pago_el: null,
+      cupo: 10, lugares_disponibles: 10, plazo_pago_horas: 24, vence_pago_el: expect.stringMatching(/-03:00$/),
       materia: { id: turno.materiaId, nombre: expect.any(String) },
       profesor: { id: turno.profesorId, nombre_para_mostrar: expect.any(String) },
       aula: { id: turno.aulaId, nombre: expect.any(String) },
@@ -81,7 +81,7 @@ describe.skipIf(!basePgHabilitada)("C-20 PostgreSQL descartable: GET y confirmac
     await db.materia.update({ where: { idMateria: turno.materiaId }, data: { tarifaHoraMateria: 15000 } });
     await solicitarTurnoPropio(turno.idTurno, cuenta.usuarioId);
     const fila = await db.turnoAlumno.findFirstOrThrow({ where: { turnoId: turno.idTurno, alumnoId: cuenta.alumnoId } });
-    expect(fila).toMatchObject({ precio: 30000, estadoPago: "PAGO_SIN_REGISTRAR", vigencia: "VIGENTE", venceEl: null, creadoPorUsuarioId: cuenta.usuarioId });
+    expect(fila).toMatchObject({ precio: 30000, estadoPago: "RESERVADA", vigencia: "VIGENTE", venceEl: expect.any(Date), creadoPorUsuarioId: cuenta.usuarioId });
     await db.materia.update({ where: { idMateria: turno.materiaId }, data: { tarifaHoraMateria: 18000 } });
     expect((await db.turnoAlumno.findUniqueOrThrow({ where: { idInscripcion: fila.idInscripcion } })).precio).toBe(30000);
     expect(await db.historialInscripcion.count({ where: { inscripcionId: fila.idInscripcion } })).toBe(1);
@@ -106,13 +106,13 @@ describe.skipIf(!basePgHabilitada)("C-20 PostgreSQL descartable: GET y confirmac
     await expect(solicitarTurnoPropio(turno.idTurno, cuenta.usuarioId)).rejects.toMatchObject({ code: "MATERIA_SIN_TARIFA", status: 422 });
     expect(await snapshot(turno.idTurno)).toEqual(antes);
   });
-  it("clase en las próximas 24 h: límite pasado con fecha de centro, sin plazo ni leyenda futura", async () => {
+  it("clase en las próximas 24 h: límite pasado y vencimiento limitado al inicio", async () => {
     const cuenta = await cuentaAlumno();
     const momento = new Date("2026-10-09T18:00:00Z");
     const turno = await conReloj(momento, () => crearTurnoDePrueba(db, { enDias: 1, hora: "10:00" }));
     expect(await conReloj(momento, () => obtenerResumenInscripcion(turno.idTurno, cuenta.usuarioId, db))).toMatchObject({
       fecha: "2026-10-10", limite_cancelacion_en_linea: "2026-10-09T10:00:00-03:00", limite_cancelacion_pasado: true,
-      plazo_pago_horas: null, vence_pago_el: null,
+      plazo_pago_horas: 24, vence_pago_el: "2026-10-10T10:00:00-03:00",
     });
   });
 });

@@ -11,7 +11,7 @@ import { inicioDeTurno, isoCentro } from "@/server/shared/fechas-centro";
 import { parametrosVigentes } from "@/server/shared/parametros-vigentes";
 import { precioClase } from "@/server/shared/precio-clase";
 import { ahora } from "@/server/shared/reloj";
-import { inscripcionesVigentes, ocupacion } from "@/server/turnos/inscripcion.vigencia";
+import { calcularVencimiento, inscripcionesVigentes, ocupacion } from "@/server/turnos/inscripcion.vigencia";
 import type { ResumenInscripcion } from "@/types/turno.types";
 
 /** C §2.17.1: lectura informativa; el POST vigente revalida y calcula su precio. */
@@ -59,7 +59,8 @@ export async function obtenerResumenInscripcion(
     hora_fin: fin.toISOString().slice(11, 16),
     duracion_min: turno.duracionMinutosTurno,
     aula, cupo, lugares_disponibles: lugares, precio,
-    plazo_pago_horas: null, vence_pago_el: null,
+    plazo_pago_horas: parametros.plazoPagoHoras,
+    vence_pago_el: isoCentro(calcularVencimiento(momento, inicio, parametros.plazoPagoHoras).venceEl),
     limite_cancelacion_en_linea: isoCentro(limite),
     limite_cancelacion_pasado: momento.getTime() >= limite.getTime(),
   };
