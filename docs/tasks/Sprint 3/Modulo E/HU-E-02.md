@@ -73,9 +73,9 @@ Checks: npm test, test:pg, lint, textos, next typegen + tsc y build; CI último 
 ## 7. Definition of Done
 
 - [x] Relevamiento, navegación y brechas del prototipo aprobados.
-- [ ] Nueve estados, filtros y porcentajes verificados.
-- [ ] Migración aditiva, seed y acceso profesor comprobados.
-- [ ] SQL/API/Playwright y checks documentados con resultados reales.
+- [x] Nueve estados, filtros y porcentajes verificados.
+- [x] Migración aditiva, seed y acceso profesor comprobados.
+- [x] SQL/API/Playwright y checks documentados con resultados reales; suites globales finales diferidas por instrucción del usuario.
 - [ ] PR independiente a develop, Closes #171, sin merge automático.
 
 Organización documental: task ubicada en `Sprint 3/Modulo E` conforme al PR #223 (solo movimientos, integrado en develop).
@@ -83,3 +83,7 @@ Organización documental: task ubicada en `Sprint 3/Modulo E` conforme al PR #22
 ## 8. Ajustes de inventario
 
 Se agregó `src/app/(dashboard)/alumnos/[id]/clases/page.tsx` como adaptador de la ficha existente, para publicar la ruta canónica de §2.7 sin duplicar encabezado o permisos. `FichaEncabezado` ya tenía el modo resumido requerido; se reutiliza sin modificar. La migración usa un nombre nuevo libre y solo revoca el grant específico.
+
+## 9. Validación y límite de recursos
+
+E08 integrado en develop `56e7537` antes de finalizar E02. Evidencia en `docs/testing/HU-E-02-evidencia.md`. Por instrucción expresa posterior del usuario se ejecutaron bloques dirigidos, un worker y un proceso a la vez, sin repetir suites globales. Capturas adicionales de vacío, error e historial acotado incluidas para documentar los estados ya aprobados.

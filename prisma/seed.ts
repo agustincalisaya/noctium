@@ -961,8 +961,7 @@ const ACCIONES_SOLO_MESA_ENTRADA = ["profesores:crear", "profesores:editar"] as 
 
 // Filas que un rol tuvo y perdió (también las borra la migración de permisos
 // del Sprint 3). El upsert con update: {} no las quitaría de una base vieja.
-// Filas que el seed borra en bases existentes (el upsert no las quita). Vacía
-// por ahora: HU-E-02 agrega acá PROFESOR alumnos:leer junto con su migración.
+// HU-E-02 revoca alumnos:leer al Profesor y conserva historial:leer acotado.
 const PERMISOS_REVOCADOS: [RolUsuario, string][] = [["PROFESOR", "alumnos:leer"]];
 
 type TurnoSeed = {

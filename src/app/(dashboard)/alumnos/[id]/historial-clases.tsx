@@ -9,9 +9,9 @@ import { texto } from "@/lib/textos";
 import { cn } from "@/lib/utils";
 import type { ClasesAlumnoData, ResultadoClaseAlumno } from "@/types/clases-alumno.types";
 const ETIQUETAS = {
-  PROXIMA: "ui.historial.clasesAlumno.PROXIMA", ASISTIO: "ui.historial.clasesAlumno.ASISTIO", AUSENTE: "ui.historial.clasesAlumno.AUSENTE",
-  SIN_REGISTRAR_COMO_DICTADA: "ui.historial.clasesAlumno.SIN_REGISTRAR_COMO_DICTADA", CANCELADA_CENTRO: "ui.historial.clasesAlumno.CANCELADA_CENTRO",
-  CANCELADA_ALUMNO: "ui.historial.clasesAlumno.CANCELADA_ALUMNO", RESERVA_VENCIDA: "ui.historial.clasesAlumno.RESERVA_VENCIDA", BAJA_ALUMNO: "ui.historial.clasesAlumno.BAJA_ALUMNO", QUITADA_CENTRO: "ui.historial.clasesAlumno.QUITADA_CENTRO",
+  PROXIMA: "ui.historial.clasesAlumno.proxima", ASISTIO: "ui.historial.clasesAlumno.asistio", AUSENTE: "ui.historial.clasesAlumno.ausente",
+  SIN_REGISTRAR_COMO_DICTADA: "ui.historial.clasesAlumno.sinRegistrarComoDictada", CANCELADA_CENTRO: "ui.historial.clasesAlumno.canceladaCentro",
+  CANCELADA_ALUMNO: "ui.historial.clasesAlumno.canceladaAlumno", RESERVA_VENCIDA: "ui.historial.clasesAlumno.reservaVencida", BAJA_ALUMNO: "ui.historial.clasesAlumno.bajaAlumno", QUITADA_CENTRO: "ui.historial.clasesAlumno.quitadaCentro",
 } as const;
 const RESULTADOS = Object.keys(ETIQUETAS) as ResultadoClaseAlumno[];
 export function HistorialClases({ alumnoId }: { alumnoId: string }) {
@@ -64,14 +64,14 @@ function fecha(value: string) {
 
 function etiquetaResultado(resultado: ResultadoClaseAlumno) {
   switch (resultado) {
-    case "PROXIMA": return texto("ui.historial.clasesAlumno.PROXIMA");
-    case "ASISTIO": return texto("ui.historial.clasesAlumno.ASISTIO");
-    case "AUSENTE": return texto("ui.historial.clasesAlumno.AUSENTE");
-    case "SIN_REGISTRAR_COMO_DICTADA": return texto("ui.historial.clasesAlumno.SIN_REGISTRAR_COMO_DICTADA");
-    case "CANCELADA_CENTRO": return texto("ui.historial.clasesAlumno.CANCELADA_CENTRO");
-    case "CANCELADA_ALUMNO": return texto("ui.historial.clasesAlumno.CANCELADA_ALUMNO");
-    case "RESERVA_VENCIDA": return texto("ui.historial.clasesAlumno.RESERVA_VENCIDA");
-    case "BAJA_ALUMNO": return texto("ui.historial.clasesAlumno.BAJA_ALUMNO");
-    case "QUITADA_CENTRO": return texto("ui.historial.clasesAlumno.QUITADA_CENTRO");
+    case "PROXIMA": return texto("ui.historial.clasesAlumno.proxima");
+    case "ASISTIO": return texto("ui.historial.clasesAlumno.asistio");
+    case "AUSENTE": return texto("ui.historial.clasesAlumno.ausente");
+    case "SIN_REGISTRAR_COMO_DICTADA": return texto("ui.historial.clasesAlumno.sinRegistrarComoDictada");
+    case "CANCELADA_CENTRO": return texto("ui.historial.clasesAlumno.canceladaCentro");
+    case "CANCELADA_ALUMNO": return texto("ui.historial.clasesAlumno.canceladaAlumno");
+    case "RESERVA_VENCIDA": return texto("ui.historial.clasesAlumno.reservaVencida");
+    case "BAJA_ALUMNO": return texto("ui.historial.clasesAlumno.bajaAlumno");
+    case "QUITADA_CENTRO": return texto("ui.historial.clasesAlumno.quitadaCentro");
   }
 }

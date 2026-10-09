@@ -1,0 +1,1128 @@
+{
+  "viewport": {
+    "desktop": "1440x1000",
+    "mobile": "390x844"
+  },
+  "errors": [],
+  "results": [
+    {
+      "name": "Mesa: nueve resultados",
+      "status": 200,
+      "body": {
+        "data": {
+          "alumno": {
+            "id": "cmv19y010000ojmpo2hkwjid5",
+            "nombre_completo": "Fernández, Sofía"
+          },
+          "resumen": {
+            "total": 56,
+            "por_resultado": {
+              "PROXIMA": 2,
+              "ASISTIO": 15,
+              "AUSENTE": 4,
+              "SIN_REGISTRAR_COMO_DICTADA": 27,
+              "CANCELADA_CENTRO": 1,
+              "CANCELADA_ALUMNO": 2,
+              "RESERVA_VENCIDA": 1,
+              "BAJA_ALUMNO": 2,
+              "QUITADA_CENTRO": 2
+            },
+            "asistio_sin_control": 5,
+            "clases_con_control": 14,
+            "porcentaje_asistencia": 71
+          },
+          "items": [
+            {
+              "inscripcion_id": "cmv1a12se008ejm60ah9moxvk",
+              "turno_id": "cmv1a12oz0086jm60mfguovk8",
+              "fecha": "2026-10-21",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "PROXIMA",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12qy008ajm60a8viidaj",
+              "turno_id": "cmv1a12oz0086jm60mfguovk8",
+              "fecha": "2026-10-21",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "CANCELADA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12n90081jm60f9tzhxna",
+              "turno_id": "cmv1a12kn007xjm60oq94lnb3",
+              "fecha": "2026-10-20",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "BAJA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12j3007vjm60wpqzfwt2",
+              "turno_id": "cmv1a12eu007njm60b9ih9kd3",
+              "fecha": "2026-10-19",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "RESERVA_VENCIDA",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12hp007rjm60b9t94uhe",
+              "turno_id": "cmv1a12eu007njm60b9ih9kd3",
+              "fecha": "2026-10-19",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "QUITADA_CENTRO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12d6007jjm60k5c2e7ze",
+              "turno_id": "cmv19znnp008fjmzl5nf96guc",
+              "fecha": "2026-10-16",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "QUITADA_CENTRO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19znmm008bjmzly0pgb8h9",
+              "turno_id": "cmv19znlf0087jmzlxs8mg7h5",
+              "fecha": "2026-10-15",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "BAJA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19znkg0083jmzlmi8fdbs8",
+              "turno_id": "cmv19znj4007zjmzlgoys358h",
+              "fecha": "2026-10-14",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "CANCELADA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19zni5007ujmzlr85i6jp0",
+              "turno_id": "cmv19zngy007qjmzls3mv6l0a",
+              "fecha": "2026-10-13",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "CANCELADA_CENTRO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19zng9007mjmzlx5guzs9l",
+              "turno_id": "cmv19zner007ijmzljcqaib9y",
+              "fecha": "2026-10-12",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "PROXIMA",
+              "sin_control_asistencia": false
+            }
+          ],
+          "paginacion": {
+            "total": 56,
+            "pagina_actual": 1,
+            "total_paginas": 6,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Página 2",
+      "status": 200,
+      "body": {
+        "data": {
+          "alumno": {
+            "id": "cmv19y010000ojmpo2hkwjid5",
+            "nombre_completo": "Fernández, Sofía"
+          },
+          "resumen": {
+            "total": 56,
+            "por_resultado": {
+              "PROXIMA": 2,
+              "ASISTIO": 15,
+              "AUSENTE": 4,
+              "SIN_REGISTRAR_COMO_DICTADA": 27,
+              "CANCELADA_CENTRO": 1,
+              "CANCELADA_ALUMNO": 2,
+              "RESERVA_VENCIDA": 1,
+              "BAJA_ALUMNO": 2,
+              "QUITADA_CENTRO": 2
+            },
+            "asistio_sin_control": 5,
+            "clases_con_control": 14,
+            "porcentaje_asistencia": 71
+          },
+          "items": [
+            {
+              "inscripcion_id": "cmv19y1go00bbjmpo4t593c43",
+              "turno_id": "cmv19y1ff00b7jmpoodzd5lnz",
+              "fecha": "2026-10-07",
+              "hora_inicio": "11:00",
+              "hora_fin": "12:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19y1di00axjmpoooeqt6cc",
+              "turno_id": "cmv19y1ci00atjmpotpxlenji",
+              "fecha": "2026-10-06",
+              "hora_inicio": "11:00",
+              "hora_fin": "12:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": true
+            },
+            {
+              "inscripcion_id": "cmv19y1aj00ajjmpo9526n7bw",
+              "turno_id": "cmv19y19g00afjmpoqk9zngkf",
+              "fecha": "2026-10-05",
+              "hora_inicio": "11:00",
+              "hora_fin": "12:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19y1jz00brjmpo06qhrfyl",
+              "turno_id": "cmv19y1iz00bnjmposx50zwwr",
+              "fecha": "2026-10-02",
+              "hora_inicio": "11:00",
+              "hora_fin": "12:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "SIN_REGISTRAR_COMO_DICTADA",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19y17a00a5jmpoeb9cn6tr",
+              "turno_id": "cmv19y16200a1jmpo1ds1uwwg",
+              "fecha": "2026-09-28",
+              "hora_inicio": "11:00",
+              "hora_fin": "12:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19z5hf008ajmvloxwsrnby",
+              "turno_id": "cmv19z5fg0086jmvlk0cxakfz",
+              "fecha": "2026-09-24",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "SIN_REGISTRAR_COMO_DICTADA",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19z5dv0082jmvlcdf7z8le",
+              "turno_id": "cmv19z5cb007yjmvlfj02ow6h",
+              "fecha": "2026-09-23",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": true
+            },
+            {
+              "inscripcion_id": "cmv19z5ao007ujmvl631z1mpk",
+              "turno_id": "cmv19z58o007qjmvl562kpytd",
+              "fecha": "2026-09-22",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "AUSENTE",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19z57b007mjmvli6qotvkt",
+              "turno_id": "cmv19z55d007ijmvlcub7xwqc",
+              "fecha": "2026-09-21",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12v2008kjm60jpkv5c7w",
+              "turno_id": "cmv1a12t5008gjm606uw30yod",
+              "fecha": "2026-09-14",
+              "hora_inicio": "11:00",
+              "hora_fin": "12:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "SIN_REGISTRAR_COMO_DICTADA",
+              "sin_control_asistencia": false
+            }
+          ],
+          "paginacion": {
+            "total": 56,
+            "pagina_actual": 2,
+            "total_paginas": 6,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Filtros AND inclusivos, legacy",
+      "status": 200,
+      "body": {
+        "data": {
+          "alumno": {
+            "id": "cmv19y010000ojmpo2hkwjid5",
+            "nombre_completo": "Fernández, Sofía"
+          },
+          "resumen": {
+            "total": 2,
+            "por_resultado": {
+              "PROXIMA": 0,
+              "ASISTIO": 2,
+              "AUSENTE": 0,
+              "SIN_REGISTRAR_COMO_DICTADA": 0,
+              "CANCELADA_CENTRO": 0,
+              "CANCELADA_ALUMNO": 0,
+              "RESERVA_VENCIDA": 0,
+              "BAJA_ALUMNO": 0,
+              "QUITADA_CENTRO": 0
+            },
+            "asistio_sin_control": 1,
+            "clases_con_control": 1,
+            "porcentaje_asistencia": 100
+          },
+          "items": [
+            {
+              "inscripcion_id": "cmv19z5dv0082jmvlcdf7z8le",
+              "turno_id": "cmv19z5cb007yjmvlfj02ow6h",
+              "fecha": "2026-09-23",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": true
+            },
+            {
+              "inscripcion_id": "cmv19z57b007mjmvli6qotvkt",
+              "turno_id": "cmv19z55d007ijmvlcub7xwqc",
+              "fecha": "2026-09-21",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "ASISTIO",
+              "sin_control_asistencia": false
+            }
+          ],
+          "paginacion": {
+            "total": 2,
+            "pagina_actual": 1,
+            "total_paginas": 1,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Query inválida pagina=0",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "pagina": [
+                "Too small: expected number to be >0"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida por_pagina=11",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "por_pagina": [
+                "Too big: expected number to be <=10"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida resultado=OTRO",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "resultado": [
+                "Invalid option: expected one of \"PROXIMA\"|\"ASISTIO\"|\"AUSENTE\"|\"SIN_REGISTRAR_COMO_DICTADA\"|\"CANCELADA_CENTRO\"|\"CANCELADA_ALUMNO\"|\"RESERVA_VENCIDA\"|\"BAJA_ALUMNO\"|\"QUITADA_CENTRO\""
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida desde=2026-02-30",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "Ingresá una fecha válida"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida desde=2026-10-20&hasta=2026-10-01",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "«Desde» no puede ser posterior a «Hasta»"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida otro=x",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [
+              "Unrecognized key: \"otro\""
+            ],
+            "fieldErrors": {}
+          }
+        }
+      }
+    },
+    {
+      "name": "Alumno inexistente",
+      "status": 404,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "ALUMNO_NO_ENCONTRADO",
+          "message": "No se encontró el alumno"
+        }
+      }
+    },
+    {
+      "name": "UI: filtro reinicia página, rango, móvil, teclado, vacío filtrado y reintento conserva filtro",
+      "status": "PASS"
+    },
+    {
+      "name": "Alumno inactivo sin clases",
+      "status": 200,
+      "body": {
+        "data": {
+          "alumno": {
+            "id": "cmv19y02s001ijmpo0ypekxiv",
+            "nombre_completo": "Molina, Ramiro"
+          },
+          "resumen": {
+            "total": 0,
+            "por_resultado": {
+              "PROXIMA": 0,
+              "ASISTIO": 0,
+              "AUSENTE": 0,
+              "SIN_REGISTRAR_COMO_DICTADA": 0,
+              "CANCELADA_CENTRO": 0,
+              "CANCELADA_ALUMNO": 0,
+              "RESERVA_VENCIDA": 0,
+              "BAJA_ALUMNO": 0,
+              "QUITADA_CENTRO": 0
+            },
+            "asistio_sin_control": 0,
+            "clases_con_control": 0,
+            "porcentaje_asistencia": null
+          },
+          "items": [],
+          "paginacion": {
+            "total": 0,
+            "pagina_actual": 1,
+            "total_paginas": 0,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Gerente solo lectura",
+      "status": 200,
+      "body": {
+        "data": {
+          "alumno": {
+            "id": "cmv19y010000ojmpo2hkwjid5",
+            "nombre_completo": "Fernández, Sofía"
+          },
+          "resumen": {
+            "total": 56,
+            "por_resultado": {
+              "PROXIMA": 2,
+              "ASISTIO": 15,
+              "AUSENTE": 4,
+              "SIN_REGISTRAR_COMO_DICTADA": 27,
+              "CANCELADA_CENTRO": 1,
+              "CANCELADA_ALUMNO": 2,
+              "RESERVA_VENCIDA": 1,
+              "BAJA_ALUMNO": 2,
+              "QUITADA_CENTRO": 2
+            },
+            "asistio_sin_control": 5,
+            "clases_con_control": 14,
+            "porcentaje_asistencia": 71
+          },
+          "items": [
+            {
+              "inscripcion_id": "cmv1a12se008ejm60ah9moxvk",
+              "turno_id": "cmv1a12oz0086jm60mfguovk8",
+              "fecha": "2026-10-21",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "PROXIMA",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12qy008ajm60a8viidaj",
+              "turno_id": "cmv1a12oz0086jm60mfguovk8",
+              "fecha": "2026-10-21",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "CANCELADA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12n90081jm60f9tzhxna",
+              "turno_id": "cmv1a12kn007xjm60oq94lnb3",
+              "fecha": "2026-10-20",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "BAJA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12j3007vjm60wpqzfwt2",
+              "turno_id": "cmv1a12eu007njm60b9ih9kd3",
+              "fecha": "2026-10-19",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "RESERVA_VENCIDA",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12hp007rjm60b9t94uhe",
+              "turno_id": "cmv1a12eu007njm60b9ih9kd3",
+              "fecha": "2026-10-19",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "QUITADA_CENTRO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv1a12d6007jjm60k5c2e7ze",
+              "turno_id": "cmv19znnp008fjmzl5nf96guc",
+              "fecha": "2026-10-16",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 1",
+              "resultado": "QUITADA_CENTRO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19znmm008bjmzly0pgb8h9",
+              "turno_id": "cmv19znlf0087jmzlxs8mg7h5",
+              "fecha": "2026-10-15",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "BAJA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19znkg0083jmzlmi8fdbs8",
+              "turno_id": "cmv19znj4007zjmzlgoys358h",
+              "fecha": "2026-10-14",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "CANCELADA_ALUMNO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19zni5007ujmzlr85i6jp0",
+              "turno_id": "cmv19zngy007qjmzls3mv6l0a",
+              "fecha": "2026-10-13",
+              "hora_inicio": "08:00",
+              "hora_fin": "09:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "CANCELADA_CENTRO",
+              "sin_control_asistencia": false
+            },
+            {
+              "inscripcion_id": "cmv19zng9007mjmzlx5guzs9l",
+              "turno_id": "cmv19zner007ijmzljcqaib9y",
+              "fecha": "2026-10-12",
+              "hora_inicio": "10:00",
+              "hora_fin": "11:00",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "aula": "Aula 11",
+              "resultado": "PROXIMA",
+              "sin_control_asistencia": false
+            }
+          ],
+          "paginacion": {
+            "total": 56,
+            "pagina_actual": 1,
+            "total_paginas": 6,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Sesión profesor antes de revocar",
+      "status": 200
+    },
+    {
+      "name": "Clases rechaza Profesor incluso con grant antiguo",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para consultar las clases de este alumno"
+        }
+      }
+    },
+    {
+      "name": "Misma sesión tras revocar",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Profesor clases sin grant",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Historial acotado propio sigue permitido",
+      "status": 200,
+      "body": {
+        "data": {
+          "asistencia_por_materia": [
+            {
+              "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+              "presentes": 7,
+              "ausentes": 4,
+              "sin_control": 3,
+              "porcentaje": 64
+            }
+          ],
+          "alumno": {
+            "id": "cmv19y010000ojmpo2hkwjid5",
+            "nombre_completo": "Fernández, Sofía"
+          },
+          "materias_disponibles": [
+            {
+              "id": "cmv19y0ck004jjmpozuag1fmj",
+              "nombre": "Matemática"
+            }
+          ],
+          "indicaciones_opciones": {
+            "materias": [
+              {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              }
+            ],
+            "clases": [
+              {
+                "id": "b756e783-fd4c-42ec-97b9-90b018b45aa2",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-10-07"
+              },
+              {
+                "id": "24f65cfb-901f-4959-8567-e8f4585f9d8f",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-10-06"
+              },
+              {
+                "id": "dc99dc76-e5ce-400c-9847-22ac4a32f8af",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-10-05"
+              },
+              {
+                "id": "f1b130fe-b1d9-480e-a862-bd43aeab4afc",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-09-28"
+              },
+              {
+                "id": "6d3001ec-22d3-4209-803b-d5aeea0337f4",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-09-23"
+              },
+              {
+                "id": "3998d662-76bc-43f3-8f83-f9c77112c378",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-09-22"
+              },
+              {
+                "id": "0d14740d-8ab1-4291-8408-c06a849f85d6",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-09-21"
+              },
+              {
+                "id": "911bd9cc-b007-40be-ae2b-67f4e87e6c38",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-09-02"
+              },
+              {
+                "id": "abb98ce0-bfb9-4afd-b8b3-148dee2de78e",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-05-07"
+              },
+              {
+                "id": "9c33ce55-2bfa-47cb-b4e3-cfa8ad32bd28",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-05-06"
+              },
+              {
+                "id": "bd2a1d94-14c1-4987-8b66-029f17dcaab7",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-05-05"
+              },
+              {
+                "id": "4c80037a-7bf1-48f4-b9d3-4b68ed77bb29",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-05-04"
+              },
+              {
+                "id": "716b654c-2e8f-440e-99a2-9c21d459bb18",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-01-07"
+              },
+              {
+                "id": "2927e218-205a-4e01-85d4-5f1025859dad",
+                "materia_id": "cmv19y0ck004jjmpozuag1fmj",
+                "fecha": "2026-01-06"
+              }
+            ]
+          },
+          "puede_registrar_indicacion": true,
+          "items": [
+            {
+              "tipo": "INDICACION",
+              "id": "cmv19y155009vjmpoz3zvexh6",
+              "fecha": "2026-10-09",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "indicacion": "Reforzar fracciones y proporciones antes de la próxima evaluación.",
+              "registrada_en": "2026-10-09T18:03:53.033Z",
+              "registrada_por": "mesa.entrada@noctium.local",
+              "clase_dictada_id": "2927e218-205a-4e01-85d4-5f1025859dad"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "b756e783-fd4c-42ec-97b9-90b018b45aa2",
+              "fecha": "2026-10-07",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19y1ff00b7jmpoodzd5lnz",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "24f65cfb-901f-4959-8567-e8f4585f9d8f",
+              "fecha": "2026-10-06",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19y1ci00atjmpotpxlenji",
+              "asistencia": null
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "dc99dc76-e5ce-400c-9847-22ac4a32f8af",
+              "fecha": "2026-10-05",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19y19g00afjmpoqk9zngkf",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "f1b130fe-b1d9-480e-a862-bd43aeab4afc",
+              "fecha": "2026-09-28",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19y16200a1jmpo1ds1uwwg",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "EXAMEN",
+              "id": "cmv19y15q009zjmpoq3xry0mg",
+              "fecha": "2026-09-26",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "nota": "7.5",
+              "observaciones": "HU-E-10 fixture: mesa corregible",
+              "corregido": false,
+              "anulado": false,
+              "puede_corregir": false
+            },
+            {
+              "tipo": "EXAMEN",
+              "id": "cmv19y15j009xjmpoi2114tpu",
+              "fecha": "2026-09-25",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "nota": "8",
+              "observaciones": "HU-E-10 fixture: profesor corregible",
+              "corregido": false,
+              "anulado": false,
+              "puede_corregir": true
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "6d3001ec-22d3-4209-803b-d5aeea0337f4",
+              "fecha": "2026-09-23",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19z5cb007yjmvlfj02ow6h",
+              "asistencia": null
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "3998d662-76bc-43f3-8f83-f9c77112c378",
+              "fecha": "2026-09-22",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19z58o007qjmvl562kpytd",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "id": "0d14740d-8ab1-4291-8408-c06a849f85d6",
+              "fecha": "2026-09-21",
+              "materia": {
+                "id": "cmv19y0ck004jjmpozuag1fmj",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv19z55d007ijmvlcub7xwqc",
+              "asistencia": "PRESENTE"
+            }
+          ],
+          "paginacion": {
+            "total": 21,
+            "pagina_actual": 1,
+            "total_paginas": 3,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Profesor sin materia",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder al historial de este alumno"
+        }
+      }
+    },
+    {
+      "name": "Historial alumno fuera de alcance",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder al historial de este alumno"
+        }
+      }
+    },
+    {
+      "name": "Alumno no consulta pestaña interna",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Anónimo",
+      "status": 401,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SESION_INVALIDA",
+          "message": "Tu sesión expiró. Iniciá sesión nuevamente"
+        }
+      }
+    }
+  ]
+}
