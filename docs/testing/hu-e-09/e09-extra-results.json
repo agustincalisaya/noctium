@@ -1,0 +1,250 @@
+{
+  "results": [
+    {
+      "name": "/api/turnos/cmv0drdsh007jjmf68qw8s2th/clase-dictada",
+      "status": 200,
+      "body": {
+        "data": {
+          "id": "9f50bfa3-d7e9-415d-b68c-aa56ec472ad2",
+          "registrada_en": "2026-10-09T00:09:33.335Z",
+          "registrada_por": "profesor1@noctium.local",
+          "alumnos": [
+            {
+              "id": "cmv0datbh000ojmel39bo9cf4",
+              "nombre_completo": "Fernández, Sofía",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "id": "cmv0datbl000sjmel0jy92zm1",
+              "nombre_completo": "López, Valentina",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv0datbj000qjmelgqyator1",
+              "nombre_completo": "Martínez, Lucas",
+              "asistencia": "PRESENTE"
+            }
+          ],
+          "con_control_asistencia": true,
+          "totales": {
+            "presentes": 2,
+            "ausentes": 1
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/turnos/cmv0drdsh007jjmf68qw8s2th/clase-dictada",
+      "status": 200,
+      "body": {
+        "data": {
+          "id": "9f50bfa3-d7e9-415d-b68c-aa56ec472ad2",
+          "registrada_en": "2026-10-09T00:09:33.335Z",
+          "registrada_por": "profesor1@noctium.local",
+          "alumnos": [
+            {
+              "id": "cmv0datbh000ojmel39bo9cf4",
+              "nombre_completo": "Fernández, Sofía",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "id": "cmv0datbl000sjmel0jy92zm1",
+              "nombre_completo": "López, Valentina",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv0datbj000qjmelgqyator1",
+              "nombre_completo": "Martínez, Lucas",
+              "asistencia": "PRESENTE"
+            }
+          ],
+          "con_control_asistencia": true,
+          "totales": {
+            "presentes": 2,
+            "ausentes": 1
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "idempotencia_y_validacion",
+      "repeticion": 200,
+      "invalido": 400
+    },
+    {
+      "name": "/api/alumnos/cmv0datbh000ojmel39bo9cf4/historial",
+      "status": 200,
+      "body": {
+        "data": {
+          "asistencia_por_materia": [
+            {
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "presentes": 3,
+              "ausentes": 3,
+              "sin_control": 1,
+              "porcentaje": 50
+            },
+            {
+              "materia_id": "cmv0datfa004kjmelk2q50484",
+              "presentes": 2,
+              "ausentes": 0,
+              "sin_control": 1,
+              "porcentaje": 100
+            }
+          ],
+          "alumno": {
+            "id": "cmv0datbh000ojmel39bo9cf4",
+            "nombre_completo": "Fernández, Sofía"
+          },
+          "materias_disponibles": [
+            {
+              "id": "cmv0datfa004kjmelk2q50484",
+              "nombre": "Física"
+            },
+            {
+              "id": "cmv0datf5004jjmelhwlbonb4",
+              "nombre": "Matemática"
+            }
+          ],
+          "items": [
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-06-03",
+              "materia": {
+                "id": "cmv0datfa004kjmelk2q50484",
+                "nombre": "Física"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drgvx00djjmf67smql2ta",
+              "asistencia": null
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-06-02",
+              "materia": {
+                "id": "cmv0datfa004kjmelk2q50484",
+                "nombre": "Física"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drgi500cpjmf6qrvvcaof",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-06-01",
+              "materia": {
+                "id": "cmv0datfa004kjmelk2q50484",
+                "nombre": "Física"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drg2y00bvjmf6nyhhw2dq",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-05-07",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drft400b1jmf6vf41wi3a",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-05-06",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drfi800a7jmf64aco0ksb",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-05-05",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drf8f009djmf6j6dmbmdw",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-05-04",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drej1008jjmf6fqhgzg1r",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-01-07",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0dre5e0087jmf62fs9sr7m",
+              "asistencia": null
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-01-06",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drdxt007vjmf6xd3cb7lh",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "tipo": "CLASE_DICTADA",
+              "fecha": "2026-01-05",
+              "materia": {
+                "id": "cmv0datf5004jjmelhwlbonb4",
+                "nombre": "Matemática"
+              },
+              "profesor": "Giménez, Laura",
+              "turno_id": "cmv0drdsh007jjmf68qw8s2th",
+              "asistencia": "AUSENTE"
+            }
+          ],
+          "paginacion": {
+            "total": 10,
+            "pagina_actual": 1,
+            "total_paginas": 1,
+            "por_pagina": 10
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/turnos/cmv0drdsh007jjmf68qw8s2th/clase-dictada",
+      "status": 401,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SESION_INVALIDA",
+          "message": "Tu sesión expiró. Iniciá sesión nuevamente"
+        }
+      }
+    },
+    {
+      "name": "extra_e09",
+      "errors": []
+    }
+  ],
+  "errors": []
+}

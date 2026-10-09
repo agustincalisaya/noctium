@@ -1,0 +1,34 @@
+{
+  "turno": "cmv0drdsh007jjmf68qw8s2th",
+  "response": {
+    "data": {
+      "id": "9f50bfa3-d7e9-415d-b68c-aa56ec472ad2",
+      "registrada_en": "2026-10-09T00:09:33.335Z",
+      "registrada_por": "profesor1@noctium.local",
+      "alumnos": [
+        {
+          "id": "cmv0datbh000ojmel39bo9cf4",
+          "nombre_completo": "Fernández, Sofía",
+          "asistencia": "AUSENTE"
+        },
+        {
+          "id": "cmv0datbl000sjmel0jy92zm1",
+          "nombre_completo": "López, Valentina",
+          "asistencia": "PRESENTE"
+        },
+        {
+          "id": "cmv0datbj000qjmelgqyator1",
+          "nombre_completo": "Martínez, Lucas",
+          "asistencia": "PRESENTE"
+        }
+      ],
+      "con_control_asistencia": true,
+      "totales": {
+        "presentes": 2,
+        "ausentes": 1
+      }
+    },
+    "error": null
+  },
+  "errors": []
+}

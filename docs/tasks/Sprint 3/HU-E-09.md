@@ -149,10 +149,14 @@ Playwright verifica Profesor y Mesa, historial con los accesos actuales, viewpor
 - [x] Core contractual y entrada HTTP implementados, lógica exclusivamente en servicios.
 - [x] POST sin cuerpo compatible y campos nuevos aditivos en GET/POST/historial.
 - [x] Bloqueo, atomicidad, valor vigente y trazabilidad posterior al commit verificados.
-- [ ] Lista integrada conforme figuras 49–51 y porcentajes visibles.
+- [x] Lista integrada conforme figuras 49–51 y porcentajes visibles.
 - [x] Ningún DELETE físico ni edición de registros consumados.
 - [x] Fixture repetible mediante servicios y seed probado dos veces.
-- [ ] Tests, PostgreSQL real, lint, TypeScript y build documentados.
-- [ ] Colección API, SQL y evidencia Playwright disponibles; diferencias de herramientas explicitadas.
+- [x] Tests, PostgreSQL real, lint, TypeScript y build documentados.
+- [x] Colección API, SQL y evidencia Playwright disponibles; diferencias de herramientas explicitadas.
 - [x] Verificaciones diferidas de E-08/E-11/C-14/B-07 documentadas.
 - [ ] Commit y PR exclusivos de HU-E-09, sin incluir H-06/H-07.
+
+## Cierre de verificación
+
+Evidencia efectiva en `docs/testing/HU-E-09-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.

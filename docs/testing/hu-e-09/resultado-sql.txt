@@ -1,0 +1,47 @@
+          idTurno          | fechaTurno | horaInicioTurno | nombreMateria |      emailProfesor      |            idClaseDictada            | conControlAsistencia |    creadoPorUsuarioId     |  createdAtClaseDictada  
+---------------------------+------------+-----------------+---------------+-------------------------+--------------------------------------+----------------------+---------------------------+-------------------------
+ cmv0drdsh007jjmf68qw8s2th | 2026-01-05 | 11:00:00        | Matemática    | profesor1@noctium.local | 9f50bfa3-d7e9-415d-b68c-aa56ec472ad2 | t                    | cmv0datao0004jmela933lj1e | 2026-10-09 00:09:33.335
+ cmv0drdxt007vjmf6xd3cb7lh | 2026-01-06 | 11:00:00        | Matemática    | profesor1@noctium.local | 11db2ea7-474a-4223-8e92-712222a670fd | t                    | cmv0datag0000jmelnxlhjtg8 | 2026-01-06 12:01:00
+ cmv0dre5e0087jmf62fs9sr7m | 2026-01-07 | 11:00:00        | Matemática    | profesor1@noctium.local | 51208bb7-b780-49e0-a055-ffe521d2e82b | f                    | cmv0datag0000jmelnxlhjtg8 | 2026-01-07 12:01:00
+(3 rows)
+
+            idClaseDictada            | fechaClaseDictada | conControlAsistencia |         idAlumno          | apellidoAlumno | nombreAlumno | estadoAsistencia 
+--------------------------------------+-------------------+----------------------+---------------------------+----------------+--------------+------------------
+ 9f50bfa3-d7e9-415d-b68c-aa56ec472ad2 | 2026-01-05        | t                    | cmv0datbh000ojmel39bo9cf4 | Fernández      | Sofía        | AUSENTE
+ 9f50bfa3-d7e9-415d-b68c-aa56ec472ad2 | 2026-01-05        | t                    | cmv0datbj000qjmelgqyator1 | Martínez       | Lucas        | PRESENTE
+ 9f50bfa3-d7e9-415d-b68c-aa56ec472ad2 | 2026-01-05        | t                    | cmv0datbl000sjmel0jy92zm1 | López          | Valentina    | PRESENTE
+ 11db2ea7-474a-4223-8e92-712222a670fd | 2026-01-06        | t                    | cmv0datbh000ojmel39bo9cf4 | Fernández      | Sofía        | PRESENTE
+ 11db2ea7-474a-4223-8e92-712222a670fd | 2026-01-06        | t                    | cmv0datbj000qjmelgqyator1 | Martínez       | Lucas        | AUSENTE
+ 11db2ea7-474a-4223-8e92-712222a670fd | 2026-01-06        | t                    | cmv0datbl000sjmel0jy92zm1 | López          | Valentina    | PRESENTE
+ 51208bb7-b780-49e0-a055-ffe521d2e82b | 2026-01-07        | f                    | cmv0datbh000ojmel39bo9cf4 | Fernández      | Sofía        | 
+ 51208bb7-b780-49e0-a055-ffe521d2e82b | 2026-01-07        | f                    | cmv0datbj000qjmelgqyator1 | Martínez       | Lucas        | 
+ 51208bb7-b780-49e0-a055-ffe521d2e82b | 2026-01-07        | f                    | cmv0datbl000sjmel0jy92zm1 | López          | Valentina    | 
+(9 rows)
+
+ turnoId | count 
+---------+-------
+(0 rows)
+
+       idInscripcion       |         alumnoId          | vigencia |     estadoPago     | precio | venceEl 
+---------------------------+---------------------------+----------+--------------------+--------+---------
+ cmv0drdvo007njmf6ubszebwm | cmv0datbh000ojmel39bo9cf4 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0drdwb007pjmf65lud653b | cmv0datbj000qjmelgqyator1 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0drdwv007rjmf65zp4wuj1 | cmv0datbl000sjmel0jy92zm1 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0dre0f007zjmf64lvs34mt | cmv0datbh000ojmel39bo9cf4 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0dre1s0081jmf63slkegmm | cmv0datbj000qjmelgqyator1 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0dre2p0083jmf6nvmnfekr | cmv0datbl000sjmel0jy92zm1 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0dre9s008bjmf6tg75pb5i | cmv0datbh000ojmel39bo9cf4 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0dreb5008djmf61y7dglin | cmv0datbj000qjmelgqyator1 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+ cmv0dreby008fjmf6340f5qsd | cmv0datbl000sjmel0jy92zm1 | VIGENTE  | PAGO_SIN_REGISTRAR |  12000 | 
+(9 rows)
+
+ operaciones 
+-------------
+          24
+(1 row)
+
+ pagos | monto_original 
+-------+----------------
+    24 |    57600000.00
+(1 row)
+

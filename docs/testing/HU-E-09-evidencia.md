@@ -24,10 +24,24 @@ El seed de la HU usa servicios de configuración, aula, participantes y registro
 - 2026-01-07: registro sin control, excluido del porcentaje.
 - IDs concretos y alumnos se consultan con `HU-E-09.sql`. La colección Postman requiere esos valores y una sesión autenticada; los casos de alta son independientes.
 
-## Verificación final pendiente
+## Verificación final integrada — 09/10/2026
 
-La revisión final integrada registra aquí resultados de suite completa, build y Playwright/API reales, y guarda capturas en `docs/testing/hu-e-09/`. No se afirma ejecución de Postman hasta contar con ella: Playwright puede ejecutar sus contratos con las cookies autenticadas.
+Validación sobre una rama local de revisión con E09, H06 y H07; cada rama de entrega mantiene únicamente su historia. Base PostgreSQL descartable local, sin modificaciones en una base compartida.
+
+- `npm test`: **1851 aprobados**, 177 PostgreSQL omitidos por diseño; esos casos se ejecutaron separadamente.
+- `npm run test:pg`: **177 aprobados** (143 + 18 + 16), migraciones reales, bases temporales eliminadas por el runner.
+- Next.js build webpack y TypeScript: aprobados con Node 24.21.0. ESLint: cero errores; un warning preexistente de `CALENDARIO` en Sidebar.
+- Catálogo de textos y detalle después del último ajuste de confirmación: 44 aprobados. Componentes de indicadores: 16 aprobados después del ajuste final de etiquetas.
+- Fixtures combinados repetidos: 72 turnos, 205 inscripciones, 10 clases dictadas, 93 snapshots, 24 pagos, 136 eventos y 229 entradas de historial; conteos iguales antes/después. Esta medición incluye el registro de 05/01 realizado por la revisión UI.
+- Playwright/Chromium con sesiones reales del seed, escritorio 1440×1000 y móvil 390×844. Sin excepciones de página. Capturas inspeccionadas visualmente. Las capturas inferiores usan scroll del contenido de la aplicación.
+- La colección Postman queda disponible para repetir los casos; la ejecución HTTP efectiva se realizó con Playwright y sus cookies de sesión. No se ejecutó la aplicación Postman ni TablePlus: SQL read-only se ejecutó con `psql`.
+
+Registro por Profesor desde la lista de alumnos: selección individual, confirmación, guardado y lectura con **2 presentes / 1 ausente**. Registro legacy se presenta sin control. Mesa verificó GET e idempotencia POST 200: un segundo envío con otras marcas conserva el snapshot original; payload inválido 400 y sesión ausente 401. Historial real: Matemática 3 presentes/3 ausentes = 50 %, Física 2/0 = 100 %, clases sin control excluidas. SQL de la HU ejecutado sin errores; atomicidad, concurrencia y ausencia sin efectos financieros cubiertos además por PostgreSQL real.
+
+Capturas y resultados: `hu-e-09/`. Las verificaciones dependientes de E02/E08/E11/C14/B07 siguen diferidas, como se explica arriba.
 
 Verificación diferida: Mi historial (E-08), corrección/anulación desde la aplicación (E-11), cancelación propia (C-14), baja de alumno (B-07) y acceso Gerente a la ficha (E-02). La HU ya consume valor vigente y clases no anuladas del modelo existente, comprobados con setup exclusivo de pruebas.
 
 Decisiones de compatibilidad: GET sin clase vigente mantiene 404 CLASE_NO_REGISTRADA también para Profesor; clase registrada ajena responde 403. El resumen nuevo del Profesor se entrega solo para una materia autorizada mediante el helper específico; sin contexto de materia queda vacío hasta E-02, preservando el endpoint anterior sin ampliar datos.
+
+Último build integrado de producción y revisión final Playwright: aprobados.
