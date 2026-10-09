@@ -33,6 +33,20 @@ SQL y service coinciden. El promedio de los meses no se utiliza: el service pond
 
 Los defaults de validación C ahora consultan `ahora()` del PR 0, preservando fechas explícitas y el comportamiento productivo. La regresión demuestra que el reloj contextual admite históricos sin mutar `Date` global. El mismo cambio se comparte con E09 para permitir PR independientes.
 
-## Verificación final pendiente
+## Verificación final integrada — 09/10/2026
 
-La colección `HU-H-06.postman_collection.json` usa variables de sesión local sin secretos guardados. Resta registrar ejecución HTTP contra la app real, Playwright/Chromium (desktop/móvil, 6/13/24 meses, tooltip, scroll, estados y acceso), capturas en `docs/testing/hu-h-06/`, y build/regresión de integración. Se completará este apartado con resultados efectivamente observados; no se presenta una captura o prueba pendiente como realizada.
+Validación sobre una rama local de revisión con E09, H06 y H07; cada rama de entrega mantiene únicamente su historia. Base PostgreSQL descartable local, sin modificaciones en una base compartida.
+
+- `npm test`: **1851 aprobados**, 177 PostgreSQL omitidos por diseño; esos casos se ejecutaron separadamente.
+- `npm run test:pg`: **177 aprobados** (143 + 18 + 16), migraciones reales, bases temporales eliminadas por el runner.
+- Next.js build webpack y TypeScript: aprobados con Node 24.21.0. ESLint: cero errores; un warning preexistente de `CALENDARIO` en Sidebar.
+- Catálogo de textos y detalle después del último ajuste de confirmación: 44 aprobados. Componentes de indicadores: 16 aprobados después del ajuste final de etiquetas.
+- Fixtures combinados repetidos: 72 turnos, 205 inscripciones, 10 clases dictadas, 93 snapshots, 24 pagos, 136 eventos y 229 entradas de historial; conteos iguales antes/después. Esta medición incluye el registro de 05/01 realizado por la revisión UI.
+- Playwright/Chromium con sesiones reales del seed, escritorio 1440×1000 y móvil 390×844. Sin excepciones de página. Capturas inspeccionadas visualmente. Las capturas inferiores usan scroll del contenido de la aplicación.
+- La colección Postman queda disponible para repetir los casos; la ejecución HTTP efectiva se realizó con Playwright y sus cookies de sesión. No se ejecutó la aplicación Postman ni TablePlus: SQL read-only se ejecutó con `psql`.
+
+API real validada: ingresos, ocupación mensual y resumen 200; rango inválido 400, sesión ausente 401 y otros roles 403. Resumen mayo–octubre: 26,7 % sobre 18 clases; SQL read-only del período largo ejecutado correctamente. Playwright verificó 6/13/24 meses, conservación de período entre pestañas, tabla, vacío, error 503 aislado y recuperación por reintento. En móvil no hay overflow documental; el scroll de cada gráfico inicia en los meses recientes. Los importes elevados usan etiquetas compactas; totales, tabla y tooltip conservan precisión.
+
+Capturas y respuestas reales de esta HU: `hu-h-06/`. Pestaña Cancelaciones queda como extensión para su historia correspondiente.
+
+Último build de producción después del ajuste visual: aprobado. Revisión final repetida con Playwright: cero excepciones de página. Tooltip real de ingresos: mayo de 2026, $ 993.000,00; navegación de pestañas con ArrowRight y enlace de historial con materia comprobados.

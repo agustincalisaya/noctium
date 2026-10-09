@@ -144,12 +144,16 @@ Playwright/Chromium contra la app real: 6, 13 y 24 meses, desktop/móvil, pesta�
 
 - [x] Relevamiento confirmado explícitamente antes de implementar.
 - [x] Servicio y Route Handler nuevos implementados; contratos H01/H02 conservados.
-- [ ] RBAC 401/403 y validaciones 400 verificados contra la app real.
+- [x] RBAC 401/403 y validaciones 400 verificados contra la app real.
 - [x] Tres pestañas y período común; carga/error/vacío/reintento independientes (tests dirigidos).
 - [x] Componente común compatible con barras agrupadas y línea para H07 (test y TypeScript).
-- [ ] Valores visibles, tablas accesibles, totales y leyendas correctos.
-- [ ] Playwright desktop/móvil, 6/13/24 meses y capturas inspeccionadas.
+- [x] Valores visibles, tablas accesibles, totales y leyendas correctos.
+- [x] Playwright desktop/móvil, 6/13/24 meses y capturas inspeccionadas.
 - [x] Textos centralizados y diseño con tokens; sin borrado físico ni migraciones.
 - [x] Fixtures por servicios e idempotencia demostrada en PostgreSQL aislado.
-- [ ] Tests de tres niveles y regresión con evidencia real.
+- [x] Tests de tres niveles y regresión con evidencia real.
 - [ ] PR propio acotado a HU-H-06, sin contenido de E09/H07.
+
+## Cierre de verificación
+
+Evidencia efectiva en `docs/testing/HU-H-06-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.
