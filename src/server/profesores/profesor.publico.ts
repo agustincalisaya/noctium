@@ -128,6 +128,37 @@ export async function obtenerNombresProfesores(
   );
 }
 
+/**
+ * Datos básicos en lote (spec_modulo_H.md §2.8.4), de profesores activos o
+ * inactivos, en el orden de los ids; los inexistentes no aparecen.
+ * `nombreParaMostrar` es «Apellido, Nombre». Aditiva: `obtenerNombresProfesores`
+ * y `listarOpcionesProfesoresActivos` no cambian.
+ */
+export async function obtenerProfesoresBasicos(
+  ids: string[],
+  db: Prisma.TransactionClient = prisma,
+): Promise<{ id: string; nombre: string; apellido: string; nombreParaMostrar: string; activo: boolean }[]> {
+  const unicos = [...new Set(ids)];
+  if (unicos.length === 0) return [];
+  const profesores = await db.profesor.findMany({
+    where: { idProfesor: { in: unicos } },
+    select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true, activoProfesor: true },
+  });
+  const porId = new Map(profesores.map((profesor) => [profesor.idProfesor, profesor]));
+  return unicos.flatMap((id) => {
+    const profesor = porId.get(id);
+    return profesor
+      ? [{
+          id,
+          nombre: profesor.nombreProfesor,
+          apellido: profesor.apellidoProfesor,
+          nombreParaMostrar: formatearApellidoNombre(profesor.apellidoProfesor, profesor.nombreProfesor),
+          activo: profesor.activoProfesor,
+        }]
+      : [];
+  });
+}
+
 /** Ficha vinculada a la cuenta, o `null`. No filtra por activo. */
 export async function obtenerOpcionProfesorDeUsuario(
   usuarioId: string,

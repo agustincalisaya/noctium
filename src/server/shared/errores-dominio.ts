@@ -46,6 +46,14 @@ export const ERRORES_DE_DOMINIO = {
   "errores.profesor.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
   "errores.profesor.materiasDistintas": { code: "MATERIAS_DISTINTAS", status: 400 },
   "errores.profesor.destinoIgualOrigen": { code: "PROFESOR_DESTINO_IGUAL_ORIGEN", status: 400 },
+  "errores.profesor.inactivo": { code: "PROFESOR_INACTIVO", status: 409 },
+  "errores.profesor.noEncontrado": { code: "PROFESOR_NO_ENCONTRADO", status: 404 },
+  "errores.profesor.noDictaMateria": { code: "PROFESOR_NO_DICTA_MATERIA", status: 409 },
+  "errores.profesor.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
+
+  // Módulo A (spec_modulo_A.md §2.6.1).
+  "errores.cuenta.emailYaAsociado": { code: "EMAIL_YA_ASOCIADO", status: 409 },
+  "errores.cuenta.datosInvalidos": { code: "VALIDATION_ERROR", status: 400 },
 
   // Módulo E (spec_modulo_E.md §2.6 a §2.12).
   "errores.asistencia.incompleta": { code: "ASISTENCIA_INCOMPLETA", status: 400 },
@@ -58,6 +66,14 @@ export const ERRORES_DE_DOMINIO = {
   "errores.examen.resultadoNoEncontrado": { code: "RESULTADO_NO_ENCONTRADO", status: 404 },
   "errores.examen.resultadoAnulado": { code: "RESULTADO_ANULADO", status: 409 },
   "errores.examen.correccionSinCambios": { code: "CORRECCION_SIN_CAMBIOS", status: 409 },
+  "errores.claseDictada.turnoNoAdmiteClase": { code: "TURNO_NO_ADMITE_CLASE", status: 409 },
+  "errores.claseDictada.noFinalizada": { code: "CLASE_NO_FINALIZADA", status: 409 },
+  "errores.claseDictada.noRegistrada": { code: "CLASE_NO_REGISTRADA", status: 404 },
+  "errores.examen.materiaNoCursada": { code: "MATERIA_NO_CURSADA", status: 409 },
+  "errores.examen.fechaFutura": { code: "FECHA_EXAMEN_FUTURA", status: 400 },
+  "errores.examen.notaFueraDeRango": { code: "NOTA_FUERA_DE_RANGO", status: 422 },
+  "errores.historial.alumnoNoEncontrado": { code: "ALUMNO_NO_ENCONTRADO", status: 404 },
+  "errores.historial.alumnoInactivo": { code: "ALUMNO_INACTIVO", status: 409 },
 
   // Módulo I: condiciones de Sprint 2 (mismo code y texto de POST /api/pagos).
   "errores.pago.turnoNoAdmitePago": { code: "TURNO_NO_ADMITE_PAGO", status: 409 },
@@ -95,6 +111,7 @@ export const ERRORES_DE_DOMINIO = {
   "errores.caja.egresoSuperaEfectivo": { code: "EGRESO_SUPERA_EFECTIVO", status: 409 },
   "errores.caja.anulacionDejaEfectivoNegativo": { code: "ANULACION_DEJA_EFECTIVO_NEGATIVO", status: 409 },
   "errores.formaPago.ultimaActiva": { code: "ULTIMA_FORMA_PAGO_ACTIVA", status: 409 },
+  "errores.formaPago.nombreDuplicado": { code: "NOMBRE_DUPLICADO", status: 409 },
   "errores.formaPago.yaActiva": { code: "FORMA_PAGO_YA_ACTIVA", status: 409 },
   "errores.formaPago.yaInactiva": { code: "FORMA_PAGO_YA_INACTIVA", status: 409 },
   "errores.formaPago.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },

@@ -1175,6 +1175,241 @@ Además se prueban:
 4. El parámetro `actor` de `marcarPagada` y `recalcularEstadoPago` se queda. Se avisa a los dueños de C e I.
 5. `soloSiReservaPendiente` queda literal, como en 2.13. Lo confirma el dueño de C.
 
+### 5.4 Etapa 2, parte 3 — caja completa, corrección y anulación, cuentas, historial de estados y lecturas públicas
+
+**Archivos nuevos**
+
+| Módulo | Archivo | Contenido |
+|---|---|---|
+| I | `src/server/pagos/caja.service.ts` (ampliado) | `registrarMovimiento`, `anularMovimiento`, `registrarAjuste`, `declararEfectivo`, `calcularResumen`, `cerrarCaja` |
+| I | `src/server/pagos/correccion.service.ts` | `puedeCorregirPago`, `corregirPago`, `corregirOperacion`, `anularPago` |
+| I | `src/server/pagos/pago.lecturas.publico.ts` | Lecturas con el valor vigente (R3-PR0-I11) y `usuarioRegistroOperaciones` |
+| I | `src/server/pagos/pago.vigente.ts` (reescrito) | Valor vigente de una operación en TypeScript y los mismos cálculos como fragmentos SQL |
+| I | `scripts/caja-abrir.ts` y el script `caja:abrir` de `package.json` | `npm run caja:abrir -- <email> [fondo inicial]` (2.15) |
+| A | `src/server/usuarios/cuenta.service.ts` y `cuenta.schema.ts` | Cuentas de acceso (HU-A-06, 2.7) |
+| A | `src/server/email/email.service.ts` | `enviarEmail`, con simulador |
+| N | `src/server/shared/historial-estados.ts` | `registrarCambioEstado`, `listarHistorialEstados` |
+| N | `src/server/shared/fechas-centro.ts` (función nueva) | `isoCentro` (instante con `-03:00`) |
+| C | `src/server/turnos/inscripcion.lecturas.ts` (reexportado por `inscripcion.publico.ts`) | Inscripciones del alumno, conteos y reservas |
+| C | `src/server/turnos/clases.publico.ts` | `contarClasesPorMes`, `gerentePuedeGestionarClaseDeBaja` |
+| D | `src/server/profesores/profesor.publico.ts` (función nueva) | `obtenerProfesoresBasicos` |
+| E | `src/server/historial/valor-vigente.ts` | Fragmentos SQL: asistencia, «con control» y clase dictada vigentes |
+| E | `src/server/historial/asistencia.publico.ts` | Lecturas de asistencia y `profesorPuedeRegistrarIndicacion` |
+| E | `src/server/historial/alcance-profesor.ts` | `profesorPuedeVerHistorial` |
+
+Pruebas nuevas:
+- unitarias: `src/server/pagos/correccion.alcance.test.ts` (`puedeCorregirPago`, simulador y envío de email, `obtenerProfesoresBasicos`);
+- con PostgreSQL real: `src/server/pagos/caja.service.pg.test.ts`, `src/server/pagos/correccion.service.pg.test.ts`, `src/server/usuarios/cuenta.service.pg.test.ts`, `src/server/turnos/inscripcion.lecturas.pg.test.ts` y `src/server/historial/asistencia.pg.test.ts`;
+- `src/server/publico.aislamiento.test.ts` suma, sin quitar nada, las tres fachadas nuevas y `inscripcion.lecturas` en la lista de `inscripcion.publico.ts`;
+- `src/server/testing/fabricas.ts` suma `crearClaseDictadaDePrueba` y `corregirAsistenciaDePrueba`.
+
+**Firmas reales** (contrato para las HU):
+
+```typescript
+// I — caja (src/server/pagos/caja.service.ts)
+type FormaEnResumen = { id: string; nombre: string; es_efectivo: boolean };
+type ResumenCaja = { fondo_inicial: string; cobros_por_forma: { forma_pago: FormaEnResumen; cantidad: number; total: string }[];
+  ingresos_manuales: string; egresos_manuales: string; ajustes: { forma_pago: FormaEnResumen; total: string }[];
+  efectivo_esperado: string; efectivo_declarado: string | null; diferencia: string | null;
+  tipo_diferencia: "SOBRANTE" | "FALTANTE" | "CUADRA" | null };
+function calcularResumen(db, cajaId: string): Promise<{ resumen: ResumenCaja; huella: string }>;
+function registrarMovimiento(tx, datos: { cajaId; usuarioId; tipo: TipoMovimientoCaja; monto: string; concepto: string }):
+  Promise<{ id; tipo; monto: string; concepto; momento: Date }>;     // EGRESO_SUPERA_EFECTIVO, CAJA_NO_ABIERTA, FUERA_DE_ALCANCE
+function anularMovimiento(tx, datos: { movimientoId; usuarioId; motivo }): Promise<{ id: string }>;
+  // MOVIMIENTO_NO_ENCONTRADO, MOVIMIENTO_YA_ANULADO, ANULACION_DEJA_EFECTIVO_NEGATIVO
+type OrigenAjuste = { correccionPagoId: string } | { correccionOperacionId: string } | { anulacionPagoId: string };
+function registrarAjuste(tx, datos: { cajaId; pagoId; origen: OrigenAjuste;
+  ajustes: { formaPagoId: string; monto: Prisma.Decimal | string }[]; usuarioId }): Promise<{ ids: string[] }>;
+  // CAJA_DE_AJUSTE_NO_ABIERTA
+function declararEfectivo(tx, datos: { cajaId; usuarioId; efectivoDeclarado: string; porAusencia?: boolean }):
+  Promise<{ resumen: ResumenCaja; huella: string }>;                 // EFECTIVO_YA_DECLARADO
+type CajaCerrada = { caja_id; estado: "CERRADA"; cerrada_el: Date; diferencia: string;
+  tipo_diferencia: "SOBRANTE" | "FALTANTE" | "CUADRA"; por_ausencia: boolean };
+function cerrarCaja(tx, datos: { cajaId; usuarioId; huella: string; motivo?: string | null; porAusencia?: boolean }): Promise<CajaCerrada>;
+  // CAJA_YA_CERRADA, EFECTIVO_NO_DECLARADO, CAJA_CAMBIO (detalles: { resumen, huella }), MOTIVO_DIFERENCIA_REQUERIDO
+
+// I — corrección y anulación (src/server/pagos/correccion.service.ts)
+type UsuarioOperador = { id: string; rol: RolUsuario };
+function puedeCorregirPago(usuario: UsuarioOperador, pago: { anulado: boolean; registradoEn: Date; cajaAbierta: boolean },
+  momento?: Date): boolean;
+function corregirPago(tx, datos: { pagoId; monto: string; motivo; usuario: UsuarioOperador; cajaAjusteId?: string | null }):
+  Promise<{ correccionId; montoAnterior: string; montoNuevo: string; comprobante: ComprobanteEmitido; ajustes: string[] }>;
+function corregirOperacion(tx, datos: { pagoId; formaPagoId?: string; fechaPago?: Date; motivo; usuario: UsuarioOperador;
+  cajaAjusteId?: string | null }): Promise<{ correcciones: string[]; clasesAbarcadas: number; comprobante: ComprobanteEmitido; ajustes: string[] }>;
+function anularPago(tx, datos: { pagoId; motivo; usuario: UsuarioOperador; cajaAjusteId?: string | null }):
+  Promise<{ anulacionId; inscripcion: CambioEstadoPago; comprobante: ComprobanteEmitido | null; ajustes: string[] }>;
+  // PAGO_NO_ENCONTRADO, FUERA_DE_ALCANCE, PAGO_ANULADO / PAGO_YA_ANULADO, SIN_CAMBIOS, FECHA_FUTURA, CAJA_DE_AJUSTE_NO_ABIERTA
+
+// I — lecturas (src/server/pagos/pago.lecturas.publico.ts)
+function listarPagosDeAlumno(alumnoId: string, filtros?: { desde?: string; hasta?: string; formaPagoId?: string; turnoIds?: string[] },
+  db?): Promise<PagoDeAlumno[]>;
+//   PagoDeAlumno = { pago_id; turno_id; inscripcion_id; operacion_id; monto; monto_original: string | null; precio: number;
+//     motivo_ajuste; ajustado_por; forma_pago: { id; nombre; is_active }; fecha_pago; registrado_en; anulado;
+//     anulacion: { fecha; motivo } | null; comprobante_vigente: { id; numero } | null; ... }
+function listarPagosDeClase(turnoId: string, db?): Promise<PagoDeClase[]>;       // también los anulados, marcados
+function listarPagosDeTurnoVigente(turnoId: string, db?): Promise<{ id; alumno: { id; nombre_completo }; monto: string;
+  forma_pago: { id; nombre }; fecha_pago: string; registrado_en: string }[]>;     // forma de listarPagosDeTurno de hoy
+function sumarPagosPorMesVigente(desde: string, hasta: string, db?): Promise<{ mes: string; total: string }[]>;
+function usuarioRegistroOperaciones(tx, usuarioId: string): Promise<boolean>;
+
+// I — valor vigente (src/server/pagos/pago.vigente.ts)
+function vigenteDeOperacion(operacion: OperacionConVigente): OperacionVigente;    // con INCLUDE_OPERACION_VIGENTE
+function sqlMontoVigente(alias: string): Prisma.Sql;     // y sqlFechaPagoVigente, sqlFormaPagoVigente, sqlPagoNoAnulado
+
+// A — src/server/usuarios/cuenta.service.ts
+function verificarEmailNoAsociadoAOtraCuenta(email: string, opciones?: { excluirUsuarioId?: string | null }, db?): Promise<void>;
+function crearCuentaParaFicha(tx, datos: { email; dni; rol: RolUsuario; ip?: string | null }): Promise<{ usuario_id: string }>;
+function cambiarEmailCuenta(tx, datos: { usuarioId; email }): Promise<{ cambio: boolean }>;
+function revocarSesiones(tx, usuarioId: string): Promise<void>;
+function desactivarCuenta(tx, usuarioId: string): Promise<{ cambio: boolean }>;
+function reactivarCuenta(tx, usuarioId: string): Promise<{ cambio: boolean }>;
+function cambiarPassword(tx, datos: { usuarioId; nueva: string; conservarSesionActual: boolean;
+  origen?: "CAMBIO" | "RECUPERACION"; ip?: string | null }): Promise<{ reemitir_sesion: boolean }>;
+function obtenerEstadoCuenta(usuarioId: string, db?): Promise<{ email; rol; activa: boolean; debe_cambiar_password: boolean } | null>;
+function obtenerResumenCuenta(usuarioId: string | null, db?):
+  Promise<{ estado: "ACTIVA" | "INACTIVA" | "SIN_CUENTA"; email: string | null; rol: RolUsuario | null; debe_cambiar_password: boolean }>;
+function filtrarCuentasActivas(tx, usuarioIds: string[]): Promise<string[]>;
+
+// A — src/server/email/email.service.ts
+function enviarEmail(email: { para: string; asunto: string; texto: string; html?: string }): Promise<{ simulado: boolean }>;
+const emailsSimulados: Email[];      // lo que «envió» el simulador (pruebas)
+class EnvioEmailError extends Error;
+
+// N — src/server/shared/historial-estados.ts
+function registrarCambioEstado(tx, cambio: { entidad: EntidadHistorialEstado; id: string; accion: AccionHistorialEstado;
+  motivo?: string | null; actor: ActorDominio }): { id: string };              // síncrona: encola para el commit
+function listarHistorialEstados(entidad: EntidadHistorialEstado, id: string, db?):
+  Promise<{ id; accion; motivo: string | null; fecha: Date; actor_tipo: ActorTipo; usuario_id: string | null }[]>;
+
+// C — src/server/turnos/inscripcion.publico.ts (implementadas en inscripcion.lecturas.ts)
+function listarInscripcionesDeAlumno(alumnoId: string, filtros?: { desde?: string; hasta?: string }, db?): Promise<InscripcionDeAlumno[]>;
+//   InscripcionDeAlumno = { inscripcion_id; turno_id; fecha; hora_inicio; hora_fin; estado_clase; materia: { id; nombre };
+//     profesor: string | null; aula: string | null; vigencia; vigente_ahora: boolean; estado_pago; precio;
+//     finalizada_el; cancelada_el: Date | null; ... }
+function existeInscripcionVigenteConProfesor(alumnoId: string, profesorId: string, materiaId: string, db?): Promise<boolean>;
+function contarInscripcionesPorMes(rango: { desde: string; hasta: string },
+  opciones: { vigencias: ("VIGENTE" | "CANCELADA_ALUMNO" | "RESERVA_VENCIDA" | "BAJA_ALUMNO")[]; porMateria?: boolean }, db?):
+  Promise<{ mes: string; vigencia; materia_id?: string; cantidad: number }[]>;
+function listarReservasPendientes(filtros?: { alumno?: string; materiaId?: string; vencen?: "en_3_horas" | "hoy" | "manana";
+  pagina?: number }, db?): Promise<{ items: ReservaPendiente[]; paginacion: Paginacion }>;
+function listarReservasVencidas(filtros?: { dias?: number; alumno?: string; materiaId?: string; pagina?: number }, db?):
+  Promise<{ items: ReservaVencida[]; paginacion: Paginacion }>;                // ReservaVencida.sin_marcar
+function resumenReservas(db?): Promise<{ pendientes: { cantidad: number; importe_total: number }; vencen_en_3_horas: number;
+  vencen_hoy: number; vencieron_hoy: number }>;
+
+// C — src/server/turnos/clases.publico.ts
+function contarClasesPorMes(rango: { desde: string; hasta: string },
+  opciones: { estados: ("DISPONIBLE" | "COMPLETO" | "CANCELADO")[]; por?: "materia" | "profesor" }, db?):
+  Promise<{ mes: string; estado; materia_id?: string; profesor_id?: string; cantidad: number; minutos: number }[]>;
+function gerentePuedeGestionarClaseDeBaja(turnoId: string, profesorId: string, db?): Promise<boolean>;
+
+// D — src/server/profesores/profesor.publico.ts
+function obtenerProfesoresBasicos(ids: string[], db?):
+  Promise<{ id: string; nombre: string; apellido: string; nombreParaMostrar: string; activo: boolean }[]>;
+
+// E — src/server/historial/asistencia.publico.ts y alcance-profesor.ts
+function asistenciaDeAlumno(alumnoId: string, materiaId?: string, db?):
+  Promise<{ materia_id; presentes; ausentes; sin_control; porcentaje: number | null }[]>;
+function contarAsistenciasPorMes(rango, opciones?: { porMateria?: boolean }, db?):
+  Promise<{ mes; materia_id?: string; presentes; ausentes; sin_control }[]>;
+function contarClasesDictadasSinControl(rango, db?): Promise<number>;
+function listarAlumnosConPresentismoBajo(rango, opciones: { umbral; minimoClases; limite; desplazamiento }, db?):
+  Promise<{ total: number; items: { alumno_id; materia_id; clases; presentes; ausentes }[] }>;
+function profesorPuedeRegistrarIndicacion(profesorId, alumnoId, materiaId, db?): Promise<boolean>;
+function profesorPuedeVerHistorial(profesorId, alumnoId, materiaId, db?): Promise<boolean>;
+```
+
+**Decisiones y desvíos de las specs** (para avisar a cada dueño):
+
+1. **Archivos de 2.0 sin tocar; consolidar en la etapa 3:**
+   - `pago.publico.ts`: `listarPagosDeTurno` y `sumarPagosPorMes` pasan a ser `listarPagosDeTurnoVigente` y `sumarPagosPorMesVigente`. `listarPagosDeAlumno`, `listarPagosDeClase` y `usuarioRegistroOperaciones` se mueven a `pago.publico.ts` y `pago.lecturas.publico.ts` desaparece.
+   - `turno.publico.ts`: recibe `contarClasesPorMes` y `gerentePuedeGestionarClaseDeBaja` desde `clases.publico.ts`.
+   - `historial.publico.ts`: recibe las lecturas de `asistencia.publico.ts` y los dos helpers de alcance de `alcance-profesor.ts`. `valor-vigente.ts` queda como helper interno de E.
+   - `profesor.service.ts`: su `verificarEmailNoAsociadoAOtraCuenta` privada, con el texto «El email pertenece a otra cuenta», pasa a usar la de A. El texto de la respuesta de hoy se conserva hasta que el dueño de D decida (ver dudas).
+   - `actualizarEmailCuenta`, que la spec A da como existente, no está en el código. `cambiarEmailCuenta` la reemplaza.
+2. **Caja:**
+   - La huella es un SHA-256 del efectivo esperado y de la cantidad y el id máximo de cobros, correcciones, anulaciones de pago, movimientos, anulaciones de movimiento y ajustes. Cambia con cualquier cobro, también si no es en efectivo, aunque el esperado quede igual.
+   - `cerrarCaja` bloquea la caja, relee el resumen y compara la huella. Si cambió, `CAJA_CAMBIO` lleva en `detalles` el resumen y la huella nuevos, para que la pantalla los muestre sin otra lectura.
+   - Solo suma al esperado la forma con `esEfectivo`. Las demás se informan en `cobros_por_forma`.
+   - Por ausencia: solo el Gerente, y solo sobre la caja de otro. Sin «por ausencia», solo la caja propia (`FUERA_DE_ALCANCE`).
+   - Un movimiento de otra caja responde `MOVIMIENTO_NO_ENCONTRADO`, no `FUERA_DE_ALCANCE`, para no confirmar que existe.
+3. **`registrarAjuste` en un cambio de forma:** registra un par por el total vigente de la operación: menos en la forma anterior y más en la nueva, en la caja de ajuste.
+4. **Corrección y anulación:**
+   - `corregirOperacion` recibe `pagoId` en lugar de `operacionId`: la pantalla de HU-I-06 parte de un pago y el alcance se evalúa sobre ese pago. Corrige toda la operación (`clasesAbarcadas`).
+   - Enviar la forma o la fecha vigentes no cuenta como cambio. Una forma que ya tenía y hoy está inactiva se conserva.
+   - `anularPago` no emite comprobante si la operación se queda sin pagos vigentes: el comprobante vigente queda «ANULADO» como marca derivada.
+   - `puedeCorregirPago` es la regla de las pantallas; el servicio la vuelve a evaluar con todo bloqueado.
+   - Cada servicio toma sus bloqueos en una sola llamada (clase → inscripción → operación → cajas, incluida la de ajuste). HU-I-06 puede encadenar `corregirPago` y `corregirOperacion` en la misma transacción.
+5. **Lecturas de I:** `comprobante_vigente` de un pago anulado es el último comprobante de la operación cuyo `datos.clases` incluye ese pago. `listarPagosDeAlumno` trae también los anulados, marcados.
+6. **Cuentas (A):**
+   - `crearCuentaParaFicha` guarda solo el hash del DNI, marca `debeCambiarPassword` y registra `CUENTA_CREADA` en la misma transacción. Sin `ip`, se guarda «desconocida».
+   - El email se compara sin distinguir mayúsculas. Si dos altas simultáneas chocan contra el índice único (P2002), la segunda recibe `EMAIL_YA_ASOCIADO`.
+   - `cambiarEmailCuenta` no revoca sesiones.
+   - `desactivarCuenta` revoca sesiones solo si cambia el estado. Si ya estaba inactiva, no hace nada (`cambio: false`).
+   - `revocarSesiones` trunca a segundos (el `iat` del JWT) y nunca retrocede (`GREATEST`).
+   - `cambiarPassword` devuelve `reemitir_sesion` según `conservarSesionActual`: la sesión la reemite quien llama (la acción de A), porque los servicios no importan `@/auth`.
+7. **Email:** `enviarEmail` usa la API HTTP de Resend con `fetch` y un tiempo límite de 10 segundos: no se agrega la librería. El simulador corre siempre en `NODE_ENV=test` y, fuera de producción, cuando falta `RESEND_API_KEY`. Guarda en `emailsSimulados` y lo escribe en consola fuera de las pruebas. Sin simulador, si faltan `RESEND_API_KEY` o `EMAIL_FROM`, o si Resend no responde bien, falla con `EnvioEmailError`.
+8. **Historial de estados:**
+   - `registrarCambioEstado` es síncrona: encola la fila para `despuesDelCommit`, así una transacción que revierte no deja registro.
+   - Un `motivo` en blanco se guarda `null`.
+   - El orden es fecha descendente, con desempate por id.
+   - Devuelve `usuario_id`, no el nombre: el nombre lo resuelve quien muestra (DEC-37).
+9. **Lecturas de C:**
+   - `vigente_ahora`, los conteos y las reservas clasifican con `esVigenteEn` y `sqlVigenteEn`. Una reserva vencida sin marcar cuenta como `RESERVA_VENCIDA`.
+   - `contarInscripcionesPorMes` y `contarClasesPorMes` no cuentan las clases canceladas, `PENDIENTE` ni `QUITADA_CENTRO`. Pedir `PENDIENTE` es un error de programación.
+   - `listarInscripcionesDeAlumno` no filtra por resultado (lo calcula E) y suma `estado_pago` y `precio`.
+   - `cancelada_el` sale del evento `turno:cancelado` de `eventos_turno`, porque la clase no guarda el momento de la cancelación.
+   - `existeInscripcionVigenteConProfesor` solo cuenta clases `DISPONIBLE` o `COMPLETO`: una inscripción vigente en una clase cancelada no da alcance.
+   - Las lecturas de C leen alumno, materia, aula y profesor por relación, como pide el contrato de 2.13. El filtro por alumno usa `construirFiltroBusquedaAlumno` de `alumno.busqueda.ts`, que no es la fachada de B: en la etapa 3 B lo publica en `alumno.publico.ts`.
+10. **Lecturas de E:**
+   - Siempre con el valor vigente: la última corrección de asistencia y de «con control», y solo clases dictadas no anuladas.
+   - `porcentaje` es `null` si no hay clases con control.
+   - `profesorPuedeRegistrarIndicacion` exige una clase dictada no anulada del profesor en la materia donde figure el alumno, presente o ausente.
+   - `profesorPuedeVerHistorial` suma la inscripción vigente con el profesor en la materia.
+11. **Script `caja:abrir`:**
+    - Llama a `abrirCaja` con sus mismas reglas. Responde con un mensaje y código de salida 1 si falta el email, si la cuenta no existe o si el servicio rechaza (`INTEGRANTE_INACTIVO`, `CAJA_YA_ABIERTA`).
+    - Se probó contra una base descartable con el seed: abrir, rechazar la segunda apertura, cerrar con los servicios y volver a abrir con fondo inicial. La base se borró.
+    - El seed base todavía no abre cajas: las cajas abiertas de prueba son del seed de escenarios (2.16).
+12. **Textos nuevos:**
+    - D: `PROFESOR_INACTIVO`, `PROFESOR_NO_ENCONTRADO`, `PROFESOR_NO_DICTA_MATERIA` y `CONFLICTO_EDICION_CONCURRENTE`.
+    - A: `EMAIL_YA_ASOCIADO`, y `VALIDATION_ERROR` de cuentas, propuesto.
+    - E: los códigos de Sprint 2 de clase dictada, examen e historial, con los literales de hoy.
+    - Forma de pago: `NOMBRE_DUPLICADO`.
+    - La prueba de claves sigue en verde.
+13. **Las pruebas de conteo por mes** usan meses lejanos (en el futuro para C, en el pasado para E), porque la base descartable es compartida por todos los archivos de la corrida.
+
+**Pruebas con PostgreSQL real que pidió esta parte:**
+- **(a)** `cerrarCaja` después de un cobro que cambió la huella: `CAJA_CAMBIO` con el resumen nuevo, la caja sigue abierta y cierra con la huella nueva.
+- **(b)** dos cierres simultáneos de la misma caja (el integrante y el Gerente por ausencia): gana uno y el otro recibe `CAJA_YA_CERRADA`. También un cobro y un cierre simultáneos: no confirman los dos. La apertura concurrente ya estaba en la parte 2.
+- **(c)** corrección y anulación:
+  - «Pagada ⇔ al menos un pago no anulado» verificada sobre toda la base después de cada paso;
+  - numeración de comprobantes única y correlativa con reemplazos;
+  - ajustes en caja cerrada con los montos y formas esperados;
+  - el valor vigente calculado en SQL es igual al de TypeScript.
+- **(d)** desactivar la cuenta revoca las sesiones; reactivarla no las restaura; `revocarSesiones` nunca retrocede.
+- **(e)** `listarHistorialEstados` completo y ordenado; una transacción que revierte no deja registro; otra entidad con el mismo id no se mezcla.
+
+Además se prueban:
+- los movimientos y sus rechazos, y el resumen con formas que no son efectivo;
+- la declaración única del efectivo y el motivo obligatorio si hay diferencia;
+- altas simultáneas con el mismo email;
+- cambio de contraseña y lecturas de cuenta;
+- las lecturas de C y E y los helpers de alcance de 2.9.
+
+**Resultado:**
+- `npm test`: 147 archivos (124 pasan, 23 saltados), 1875 pruebas (1719 pasan, 156 saltadas), 0 fallas.
+- `npm run test:pg -- src/server/shared src/server/turnos/inscripcion.vigencia.pg.test.ts src/server/turnos/inscripcion.service.pg.test.ts src/server/turnos/inscripcion.lecturas.pg.test.ts src/server/pagos/operacion.service.pg.test.ts src/server/pagos/caja.service.pg.test.ts src/server/pagos/correccion.service.pg.test.ts src/server/usuarios/cuenta.service.pg.test.ts src/server/historial/asistencia.pg.test.ts`: 9 archivos y 74 pruebas, todas pasan. La base descartable se borró.
+- `npm run lint`: 0 errores; queda el aviso que ya existía.
+- `npx tsc --noEmit`: los mismos 15 errores de 5.1.
+
+**Dudas abiertas de esta parte:**
+1. **Texto de `EMAIL_YA_ASOCIADO`:** hoy la ficha de profesor responde «El email pertenece a otra cuenta» y la spec A dice «Ese email ya está asociado a otra cuenta». El servicio nuevo usa el de la spec y el endpoint de hoy conserva el suyo (1.1). Confirmar con los dueños de A y D cuál queda en la etapa 3.
+2. **`corregirOperacion` con `pagoId`** en lugar de `operacionId`. Confirmar con el dueño de I.
+3. **`existeInscripcionVigenteConProfesor` sin clases canceladas.** Confirmar con los dueños de C y E.
+4. **`cancelada_el` desde `eventos_turno`.** Si C prefiere una columna en la clase, es una migración nueva. Confirmar con el dueño de C.
+5. **`desactivarCuenta` idempotente** (no revoca si ya estaba inactiva). Confirmar con el dueño de A.
+6. **Envío de email con `fetch`** en lugar de la librería de Resend. Confirmar con el dueño de A.
+
 ## 6. Decisiones alineadas y datos que debe completar el equipo
 
 - **Fichas de profesores existentes:** el seed asegura cuentas vinculadas para los profesores elegidos para la demostración y anota cuáles son en «Decisiones tomadas»; las demás fichas pueden permanecer sin cuenta. HU-A-06 sigue aplicándose a altas nuevas.

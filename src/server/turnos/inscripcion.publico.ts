@@ -38,3 +38,15 @@ export {
   type InscripcionParaVigencia,
   type Ocupacion,
 } from "@/server/turnos/inscripcion.vigencia";
+export {
+  listarInscripcionesDeAlumno,
+  existeInscripcionVigenteConProfesor,
+  contarInscripcionesPorMes,
+  listarReservasPendientes,
+  listarReservasVencidas,
+  resumenReservas,
+  type InscripcionDeAlumno,
+  type VigenciaContable,
+  type ReservaPendiente,
+  type ReservaVencida,
+} from "@/server/turnos/inscripcion.lecturas";

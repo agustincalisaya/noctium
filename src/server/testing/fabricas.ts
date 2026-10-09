@@ -234,3 +234,43 @@ export async function crearOperacionDePrueba(db: Db, datos: DatosOperacionDePrue
   }
   return { operacion, pagos };
 }
+
+export type DatosClaseDictadaDePrueba = {
+  turnoId: string;
+  /** Alumnos del registro con su estado (null = sin control). */
+  alumnos: { alumnoId: string; estado: "PRESENTE" | "AUSENTE" | null }[];
+  conControl?: boolean;
+  /** Fecha de la clase dictada (@db.Date); por defecto la del turno. */
+  fecha?: Date;
+  anulada?: boolean;
+};
+
+/**
+ * Registro de clase dictada con su asistencia (la lógica de registro la
+ * agregan HU-E-09 y la etapa 3; acá solo se arman datos para las lecturas).
+ */
+export async function crearClaseDictadaDePrueba(db: Db, datos: DatosClaseDictadaDePrueba) {
+  const turno = await db.turno.findUniqueOrThrow({ where: { idTurno: datos.turnoId } });
+  const clase = await db.claseDictada.create({
+    data: {
+      turnoId: turno.idTurno, fechaClaseDictada: datos.fecha ?? turno.fechaTurno, materiaId: turno.materiaId,
+      profesorId: turno.profesorId!, conControlAsistencia: datos.conControl ?? datos.alumnos.some((a) => a.estado !== null),
+      ...(datos.anulada ? { anuladaEl: ahora(), motivoAnulacion: "Prueba" } : {}),
+      alumnos: { create: datos.alumnos.map((a) => ({ alumnoId: a.alumnoId, estadoAsistencia: a.estado })) },
+    },
+  });
+  return clase;
+}
+
+/** Corrección de asistencia (registro nuevo, HU-E-11) sobre una clase dictada de prueba. */
+export async function corregirAsistenciaDePrueba(
+  db: Db,
+  datos: { claseDictadaId: string; cambios: { alumnoId: string; anterior: "PRESENTE" | "AUSENTE" | null; nuevo: "PRESENTE" | "AUSENTE" }[]; creadaEl?: Date },
+) {
+  return db.correccionAsistencia.create({
+    data: {
+      claseDictadaId: datos.claseDictadaId, motivo: "Prueba", conControlAsistencia: true, createdAtCorreccion: datos.creadaEl ?? ahora(),
+      alumnos: { create: datos.cambios.map((c) => ({ alumnoId: c.alumnoId, estadoAnterior: c.anterior, estadoNuevo: c.nuevo })) },
+    },
+  });
+}

@@ -50,3 +50,9 @@ export function instanteCentro(fecha: string, hhmm = "00:00"): Date {
   const [hora, minuto] = hhmm.split(":").map(Number);
   return new Date(Date.UTC(anio, mes - 1, dia, hora, minuto) - DESFASE_CENTRO_MS);
 }
+
+/** Instante en ISO 8601 con el offset del centro (−03:00), como lo muestran las respuestas de la API. */
+export function isoCentro(momento: Date): string {
+  const local = new Date(momento.getTime() + DESFASE_CENTRO_MS);
+  return `${local.toISOString().slice(0, 19)}-03:00`;
+}

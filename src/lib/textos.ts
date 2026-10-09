@@ -60,6 +60,16 @@ export const TEXTOS = {
     "Las clases seleccionadas son de distintas materias. Filtrá por materia (por ejemplo, solo Matemática I) para cambiar el profesor.",
   // propuesto
   "errores.profesor.destinoIgualOrigen": "Elegí un profesor distinto del actual.",
+  // Condiciones de Sprint 1 y 2 (texto de hoy).
+  "errores.profesor.inactivo": "El profesor no está activo",
+  "errores.profesor.noEncontrado": "El profesor no existe",
+  "errores.profesor.noDictaMateria": "El profesor no dicta la materia seleccionada",
+  "errores.profesor.conflictoEdicion": "La ficha fue modificada por otro usuario. Recargá para ver los datos actuales.",
+
+  // --- Cuentas (spec_modulo_A.md §2.6.1) ---
+  "errores.cuenta.emailYaAsociado": "Ese email ya está asociado a otra cuenta",
+  // propuesto
+  "errores.cuenta.datosInvalidos": "Los datos de la cuenta no son válidos.",
 
   // --- Historial académico (spec_modulo_E.md §2.6 a §2.12; todos propuestos) ---
   "errores.asistencia.incompleta": "La asistencia tiene que indicar a cada alumno de la clase una sola vez.",
@@ -72,6 +82,15 @@ export const TEXTOS = {
   "errores.examen.resultadoNoEncontrado": "No se encontró el resultado de examen.",
   "errores.examen.resultadoAnulado": "El resultado de examen está anulado.",
   "errores.examen.correccionSinCambios": "La fecha y la nota son las mismas que las registradas.",
+  // Condiciones de Sprint 2 del módulo E (texto de hoy).
+  "errores.claseDictada.turnoNoAdmiteClase": "Solo se puede registrar una clase de un turno disponible o completo",
+  "errores.claseDictada.noFinalizada": "La clase todavía no terminó",
+  "errores.claseDictada.noRegistrada": "El turno todavía no tiene una clase dictada registrada",
+  "errores.examen.materiaNoCursada": "El alumno todavía no cursó esta materia",
+  "errores.examen.fechaFutura": "La fecha del examen no puede ser futura",
+  "errores.examen.notaFueraDeRango": "La nota debe estar entre {min} y {max}",
+  "errores.historial.alumnoNoEncontrado": "No se encontró el alumno",
+  "errores.historial.alumnoInactivo": "El alumno está inactivo",
 
   // --- Pagos: condiciones de Sprint 2 (texto de hoy, POST /api/pagos) ---
   "errores.pago.turnoNoAdmitePago": "Solo se pueden registrar pagos en turnos disponibles o completos",
@@ -122,6 +141,7 @@ export const TEXTOS = {
 
   // --- Formas de pago (spec_modulo_I.md §2.16.4) ---
   "errores.formaPago.ultimaActiva": "Debe quedar al menos una forma de pago activa",
+  "errores.formaPago.nombreDuplicado": "Ya existe una forma de pago con ese nombre.",
   // propuestos
   "errores.formaPago.yaActiva": "La forma de pago ya está activa.",
   "errores.formaPago.yaInactiva": "La forma de pago ya está inactiva.",

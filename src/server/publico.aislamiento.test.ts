@@ -57,7 +57,7 @@ const PUBLICOS = [
   // PR 0 (Sprint 3): fachadas nuevas.
   {
     ruta: "server/turnos/inscripcion.publico.ts",
-    permitidos: ["@/server/turnos/inscripcion.service", "@/server/turnos/inscripcion.vigencia"],
+    permitidos: ["@/server/turnos/inscripcion.service", "@/server/turnos/inscripcion.vigencia", "@/server/turnos/inscripcion.lecturas"],
   },
   {
     ruta: "server/pagos/caja.publico.ts",
@@ -70,6 +70,22 @@ const PUBLICOS = [
   {
     ruta: "server/materias/materia.publico.ts",
     permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
+  // PR 0, etapa 2 parte 3: fachadas que se consolidan en la etapa 3.
+  {
+    ruta: "server/turnos/clases.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma"],
+  },
+  {
+    ruta: "server/historial/asistencia.publico.ts",
+    permitidos: ["@prisma/client", "@/lib/prisma", "@/server/historial/valor-vigente"],
+  },
+  {
+    ruta: "server/pagos/pago.lecturas.publico.ts",
+    permitidos: [
+      "@prisma/client", "@/lib/prisma", "@/server/alumnos/alumno.publico",
+      "@/server/pagos/comprobante.schema", "@/server/pagos/pago.vigente",
+    ],
   },
 ];
 
@@ -125,6 +141,12 @@ describe("aislamiento de los .publico.ts (Regla N.° 3)", () => {
     [4, "@/server/usuarios/usuario.service"],
     [4, "./forma-pago.publico"],
     [4, "../alumnos/alumno.publico"],
+    [9, "@/server/turnos/turno.publico"],
+    [9, "@/server/profesores/profesor.publico"],
+    [10, "@/server/turnos/inscripcion.publico"],
+    [10, "@/server/clases-dictadas/clase-dictada.service"],
+    [11, "@/server/alumnos/alumno.service"],
+    [11, "@/server/turnos/inscripcion.service"],
   ])("rechaza en el público %i el import %s", (indice, especificador) => {
     const { permitidos } = PUBLICOS[indice]!;
     const imports = [...importaciones(PUBLICOS[indice]!.ruta), { especificador, soloTipo: false }];
