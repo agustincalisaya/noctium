@@ -1,0 +1,43 @@
+{
+  "base": "aeabb65",
+  "role": "GERENTE",
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "errors": [],
+  "results": [
+    {
+      "name": "actividad-6-desktop",
+      "overflow": "local only"
+    },
+    {
+      "name": "actividad-12-desktop",
+      "overflow": "local only"
+    },
+    {
+      "name": "actividad-13-desktop",
+      "overflow": "local only"
+    },
+    {
+      "name": "actividad-24-desktop",
+      "overflow": "local only"
+    },
+    {
+      "name": "presentismo-desktop",
+      "overflow": "local only"
+    },
+    {
+      "name": "presentismo-mobile",
+      "overflow": "local only"
+    },
+    {
+      "name": "actividad-6-mobile",
+      "overflow": "local only"
+    },
+    {
+      "name": "actividad-24-mobile",
+      "overflow": "local only"
+    }
+  ]
+}
