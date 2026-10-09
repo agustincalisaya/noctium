@@ -85,3 +85,10 @@ export const RangoIndicadoresQuerySchema = z.object({
 });
 
 export type RangoIndicadoresInput = z.infer<typeof RangoIndicadoresQuerySchema>;
+
+export const PresentismoBajoQuerySchema = RangoIndicadoresQuerySchema.and(
+  z.object({ pagina: z.coerce.number().int().min(1).default(1) }),
+);
+export const POR_PAGINA_PRESENTISMO_BAJO = 10;
+export const MINIMO_CLASES_PRESENTISMO_BAJO = 2;
+export type PresentismoBajoInput = z.infer<typeof PresentismoBajoQuerySchema>;

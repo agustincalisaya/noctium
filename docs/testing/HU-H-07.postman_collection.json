@@ -1,0 +1,822 @@
+{
+  "info": {
+    "name": "HU-H-07 — Índice de presentismo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cookie_gerente",
+      "value": ""
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "cookie_profesor",
+      "value": ""
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "presentismo-por-mes — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-mes — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "presentismo-por-materia — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/presentismo-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "alumnos-presentismo-bajo — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presentismo bajo — página 2",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?pagina=2"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presentismo bajo — página 99",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?pagina=99"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presentismo bajo — página 0",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?pagina=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presentismo bajo — página -1",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?pagina=-1"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presentismo bajo — página 1.5",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?pagina=1.5"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Presentismo bajo — página abc",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/alumnos-presentismo-bajo?pagina=abc"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
