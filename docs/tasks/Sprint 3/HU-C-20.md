@@ -78,6 +78,16 @@ correcciones de C-25, dependencias, esquema, migraciones y permisos.
 | Reglas/leyendas de cancelación de CA3 — Tomás, C-14 | Integrar cancelación propia y la excepción de reserva sin pago, después de C-22 | Casos antes/después del límite y reserva sin pago; cambio vigente al cancelar; rechazo sin mutación |
 | Valor configurable de CA3 — responsable de N-01, carril 1 (asignación personal no encontrada; coordinar con SM) | Integrar gestión N-01 sin cambiar los contratos de parámetros PR 0 | Cambiar anticipación en entorno aislado; nuevo GET refleja valor; cancelar toma valor vigente; verificar conservación del vencimiento ya guardado |
 
+**Evidencia de la parte habilitada por C-22 (09/10/2026):** el resumen ahora
+informa plazo vigente y vencimiento estimado; el POST crea una reserva y
+devuelve su vencimiento definitivo. Las pruebas de C-22 comprueban ambos
+instantes, el tope por inicio y el texto literal del resumen/confirmación.
+PostgreSQL focal: 27/27 pruebas aprobadas (tres archivos, exit 0); componentes
+de solicitud y Mis clases: 25/25 aprobadas (SSR/jsdom, exit 0). Matriz y
+límites en `docs/testing/hu-c-22/HU-C-22-evidencia.md`. Se conservan los
+resultados históricos de C-20. **CA3 sigue incompleto:** reglas/leyendas de
+cancelación pendientes de C-14 y gestión configurable pendiente de N-01.
+
 ## 2. Historia de Usuario
 
 **Como** Alumno

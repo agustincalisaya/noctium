@@ -243,6 +243,17 @@ Mis clases con su banner existente. No agrega toast: la navegación ya
 lleva a la pantalla que informa el resultado. Un rechazo se muestra dentro
 del diálogo y conserva la selección; Volver cierra el resumen sin perderla.
 
+**Extensión HU-C-22 (09/10/2026):** la navegación conserva el banner de
+Mis clases y transporta el id de la inscripción del POST. El banner consulta
+esa inscripción por id y alumno de sesión, independiente de la página del
+listado. Informa el vencimiento definitivo únicamente si sigue Reservada
+en una clase futura Disponible/Completa. Al recargar, una reserva vencida,
+pagada o de clase iniciada/cancelada muestra su situación actual y no la
+invitación anterior a pagar. No se muestran datos de un id ajeno/inexistente;
+un fallo de consulta muestra error sin presentar una confirmación obsoleta.
+Las tarjetas incorporan situación de pago y precio guardado de la inscripción
+vigente efectiva; usan tokens y textos centrales, con estados en femenino.
+
 Si una HU nueva no está en esta tabla, se define su feedback con el mismo
 criterio (¿la acción vive en modal o en página completa?) y se agrega acá
 antes de escribir el task — no se improvisa en el momento de implementar.
@@ -381,6 +392,8 @@ sus consumidores, sin editar sus fuentes.
   numeración de las secciones.
 - **09/10/2026:** HU-C-20 agrega en §6.4 la excepción de navegación/banner
   tras confirmar el resumen, reutilizando `ConfirmarAccionDialog`.
+- **09/10/2026:** HU-C-22 amplía §6.4 con banner de inscripción propia
+  actual, vencimiento definitivo y situaciones/precio en Mis clases.
 
 ## Selección de asistencia (HU-E-11)
 

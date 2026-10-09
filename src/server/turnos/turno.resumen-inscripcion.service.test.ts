@@ -28,16 +28,16 @@ beforeEach(() => {
   tarifas.mockResolvedValue([{ id: "m1", tarifaHora: 12000 }]);
   profesores.mockResolvedValue({ p1: "Pérez, Ana" });
   aula.mockResolvedValue({ id: "a1", nombre: "Aula 2" });
-  parametros.mockResolvedValue({ cancelacionAnticipacionHoras: 24 });
+  parametros.mockResolvedValue({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 24 });
 });
 
 describe("C-20 resumen informativo", () => {
-  it("datos completos, fecha calendario intacta, offset del centro y campos interinos null", async () => {
+  it("datos completos, fecha calendario intacta, offset del centro y plazo estimado", async () => {
     expect(await consultar()).toEqual({
       turno_id: "t1", materia: { id: "m1", nombre: "Física I" }, profesor: { id: "p1", nombre_para_mostrar: "Pérez, Ana" },
       fecha: "2026-10-13", hora_inicio: "16:00", hora_fin: "18:00", duracion_min: 120,
       aula: { id: "a1", nombre: "Aula 2" }, cupo: 8, lugares_disponibles: 8, precio: 24000,
-      plazo_pago_horas: null, vence_pago_el: null,
+      plazo_pago_horas: 24, vence_pago_el: "2026-10-10T15:00:00-03:00",
       limite_cancelacion_en_linea: "2026-10-12T16:00:00-03:00", limite_cancelacion_pasado: false,
     });
     expect(alumno).toHaveBeenCalledWith("u1", db);
@@ -46,6 +46,10 @@ describe("C-20 resumen informativo", () => {
   it.each([[60, 12000, "17:00"], [120, 24000, "18:00"], [180, 36000, "19:00"]])("precio y fin para %i minutos", async (min, precio, fin) => {
     db.turno.findUnique.mockResolvedValue({ ...turno, duracionMinutosTurno: min });
     expect(await consultar()).toMatchObject({ duracion_min: min, precio, hora_fin: fin });
+  });
+  it("el vencimiento estimado se limita al inicio cuando la clase comienza antes del plazo", async () => {
+    db.turno.findUnique.mockResolvedValue({ ...turno, fechaTurno: new Date("2026-10-09T00:00:00Z"), horaInicioTurno: new Date("1970-01-01T16:00:00Z") });
+    expect(await consultar()).toMatchObject({ plazo_pago_horas: 24, vence_pago_el: "2026-10-09T16:00:00-03:00" });
   });
   it("cuenta solo inscripciones vigentes, incluso con estado guardado COMPLETO y reserva vencida sin marcar", async () => {
     db.turno.findUnique.mockResolvedValue({ ...turno, estadoTurno: "COMPLETO", cupoMaximoTurno: 2 });
@@ -56,9 +60,9 @@ describe("C-20 resumen informativo", () => {
     expect(await consultar()).toMatchObject({ cupo: 2, lugares_disponibles: 1 });
   });
   it("calcula límite pasado en el servidor, incluido el instante exacto, y lee el parámetro vigente", async () => {
-    parametros.mockResolvedValue({ cancelacionAnticipacionHoras: 97 });
+    parametros.mockResolvedValue({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 97 });
     expect(await consultar()).toMatchObject({ limite_cancelacion_en_linea: "2026-10-09T15:00:00-03:00", limite_cancelacion_pasado: true });
-    parametros.mockResolvedValue({ cancelacionAnticipacionHoras: 96 });
+    parametros.mockResolvedValue({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 96 });
     expect(await consultar()).toMatchObject({ limite_cancelacion_pasado: false });
   });
   it("rechaza ausencia de ficha", async () => {
