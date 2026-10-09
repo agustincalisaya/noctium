@@ -58,3 +58,7 @@ Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetid
 ## CI remoto observado
 
 Sobre el commit de código `df83eb6`: [Textos C23](https://github.com/agustincalisaya/noctium/actions/runs/37930869788) aprobado y CodeQL aprobado. [Build independiente](https://github.com/agustincalisaya/noctium/actions/runs/37930869743) falla por los módulos de E09/H06 todavía ausentes en develop (fixture `hu-e-09`, `grafico-indicador`, `use-indicador` y tipos derivados). Estado esperado del PR borrador dependiente; no se declara CI independiente aprobado. La integración local completa tiene1913 pruebas y build aprobado.
+
+## Actualización posterior al merge de H06
+
+Develop28fdbed incorpora #218. Se resolvieron conflictos conservando reglas y tipos de ambas historias, fixtures H06/H07 en ese orden y exportación del panel real de H07.53 pruebas de servicios, endpoints y componentes de indicadores aprobadas; comprobador de textos aprobado; diff check aprobado. E09 #217 sigue abierta: queda pendiente su helper para el fixture y, por lo tanto, el build independiente. No se incorporan archivos de E09 a este PR.
