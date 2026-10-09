@@ -45,3 +45,5 @@ Verificación diferida: Mi historial (E-08), corrección/anulación desde la apl
 Decisiones de compatibilidad: GET sin clase vigente mantiene 404 CLASE_NO_REGISTRADA también para Profesor; clase registrada ajena responde 403. El resumen nuevo del Profesor se entrega solo para una materia autorizada mediante el helper específico; sin contexto de materia queda vacío hasta E-02, preservando el endpoint anterior sin ampliar datos.
 
 Último build integrado de producción y revisión final Playwright: aprobados.
+
+PR propio: https://github.com/agustincalisaya/noctium/pull/217. Base develop, sin mezclar commits de otras HU.

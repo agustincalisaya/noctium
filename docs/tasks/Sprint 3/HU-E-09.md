@@ -1,11 +1,11 @@
 # TASK: HU-E-09 — Registrar asistencia individual por clase
 
-**Módulo:** E (Atención académica / Historial) · **Sprint:** 3 · **SP estimado:** 2  
-**Responsable:** Iván (asistencia e indicadores).  
-**Contrato de referencia:** `docs/tasks/Sprint 3/HU-Sprint-3.md`, HU-E-09 · `docs/specs/spec_modulo_E.md` §§2.6, 2.12.1, 2.13, 3.1–3.7, 3.11–3.14 y 4 · `docs/tasks/Sprint 3/PR-0.md` §§2.13, 2.16, 5.5 · `docs/RULES.md` · `docs/DESIGN.md`.  
-**Pantallas:** `/turnos/[id]` e historial académico existente del alumno; `Noctium_Prototipo.pdf`, figuras 49–51 (páginas impresas 44–45).  
-**RBAC:** `clases:registrar` para MESA_ENTRADA y PROFESOR sobre sus clases; `historial:leer` para consultar, con alcance del servidor. GERENTE no escribe. No se crean permisos ni rutas nuevas.  
-**Schema:** completo en PR 0: `ClaseDictada.conControlAsistencia`, `ClaseDictadaAlumno.estadoAsistencia`, correcciones y anulación; sin migración ni cambios en `schema.prisma`.  
+**Módulo:** E (Atención académica / Historial) · **Sprint:** 3 · **SP estimado:** 2
+**Responsable:** Iván (asistencia e indicadores).
+**Contrato de referencia:** `docs/tasks/Sprint 3/HU-Sprint-3.md`, HU-E-09 · `docs/specs/spec_modulo_E.md` §§2.6, 2.12.1, 2.13, 3.1–3.7, 3.11–3.14 y 4 · `docs/tasks/Sprint 3/PR-0.md` §§2.13, 2.16, 5.5 · `docs/RULES.md` · `docs/DESIGN.md`.
+**Pantallas:** `/turnos/[id]` e historial académico existente del alumno; `Noctium_Prototipo.pdf`, figuras 49–51 (páginas impresas 44–45).
+**RBAC:** `clases:registrar` para MESA_ENTRADA y PROFESOR sobre sus clases; `historial:leer` para consultar, con alcance del servidor. GERENTE no escribe. No se crean permisos ni rutas nuevas.
+**Schema:** completo en PR 0: `ClaseDictada.conControlAsistencia`, `ClaseDictadaAlumno.estadoAsistencia`, correcciones y anulación; sin migración ni cambios en `schema.prisma`.
 **Estado:** relevamiento confirmado explícitamente por el usuario el 08/10/2026 ("Si confirmo"); implementación en `feat/hu-e-09-asistencia`, issue #207. Verificación final integrada pendiente.
 
 ---
@@ -73,8 +73,8 @@ Extensión aditiva de HU-E-01 y HU-E-05, primera historia del carril asistencia/
 
 ## 2. Historia de Usuario
 
-**Como** profesor sobre sus propias clases o personal de mesa de entrada,  
-**necesito** indicar qué alumnos inscriptos asistieron y cuáles faltaron al registrar una clase dictada,  
+**Como** profesor sobre sus propias clases o personal de mesa de entrada,
+**necesito** indicar qué alumnos inscriptos asistieron y cuáles faltaron al registrar una clase dictada,
 **para** reflejar asistencia real en el historial académico.
 
 **SP estimado:** 2. Criterios: opciones en la propia lista, todos Presente inicialmente, selección masiva; estados y totales después de registrar; persistencia en una transacción; Asistió/Ausente y porcentaje por materia; clases antiguas sin control excluidas del porcentaje; ningún cambio de pagos; corrección diferida a E-11.
@@ -155,8 +155,10 @@ Playwright verifica Profesor y Mesa, historial con los accesos actuales, viewpor
 - [x] Tests, PostgreSQL real, lint, TypeScript y build documentados.
 - [x] Colección API, SQL y evidencia Playwright disponibles; diferencias de herramientas explicitadas.
 - [x] Verificaciones diferidas de E-08/E-11/C-14/B-07 documentadas.
-- [ ] Commit y PR exclusivos de HU-E-09, sin incluir H-06/H-07.
+- [x] Commit y PR exclusivos de HU-E-09, sin incluir H-06/H-07.
 
 ## Cierre de verificación
 
 Evidencia efectiva en `docs/testing/HU-E-09-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.
+
+PR individual: https://github.com/agustincalisaya/noctium/pull/217. Base `develop`. Sin merge automático.
