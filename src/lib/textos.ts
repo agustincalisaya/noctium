@@ -12,26 +12,44 @@
  */
 export const TEXTOS = {
   // --- Asistencia individual (HU-E-09) ---
-  "asistencia.clase.presente": "Presente",
-  "asistencia.clase.ausente": "Ausente",
-  "asistencia.clase.asistio": "Asistió",
-  "asistencia.clase.sinControl": "Asistió (sin control de asistencia)",
-  "asistencia.clase.marcarAusentes": "Marcar todos ausentes",
-  "asistencia.clase.marcarPresentes": "Marcar todos presentes",
-  "asistencia.clase.totales": "{presentes} presentes · {ausentes} ausentes",
-  "asistencia.clase.registrar": "Registrar clase dictada",
-  "asistencia.clase.registrando": "Registrando…",
-  "asistencia.clase.confirmar": "¿Registrar clase dictada?",
-  "asistencia.clase.confirmacion": "Presentes: {presentes}. Ausentes: {ausentes}. Esta acción no se puede deshacer.",
-  "asistencia.clase.guardada": "Clase dictada registrada correctamente",
-  "asistencia.clase.errorRegistro": "No se pudo registrar la clase dictada. Intentá nuevamente.",
-  "asistencia.clase.errorLectura": "No se pudo consultar la asistencia. Intentá nuevamente.",
-  "asistencia.clase.cargando": "Cargando asistencia…",
-  "asistencia.clase.resumen": "Asistencia por materia",
-  "asistencia.clase.porcentaje": "{porcentaje} % de asistencia",
-  "asistencia.clase.soloSinControl": "Sin clases con control de asistencia",
-  "asistencia.clase.excluidas": "{cantidad} clases sin control excluidas del porcentaje",
-  "asistencia.clase.esperarFin": "Podés registrarla cuando la clase haya terminado.",
+  "ui.historial.asistencia.presente": "Presente",
+  "ui.historial.asistencia.ausente": "Ausente",
+  "ui.historial.asistencia.asistio": "Asistió",
+  "ui.historial.asistencia.sinControl": "Asistió (sin control de asistencia)",
+  "ui.historial.asistencia.marcarAusentes": "Marcar todos ausentes",
+  "ui.historial.asistencia.marcarPresentes": "Marcar todos presentes",
+  "ui.historial.asistencia.totales": "{presentes} presentes · {ausentes} ausentes",
+  "ui.historial.asistencia.registrar": "Registrar clase dictada",
+  "ui.historial.asistencia.registrando": "Registrando…",
+  "ui.historial.asistencia.confirmar": "¿Registrar clase dictada?",
+  "ui.historial.asistencia.confirmacion": "Presentes: {presentes}. Ausentes: {ausentes}. Esta acción no se puede deshacer.",
+  "ui.historial.asistencia.guardada": "Clase dictada registrada correctamente",
+  "ui.historial.asistencia.errorRegistro": "No se pudo registrar la clase dictada. Intentá nuevamente.",
+  "ui.historial.asistencia.errorLectura": "No se pudo consultar la asistencia. Intentá nuevamente.",
+  "ui.historial.asistencia.cargando": "Cargando asistencia…",
+  "ui.historial.asistencia.resumen": "Asistencia por materia",
+  "ui.historial.asistencia.porcentaje": "{porcentaje} % de asistencia",
+  "ui.historial.asistencia.soloSinControl": "Sin clases con control de asistencia",
+  "ui.historial.asistencia.excluidas": "{cantidad} clases sin control excluidas del porcentaje",
+  "ui.historial.asistencia.esperarFin": "Podés registrarla cuando la clase haya terminado.",
+  // UI: cada módulo es dueño de ui.<modulo>.<grupo>.<nombre>.
+  // ui.comun pertenece a los componentes compartidos; no a sus consumidores.
+  "ui.comun.paginacion.nombre": "Paginación",
+  "ui.comun.paginacion.pagina": "Página {pagina} de {totalPaginas}",
+  "ui.comun.paginacion.paginaConTotal": "Página {pagina} de {totalPaginas} · {total} en total",
+  "ui.comun.paginacion.rango": "Mostrando {desde}–{hasta} de {total}",
+  "ui.comun.paginacion.anterior": "Anterior",
+  "ui.comun.paginacion.siguiente": "Siguiente",
+  "ui.comun.paginacion.paginaAnterior": "Página anterior",
+  "ui.comun.paginacion.paginaSiguiente": "Página siguiente",
+  "ui.comun.paginacion.numero": "Página {pagina}",
+  "ui.comun.paginacion.elipsis": "…",
+  // Módulo C: vocabulario para las pantallas del Sprint 3; legacy se conserva.
+  "ui.turnos.clase.nombre": "Clase",
+  "ui.turnos.estado.pendiente": "Pendiente",
+  "ui.turnos.estado.disponible": "Disponible",
+  "ui.turnos.estado.completa": "Completa",
+  "ui.turnos.estado.cancelada": "Cancelada",
   // --- Transversales (PR-0.md §2.10) ---
   "errores.transaccion.ocupada": "Otra persona está modificando estos datos. Intentá de nuevo.",
 
@@ -173,6 +191,10 @@ export type ClaveTexto = keyof typeof TEXTOS;
 
 /** Texto de `clave` con sus huecos `{nombre}` completados. Un hueco sin valor queda tal cual. */
 export function texto(clave: ClaveTexto, valores?: Record<string, unknown>): string {
+  if (!Object.prototype.hasOwnProperty.call(TEXTOS, clave)) {
+    console.warn(clave);
+    return clave;
+  }
   const plantilla: string = TEXTOS[clave];
   if (!valores) return plantilla;
   return plantilla.replace(/\{(\w+)\}/g, (hueco, nombre: string) =>

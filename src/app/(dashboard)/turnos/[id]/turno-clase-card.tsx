@@ -46,12 +46,12 @@ export function TurnoClaseCard({
       const valor = await respuesta.json().catch(() => null);
       if (!respuesta.ok) throw new Error(valor?.error?.message ?? "No se pudo registrar la clase dictada");
       setAbierto(false);
-      toast.success(texto("asistencia.clase.guardada"));
+      toast.success(texto("ui.historial.asistencia.guardada"));
       await onRegistrada();
     } catch (fallo) {
       setError(fallo instanceof Error && fallo.message !== "Failed to fetch"
         ? fallo.message
-        : texto("asistencia.clase.errorRegistro"));
+        : texto("ui.historial.asistencia.errorRegistro"));
     } finally {
       setProcesando(false);
       onProcesandoChange?.(false);
@@ -71,27 +71,27 @@ export function TurnoClaseCard({
           <p className="text-sm text-muted-foreground">
             {elegible
               ? "La clase ya pasó y todavía no se registró."
-              : texto("asistencia.clase.esperarFin")}
+              : texto("ui.historial.asistencia.esperarFin")}
           </p>
           {puedeRegistrarClase && (
             <AlertDialog.Root open={abierto} onOpenChange={(siguiente) => { setAbierto(siguiente); if (siguiente) setError(""); }}>
               <AlertDialog.Trigger
                 render={<Button type="button" variant="outline" disabled={!elegible || procesando} />}
               >
-                {procesando ? texto("asistencia.clase.registrando") : texto("asistencia.clase.registrar")}
+                {procesando ? texto("ui.historial.asistencia.registrando") : texto("ui.historial.asistencia.registrar")}
               </AlertDialog.Trigger>
               <AlertDialog.Portal>
                 <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
                 <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg outline-none">
-                  <AlertDialog.Title className="text-lg font-semibold">{texto("asistencia.clase.confirmar")}</AlertDialog.Title>
+                  <AlertDialog.Title className="text-lg font-semibold">{texto("ui.historial.asistencia.confirmar")}</AlertDialog.Title>
                   <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
-                    {turno.materia} del {fechaCorta(turno.fecha)}, {turno.hora_inicio}–{turno.hora_fin}. {texto("asistencia.clase.confirmacion", { presentes, ausentes })}
+                    {turno.materia} del {fechaCorta(turno.fecha)}, {turno.hora_inicio}–{turno.hora_fin}. {texto("ui.historial.asistencia.confirmacion", { presentes, ausentes })}
                   </AlertDialog.Description>
                   {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
                   <div className="mt-5 flex justify-end gap-2">
                     <Button type="button" variant="outline" disabled={procesando} onClick={() => setAbierto(false)}>Volver</Button>
                     <Button type="button" disabled={procesando} onClick={() => void confirmar()}>
-                      {procesando ? texto("asistencia.clase.registrando") : texto("asistencia.clase.registrar")}
+                      {procesando ? texto("ui.historial.asistencia.registrando") : texto("ui.historial.asistencia.registrar")}
                     </Button>
                   </div>
                 </AlertDialog.Popup>
