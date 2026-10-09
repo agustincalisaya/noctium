@@ -1,0 +1,191 @@
+{
+  "results": [
+    {
+      "name": "/api/indicadores/ingresos-por-mes",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "mes": "2026-05",
+            "total": 993000
+          },
+          {
+            "mes": "2026-06",
+            "total": 0
+          },
+          {
+            "mes": "2026-07",
+            "total": 7600000
+          },
+          {
+            "mes": "2026-08",
+            "total": 990000
+          },
+          {
+            "mes": "2026-09",
+            "total": 989000
+          },
+          {
+            "mes": "2026-10",
+            "total": 0
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-por-mes",
+      "status": 200,
+      "body": {
+        "data": [
+          {
+            "mes": "2026-05",
+            "ocupacion_promedio": 41.4
+          },
+          {
+            "mes": "2026-06",
+            "ocupacion_promedio": 34.3
+          },
+          {
+            "mes": "2026-07",
+            "ocupacion_promedio": 50
+          },
+          {
+            "mes": "2026-08",
+            "ocupacion_promedio": 40
+          },
+          {
+            "mes": "2026-09",
+            "ocupacion_promedio": 30
+          },
+          {
+            "mes": "2026-10",
+            "ocupacion_promedio": 0
+          }
+        ],
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen",
+      "status": 200,
+      "body": {
+        "data": {
+          "ocupacion_promedio": 26.7,
+          "turnos": 18
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen?desde=wrong",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "Formato de mes inválido (AAAA-MM)"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen?desde=2026-10&hasta=2026-05",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "El mes desde no puede ser posterior al mes hasta"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen?desde=2024-01&hasta=2026-10",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "hasta": [
+                "El rango máximo es de 24 meses"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "mobile_chart_scroll",
+      "cards": [
+        {
+          "width": 326,
+          "scrollWidth": 1824,
+          "left": 1498
+        },
+        {
+          "width": 326,
+          "scrollWidth": 326,
+          "left": 0
+        }
+      ]
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/ocupacion-resumen",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "ui_review_complete",
+      "errors": []
+    }
+  ],
+  "errors": []
+}

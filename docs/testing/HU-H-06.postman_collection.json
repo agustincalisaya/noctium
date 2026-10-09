@@ -1,0 +1,189 @@
+{
+  "info": {
+    "name": "Noctium HU-H-06",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Variables de cookies se suministran localmente; no contiene secretos. SQL contrasta la ocupaci\u00f3n real del mismo per\u00edodo."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "desde",
+      "value": "2024-11"
+    },
+    {
+      "key": "hasta",
+      "value": "2026-10"
+    },
+    {
+      "key": "cookieGerente",
+      "value": ""
+    },
+    {
+      "key": "cookieMesa",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Resumen gerente",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookieGerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/indicadores/ocupacion-resumen?desde={{desde}}&hasta={{hasta}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const cuerpo = pm.response.json();",
+              "pm.test(\"Shape est\u00e1ndar\", () => { pm.expect(cuerpo).to.have.property(\"data\"); pm.expect(cuerpo).to.have.property(\"error\"); });",
+              "pm.test(\"\u00c9xito\", () => pm.expect(cuerpo.error).to.eql(null));",
+              "pm.test(\"Resumen tipado\", () => { pm.expect(cuerpo.data.ocupacion_promedio).to.be.a(\"number\"); pm.expect(cuerpo.data.turnos).to.be.a(\"number\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingresos compatible",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookieGerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/indicadores/ingresos-por-mes?desde={{desde}}&hasta={{hasta}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const cuerpo = pm.response.json();",
+              "pm.test(\"Shape est\u00e1ndar\", () => { pm.expect(cuerpo).to.have.property(\"data\"); pm.expect(cuerpo).to.have.property(\"error\"); });",
+              "pm.test(\"\u00c9xito\", () => pm.expect(cuerpo.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ocupacion compatible",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookieGerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/indicadores/ocupacion-por-mes?desde={{desde}}&hasta={{hasta}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const cuerpo = pm.response.json();",
+              "pm.test(\"Shape est\u00e1ndar\", () => { pm.expect(cuerpo).to.have.property(\"data\"); pm.expect(cuerpo).to.have.property(\"error\"); });",
+              "pm.test(\"\u00c9xito\", () => pm.expect(cuerpo.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rango inv\u00e1lido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookieGerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/indicadores/ocupacion-resumen?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const cuerpo = pm.response.json();",
+              "pm.test(\"Shape est\u00e1ndar\", () => { pm.expect(cuerpo).to.have.property(\"data\"); pm.expect(cuerpo).to.have.property(\"error\"); });",
+              "pm.test(\"C\u00f3digo contractual\", () => pm.expect(cuerpo.error.code).to.eql(\"VALIDATION_ERROR\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesi\u00f3n",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/indicadores/ocupacion-resumen"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const cuerpo = pm.response.json();",
+              "pm.test(\"Shape est\u00e1ndar\", () => { pm.expect(cuerpo).to.have.property(\"data\"); pm.expect(cuerpo).to.have.property(\"error\"); });",
+              "pm.test(\"C\u00f3digo contractual\", () => pm.expect(cuerpo.error.code).to.eql(\"SESION_INVALIDA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Otro rol",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookieMesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/indicadores/ocupacion-resumen"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const cuerpo = pm.response.json();",
+              "pm.test(\"Shape est\u00e1ndar\", () => { pm.expect(cuerpo).to.have.property(\"data\"); pm.expect(cuerpo).to.have.property(\"error\"); });",
+              "pm.test(\"C\u00f3digo contractual\", () => pm.expect(cuerpo.error.code).to.eql(\"SIN_PERMISO\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
