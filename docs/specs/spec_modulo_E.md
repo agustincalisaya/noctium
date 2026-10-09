@@ -130,6 +130,11 @@ En la UI, los alumnos de la corrección vienen del snapshot, aunque su inscripci
 
 La corrección actualiza lecturas E/H sin cambios en sus algoritmos. Anular excluye clase y observación, conserva examen e indicación y oculta el vínculo de esta última al leer. La verificación real está documentada en `docs/testing/HU-E-11-evidencia.md`.
 
+### Sincronización HU-E-02 — 09/10/2026
+
+E02 implementa `/alumnos/[id]/clases` y `GET /api/alumnos/[id]/clases` exclusivamente para Mesa/Gerente, con nueve resultados, filtros combinados inclusivos, resumen filtrado y paginación de diez. La migración nueva `20261009180000_hu_e02_alcance_profesor` retira solo `PROFESOR alumnos:leer`; seed mantiene esa revocación. El historial del Profesor se renderiza en `/turnos/[id]/alumnos/[alumnoId]/historial`, verificando clase propia y materia, sin ficha general ni datos de contacto. Permisos se leen por solicitud y afectan sesiones existentes.
+
+Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desactivar ni Pagos, historias aún fuera del alcance. Sidebar conservado por instrucción del usuario; su enlace general de Profesor queda rechazado por ruta y API. Fixtures usan fachadas PR0 para estados C14/C24/B07 sin declarar completadas esas historias. Changelog aditivo: integración E02 y revocación de compatibilidad de Sprint 2.
 ### Sincronización HU-E-08 — 09/10/2026
 
 `GET /api/mi-historial` implementado con permiso `historial:leer_propio`, dueño resuelto mediante B desde sesión y DTO allowlist de §2.12.2. La consulta unificada excluye exámenes anulados del modo ALUMNO antes de count/limit; clases anuladas ya se excluyen con el valor vigente de E11. Query de alumno ajeno: 403 antes de validación; otros parámetros desconocidos: 400.
