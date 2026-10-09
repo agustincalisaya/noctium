@@ -1,11 +1,11 @@
 # TASK: HU-H-06 — Panel de indicadores con pestañas y filtro de período
 
-**Módulo:** H (Indicadores / Dashboard)  
-**Sprint:** 3 · **Responsable:** Iván · **SP:** 2  
-**Contrato de referencia:** `docs/specs/spec_modulo_H.md` §2.4, §3.9 y §3.17 · `docs/tasks/Sprint 3/HU-Sprint-3.md` HU-H-06 · `docs/tasks/Sprint 3/PR-0.md` §1.1, §2.13 y §2.16 · `docs/RULES.md` reglas 3–6, 10 y 11 · `docs/DESIGN.md`.  
-**Prototipo:** `Noctium_Prototipo.pdf`, páginas 46–48, figuras 52–54; inspección visual realizada durante el relevamiento.  
-**RBAC:** `indicadores:leer`, existente, exclusivo de GERENTE.  
-**Schema:** completo en PR 0, sin migraciones.  
+**Módulo:** H (Indicadores / Dashboard)
+**Sprint:** 3 · **Responsable:** Iván · **SP:** 2
+**Contrato de referencia:** `docs/specs/spec_modulo_H.md` §2.4, §3.9 y §3.17 · `docs/tasks/Sprint 3/HU-Sprint-3.md` HU-H-06 · `docs/tasks/Sprint 3/PR-0.md` §1.1, §2.13 y §2.16 · `docs/RULES.md` reglas 3–6, 10 y 11 · `docs/DESIGN.md`.
+**Prototipo:** `Noctium_Prototipo.pdf`, páginas 46–48, figuras 52–54; inspección visual realizada durante el relevamiento.
+**RBAC:** `indicadores:leer`, existente, exclusivo de GERENTE.
+**Schema:** completo en PR 0, sin migraciones.
 **Estado:** relevamiento confirmado por Iván el 08/10/2026 («Si confirmo»); implementada y verificada en pruebas dirigidas; evidencia final de app/Playwright pendiente, issue #164.
 
 ## 0. Relevamiento previo a implementación
@@ -152,8 +152,10 @@ Playwright/Chromium contra la app real: 6, 13 y 24 meses, desktop/móvil, pesta�
 - [x] Textos centralizados y diseño con tokens; sin borrado físico ni migraciones.
 - [x] Fixtures por servicios e idempotencia demostrada en PostgreSQL aislado.
 - [x] Tests de tres niveles y regresión con evidencia real.
-- [ ] PR propio acotado a HU-H-06, sin contenido de E09/H07.
+- [x] PR propio acotado a HU-H-06, sin contenido de E09/H07.
 
 ## Cierre de verificación
 
 Evidencia efectiva en `docs/testing/HU-H-06-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.
+
+PR individual: https://github.com/agustincalisaya/noctium/pull/218. Base `develop`. Sin merge automático.

@@ -1,4 +1,4 @@
-   mes   | turnos | ocupacion_promedio 
+   mes   | turnos | ocupacion_promedio
 ---------+--------+--------------------
  2024-11 |      1 |               40.0
  2024-12 |      1 |               30.0
@@ -23,7 +23,7 @@
          |     40 |               34.6
 (21 rows)
 
-    entidad    | count 
+    entidad    | count
 ---------------+-------
  turnos        |    72
  inscripciones |   205
@@ -32,7 +32,6 @@
  comprobantes  |    24
 (5 rows)
 
- fechaTurno | horaInicioTurno | profesorId | materiaId | count 
+ fechaTurno | horaInicioTurno | profesorId | materiaId | count
 ------------+-----------------+------------+-----------+-------
 (0 rows)
-

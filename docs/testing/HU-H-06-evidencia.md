@@ -50,3 +50,5 @@ API real validada: ingresos, ocupación mensual y resumen 200; rango inválido 4
 Capturas y respuestas reales de esta HU: `hu-h-06/`. Pestaña Cancelaciones queda como extensión para su historia correspondiente.
 
 Último build de producción después del ajuste visual: aprobado. Revisión final repetida con Playwright: cero excepciones de página. Tooltip real de ingresos: mayo de 2026, $ 993.000,00; navegación de pestañas con ArrowRight y enlace de historial con materia comprobados.
+
+PR propio: https://github.com/agustincalisaya/noctium/pull/218. Base develop, sin mezclar commits de otras HU.
