@@ -48,3 +48,9 @@ Capturas y resultados: `hu-h-07/`. **Entrega como PR borrador dependiente de E09
 Último build integrado de producción y revisión final Playwright: aprobados.
 
 PR propio: https://github.com/agustincalisaya/noctium/pull/219. Draft hasta integrar #217 y #218; no afirmar compilación independiente antes de esos prerrequisitos.
+
+## Actualización de develop durante la entrega
+
+Se integró `b7c3b42` (HU-C-23 y componente HU-C-25) en cada rama por separado, preservando únicamente el diff de la historia frente a develop. Claves de UI migradas a `ui.historial.asistencia.*` / `ui.indicadores.*`, sin modificar claves legacy de dominio. Comprobador de referencias TypeScript aprobado. Suite completa sobre la integración actualizada: **1913 aprobados**, 177 PostgreSQL omitidos en la corrida unitaria; la verificación PostgreSQL de177 casos anterior sigue aplicando, sin cambios adicionales en los servicios ni persistencia. Lint actualizado: cero errores y el warning preexistente de Sidebar.
+
+Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetido sobre ese build, sin errores de página. Los tres PR quedaron sin conflictos frente a develop al verificar GitHub.
