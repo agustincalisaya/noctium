@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { texto as textoUi } from "@/lib/textos";
 import type { ReactNode } from "react";
 import { CalendarPlus2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -36,10 +37,13 @@ export default async function AlumnoPage({
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Mis turnos</h1>
           <p className="text-muted-foreground">Los turnos en los que estás inscripta, incluidos los cancelados.</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Link href="/mi-historial" className={buttonVariants({ variant: "outline" })}>{textoUi("ui.historial.propio.titulo")}</Link>
         <Link href="/alumno/turnos/solicitar" className={buttonVariants({ className: "shrink-0 self-start" })}>
           <CalendarPlus2 className="size-4" aria-hidden />
           Solicitar turno
         </Link>
+        </div>
       </header>
 
       {inscripcionExitosa && (

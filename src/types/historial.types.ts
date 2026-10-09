@@ -59,3 +59,15 @@ export type OpcionesExamenData = {
   materias: { id: string; nombre: string }[];
   escala: { min: number; max: number };
 };
+
+export type ItemMiHistorial = { id: string; fecha: string; materia: { id: string; nombre: string } } & (
+  | { tipo: "CLASE_DICTADA"; profesor: string; asistencia: EstadoAsistencia | null; temas_vistos: string | null }
+  | { tipo: "EXAMEN"; nota: string }
+  | { tipo: "INDICACION"; indicacion: string }
+);
+export type MiHistorialData = {
+  materias_disponibles: { id: string; nombre: string }[];
+  asistencia_por_materia: AsistenciaPorMateria[];
+  items: ItemMiHistorial[];
+  paginacion: HistorialAcademicoData["paginacion"];
+};

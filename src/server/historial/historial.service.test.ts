@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queryRaw, alumno, materias, profesores, profesorUsuario, email, opciones, asistencia, vigente, propia, now } = vi.hoisted(() => ({
-  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), email: vi.fn(), opciones: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(), now: vi.fn(),
+const { queryRaw, alumno, propio, materias, profesores, profesorUsuario, email, opciones, asistencia, vigente, propia, now } = vi.hoisted(() => ({
+  queryRaw: vi.fn(), alumno: vi.fn(), propio: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), email: vi.fn(), opciones: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(), now: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: queryRaw } }));
-vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnoBasico: alumno }));
+vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnoBasico: alumno, obtenerAlumnoDeUsuario: propio }));
 vi.mock("@/server/materias/materia.publico", () => ({ obtenerMateriasPorIds: materias }));
 vi.mock("@/server/profesores/profesor.publico", () => ({
   obtenerNombresProfesores: profesores,
@@ -17,7 +17,7 @@ vi.mock("./indicacion.service", () => ({ opcionesDeIndicacion: opciones }));
 vi.mock("./historial.publico", () => ({ asistenciaDeAlumno: asistencia, profesorPuedeRegistrarIndicacion: propia }));
 vi.mock("@/server/turnos/inscripcion.publico", () => ({ existeInscripcionVigenteConProfesor: vigente }));
 
-const { obtenerHistorialAlumno } = await import("./historial.service");
+const { obtenerHistorialAlumno, obtenerMiHistorial } = await import("./historial.service");
 
 const mesa = { id: "mesa-1", rol: "MESA_ENTRADA" as const };
 const registroClase = {
@@ -249,5 +249,32 @@ describe("HU-E-10 valores vigentes y visibilidad de resultados de examen", () =>
     expect(sql).toContain("anulaciones_resultado_examen");
     expect(parametros).toContain(false);
     expect(resultado.items[0]).toMatchObject({ fecha: "2026-10-01", nota: "9.5", corregido: true, puede_corregir: true });
+  });
+});
+
+describe("HU-E-08 historial propio", () => {
+  const usuario = { id: "usuario-alumno", rol: "ALUMNO" as const };
+  it("obtiene el dueño de sesión y proyecta únicamente los campos públicos", async () => {
+    propio.mockResolvedValue({ id: "alumno-1", activo: true });
+    queryRaw.mockResolvedValue([registroExamen, { ...registroClase, temas_vistos: "Límites", observaciones_internas: "Privado", observacion_registrada_en: new Date(), observacion_creada_por_id: "mesa-1" }, registroIndicacion]);
+    const data = await obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, usuario);
+    expect(propio).toHaveBeenCalledWith(usuario.id);
+    expect(data).not.toHaveProperty("alumno");
+    expect(data.items[0]).toEqual({ tipo: "EXAMEN", id: "examen-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5" });
+    expect(data.items[1]).toMatchObject({ temas_vistos: "Límites", asistencia: null });
+    expect(data.items[2]).toEqual({ tipo: "INDICACION", id: "indicacion-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, indicacion: "Practicar ecuaciones" });
+    expect(JSON.stringify(data)).not.toMatch(/Privado|registrada_por|turno_id|observaciones|puede_corregir|clase_dictada_id/);
+    expect(opciones).not.toHaveBeenCalled();
+  });
+  it("rechaza otro dueño antes de ejecutar la consulta", async () => {
+    propio.mockResolvedValue({ id: "alumno-2", activo: true });
+    await expect(obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, usuario)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+  it("rechaza usuario sin ficha y otros roles", async () => {
+    propio.mockResolvedValue(null);
+    await expect(obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, usuario)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    await expect(obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, mesa)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    expect(queryRaw).not.toHaveBeenCalled();
   });
 });
