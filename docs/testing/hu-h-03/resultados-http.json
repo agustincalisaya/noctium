@@ -1,0 +1,836 @@
+{
+  "role": "GERENTE",
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "base": "f3da75b",
+  "errors": [],
+  "results": [
+    {
+      "endpoint": "clases-por-materia",
+      "query": "",
+      "status": 200,
+      "body": {
+        "data": {
+          "total": 75,
+          "items": [
+            {
+              "materia_id": "cmv1c7xgp004jjmz0zigrrz58",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "clases": 40
+            },
+            {
+              "materia_id": "cmv1c7xgt004kjmz0rezj0h3d",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "clases": 21
+            },
+            {
+              "materia_id": "cmv1c7xgy004ljmz009het24b",
+              "nombre": "Programación I",
+              "codigo": "PRG101",
+              "activa": true,
+              "clases": 6
+            },
+            {
+              "materia_id": "cmv1c7xh2004mjmz07gpp2ko5",
+              "nombre": "Bases de Datos",
+              "codigo": "BDD201",
+              "activa": true,
+              "clases": 4
+            },
+            {
+              "materia_id": "cmv1c7xh9004ojmz0nt0mwqoi",
+              "nombre": "Inglés Técnico",
+              "codigo": null,
+              "activa": true,
+              "clases": 2
+            },
+            {
+              "materia_id": "cmv1c7xh5004njmz0he8tmh8i",
+              "nombre": "Química",
+              "codigo": null,
+              "activa": true,
+              "clases": 2
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "clases-por-materia",
+      "query": "?desde=2026-05&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "total": 75,
+          "items": [
+            {
+              "materia_id": "cmv1c7xgp004jjmz0zigrrz58",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "clases": 40
+            },
+            {
+              "materia_id": "cmv1c7xgt004kjmz0rezj0h3d",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "clases": 21
+            },
+            {
+              "materia_id": "cmv1c7xgy004ljmz009het24b",
+              "nombre": "Programación I",
+              "codigo": "PRG101",
+              "activa": true,
+              "clases": 6
+            },
+            {
+              "materia_id": "cmv1c7xh2004mjmz07gpp2ko5",
+              "nombre": "Bases de Datos",
+              "codigo": "BDD201",
+              "activa": true,
+              "clases": 4
+            },
+            {
+              "materia_id": "cmv1c7xh9004ojmz0nt0mwqoi",
+              "nombre": "Inglés Técnico",
+              "codigo": null,
+              "activa": true,
+              "clases": 2
+            },
+            {
+              "materia_id": "cmv1c7xh5004njmz0he8tmh8i",
+              "nombre": "Química",
+              "codigo": null,
+              "activa": true,
+              "clases": 2
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "clases-por-materia",
+      "query": "?desde=2024-11&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "total": 99,
+          "items": [
+            {
+              "materia_id": "cmv1c7xgp004jjmz0zigrrz58",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "clases": 62
+            },
+            {
+              "materia_id": "cmv1c7xgt004kjmz0rezj0h3d",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "clases": 23
+            },
+            {
+              "materia_id": "cmv1c7xgy004ljmz009het24b",
+              "nombre": "Programación I",
+              "codigo": "PRG101",
+              "activa": true,
+              "clases": 6
+            },
+            {
+              "materia_id": "cmv1c7xh2004mjmz07gpp2ko5",
+              "nombre": "Bases de Datos",
+              "codigo": "BDD201",
+              "activa": true,
+              "clases": 4
+            },
+            {
+              "materia_id": "cmv1c7xh9004ojmz0nt0mwqoi",
+              "nombre": "Inglés Técnico",
+              "codigo": null,
+              "activa": true,
+              "clases": 2
+            },
+            {
+              "materia_id": "cmv1c7xh5004njmz0he8tmh8i",
+              "nombre": "Química",
+              "codigo": null,
+              "activa": true,
+              "clases": 2
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "clases-por-materia",
+      "query": "?desde=2024-10&hasta=2026-10",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "hasta": [
+                "El rango máximo es de 24 meses"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "clases-por-materia",
+      "query": "?desde=2026-13",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "Formato de mes inválido (AAAA-MM)"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "clases-por-materia",
+      "query": "?desde=2026-10&hasta=2026-09",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "El mes desde no puede ser posterior al mes hasta"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "clases-por-profesor",
+      "query": "",
+      "status": 200,
+      "body": {
+        "data": {
+          "total": {
+            "clases": 75,
+            "horas": 97
+          },
+          "items": [
+            {
+              "profesor_id": "cmv1c7xdd0038jmz0s6majau5",
+              "nombre": "Giménez, Laura",
+              "activo": true,
+              "clases": 57,
+              "horas": 64
+            },
+            {
+              "profesor_id": "cmv1c7xdi003ajmz01opwh35y",
+              "nombre": "Rossi, Martín",
+              "activo": true,
+              "clases": 7,
+              "horas": 12
+            },
+            {
+              "profesor_id": "cmv1c7xdr003ejmz09256mlk0",
+              "nombre": "Acuña, Sergio",
+              "activo": true,
+              "clases": 5,
+              "horas": 10
+            },
+            {
+              "profesor_id": "cmv1c7xdm003cjmz08szidmr9",
+              "nombre": "Vega, Carolina",
+              "activo": true,
+              "clases": 3,
+              "horas": 7
+            },
+            {
+              "profesor_id": "cmv1c7xei003qjmz0d2xe8zh9",
+              "nombre": "Castro, Julián",
+              "activo": true,
+              "clases": 2,
+              "horas": 2
+            },
+            {
+              "profesor_id": "cmv1c7xgk004ijmz09nqq43m0",
+              "nombre": "Zárate, Valeria",
+              "activo": true,
+              "clases": 1,
+              "horas": 2
+            },
+            {
+              "profesor_id": "cmv1c7xe1003ijmz041vyqogu",
+              "nombre": "Álvarez, Lucía",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xe6003kjmz0iy928cgb",
+              "nombre": "Ávila, Pedro",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xea003mjmz0zmkoq3d9",
+              "nombre": "Avila, Pedro",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xee003ojmz0mbwt3n5f",
+              "nombre": "benítez, Diego",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xen003sjmz0uajvfukn",
+              "nombre": "de la Fuente, Tomás",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfp0046jmz05xcbr645",
+              "nombre": "Fernández de la Torre y Villanueva, María José",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xge004gjmz0gu3cebfj",
+              "nombre": "Herrera, Mariana",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xf3003yjmz0fbe5kf5m",
+              "nombre": "Ibarra, Rocío",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfu0048jmz09v5sesji",
+              "nombre": "Luna, Esteban",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfe0042jmz0ao7xermn",
+              "nombre": "Núñez, Andrea",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xg1004ajmz0aarxkk6o",
+              "nombre": "OLMEDO, Gabriela",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xer003ujmz0akmgtlk6",
+              "nombre": "Pérez, Juan",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xew003wjmz0wwdohgi3",
+              "nombre": "Pérez, Juan",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xf80040jmz008g8pptu",
+              "nombre": "Quiroga, Emilia",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xg6004cjmz0f52tayrx",
+              "nombre": "Toledo, Hernán",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xga004ejmz0ew27apr2",
+              "nombre": "Ybáñez, Paula",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "clases-por-profesor",
+      "query": "?desde=2026-05&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "total": {
+            "clases": 75,
+            "horas": 97
+          },
+          "items": [
+            {
+              "profesor_id": "cmv1c7xdd0038jmz0s6majau5",
+              "nombre": "Giménez, Laura",
+              "activo": true,
+              "clases": 57,
+              "horas": 64
+            },
+            {
+              "profesor_id": "cmv1c7xdi003ajmz01opwh35y",
+              "nombre": "Rossi, Martín",
+              "activo": true,
+              "clases": 7,
+              "horas": 12
+            },
+            {
+              "profesor_id": "cmv1c7xdr003ejmz09256mlk0",
+              "nombre": "Acuña, Sergio",
+              "activo": true,
+              "clases": 5,
+              "horas": 10
+            },
+            {
+              "profesor_id": "cmv1c7xdm003cjmz08szidmr9",
+              "nombre": "Vega, Carolina",
+              "activo": true,
+              "clases": 3,
+              "horas": 7
+            },
+            {
+              "profesor_id": "cmv1c7xei003qjmz0d2xe8zh9",
+              "nombre": "Castro, Julián",
+              "activo": true,
+              "clases": 2,
+              "horas": 2
+            },
+            {
+              "profesor_id": "cmv1c7xgk004ijmz09nqq43m0",
+              "nombre": "Zárate, Valeria",
+              "activo": true,
+              "clases": 1,
+              "horas": 2
+            },
+            {
+              "profesor_id": "cmv1c7xe1003ijmz041vyqogu",
+              "nombre": "Álvarez, Lucía",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xe6003kjmz0iy928cgb",
+              "nombre": "Ávila, Pedro",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xea003mjmz0zmkoq3d9",
+              "nombre": "Avila, Pedro",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xee003ojmz0mbwt3n5f",
+              "nombre": "benítez, Diego",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xen003sjmz0uajvfukn",
+              "nombre": "de la Fuente, Tomás",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfp0046jmz05xcbr645",
+              "nombre": "Fernández de la Torre y Villanueva, María José",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xge004gjmz0gu3cebfj",
+              "nombre": "Herrera, Mariana",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xf3003yjmz0fbe5kf5m",
+              "nombre": "Ibarra, Rocío",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfu0048jmz09v5sesji",
+              "nombre": "Luna, Esteban",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfe0042jmz0ao7xermn",
+              "nombre": "Núñez, Andrea",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xg1004ajmz0aarxkk6o",
+              "nombre": "OLMEDO, Gabriela",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xer003ujmz0akmgtlk6",
+              "nombre": "Pérez, Juan",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xew003wjmz0wwdohgi3",
+              "nombre": "Pérez, Juan",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xf80040jmz008g8pptu",
+              "nombre": "Quiroga, Emilia",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xg6004cjmz0f52tayrx",
+              "nombre": "Toledo, Hernán",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xga004ejmz0ew27apr2",
+              "nombre": "Ybáñez, Paula",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "clases-por-profesor",
+      "query": "?desde=2024-11&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "total": {
+            "clases": 99,
+            "horas": 120
+          },
+          "items": [
+            {
+              "profesor_id": "cmv1c7xdd0038jmz0s6majau5",
+              "nombre": "Giménez, Laura",
+              "activo": true,
+              "clases": 81,
+              "horas": 87
+            },
+            {
+              "profesor_id": "cmv1c7xdi003ajmz01opwh35y",
+              "nombre": "Rossi, Martín",
+              "activo": true,
+              "clases": 7,
+              "horas": 12
+            },
+            {
+              "profesor_id": "cmv1c7xdr003ejmz09256mlk0",
+              "nombre": "Acuña, Sergio",
+              "activo": true,
+              "clases": 5,
+              "horas": 10
+            },
+            {
+              "profesor_id": "cmv1c7xdm003cjmz08szidmr9",
+              "nombre": "Vega, Carolina",
+              "activo": true,
+              "clases": 3,
+              "horas": 7
+            },
+            {
+              "profesor_id": "cmv1c7xei003qjmz0d2xe8zh9",
+              "nombre": "Castro, Julián",
+              "activo": true,
+              "clases": 2,
+              "horas": 2
+            },
+            {
+              "profesor_id": "cmv1c7xgk004ijmz09nqq43m0",
+              "nombre": "Zárate, Valeria",
+              "activo": true,
+              "clases": 1,
+              "horas": 2
+            },
+            {
+              "profesor_id": "cmv1c7xe1003ijmz041vyqogu",
+              "nombre": "Álvarez, Lucía",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xe6003kjmz0iy928cgb",
+              "nombre": "Ávila, Pedro",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xea003mjmz0zmkoq3d9",
+              "nombre": "Avila, Pedro",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xee003ojmz0mbwt3n5f",
+              "nombre": "benítez, Diego",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xen003sjmz0uajvfukn",
+              "nombre": "de la Fuente, Tomás",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfp0046jmz05xcbr645",
+              "nombre": "Fernández de la Torre y Villanueva, María José",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xge004gjmz0gu3cebfj",
+              "nombre": "Herrera, Mariana",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xf3003yjmz0fbe5kf5m",
+              "nombre": "Ibarra, Rocío",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfu0048jmz09v5sesji",
+              "nombre": "Luna, Esteban",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xfe0042jmz0ao7xermn",
+              "nombre": "Núñez, Andrea",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xg1004ajmz0aarxkk6o",
+              "nombre": "OLMEDO, Gabriela",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xer003ujmz0akmgtlk6",
+              "nombre": "Pérez, Juan",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xew003wjmz0wwdohgi3",
+              "nombre": "Pérez, Juan",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xf80040jmz008g8pptu",
+              "nombre": "Quiroga, Emilia",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xg6004cjmz0f52tayrx",
+              "nombre": "Toledo, Hernán",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            },
+            {
+              "profesor_id": "cmv1c7xga004ejmz0ew27apr2",
+              "nombre": "Ybáñez, Paula",
+              "activo": true,
+              "clases": 0,
+              "horas": 0
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "clases-por-profesor",
+      "query": "?desde=2024-10&hasta=2026-10",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "hasta": [
+                "El rango máximo es de 24 meses"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "clases-por-profesor",
+      "query": "?desde=2026-13",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "Formato de mes inválido (AAAA-MM)"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "clases-por-profesor",
+      "query": "?desde=2026-10&hasta=2026-09",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "El mes desde no puede ser posterior al mes hasta"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "email": "mesa.entrada@noctium.local",
+      "endpoint": "clases-por-materia",
+      "status": 403
+    },
+    {
+      "email": "mesa.entrada@noctium.local",
+      "endpoint": "clases-por-profesor",
+      "status": 403
+    },
+    {
+      "email": "profesor1@noctium.local",
+      "endpoint": "clases-por-materia",
+      "status": 403
+    },
+    {
+      "email": "profesor1@noctium.local",
+      "endpoint": "clases-por-profesor",
+      "status": 403
+    },
+    {
+      "email": "alumno01@noctium.local",
+      "endpoint": "clases-por-materia",
+      "status": 403
+    },
+    {
+      "email": "alumno01@noctium.local",
+      "endpoint": "clases-por-profesor",
+      "status": 403
+    }
+  ]
+}

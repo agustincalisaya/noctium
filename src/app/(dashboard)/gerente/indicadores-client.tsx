@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { GraficoIngresos, GraficoOcupacion } from "@/components/indicadores/graficos-indicadores";
+import { ClasesIndicadores } from "@/components/indicadores/clases-indicadores";
 import { PanelPresentismo } from "@/components/indicadores/presentismo-panel";
 import { FiltroPeriodo } from "@/components/indicadores/filtro-periodo";
 import { mesActualBuenosAires, desplazarMes } from "@/server/indicadores/indicadores.schema";
@@ -20,7 +21,7 @@ export function IndicadoresClient() {
       {PESTANAS.map((nombre,i)=><button key={nombre} type="button" role="tab" id={`tab-${nombre}`} aria-controls={`panel-${nombre}`} aria-selected={pestana===nombre} tabIndex={pestana===nombre?0:-1} onClick={()=>setPestana(nombre)} onKeyDown={e=>{if (["ArrowRight","ArrowLeft","Home","End"].includes(e.key)){e.preventDefault();const siguiente=e.key==="Home"?0:e.key==="End"?2:(i+(e.key==="ArrowRight"?1:2))%3;setPestana(PESTANAS[siguiente]!);document.getElementById(`tab-${PESTANAS[siguiente]}`)?.focus();}}} className={`shrink-0 border-b-2 px-0 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${pestana===nombre?"border-primary text-foreground":"border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"}`}>{texto(nombre === "actividad" ? "ui.indicadores.panel.actividad" : nombre === "presentismo" ? "ui.indicadores.panel.presentismo" : "ui.indicadores.panel.cancelaciones")}</button>)}
     </div>
     {PESTANAS.map(nombre=><section key={nombre} id={`panel-${nombre}`} role="tabpanel" aria-labelledby={`tab-${nombre}`} hidden={pestana!==nombre} tabIndex={0} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      {nombre==="actividad" && pestana===nombre && <div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><GraficoIngresos rango={rango}/><GraficoOcupacion rango={rango}/></div>}
+      {nombre==="actividad" && pestana===nombre && <div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><GraficoIngresos rango={rango}/><GraficoOcupacion rango={rango}/><ClasesIndicadores rango={rango}/></div>}
       {nombre==="presentismo" && pestana===nombre && <PanelPresentismo rango={rango}/>}
     </section>)}
   </div>;
