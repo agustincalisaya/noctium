@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { texto } from "@/lib/textos";
+import { HistorialClases } from "./historial-clases";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
@@ -35,6 +37,9 @@ export default async function AlumnoDetallePage({
     permisoOpcional("examenes:registrar"),
     permisoOpcional("indicaciones:registrar"),
   ]);
+  if (!usuarioFicha || !["MESA_ENTRADA", "GERENTE"].includes(usuarioFicha.rol)) redirect("/sin-permiso");
+  const mostrarClases = tab === "clases";
+  const gerente = usuarioFicha.rol === "GERENTE";
   const puedeLeerFicha = usuarioFicha !== null;
   const puedeLeerHistorial = usuarioHistorial !== null;
   if (!puedeLeerFicha && !puedeLeerHistorial) redirect("/sin-permiso");
@@ -60,8 +65,8 @@ export default async function AlumnoDetallePage({
   })}`;
 
   return (
-    <div className={`mx-auto w-full min-w-0 space-y-5 p-6 ${mostrarHistorial ? "max-w-6xl" : "max-w-3xl"}`}>
-      {puedeLeerFicha && mostrarHistorial && alumno ? (
+    <div className={`mx-auto w-full min-w-0 space-y-5 p-6 ${mostrarHistorial || mostrarClases ? "max-w-6xl" : "max-w-3xl"}`}>
+      {puedeLeerFicha && (mostrarHistorial || mostrarClases) && alumno ? (
         <nav aria-label="Migas de pan" className="text-sm text-muted-foreground">
           <Link href={hrefListado} className="text-primary underline underline-offset-4 hover:text-foreground">Alumnos</Link>
           <span aria-hidden="true" className="px-2">/</span>
@@ -83,17 +88,19 @@ export default async function AlumnoDetallePage({
             nombre={alumno.nombre}
             apellido={alumno.apellido}
             dni={alumno.dni}
-            email={mostrarHistorial ? alumno.email : null}
+            email={mostrarHistorial || mostrarClases ? alumno.email : null}
             activo={alumno.is_active}
-            puedeEditar={!mostrarHistorial && usuarioEditar !== null}
-            modoHistorial={mostrarHistorial}
+            puedeEditar={!mostrarHistorial && !mostrarClases && !gerente && usuarioEditar !== null}
+            modoHistorial={mostrarHistorial || mostrarClases}
           />
+          {gerente && <p className="text-xs text-muted-foreground">{texto("ui.historial.clasesAlumno.consulta")}</p>}
           <nav className="flex gap-5 border-b border-border" aria-label="Secciones de la ficha">
             <Link
               href={`/alumnos/${encodeURIComponent(id)}?tab=datos`}
-              aria-current={!mostrarHistorial ? "page" : undefined}
-              className={`border-b-2 px-1 py-2 text-sm ${!mostrarHistorial ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              aria-current={!mostrarHistorial && !mostrarClases ? "page" : undefined}
+              className={`border-b-2 px-1 py-2 text-sm ${!mostrarHistorial && !mostrarClases ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >Datos</Link>
+            <Link href={`/alumnos/${encodeURIComponent(id)}/clases`} aria-current={mostrarClases ? "page" : undefined} className={`border-b-2 px-1 py-2 text-sm ${mostrarClases ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{texto("ui.historial.clasesAlumno.tab")}</Link>
             {puedeLeerHistorial && <Link
               href={`/alumnos/${encodeURIComponent(id)}?tab=historial`}
               aria-current={mostrarHistorial ? "page" : undefined}
@@ -107,24 +114,25 @@ export default async function AlumnoDetallePage({
         <HistorialAcademico
           alumnoId={id}
           materiaInicial={materia_id}
-          puedeRegistrarExamen={usuarioRegistrarExamen !== null}
-          puedeRegistrarIndicacion={usuarioRegistrarIndicacion !== null}
+          puedeRegistrarExamen={!gerente && usuarioRegistrarExamen !== null}
+          puedeRegistrarIndicacion={!gerente && usuarioRegistrarIndicacion !== null}
           mostrarNombre={!puedeLeerFicha}
         />
       )}
-      {!mostrarHistorial && alumno && (
+      {mostrarClases && <HistorialClases alumnoId={id} />}
+      {!mostrarHistorial && !mostrarClases && alumno && (
         <>
           <FichaContacto
             alumnoId={alumno.id}
             telefono={alumno.telefono}
             email={alumno.email}
-            puedeEditar={usuarioEditar !== null}
+            puedeEditar={!gerente && usuarioEditar !== null}
           />
           <FichaAltaPago
             alumnoId={alumno.id}
             fechaAlta={alumno.created_at}
             formaPagoPreferida={alumno.forma_pago_preferida}
-            puedeEditar={usuarioEditar !== null}
+            puedeEditar={!gerente && usuarioEditar !== null}
           />
         </>
       )}

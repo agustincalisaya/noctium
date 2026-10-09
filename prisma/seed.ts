@@ -851,15 +851,12 @@ const PERMISOS: [RolUsuario, string][] = [
   // Alumnos (HU-B-01 alta, HU-B-02 contacto, HU-B-04 listado/detalle):
   // crear/editar exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1). Turnos
   // consume Alumno vía servicio público, no por estos permisos. Sprint 3:
-  // el Gerente consulta alumnos (convención 8 d). El Profesor conserva
-  // alumnos:leer hasta HU-E-02, que se lo quita (convención 8 g) con una
-  // migración nueva en el mismo cambio en que agrega su acceso acotado al
-  // historial. Baja y reactivación (HU-B-07): solo Mesa de Entrada.
+  // el Gerente consulta alumnos (convención 8 d). HU-E-02 retira
+  // alumnos:leer al Profesor y conserva su historial acotado desde clases. Baja y reactivación (HU-B-07): solo Mesa de Entrada.
   ["MESA_ENTRADA", "alumnos:crear"],
   ["MESA_ENTRADA", "alumnos:editar"],
   ["MESA_ENTRADA", "alumnos:leer"],
   ["GERENTE", "alumnos:leer"],
-  ["PROFESOR", "alumnos:leer"],
   ["MESA_ENTRADA", "alumnos:cambiar_estado"],
   // Profesores (HU-D-01..07): crear/editar exclusivos de Mesa de Entrada (ver
   // ACCIONES_SOLO_MESA_ENTRADA). Sprint 3 (HU-D-08): el Gerente consulta y
@@ -966,7 +963,7 @@ const ACCIONES_SOLO_MESA_ENTRADA = ["profesores:crear", "profesores:editar"] as 
 // del Sprint 3). El upsert con update: {} no las quitaría de una base vieja.
 // Filas que el seed borra en bases existentes (el upsert no las quita). Vacía
 // por ahora: HU-E-02 agrega acá PROFESOR alumnos:leer junto con su migración.
-const PERMISOS_REVOCADOS: [RolUsuario, string][] = [];
+const PERMISOS_REVOCADOS: [RolUsuario, string][] = [["PROFESOR", "alumnos:leer"]];
 
 type TurnoSeed = {
   id: string;

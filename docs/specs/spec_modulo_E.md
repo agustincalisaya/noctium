@@ -130,6 +130,12 @@ En la UI, los alumnos de la corrección vienen del snapshot, aunque su inscripci
 
 La corrección actualiza lecturas E/H sin cambios en sus algoritmos. Anular excluye clase y observación, conserva examen e indicación y oculta el vínculo de esta última al leer. La verificación real está documentada en `docs/testing/HU-E-11-evidencia.md`.
 
+### Sincronización HU-E-02 — 09/10/2026
+
+E02 implementa `/alumnos/[id]/clases` y `GET /api/alumnos/[id]/clases` exclusivamente para Mesa/Gerente, con nueve resultados, filtros combinados inclusivos, resumen filtrado y paginación de diez. La migración nueva `20261009180000_hu_e02_alcance_profesor` retira solo `PROFESOR alumnos:leer`; seed mantiene esa revocación. El historial del Profesor se renderiza en `/turnos/[id]/alumnos/[alumnoId]/historial`, verificando clase propia y materia, sin ficha general ni datos de contacto. Permisos se leen por solicitud y afectan sesiones existentes.
+
+Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desactivar ni Pagos, historias aún fuera del alcance. Sidebar conservado por instrucción del usuario; su enlace general de Profesor queda rechazado por ruta y API. Fixtures usan fachadas PR0 para estados C14/C24/B07 sin declarar completadas esas historias. Changelog aditivo: integración E02 y revocación de compatibilidad de Sprint 2.
+
 ## 1. Visión General
 
 > **Revisión 2 (Sprint 3).** Los dos registros inmutables y la vista de solo lectura siguen siendo la base. Se suman: la asistencia por alumno dentro de la clase dictada (2.6), la pestaña «Clases» del alumno (2.7), las observaciones de la clase (2.8), las indicaciones académicas (2.9), la corrección y anulación de exámenes y de clases dictadas (2.10 y 2.11) y «Mi historial» del alumno (2.12). «No hay pantalla nueva de este módulo» queda superado por el mapa del Sprint 3 (P-12, P-26, P-27, M-22 y M-23); E-01 y E-06 siguen siendo acciones. Todo es aditivo: ningún contrato de Sprint 2 cambia, salvo el alcance del Profesor que manda la convención 8 (g) del backlog (T1).
