@@ -23,15 +23,26 @@
 
 Once grupos alumno/Matemática tienen 50 % (cuatro clases, dos ausencias); el duodécimo tiene exactamente 75 % y queda afuera de la tabla con umbral 75. Todos tienen 100 % en Física. El fixture aporta una clase sin control, no doce. Página 1: diez grupos; página 2: uno; fuera de rango: cero filas con total once. Otros datos de la base pueden sumarse al consultar un rango amplio; aislar estas fechas/turnos para contrastar aportes del fixture.
 
-## Pendientes de integración
+## Verificación final integrada — 09/10/2026
 
-- Fixture ejecutado dos veces en la base de demostración para comprobar idempotencia y conteos.
-- TypeScript/build con HU-E-09 y HU-H-06 integradas; la rama H07 no incluye archivos de otras historias.
-- Ejecución HTTP real de colección Postman o equivalente por rol, y contraste de `HU-H-07.sql`.
-- Revisión Playwright del gráfico real y capturas `docs/testing/hu-h-07/` en escritorio, móvil, 24 meses y sin datos; registrar comandos/resultados reales al finalizar.
+Validación sobre una rama local de revisión con E09, H06 y H07; cada rama de entrega mantiene únicamente su historia. Base PostgreSQL descartable local, sin modificaciones en una base compartida.
+
+- `npm test`: **1851 aprobados**, 177 PostgreSQL omitidos por diseño; esos casos se ejecutaron separadamente.
+- `npm run test:pg`: **177 aprobados** (143 + 18 + 16), migraciones reales, bases temporales eliminadas por el runner.
+- Next.js build webpack y TypeScript: aprobados con Node 24.21.0. ESLint: cero errores; un warning preexistente de `CALENDARIO` en Sidebar.
+- Catálogo de textos y detalle después del último ajuste de confirmación: 44 aprobados. Componentes de indicadores: 16 aprobados después del ajuste final de etiquetas.
+- Fixtures combinados repetidos: 72 turnos, 205 inscripciones, 10 clases dictadas, 93 snapshots, 24 pagos, 136 eventos y 229 entradas de historial; conteos iguales antes/después. Esta medición incluye el registro de 05/01 realizado por la revisión UI.
+- Playwright/Chromium con sesiones reales del seed, escritorio 1440×1000 y móvil 390×844. Sin excepciones de página. Capturas inspeccionadas visualmente. Las capturas inferiores usan scroll del contenido de la aplicación.
+- La colección Postman queda disponible para repetir los casos; la ejecución HTTP efectiva se realizó con Playwright y sus cookies de sesión. No se ejecutó la aplicación Postman ni TablePlus: SQL read-only se ejecutó con `psql`.
+
+API y SQL coinciden mayo–octubre: **72 inscripciones, 49 presentes, 23 ausentes, 68,1 %**; una clase sin control excluida. Bajo umbral: 11 grupos, página 1 diez filas, página 2 una, página 3 ninguna con total once. El alumno con exactamente 75 % queda excluido. HTTP 400/401/403 reales; Mesa, Profesor y Alumno sin permiso de indicadores. Playwright verificó gráficos por mes/materia, 6/24 meses, estados vacíos, paginación y móvil sin overflow documental. Scroll del gráfico largo: ancho 326 px, contenido 1824 px, posición inicial 1498 px (últimos meses).
+
+Capturas y resultados: `hu-h-07/`. **Entrega como PR borrador dependiente de E09 y H06**; las pruebas completas corresponden a integración local, no a esta rama aislada contra develop. Tras integrar ambos prerrequisitos se debe actualizar H07 y resolver las extensiones compartidas. Acceso del Gerente al historial continúa diferido a E02; el enlace conserva la materia sin ampliar RBAC.
 
 ## Verificaciones diferidas
 
 - Acceso efectivo del Gerente al historial: HU-E-02; esta HU sólo propaga la materia a la pantalla y conserva permisos actuales.
 - Anulación/corrección mediante pantallas de HU-E-11; la lectura vigente ya está comprobada con PostgreSQL.
 - Edición del umbral por UI: HU-N-01; la consulta ya lee el parámetro vigente.
+
+Último build integrado de producción y revisión final Playwright: aprobados.

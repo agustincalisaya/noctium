@@ -134,13 +134,17 @@ El PR documenta fixtures, evidencia realmente ejecutada y verificaciones diferid
 ## 6. Definition of Done
 
 - [x] Relevamiento y lista exacta de archivos confirmados explícitamente antes de implementar.
-- [ ] Dependencias HU-E-09 y HU-H-06 disponibles para implementación y demostración.
-- [ ] Tres endpoints, esquemas, permisos y composición de fachadas conforme a la spec.
-- [ ] Gráficos, aviso, tabla y preselección de materia implementados sin cambios de RBAC.
-- [ ] Textos centralizados y documentados conforme a las reglas del proyecto.
-- [ ] Fixture propio idempotente mediante servicios y registrado en el índice.
-- [ ] Unitarias/UI, HTTP y PostgreSQL real ejecutados y documentados.
-- [ ] Lint, TypeScript/build y comprobación de diff aprobados.
-- [ ] Playwright y capturas contrastadas con figura 55, incluido móvil y 24 meses.
-- [ ] Evidencia distingue lo verificado de E02, E11 y N01 diferidos.
+- [x] Dependencias HU-E-09 y HU-H-06 disponibles para implementación y demostración.
+- [x] Tres endpoints, esquemas, permisos y composición de fachadas conforme a la spec.
+- [x] Gráficos, aviso, tabla y preselección de materia implementados sin cambios de RBAC.
+- [x] Textos centralizados y documentados conforme a las reglas del proyecto.
+- [x] Fixture propio idempotente mediante servicios y registrado en el índice.
+- [x] Unitarias/UI, HTTP y PostgreSQL real ejecutados y documentados.
+- [x] Lint, TypeScript/build y comprobación de diff aprobados.
+- [x] Playwright y capturas contrastadas con figura 55, incluido móvil y 24 meses.
+- [x] Evidencia distingue lo verificado de E02, E11 y N01 diferidos.
 - [ ] PR propio de HU-H-07 con diff exclusivo y base/dependencias explícitas.
+
+## Cierre de verificación
+
+Evidencia efectiva en `docs/testing/HU-H-07-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.
