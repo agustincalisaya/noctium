@@ -17,10 +17,10 @@ export function useIndicador<T>(ruta: string, rango: RangoIndicador, activo = tr
       try {
         const respuesta = await fetch(clave, { cache: "no-store", signal: controlador.signal });
         const cuerpo = await respuesta.json();
-        if (!respuesta.ok || cuerpo.data == null) throw new Error(texto("indicadores.error"));
+        if (!respuesta.ok || cuerpo.data == null) throw new Error(texto("indicadores.panel.error"));
         if (!controlador.signal.aborted && numero === secuencia.current) setResultado({datos:cuerpo.data as T,error:null,clave:identidad});
       } catch (error) {
-        if (!controlador.signal.aborted && numero === secuencia.current) setResultado({datos:null,error:error instanceof Error ? error.message : texto("indicadores.error"),clave:identidad});
+        if (!controlador.signal.aborted && numero === secuencia.current) setResultado({datos:null,error:error instanceof Error ? error.message : texto("indicadores.panel.error"),clave:identidad});
       }
     })();
     return () => controlador.abort();

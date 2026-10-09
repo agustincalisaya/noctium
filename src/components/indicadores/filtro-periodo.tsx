@@ -19,13 +19,13 @@ export function FiltroPeriodo({ rango, mesActual, onChange }: { rango: RangoIndi
   return <div className="w-full space-y-2 xl:w-auto">
     <div className="grid gap-3 sm:grid-cols-2">
       {(["desde", "hasta"] as const).map(extremo => <div key={extremo} className="flex h-10 items-center gap-2 rounded-md border border-input bg-card px-3">
-        <label htmlFor={`indicadores-${extremo}`} className="text-sm text-muted-foreground">{texto(`indicadores.${extremo}`)}</label>
+        <label htmlFor={`indicadores-${extremo}`} className="text-sm text-muted-foreground">{texto(`indicadores.panel.${extremo}`)}</label>
         <select id={`indicadores-${extremo}`} value={rango[extremo]} className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={evento => {const valor=evento.currentTarget.value;const nuevo=ajustarPeriodo(rango,extremo,valor);setAviso(nuevo[extremo === "desde" ? "hasta" : "desde"] !== rango[extremo === "desde" ? "hasta" : "desde"]);onChange(nuevo);}}>
           {opciones.map(mes => <option key={mes} value={mes}>{formato.format(new Date(`${mes}-01T12:00:00Z`))}</option>)}
         </select>
       </div>)}
     </div>
-    {aviso && <p role="status" className="text-sm text-muted-foreground">{texto("indicadores.maximo")}</p>}
+    {aviso && <p role="status" className="text-sm text-muted-foreground">{texto("indicadores.panel.maximo")}</p>}
   </div>;
 }
