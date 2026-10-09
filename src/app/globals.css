@@ -93,6 +93,9 @@
      nunca asignado a --accent. Mismo valor que --ring, pero conceptualmente
      independiente: --ring puede recalibrarse sin tocar el token de marca. */
   --brand-accent: oklch(0.6304 0.1013 183.03);
+  --chart-attendance-index: oklch(0.65 0.13 70);
+  --chart-expired: oklch(0.65 0.13 70);
+  --chart-withdrawal: oklch(0.65 0.018 243);
   --chart-1: oklch(0.33 0.052 224); /* Azul petróleo */
   --chart-2: oklch(0.6 0.105 183); /* Acento */
   --chart-3: oklch(0.28 0.039 245); /* Azul profundo */

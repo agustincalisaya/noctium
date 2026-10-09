@@ -16,16 +16,16 @@ export function FiltroPeriodo({ rango, mesActual, onChange }: { rango: RangoIndi
   const [aviso, setAviso] = useState(false);
   const opciones = Array.from({length:27}, (_, i) => desplazarMes(mesActual, i - 23));
   const formato = new Intl.DateTimeFormat("es-AR", {month:"long",year:"numeric",timeZone:"UTC"});
-  return <div className="w-full space-y-2 xl:w-auto">
-    <div className="grid gap-3 sm:grid-cols-2">
-      {(["desde", "hasta"] as const).map(extremo => <div key={extremo} className="flex h-10 items-center gap-2 rounded-md border border-input bg-card px-3">
-        <label htmlFor={`indicadores-${extremo}`} className="text-sm text-muted-foreground">{texto(extremo === "desde" ? "ui.indicadores.panel.desde" : "ui.indicadores.panel.hasta")}</label>
-        <select id={`indicadores-${extremo}`} value={rango[extremo]} className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  return <div className="w-full space-y-2 lg:w-auto">
+    <div className="grid gap-2 sm:grid-cols-2">
+      {(["desde", "hasta"] as const).map(extremo => <div key={extremo} className="flex h-9 items-center gap-2 rounded-md border border-input bg-card px-3">
+        <label htmlFor={`indicadores-${extremo}`} className="text-xs text-muted-foreground">{texto(extremo === "desde" ? "ui.indicadores.panel.desde" : "ui.indicadores.panel.hasta")}</label>
+        <select id={`indicadores-${extremo}`} value={rango[extremo]} className="h-full min-w-0 flex-1 bg-transparent text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={evento => {const valor=evento.currentTarget.value;const nuevo=ajustarPeriodo(rango,extremo,valor);setAviso(nuevo[extremo === "desde" ? "hasta" : "desde"] !== rango[extremo === "desde" ? "hasta" : "desde"]);onChange(nuevo);}}>
           {opciones.map(mes => <option key={mes} value={mes}>{formato.format(new Date(`${mes}-01T12:00:00Z`))}</option>)}
         </select>
       </div>)}
     </div>
-    {aviso && <p role="status" className="text-sm text-muted-foreground">{texto("ui.indicadores.panel.maximo")}</p>}
+    {aviso && <p role="status" className="text-xs text-muted-foreground">{texto("ui.indicadores.panel.maximo")}</p>}
   </div>;
 }

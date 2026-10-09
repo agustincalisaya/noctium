@@ -385,3 +385,7 @@ sus consumidores, sin editar sus fuentes.
 ## Selección de asistencia (HU-E-11)
 
 `--attendance-selected: oklch(0.46 0.13 152)` deriva del verde semántico de éxito y permite Presente seleccionado con texto blanco (`text-card`) como figura 74. Es independiente de `--success` y de los tokens de sidebar. Ausente seleccionado usa `--destructive` con `text-card`.
+
+## Series de indicadores — fidelidad del prototipo (09/10/2026)
+
+`--chart-attendance-index` y `--chart-expired`: oklch(0.65 0.13 70), ámbar para línea de presentismo y reservas vencidas. `--chart-withdrawal`: oklch(0.65 0.018 243), gris para bajas. Se acompañan de valores en Grafito y leyendas; el color no identifica por sí solo. Ocupación/presentes/profesores usan --brand-accent; centro usa --destructive; inscriptos/ingresos/materias usan --chart-1.

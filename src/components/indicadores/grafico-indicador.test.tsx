@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe,it,expect,vi } from "vitest";
-import { GraficoIndicador } from "./grafico-indicador";
+import { GraficoIndicador, valorCompacto } from "./grafico-indicador";
 import { etiquetaMesCorta } from "./graficos-indicadores";
 describe("GraficoIndicador",()=>{
  it("tabla preserva barras, índice nulo y ausentes; alterna visibilidad",async()=>{
@@ -14,5 +14,6 @@ describe("GraficoIndicador",()=>{
   expect(el.querySelector("table")!.parentElement!.className).toContain("sr-only");await act(async()=>el.querySelector("button")!.click());expect(el.querySelector("button")!.getAttribute("aria-pressed")).toBe("true");expect(el.querySelector("table")!.parentElement!.className).not.toContain("sr-only");
   act(()=>root.unmount());el.remove();vi.unstubAllGlobals();
  });
+ it("compacta importes sin perder unidades ni usar k",()=>{expect(valorCompacto(3800000)).toBe("3,8 M");expect(valorCompacto(988000)).toBe("988 mil");expect(valorCompacto(25)).toBe("25");});
  it("eje escribe año solo primer mes y enero",()=>{expect(etiquetaMesCorta("2025-10",0)).toBe("Oct ’25");expect(etiquetaMesCorta("2025-11",1)).toBe("Nov");expect(etiquetaMesCorta("2026-01",3)).toBe("Ene ’26");});
 });
