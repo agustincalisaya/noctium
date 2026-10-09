@@ -9,6 +9,7 @@ import { texto } from "@/lib/textos";
 import { fechaHoraDeInstante } from "@/lib/turno-detalle";
 import { RegistrarResultadoExamenDialog } from "./registrar-resultado-examen-dialog";
 import { RegistrarIndicacionDialog } from "./registrar-indicacion-dialog";
+import { ResultadoExamenAcciones } from "./resultado-examen-acciones";
 
 function fechaCorta(fecha: string) {
   const [anio, mes, dia] = fecha.split("-");
@@ -163,6 +164,7 @@ export function HistorialAcademico({
                       fecha: fechaCorta(datos.indicaciones_opciones?.clases.find(({ id }) => id === item.clase_dictada_id)?.fecha ?? item.fecha),
                     })}</p>}
                   </div>}
+                  {item.tipo === "EXAMEN" && <ResultadoExamenAcciones alumnoId={alumnoId} item={item} onActualizado={alRegistrar} />}
                 </div>
                 {item.tipo === "EXAMEN" && <span className="whitespace-nowrap pt-1 text-sm font-semibold">{item.nota.replace(".", ",")} / 10</span>}
               </li>
