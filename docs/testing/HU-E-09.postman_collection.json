@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "HU-E-09 — asistencia individual",
+    "description": "Casos independientes: restaurar base descartable o seleccionar otro turno sin registrar para casos 6/7. Caso 8 cambia la cookie/rol y el turno; caso 9 requiere turno futuro DISPONIBLE. No registrar estas acciones en una base del equipo. Contratos ejecutables también por Playwright autenticado.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "turnoId",
+      "value": ""
+    },
+    {
+      "key": "alumno1",
+      "value": ""
+    },
+    {
+      "key": "alumno2",
+      "value": ""
+    },
+    {
+      "key": "alumno3",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1 Alta con asistencia (clase no registrada)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"asistencias\":[{\"alumno_id\":\"{{alumno1}}\",\"estado\":\"PRESENTE\"},{\"alumno_id\":\"{{alumno2}}\",\"estado\":\"AUSENTE\"},{\"alumno_id\":\"{{alumno3}}\",\"estado\":\"PRESENTE\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 Repetición conserva asistencia",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"asistencias\":[]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 GET registro vigente",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 JSON malformado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio.",
+        "body": {
+          "mode": "raw",
+          "raw": "{",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(r.error.code).to.equal(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5 Schema estricto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"asistencias\":[],\"otro\":true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => pm.expect(r.error.code).to.equal(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6 Conjunto incompleto (otro turno no registrado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"asistencias\":[]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Código ASISTENCIA_INCOMPLETA\", () => pm.expect(r.error.code).to.equal(\"ASISTENCIA_INCOMPLETA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7 POST sin cuerpo (otro turno no registrado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8 Profesor de clase ajena / Gerente / Alumno",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => pm.expect(r.error.code).to.equal(\"SIN_PERMISO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9 Clase futura",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "description": "Usar cookie de sesión NextAuth del rol documentado. IDs se resuelven con HU-E-09.sql; no CUID obligatorio."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Código CLASE_NO_FINALIZADA\", () => pm.expect(r.error.code).to.equal(\"CLASE_NO_FINALIZADA\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -73,6 +73,9 @@ Las importaciones a estos archivos usan siempre el alias configurado (`@/types/.
 
 Los textos nuevos del Índice de presentismo se centralizan bajo `ui.indicadores.presentismo.*` en `src/lib/textos.ts`: títulos y leyendas de gráficos, series, aviso de clases sin control, tabla y su umbral, columnas, enlace al historial y estados de carga/error/vacío/reintento. Los parámetros de aviso y umbral se interpolan mediante `texto()`. Esto documenta el cumplimiento de HU-C-23 sin modificar reglas de negocio ni permisos.
 
+## Sprint 3 — Registro de asistencia (HU-E-09)
+
+Registrar una clase dictada toma primero el bloqueo canónico de la clase con `bloquear`, dentro de `transaccion`. Con el mismo momento del reloj, vence perezosamente las reservas y copia exclusivamente inscripciones vigentes. Las transiciones de vencimiento que encola C se escriben después del commit; si la validación revierte, se descartan. La clase y sus estados de asistencia son un snapshot inmutable con auditoría en la misma fila; marcar Ausente no cambia pagos, precios ni inscripciones. La unicidad no anulada se protege con el índice parcial y `ON CONFLICT` parametrizado, sin captura de P2002 dentro de la transacción. Todas las lecturas usan el valor vigente compartido de E y excluyen clases anuladas.
 ### Lecturas y datos de presentación del Sprint 3
 
 Los indicadores componen exclusivamente lecturas de las fachadas públicas de los módulos dueños del dato (Regla N.° 3). Los fixtures de presentación se registran en `prisma/seed/fixtures/index.ts`, usan servicios de dominio para las mutaciones y comprueban una clave estable antes de crear: repetir el seed no duplica ni modifica hechos existentes.

@@ -1,94 +1,55 @@
 "use client";
 
-import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { fetchAutenticado } from "@/lib/fetch-autenticado";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { fetchOLanzar } from "@/lib/fetch-autenticado";
 import { fechaCorta, fechaDeInstante } from "@/lib/turno-detalle";
+import { texto } from "@/lib/textos";
+import type { EstadoAsistencia } from "@/types/historial.types";
 import type { TurnoDetalle } from "@/types/turno.types";
 
-export function TurnoClaseCard({
-  turno,
-  puedeRegistrarClase,
-  onRegistrada,
-}: {
+export function TurnoClaseCard({ turno, puedeRegistrarClase, onRegistrada, asistencias, onProcesandoChange }: {
   turno: TurnoDetalle;
   puedeRegistrarClase: boolean;
   onRegistrada: () => Promise<void>;
+  asistencias: { alumno_id: string; estado: EstadoAsistencia }[];
+  onProcesandoChange?: (procesando: boolean) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [procesando, setProcesando] = useState(false);
-  const [error, setError] = useState("");
-  const yaRegistrada = turno.clase_dictada !== null;
   const elegible = turno.acciones_habilitadas.includes("registrar_clase");
+  const presentes = asistencias.filter(({ estado }) => estado === "PRESENTE").length;
+  const ausentes = asistencias.length - presentes;
   const estadoConfirmado = turno.estado === "DISPONIBLE" || turno.estado === "COMPLETO";
-
   const confirmar = async () => {
     setProcesando(true);
-    setError("");
+    onProcesandoChange?.(true);
     try {
-      const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(turno.id)}/clase-dictada`, {
-        method: "POST",
-        cache: "no-store",
+      await fetchOLanzar(`/api/turnos/${encodeURIComponent(turno.id)}/clase-dictada`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asistencias }), cache: "no-store",
       });
-      const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok) throw new Error(valor?.error?.message ?? "No se pudo registrar la clase dictada");
-      setAbierto(false);
-      toast.success("Clase dictada registrada correctamente");
-      await onRegistrada();
     } catch (fallo) {
-      setError(fallo instanceof Error && fallo.message !== "Failed to fetch"
-        ? fallo.message
-        : "No se pudo registrar la clase dictada. Intentá nuevamente.");
+      throw fallo instanceof Error && fallo.message !== "Failed to fetch" ? fallo : new Error(texto("ui.historial.asistencia.errorRegistro"));
     } finally {
       setProcesando(false);
+      onProcesandoChange?.(false);
     }
   };
-
-  return (
-    <section aria-labelledby="clase-turno-titulo" className="space-y-4 rounded-md border border-border bg-card p-5 text-card-foreground">
-      <h2 id="clase-turno-titulo" className="text-lg font-semibold">Clase</h2>
-      {yaRegistrada ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Clase dictada registrada el {fechaDeInstante(turno.clase_dictada!.registrada_en)}.
-        </p>
-      ) : !estadoConfirmado ? (
-        <p className="text-sm text-muted-foreground">Solo se puede registrar una clase de un turno disponible o completo.</p>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            {elegible
-              ? "La clase ya pasó y todavía no se registró."
-              : "Podés registrarla cuando haya pasado la fecha y hora del turno."}
-          </p>
-          {puedeRegistrarClase && (
-            <AlertDialog.Root open={abierto} onOpenChange={(siguiente) => { setAbierto(siguiente); if (siguiente) setError(""); }}>
-              <AlertDialog.Trigger
-                render={<Button type="button" variant="outline" disabled={!elegible || procesando} />}
-              >
-                {procesando ? "Registrando…" : "Registrar clase dictada"}
-              </AlertDialog.Trigger>
-              <AlertDialog.Portal>
-                <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
-                <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg outline-none">
-                  <AlertDialog.Title className="text-lg font-semibold">¿Registrar clase dictada?</AlertDialog.Title>
-                  <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
-                    {turno.materia} del {fechaCorta(turno.fecha)}, {turno.hora_inicio}–{turno.hora_fin}. Se agregará al historial académico de {turno.alumnos.length} {turno.alumnos.length === 1 ? "alumno inscripto" : "alumnos inscriptos"}.
-                  </AlertDialog.Description>
-                  {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
-                  <div className="mt-5 flex justify-end gap-2">
-                    <Button type="button" variant="outline" disabled={procesando} onClick={() => setAbierto(false)}>Volver</Button>
-                    <Button type="button" disabled={procesando} onClick={() => void confirmar()}>
-                      {procesando ? "Registrando…" : "Registrar clase dictada"}
-                    </Button>
-                  </div>
-                </AlertDialog.Popup>
-              </AlertDialog.Portal>
-            </AlertDialog.Root>
-          )}
-        </>
-      )}
-    </section>
-  );
+  return <div className="space-y-3 border-t border-border pt-3">
+    {turno.clase_dictada ? <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.fechaRegistro", { fecha: fechaDeInstante(turno.clase_dictada.registrada_en) })}</p>
+      : !estadoConfirmado ? <p className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.estadoNoElegible")}</p>
+      : <>
+        <p className="text-sm text-muted-foreground">{texto(elegible ? "ui.historial.asistencia.pendienteRegistro" : "ui.historial.asistencia.esperarFin")}</p>
+        {puedeRegistrarClase && <>
+          <Button type="button" variant="outline" disabled={!elegible || procesando} onClick={() => setAbierto(true)}>{texto(procesando ? "ui.historial.asistencia.registrando" : "ui.historial.asistencia.registrar")}</Button>
+          <ConfirmarAccionDialog abierto={abierto} onCerrar={() => setAbierto(false)}
+            titulo={texto("ui.historial.asistencia.confirmar", { materia: turno.materia, fecha: fechaCorta(turno.fecha) })}
+            detalle={texto("ui.historial.asistencia.confirmacion", { horaInicio: turno.hora_inicio, horaFin: turno.hora_fin, presentes, ausentes })}
+            textoConfirmar={texto("ui.historial.asistencia.registrar")} irreversible onConfirmar={confirmar}
+            onExito={() => { toast.success(texto("ui.historial.asistencia.guardada")); void onRegistrada(); }} />
+        </>}
+      </>}
+  </div>;
 }
