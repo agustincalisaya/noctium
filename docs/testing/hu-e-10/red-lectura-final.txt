@@ -1,0 +1,3 @@
+23. [GET] http://127.0.0.1:3132/api/alumnos/cmv11e2v3000ojmpth73cnlbv/historial?pagina=1&por_pagina=10 => [200] OK
+
+Note: 22 static requests not shown, run with "static" option to see them.

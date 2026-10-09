@@ -1,6 +1,7 @@
-export type TipoRegistroHistorial = "CLASE_DICTADA" | "EXAMEN";
+export type TipoRegistroHistorial = "CLASE_DICTADA" | "EXAMEN" | "INDICACION";
 
 export type ItemHistorialAcademico = {
+  id: string;
   tipo: TipoRegistroHistorial;
   fecha: string;
   materia: { id: string; nombre: string };
@@ -12,7 +13,16 @@ export type ItemHistorialAcademico = {
     asistencia: EstadoAsistencia | null;
     observacion?: ObservacionHistorial;
   }
-  | { tipo: "EXAMEN"; nota: string; observaciones: string | null }
+  | {
+    tipo: "EXAMEN";
+    nota: string;
+    observaciones: string | null;
+    corregido: boolean;
+    anulado: boolean;
+    puede_corregir: boolean;
+    anulacion?: { motivo: string; anulada_en: string; anulada_por: string | null };
+  }
+  | { tipo: "INDICACION"; indicacion: string; registrada_en: string; registrada_por: string | null; clase_dictada_id: string | null }
 );
 
 export type EstadoAsistencia = "PRESENTE" | "AUSENTE";
@@ -36,6 +46,11 @@ export type HistorialAcademicoData = {
   asistencia_por_materia: AsistenciaPorMateria[];
   alumno: { id: string; nombre_completo: string };
   materias_disponibles: { id: string; nombre: string }[];
+  indicaciones_opciones: {
+    materias: { id: string; nombre: string }[];
+    clases: { id: string; materia_id: string; fecha: string }[];
+  };
+  puede_registrar_indicacion?: boolean;
   items: ItemHistorialAcademico[];
   paginacion: { total: number; pagina_actual: number; total_paginas: number; por_pagina: number };
 };

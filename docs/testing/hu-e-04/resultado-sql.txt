@@ -1,0 +1,13 @@
+       indicacion_id       |                               texto                                |      registrada_en_ba      |       registrada_por       |  materia   |        clase_dictada_guardada        | fecha_clase_vigente 
+---------------------------+--------------------------------------------------------------------+----------------------------+----------------------------+------------+--------------------------------------+---------------------
+ cmv12v93n0008jm8gcwi1nq0m | Revisar la resolución de ecuaciones y justificar cada paso.        | 2026-10-09 14:45:46.067-03 | profesor1@noctium.local    | Matemática | 4f85dad9-3631-484c-9af9-5e191cb87ec6 | 2026-05-07
+ cmv12p0s60004jm8gise6ten0 | Resolver ejercicios de fracciones antes de la próxima clase.       | 2026-10-09 14:40:55.35-03  | mesa.entrada@noctium.local | Matemática |                                      | 
+ cmv12o9fx0002jm8ghamph64b | Practicar ecuaciones de segundo grado con signos negativos.        | 2026-10-09 14:40:19.916-03 | mesa.entrada@noctium.local | Matemática | 04284f06-9bcd-4158-81be-d416a0e958eb | 2026-01-06
+ cmv12lokg007jjmzi3hpxrzu3 | Reforzar fracciones y proporciones antes de la próxima evaluación. | 2026-10-09 14:38:19.551-03 | mesa.entrada@noctium.local | Matemática | 04284f06-9bcd-4158-81be-d416a0e958eb | 2026-01-06
+(4 rows)
+
+ vinculos_invalidos 
+--------------------
+                  0
+(1 row)
+

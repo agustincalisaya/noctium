@@ -1,0 +1,7 @@
+idResultadoExamen|alumnoId|nombreMateria|observaciones|fecha_original|nota_original|fecha_vigente|nota_vigente|cantidad_correcciones|motivo_ultima_correccion|corregido_por|motivo_anulacion|anulada_en|anulado_por|estado
+cmv13ma52007jjm9mgon66p6g|cmv11e2v3000ojmpth73cnlbv|Matemática|HU-E-10 fixture: profesor corregible|2026-09-25|8.0|2026-09-25|8.5|1|Corrección de prueba del Profesor tras revisar la calificación.|profesor1@noctium.local||||VIGENTE
+cmv13ma57007ljm9mltljpmko|cmv11e2v3000ojmpth73cnlbv|Matemática|HU-E-10 fixture: mesa corregible|2026-09-26|7.5|2026-09-27|9.0|1|Corrección de prueba: ajuste confirmado por revisión del acta.|mesa.entrada@noctium.local|Anulación de prueba para validar el flujo de revisión y visibilidad.|2026-10-09 15:15:54.059|mesa.entrada@noctium.local|ANULADO
+(2 rows)
+correcciones_que_no_partieron_del_original|originales_con_anulacion|resultados_fixture
+0|1|2
+(1 row)

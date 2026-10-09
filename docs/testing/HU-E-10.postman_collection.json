@@ -1,0 +1,125 @@
+{
+  "info": {
+    "name": "Noctium · HU-E-10 · Corregir o anular resultado de examen",
+    "description": "Contrato de API para HU-E-10. Iniciá sesión con Mesa, Profesor o Gerencia en la misma instalación y reutilizá la cookie de sesión en el cookie jar de Postman. Los identificadores de los dos resultados sembrados se consultan con HU-E-10.sql. examenVencidoId y examenAjenoId se completan con resultados preparados para esos casos. Las escrituras agregan auditoría; usar datos descartables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:3000" },
+    { "key": "alumnoId", "value": "" },
+    { "key": "examenMesaId", "value": "" },
+    { "key": "examenProfesorId", "value": "" },
+    { "key": "examenVencidoId", "value": "" },
+    { "key": "examenAjenoId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Leer historial como Mesa",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/historial"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 y lista de historial', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().data.items).to.be.an('array'); });"] } }]
+    },
+    {
+      "name": "Corregir nota como Mesa (201)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nota\": \"9.0\",\n  \"motivo\": \"Corrección de prueba HU-E-10\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenMesaId}}/correccion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('201 y auditoría de corrección', () => { pm.response.to.have.status(201); const d = pm.response.json().data; pm.expect(d.resultado_id).to.eql(pm.variables.get('examenMesaId')); pm.expect(d.nota).to.eql('9.0'); pm.expect(d.fecha_anterior).to.be.a('string'); pm.expect(d.registrada_por).to.be.a('string'); });"] } }]
+    },
+    {
+      "name": "Rechazar corrección sin cambios (409)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nota\": \"9.0\",\n  \"motivo\": \"No debe duplicar valores\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenMesaId}}/correccion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('409 CORRECCION_SIN_CAMBIOS', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().error.code).to.eql('CORRECCION_SIN_CAMBIOS'); });"] } }]
+    },
+    {
+      "name": "Validación estricta de nota y campos (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nota\": \"8.25\",\n  \"motivo\": \"Nota con demasiados decimales\",\n  \"materia_id\": \"no-se-puede-cambiar\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenMesaId}}/correccion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('400 VALIDACION', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error.code).to.eql('VALIDACION'); });"] } }]
+    },
+    {
+      "name": "Corregir resultado propio como Profesor (201; dentro de 7 días)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"fecha_examen\": \"2026-09-27\",\n  \"motivo\": \"Fecha verificada por el Profesor\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenProfesorId}}/correccion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('201 para resultado propio vigente', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().data.fecha_examen).to.eql('2026-09-27'); });"] } }]
+    },
+    {
+      "name": "Rechazar resultado de otro autor como Profesor (403)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nota\": \"9\",\n  \"motivo\": \"Prueba de alcance\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenAjenoId}}/correccion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('403 SIN_PERMISO', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'); });"] } }]
+    },
+    {
+      "name": "Rechazar resultado propio fuera del plazo como Profesor (403)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nota\": \"9\",\n  \"motivo\": \"Prueba de vencimiento\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenVencidoId}}/correccion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('403 PLAZO_CORRECCION_VENCIDO', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().error.code).to.eql('PLAZO_CORRECCION_VENCIDO'); });"] } }]
+    },
+    {
+      "name": "Gerencia no puede escribir (403)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"motivo\": \"No tiene permiso de escritura\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenMesaId}}/anulacion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('403 de permisos para Gerencia', () => { pm.response.to.have.status(403); });"] } }]
+    },
+    {
+      "name": "Anular como Mesa (201)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"motivo\": \"Resultado cargado por error\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenMesaId}}/anulacion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('201 y auditoría de anulación', () => { pm.response.to.have.status(201); pm.expect(pm.response.json().data.motivo).to.eql('Resultado cargado por error'); pm.expect(pm.response.json().data.registrada_en).to.be.a('string'); });"] } }]
+    },
+    {
+      "name": "Repetir anulación (409)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"motivo\": \"Reintento de prueba\"\n}" },
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/examenes/{{examenMesaId}}/anulacion"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('409 RESULTADO_ANULADO', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().error.code).to.eql('RESULTADO_ANULADO'); });"] } }]
+    },
+    {
+      "name": "Historial tras anulación (Mesa/Gerencia conservan la etiqueta)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/historial"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200 y resultado anulado visible al rol de consulta', () => { pm.response.to.have.status(200); const d = pm.response.json().data.items.find(x => x.id === pm.variables.get('examenMesaId')); pm.expect(d.anulado).to.eql(true); pm.expect(d.puede_corregir).to.eql(false); pm.expect(d.anulacion.motivo).to.eql('Resultado cargado por error'); });"] } }]
+    }
+  ]
+}
