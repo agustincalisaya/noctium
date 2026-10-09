@@ -4,7 +4,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetch } = vi.hoisted(() => ({ fetch: vi.fn() }));
-vi.mock("@/lib/fetch-autenticado", () => ({ fetchAutenticado: fetch }));
 vi.mock("@/components/sesion/link-protegido", async () => {
   const React = await import("react");
   return { LinkProtegido: ({ href, children, prefetch, ...props }: { href: string; children: React.ReactNode; prefetch?: boolean }) => { void prefetch; return React.createElement("a", { href, ...props }, children); } };
@@ -45,10 +44,11 @@ const texto = () => container.textContent ?? "";
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.clearAllMocks();
+  vi.stubGlobal("fetch", fetch);
   fetch.mockResolvedValue(respuesta(detalle()));
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
-afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
+afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 
 describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
   it("migas «Turnos / {materia} · {dd/mm}» con el enlace al listado conservando retorno", async () => {
