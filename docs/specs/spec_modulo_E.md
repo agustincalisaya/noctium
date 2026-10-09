@@ -130,6 +130,14 @@ En la UI, los alumnos de la corrección vienen del snapshot, aunque su inscripci
 
 La corrección actualiza lecturas E/H sin cambios en sus algoritmos. Anular excluye clase y observación, conserva examen e indicación y oculta el vínculo de esta última al leer. La verificación real está documentada en `docs/testing/HU-E-11-evidencia.md`.
 
+### Sincronización HU-E-08 — 09/10/2026
+
+`GET /api/mi-historial` implementado con permiso `historial:leer_propio`, dueño resuelto mediante B desde sesión y DTO allowlist de §2.12.2. La consulta unificada excluye exámenes anulados del modo ALUMNO antes de count/limit; clases anuladas ya se excluyen con el valor vigente de E11. Query de alumno ajeno: 403 antes de validación; otros parámetros desconocidos: 400.
+
+Pantalla `/mi-historial`: línea de tiempo, filtro de materia que reinicia página, diez registros por página y porcentaje de asistencia por materia. Referencia figura 76 aplicada con los campos públicos aprobados: no se entregan descripción/autor del examen, autor de indicación ni aula/horario ausentes del DTO. Acceso desde contenido de `/alumno` por instrucción de conservar sidebar.
+
+Changelog aditivo: HU-E-08 implementada después del merge E11 (#224); las interfaces de otros modos permanecen compatibles.
+
 ## 1. Visión General
 
 > **Revisión 2 (Sprint 3).** Los dos registros inmutables y la vista de solo lectura siguen siendo la base. Se suman: la asistencia por alumno dentro de la clase dictada (2.6), la pestaña «Clases» del alumno (2.7), las observaciones de la clase (2.8), las indicaciones académicas (2.9), la corrección y anulación de exámenes y de clases dictadas (2.10 y 2.11) y «Mi historial» del alumno (2.12). «No hay pantalla nueva de este módulo» queda superado por el mapa del Sprint 3 (P-12, P-26, P-27, M-22 y M-23); E-01 y E-06 siguen siendo acciones. Todo es aditivo: ningún contrato de Sprint 2 cambia, salvo el alcance del Profesor que manda la convención 8 (g) del backlog (T1).

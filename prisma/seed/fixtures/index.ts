@@ -14,6 +14,7 @@
 import { fixtureHuE09 } from "./hu-e-09";
 import { fixtureHuE07 } from "./hu-e-07";
 import { fixtureHuE04 } from "./hu-e-04";
+import { fixtureHuE08 } from "./hu-e-08";
 import { fixtureHuE11 } from "./hu-e-11";
 import { fixtureHuE10 } from "./hu-e-10";
 import { fixtureHuH06 } from "./hu-h-06";
@@ -26,7 +27,7 @@ export type ContextoFixtures = { prisma: PrismaClient };
 type Fixture = { nombre: string; correr: (contexto: ContextoFixtures) => Promise<void> };
 
 /** Fixtures en orden de ejecución: una línea por HU. */
-const FIXTURES: Fixture[] = [{ nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "HU-E-04", correr: fixtureHuE04 }, { nombre: "HU-E-10", correr: fixtureHuE10 }, { nombre: "HU-E-11", correr: fixtureHuE11 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }];
+const FIXTURES: Fixture[] = [{ nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "HU-E-04", correr: fixtureHuE04 }, { nombre: "HU-E-10", correr: fixtureHuE10 }, { nombre: "HU-E-11", correr: fixtureHuE11 }, { nombre: "HU-E-08", correr: fixtureHuE08 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }];
 
 export async function correrFixtures(contexto: ContextoFixtures): Promise<void> {
   for (const fixture of FIXTURES) {

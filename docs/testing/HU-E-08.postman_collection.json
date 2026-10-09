@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "HU-E-08 — Mi historial",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Usar cookie de sesión local ALUMNO. Repetir propio con Mesa/Gerente/Profesor (403), anónimo (401), alumno sin registros (200 vacío). Sin credenciales guardadas."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3012"
+    },
+    {
+      "key": "materia_id",
+      "value": ""
+    },
+    {
+      "key": "otro_alumno_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Propio 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Filtro y segunda página 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial?materia_id={{materia_id}}&pagina=2"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "ID ajeno 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial?alumno_id=otro"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alias ajeno 403 antes de validar",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial?alumnoId=otro&pagina=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desconocido 400",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial?otro=x"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Límite 400",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial?por_pagina=11"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Página inválida 400",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/mi-historial?pagina=0"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Otro historial por ID: 403 con sesión ALUMNO",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/alumnos/{{otro_alumno_id}}/historial",
+        "header": []
+      }
+    }
+  ]
+}
