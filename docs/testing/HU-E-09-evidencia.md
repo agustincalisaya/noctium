@@ -47,3 +47,13 @@ Decisiones de compatibilidad: GET sin clase vigente mantiene 404 CLASE_NO_REGIST
 Último build integrado de producción y revisión final Playwright: aprobados.
 
 PR propio: https://github.com/agustincalisaya/noctium/pull/217. Base develop, sin mezclar commits de otras HU.
+
+## Actualización de develop durante la entrega
+
+Se integró `b7c3b42` (HU-C-23 y componente HU-C-25) en cada rama por separado, preservando únicamente el diff de la historia frente a develop. Claves de UI migradas a `ui.historial.asistencia.*` / `ui.indicadores.*`, sin modificar claves legacy de dominio. Comprobador de referencias TypeScript aprobado. Suite completa sobre la integración actualizada: **1913 aprobados**, 177 PostgreSQL omitidos en la corrida unitaria; la verificación PostgreSQL de177 casos anterior sigue aplicando, sin cambios adicionales en los servicios ni persistencia. Lint actualizado: cero errores y el warning preexistente de Sidebar.
+
+E09 adopta `ConfirmarAccionDialog` y `fetchOLanzar` de C25. El test de pantalla usa fetch global simulado para ejercitar el adaptador real; 31 pruebas de detalle aprobadas. Se preparó una clase adicional de revisión del08/01/2026 mediante los mismos servicios y reloj contextual, en la base local aislada, para repetir el flujo con la confirmación compartida.
+
+Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetido sobre ese build, sin errores de página. Los tres PR quedaron sin conflictos frente a develop al verificar GitHub.
+
+Flujo final08/01: selección masiva Ausente/Presente, cambio individual, confirmación compartida con foco en Volver, registro y GET2 presentes/1 ausente; escritorio/móvil y registro legacy comprobados. Capturas finales de selección/confirmación/registro corresponden a esta segunda clase de revisión.
