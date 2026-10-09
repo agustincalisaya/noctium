@@ -76,7 +76,7 @@ Checks: npm test, test:pg, lint, textos, next typegen + tsc y build; CI último 
 - [x] Nueve estados, filtros y porcentajes verificados.
 - [x] Migración aditiva, seed y acceso profesor comprobados.
 - [x] SQL/API/Playwright y checks documentados con resultados reales; suites globales finales diferidas por instrucción del usuario.
-- [ ] PR independiente a develop, Closes #171, sin merge automático.
+- [x] PR independiente a develop, Closes #171, sin merge automático: https://github.com/agustincalisaya/noctium/pull/226.
 
 Organización documental: task ubicada en `Sprint 3/Modulo E` conforme al PR #223 (solo movimientos, integrado en develop).
 

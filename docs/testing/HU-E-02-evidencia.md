@@ -48,4 +48,4 @@ Colección Postman preparada; **no ejecutada en Postman**. Cookies, tokens y cre
 
 ## Brechas y límites aprobados
 
-No se crean acciones Desactivar/Pagos ficticias: pertenecen a otras HU y no estaban integradas. Sidebar conserva enlace Alumnos del Profesor por instrucción expresa de no editarlo; servidor deniega ese acceso. No se declaran C14/C24/B07 completadas por utilizar sus estados vía servicios públicos. H03/H10 fuera del encargo. CI y enlace de PR se agregan al publicar.
+No se crean acciones Desactivar/Pagos ficticias: pertenecen a otras HU y no estaban integradas. Sidebar conserva enlace Alumnos del Profesor por instrucción expresa de no editarlo; servidor deniega ese acceso. No se declaran C14/C24/B07 completadas por utilizar sus estados vía servicios públicos. H03/H10 fuera del encargo. PR https://github.com/agustincalisaya/noctium/pull/226 hacia develop, Closes #171. CI remoto debe revisarse sobre el último SHA; no se deduce su resultado de los checks locales.
