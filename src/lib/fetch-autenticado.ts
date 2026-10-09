@@ -22,3 +22,20 @@ export async function fetchAutenticado(
   }
   return response;
 }
+
+const MENSAJE_ERROR_GENERICO = "No se pudo completar la acción. Intentá nuevamente.";
+
+/**
+ * Para usar con `ConfirmarAccionDialog.onConfirmar` (HU-C-25): hace el fetch
+ * con `fetchAutenticado` y, si la respuesta no es 2xx, lanza un `Error` con
+ * `result.error.message` (el texto que ya resolvió `ErrorDeDominio` en el
+ * servidor) o un mensaje genérico si el cuerpo no se puede parsear.
+ */
+export async function fetchOLanzar(input: RequestInfo | URL, init?: RequestInit): Promise<unknown> {
+  const response = await fetchAutenticado(input, init);
+  const result = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(result?.error?.message ?? MENSAJE_ERROR_GENERICO);
+  }
+  return result?.data ?? result;
+}

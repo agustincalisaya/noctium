@@ -1,0 +1,20 @@
+name: Textos C-23
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  textos:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://prisma:prisma@localhost:5432/noctium_generate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsx scripts/verificar-claves-textos.ts
+      - run: npm test -- src/lib/textos.test.ts src/lib/claves-textos.test.ts src/components/shared/pagination.test.tsx src/server/shared/errores-dominio.test.ts
