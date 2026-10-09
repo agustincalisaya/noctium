@@ -54,3 +54,7 @@ PR propio: https://github.com/agustincalisaya/noctium/pull/219. Draft hasta inte
 Se integró `b7c3b42` (HU-C-23 y componente HU-C-25) en cada rama por separado, preservando únicamente el diff de la historia frente a develop. Claves de UI migradas a `ui.historial.asistencia.*` / `ui.indicadores.*`, sin modificar claves legacy de dominio. Comprobador de referencias TypeScript aprobado. Suite completa sobre la integración actualizada: **1913 aprobados**, 177 PostgreSQL omitidos en la corrida unitaria; la verificación PostgreSQL de177 casos anterior sigue aplicando, sin cambios adicionales en los servicios ni persistencia. Lint actualizado: cero errores y el warning preexistente de Sidebar.
 
 Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetido sobre ese build, sin errores de página. Los tres PR quedaron sin conflictos frente a develop al verificar GitHub.
+
+## CI remoto observado
+
+Sobre el commit de código `df83eb6`: [Textos C23](https://github.com/agustincalisaya/noctium/actions/runs/37930869788) aprobado y CodeQL aprobado. [Build independiente](https://github.com/agustincalisaya/noctium/actions/runs/37930869743) falla por los módulos de E09/H06 todavía ausentes en develop (fixture `hu-e-09`, `grafico-indicador`, `use-indicador` y tipos derivados). Estado esperado del PR borrador dependiente; no se declara CI independiente aprobado. La integración local completa tiene1913 pruebas y build aprobado.
