@@ -1,7 +1,7 @@
 # TASK: HU-E-11 — Corregir o anular registro de clase dictada
 
 Sprint 3 · Iván · 2 SP · Issue #175 · Rama `feat/hu-e-11-corregir-clase`.
-Estado: relevamiento preparado el 09/10/2026, aprobado explícitamente por el usuario (“apruebo, continua”). Implementación y validación local completadas; publicación y CI pendientes.
+Estado: relevamiento preparado el 09/10/2026, aprobado explícitamente por el usuario (“apruebo, continua”). Implementación y validación local completadas; PR #224 publicado, CI en curso.
 
 ## 0. Relevamiento previo a implementación
 
@@ -22,7 +22,7 @@ Base comprobada: `origin/develop` en `593580522ebcb96490595033ba6ce61e404d030d`.
 - `src/lib/textos.ts`: `ui.historial.correccionClase.*`.
 - `prisma/seed/fixtures/index.ts`: registrar fixture propio.
 - `docs/specs/spec_modulo_E.md`: nota aditiva de sincronización y changelog, con diferencias visuales/contractuales.
-- `docs/tasks/Sprint 3/HU-E-11.md`: estado, aprobación y checklist real.
+- `docs/tasks/Sprint 3/Modulo E/HU-E-11.md`: estado, aprobación y checklist real.
 
 ### Archivos nuevos
 
@@ -77,10 +77,12 @@ Checks previstos: npm test, npm run test:pg, npm run lint, comprobador de claves
 - [x] Código y pruebas de todos los criterios.
 - [x] Fixtures idempotentes, SQL/API y revisión visual.
 - [ ] Checks locales y remotos documentados honestamente.
-- [ ] PR independiente a develop, Closes #175, sin merge automático.
+- [x] PR independiente #224 a develop, Closes #175, sin merge automático.
 
 E08 se inicia sobre E11 integrado en develop; requiere merge del usuario antes de publicar su PR independiente.
 
 ## 8. Ajustes del inventario durante la implementación
 
 Los nuevos casos PostgreSQL se agruparon en `correccion-clase.pg.test.ts`, sin modificar las pruebas E09 existentes; se ejecutaron conjuntamente. El diálogo tiene sus pruebas UI propias y las pruebas existentes de turno se ejecutaron sin modificar. Se incorporaron el token semántico y su documentación aprobados en `globals.css` y DESIGN. Evidencia detallada: `docs/testing/HU-E-11-evidencia.md`.
+
+Organización documental: task ubicada en `Sprint 3/Modulo E` conforme al PR #223 (solo movimientos, pendiente de integración al comprobarlo).
