@@ -9,3 +9,5 @@ export type OcupacionMes = {
   mes: string;
   ocupacion_promedio: number;
 };
+
+export type ResumenOcupacion = { ocupacion_promedio: number; turnos: number };
