@@ -1,0 +1,209 @@
+{
+  "info": {
+    "name": "HU-E-02 — Clases del alumno",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Sesión Mesa/Gerente 200; Profesor/Alumno 403; anónimo 401. Repetir con alumno inactivo y sin clases 200. Cookies locales sin tokens guardados. Colección preparada; consultar evidencia de HTTP real."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3013"
+    },
+    {
+      "key": "alumno_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Todas las inscripciones",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Página 2",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?pagina=2"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Asistió incluye legacy",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?resultado=ASISTIO"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Filtros AND inclusivos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?desde=2026-09-21&hasta=2026-09-23&resultado=ASISTIO"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin coincidencias",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?desde=2027-01-01"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?desde=2026-10-10&hasta=2026-10-09"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fecha inválida",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?desde=2026-02-30"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resultado inválido",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?resultado=otro"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Límite inválido",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/clases?por_pagina=11"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno inexistente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/alumnos/inexistente/clases"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado 404\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
