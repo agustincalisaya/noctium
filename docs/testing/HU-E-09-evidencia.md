@@ -57,3 +57,7 @@ E09 adopta `ConfirmarAccionDialog` y `fetchOLanzar` de C25. El test de pantalla 
 Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetido sobre ese build, sin errores de página. Los tres PR quedaron sin conflictos frente a develop al verificar GitHub.
 
 Flujo final08/01: selección masiva Ausente/Presente, cambio individual, confirmación compartida con foco en Volver, registro y GET2 presentes/1 ausente; escritorio/móvil y registro legacy comprobados. Capturas finales de selección/confirmación/registro corresponden a esta segunda clase de revisión.
+
+## CI remoto observado
+
+Sobre el commit de código `d17fbcc`: [Textos C23](https://github.com/agustincalisaya/noctium/actions/runs/37930866237) aprobado y CodeQL aprobado. [CI build](https://github.com/agustincalisaya/noctium/actions/runs/37930866207) aprobado. Los commits posteriores de evidencia sólo modifican documentación/capturas.
