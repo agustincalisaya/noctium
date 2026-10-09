@@ -15,8 +15,9 @@ import {
   contarAsistenciasPorMes,
   contarClasesDictadasSinControl,
   listarAlumnosConPresentismoBajo,
-} from "@/server/historial/asistencia.publico";
-import { profesorPuedeRegistrarIndicacion, profesorPuedeVerHistorial } from "@/server/historial/alcance-profesor";
+  profesorPuedeRegistrarIndicacion,
+} from "@/server/historial/historial.publico";
+import { profesorPuedeVerHistorial } from "@/server/historial/historial.service";
 
 // PostgreSQL real (`npm run test:pg -- <ruta>`): lecturas de asistencia del
 // módulo E con el valor vigente (spec_modulo_E.md §2.13 y §3.6) y el alcance

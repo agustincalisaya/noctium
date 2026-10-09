@@ -2,6 +2,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { cancelarTurno } from "@/server/turnos/turno.cancelacion.service";
+import { abrirCajaDePrueba, crearOperacionDePrueba } from "@/server/testing/fabricas";
+
+// Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
+const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
 
 // Solo contra una base aislada llamada noctium_test, con las migraciones aplicadas.
 const url = process.env.DATABASE_URL;
@@ -24,9 +28,16 @@ async function crearTurno(sufijo: string, dia: string, inicio: string, estadoTur
   // Se inserta PENDIENTE y se confirma después: el trigger reserva al pasar a DISPONIBLE (como §2.2).
   await db!.turno.create({ data: { idTurno, fechaTurno: fecha(dia), horaInicioTurno: hora(inicio), duracionMinutosTurno: 60,
     materiaId: materia, profesorId: profesor, aulaId: conAula ? aula : null, cupoMaximoTurno: conAula ? 5 : null, estadoTurno: "PENDIENTE" } });
-  for (const alumnoId of inscriptos) await db!.turnoAlumno.create({ data: { turnoId: idTurno, alumnoId } });
+  for (const alumnoId of inscriptos) await db!.turnoAlumno.create({ data: { turnoId: idTurno, alumnoId, ...SIN_PLAZO } });
   if (estadoTurno === "DISPONIBLE") await db!.turno.update({ where: { idTurno }, data: { estadoTurno } });
   return idTurno;
+}
+
+/** Un pago de Sprint 2 con las filas que exige desde el PR 0 (2.3): caja abierta, operación e inscripción vigente del par. */
+async function pagoDePrueba(turnoId: string, alumnoId: string, monto: string, fechaPago: Date) {
+  const caja = await abrirCajaDePrueba(db!);
+  const inscripcion = await db!.turnoAlumno.findFirstOrThrow({ where: { turnoId, alumnoId, vigencia: "VIGENTE" } });
+  return crearOperacionDePrueba(db!, { cajaId: caja.idCaja, inscripcionIds: [inscripcion.idInscripcion], formaPagoId: formaPago, monto, fechaPago });
 }
 
 const reservas = (turnoId: string) => db!.$queryRawUnsafe<{ tipo: string; recurso: string }[]>(
@@ -47,6 +58,7 @@ describe.skipIf(!habilitada)("HU-C-05 cancelar/descartar en PostgreSQL aislado",
     // Limpieza de los fixtures propios de esta base aislada.
     await db.eventoTurno.deleteMany({ where: { turnoId: { in: turnos } } });
     await db.pago.deleteMany({ where: { turnoId: { in: turnos } } });
+    await db.operacionPago.deleteMany({ where: { formaPagoId: formaPago } });
     await db.turnoAlumno.deleteMany({ where: { turnoId: { in: turnos } } });
     await db.turno.deleteMany({ where: { idTurno: { in: turnos } } });
     await db.formaPago.deleteMany({ where: { idFormaPago: formaPago } });
@@ -60,7 +72,7 @@ describe.skipIf(!habilitada)("HU-C-05 cancelar/descartar en PostgreSQL aislado",
 
   it("AC3/AC5: cancela un DISPONIBLE, el trigger libera aula/profesor/alumnos y se conservan inscripciones y pagos", async () => {
     const t1 = await crearTurno("t1", "2030-10-07", "10:00", "DISPONIBLE", alumnos);
-    await db!.pago.create({ data: { turnoId: t1, alumnoId: alumnos[0], montoPago: "12000.00", formaPagoId: formaPago, fechaPago: fecha("2030-09-30") } });
+    await pagoDePrueba(t1, alumnos[0], "12000.00", fecha("2030-09-30"));
     expect(await reservas(t1)).toHaveLength(4); // aula + profesor + 2 alumnos
     const antes = await db!.turno.findUniqueOrThrow({ where: { idTurno: t1 } });
 

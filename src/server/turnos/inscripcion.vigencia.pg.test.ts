@@ -13,6 +13,7 @@ import { transaccion } from "@/server/shared/transaccion";
 import { bloquear } from "@/server/shared/bloquear";
 import {
   esVigenteEn,
+  filtroVigenteEn,
   inscripcionesVigentes,
   ocupacion,
   recalcularEstadoTurno,
@@ -70,6 +71,12 @@ describe.skipIf(!basePgHabilitada)("vigente a un momento dado con PostgreSQL rea
       WHERE ta."turnoId" IN (${disponible}, ${cancelada}) AND ${sqlVigenteEn("ta", momento)}
     `)).map((f) => f.id).sort();
     expect(enSql).toEqual(enJs);
+    // El filtro de Prisma para las lecturas por la relación Turno.alumnos (etapa 3, 2.0) da lo mismo.
+    const enPrisma = (await db.turnoAlumno.findMany({
+      where: { turnoId: { in: [disponible, cancelada] }, ...filtroVigenteEn(momento) },
+      select: { idInscripcion: true },
+    })).map((f) => f.idInscripcion).sort();
+    expect(enPrisma).toEqual(enJs);
   });
 
   it("la reserva cuenta antes de venceEl y no en venceEl ni después; en la clase cancelada no vence", async () => {

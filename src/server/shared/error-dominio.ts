@@ -1,5 +1,5 @@
 import { texto } from "@/lib/textos";
-import { ERRORES_DE_DOMINIO, type CodigoErrorDominio } from "@/server/shared/errores-dominio";
+import { CODIGOS_SPRINTS_1_Y_2, ERRORES_DE_DOMINIO, type CodigoErrorDominio } from "@/server/shared/errores-dominio";
 import { ServiceError } from "@/server/shared/service-error";
 
 /**
@@ -31,4 +31,15 @@ export class ErrorDeDominio extends ServiceError {
 
 export function esErrorDeDominio(error: unknown, codigo?: CodigoErrorDominio): error is ErrorDeDominio {
   return error instanceof ErrorDeDominio && (codigo === undefined || error.codigo === codigo);
+}
+
+/**
+ * HTTP con el que un Route Handler existente responde un error: el del
+ * catálogo si es un `ErrorDeDominio` con un `code` nuevo del PR 0 (por
+ * ejemplo MATERIA_SIN_TARIFA 422 o TRANSACCION_OCUPADA 409); `null` para
+ * los `code` que ya existían en los Sprints 1 y 2 (conservan su respuesta
+ * de hoy, 1.1) y para cualquier otro error.
+ */
+export function statusDeErrorNuevo(error: unknown): number | null {
+  return error instanceof ErrorDeDominio && !CODIGOS_SPRINTS_1_Y_2.has(error.code) ? error.status : null;
 }

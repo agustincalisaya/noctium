@@ -13,7 +13,7 @@ import {
   registrarMovimiento,
 } from "@/server/pagos/caja.service";
 import { registrarOperacion } from "@/server/pagos/operacion.service";
-import { usuarioRegistroOperaciones } from "@/server/pagos/pago.lecturas.publico";
+import { usuarioRegistroOperaciones } from "@/server/pagos/pago.publico";
 import { crearInscripcion } from "@/server/turnos/inscripcion.publico";
 
 // PostgreSQL real (`npm run test:pg -- <ruta>`): caja de HU-I-12 (PR-0.md §2.5 y §2.13).

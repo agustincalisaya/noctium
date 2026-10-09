@@ -11,6 +11,8 @@ import {
   validarIntervaloHorario,
 } from "@/lib/horario-atencion";
 import { ServiceError } from "@/server/shared/service-error";
+import { esErrorDeDominio } from "@/server/shared/error-dominio";
+import { verificarEmailNoAsociadoAOtraCuenta as verificarEmailCuenta } from "@/server/usuarios/cuenta.service";
 import { MENSAJE_CONTACTO_REQUERIDO } from "@/server/shared/contacto.schema";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
@@ -181,15 +183,15 @@ async function verificarEmailNoAsociadoAOtraCuenta(
   email: string,
   usuarioIdPropio: string | null,
 ): Promise<void> {
-  const otraCuenta = await tx.usuario.findFirst({
-    where: {
-      emailUsuario: { equals: email, mode: "insensitive" },
-      ...(usuarioIdPropio ? { NOT: { idUsuario: usuarioIdPropio } } : {}),
-    },
-    select: { idUsuario: true },
-  });
-  if (otraCuenta) {
-    throw new ServiceError("EMAIL_YA_ASOCIADO", "El email pertenece a otra cuenta");
+  // La verificación es la del módulo A (PR-0.md §2.13); la respuesta de esta
+  // ficha conserva su texto de hoy (1.1).
+  try {
+    await verificarEmailCuenta(email, { excluirUsuarioId: usuarioIdPropio }, tx);
+  } catch (error) {
+    if (esErrorDeDominio(error, "errores.cuenta.emailYaAsociado")) {
+      throw new ServiceError("EMAIL_YA_ASOCIADO", "El email pertenece a otra cuenta");
+    }
+    throw error;
   }
 }
 

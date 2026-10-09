@@ -5,7 +5,6 @@ import { ServiceError } from "@/server/shared/service-error";
 import { listarMateriasActivas, verificarMateriaActiva } from "@/server/materias/materia.service";
 import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria, estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.publico";
 import { intervalosSeSuperponen } from "@/lib/horario-atencion";
-import { verificarAlumnoActivo } from "@/server/alumnos/alumno.service";
 import { listarIdsAlumnosActivos, obtenerAlumnosBasicos, obtenerAlumnoDeUsuario, verificarAlumnoActivo as verificarAlumnoActivoPublico } from "@/server/alumnos/alumno.publico";
 import { obtenerClaseDictadaDeTurno } from "@/server/historial/historial.publico";
 import { verificarAulaActiva } from "@/server/aulas/aula.publico";
@@ -16,6 +15,18 @@ import { alumnosConTurnoSuperpuesto, aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS,
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
 import { construirFiltroBusquedaTurno } from "./turno.busqueda";
 import type { ActualizarPrioridadInput, AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, MisTurnosQuery, OpcionesInscripcionQuery } from "./turno.schema";
+import { bloquear } from "@/server/shared/bloquear";
+import { actorUsuario } from "@/server/shared/historial";
+import { ahora as relojAhora } from "@/server/shared/reloj";
+import { transaccion } from "@/server/shared/transaccion";
+import {
+  clasesConReservasVencidasDelAlumno,
+  crearInscripcion,
+  finalizarInscripcion,
+  inscripcionVigenteDelPar,
+  marcarVencidas,
+} from "./inscripcion.service";
+import { estadoSegunOcupacion, filtroVigenteEn, inscripcionesVigentes } from "./inscripcion.vigencia";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -23,6 +34,15 @@ const turnoInclude = {
   aula: { select: { idAula: true, nombreAula: true, capacidadAula: true } },
   alumnos: { include: { alumno: { select: { idAlumno: true, apellidoAlumno: true, nombreAlumno: true, dniAlumno: true } } } },
 } as const;
+
+/**
+ * `turnoInclude` con solo las inscripciones vigentes a `momento` (PR-0.md
+ * §2.0 y §2.2): una inscripción quitada, cancelada o una reserva vencida no
+ * figura entre los alumnos del turno.
+ */
+function incluirTurno(momento: Date) {
+  return { ...turnoInclude, alumnos: { ...turnoInclude.alumnos, where: filtroVigenteEn(momento) } };
+}
 
 function fecha(date: Date) { return date.toISOString().slice(0, 10); }
 function hora(date: Date) { return date.toISOString().slice(11, 16); }
@@ -66,7 +86,8 @@ export async function listarTurnosPropios(
   if (!alumno) throw new ServiceError("SIN_PERMISO", "Tu cuenta no tiene una ficha de alumno vinculada");
 
   const { fecha: fechaCorte, hora: horaCorte } = corteLocal(ahora);
-  const propietario = { alumnos: { some: { alumnoId: alumno.id } } };
+  const vigente = filtroVigenteEn(relojAhora());
+  const propietario = { alumnos: { some: { alumnoId: alumno.id, ...vigente } } };
   const filtroProximos = { ...propietario, ...filtroVistaPropia("proximos", fechaCorte, horaCorte) };
   const filtroAnteriores = { ...propietario, ...filtroVistaPropia("anteriores", fechaCorte, horaCorte) };
   const filtroSolicitado = query.vista === "proximos" ? filtroProximos : filtroAnteriores;
@@ -81,9 +102,11 @@ export async function listarTurnosPropios(
         horaInicioTurno: true,
         duracionMinutosTurno: true,
         estadoTurno: true,
+        cupoMaximoTurno: true,
         materia: { select: { nombreMateria: true } },
         profesor: { select: { apellidoProfesor: true, nombreProfesor: true } },
         aula: { select: { nombreAula: true } },
+        _count: { select: { alumnos: { where: vigente } } },
       },
       orderBy: query.vista === "proximos"
         ? [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { idTurno: "asc" }]
@@ -103,7 +126,7 @@ export async function listarTurnosPropios(
       materia: turno.materia.nombreMateria,
       profesor: turno.profesor ? nombre(turno.profesor.apellidoProfesor, turno.profesor.nombreProfesor) : "Sin asignar",
       aula: turno.aula?.nombreAula ?? "Sin asignar",
-      estado: turno.estadoTurno,
+      estado: estadoSegunOcupacion(turno.estadoTurno, turno._count.alumnos, turno.cupoMaximoTurno),
       clase_dictada: claseDictada !== null,
     };
   }));
@@ -208,13 +231,7 @@ async function alumnoConTurnoSuperpuesto(
   alumnoIds: string[],
 ) {
   const turno = { idTurno: turnoId, fechaTurno, horaInicioTurno: new Date(Date.UTC(1970, 0, 1, 0, intervalo.inicio)), duracionMinutosTurno: intervalo.fin - intervalo.inicio };
-  return (await alumnosConTurnoSuperpuesto(tx, turno, alumnoIds))[0] ?? null;
-}
-
-// `detalles.alumno_id` identifica el recurso no disponible (HU-C-04 c8) sin
-// que el servicio consulte datos del Módulo B (Regla N.° 3).
-function alumnoInactivo(alumnoId: string) {
-  return new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno no existe o no está activo", { alumno_id: alumnoId });
+  return (await alumnosConTurnoSuperpuesto(tx, turno, alumnoIds, relojAhora()))[0] ?? null;
 }
 
 function alumnoOcupado(alumnoId: string) {
@@ -233,11 +250,12 @@ export async function listarOpcionesAlumnoTurno(turnoId: string) {
 
   const ids = await listarIdsAlumnosActivos();
   if (ids.length === 0) return { turno_id: turnoId, alumnos: [] };
+  const vigente = filtroVigenteEn(relojAhora());
   const [basicos, otros] = await Promise.all([
     obtenerAlumnosBasicos(ids),
     prisma.turno.findMany({
-      where: { idTurno: { not: turnoId }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: ids } } } },
-      select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: ids } }, select: { alumnoId: true } } },
+      where: { idTurno: { not: turnoId }, fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: ids }, ...vigente } } },
+      select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: ids }, ...vigente }, select: { alumnoId: true } } },
     }),
   ]);
   const intervalo = intervaloTurno(turno);
@@ -256,7 +274,12 @@ export async function listarOpcionesAlumnoTurno(turnoId: string) {
 export async function asignarParticipantesTurno(turnoId: string, input: AsignarParticipantesTurnoInput, usuarioId: string) {
   let resultado;
   try {
-    resultado = await prisma.$transaction(async (tx) => {
+    resultado = await transaccion(async (tx) => {
+      // Un solo bloqueo en orden canónico (PR-0.md §2.16): los alumnos, la
+      // clase y las clases donde tienen reservas vencidas sin marcar.
+      const momento = relojAhora();
+      const conVencidas = (await Promise.all(input.alumno_ids.map((alumnoId) => clasesConReservasVencidasDelAlumno(tx, alumnoId, momento)))).flat();
+      await bloquear(tx, { recursos: { alumnos: input.alumno_ids }, clases: [turnoId, ...conVencidas] });
       const turno = await tx.turno.findUnique({
         where: { idTurno: turnoId },
         select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true },
@@ -310,20 +333,31 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
         data: { ...(profesorId !== turno.profesorId ? { profesorId } : {}), modificadoPorUsuarioId: usuarioId },
       });
       if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
-      await tx.turnoAlumno.deleteMany({ where: { turnoId } });
-      await tx.turnoAlumno.createMany({ data: input.alumno_ids.map((alumnoId) => ({ turnoId, alumnoId })) });
 
-      // Después del createMany: el trigger de estadoTurno proyecta profesor,
-      // aula y los alumnos ya vinculados en reservas_turno (§3.4); una
-      // exclusión GiST revierte toda la transacción.
-      const estado = input.alumno_ids.length >= cupo ? "COMPLETO" as const : "DISPONIBLE" as const;
-      const confirmado = await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "PENDIENTE" }, data: { estadoTurno: estado } });
+      // Confirmación: el trigger de estadoTurno proyecta profesor y aula en
+      // reservas_turno (§3.4); una exclusión GiST revierte toda la transacción.
+      const confirmado = await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "PENDIENTE" }, data: { estadoTurno: "DISPONIBLE" } });
       if (confirmado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+
+      // Reemplazo del conjunto (PR-0.md §2.0): la inscripción no se borra. Las
+      // vigentes que no siguen pasan a QUITADA_CENTRO y los alumnos nuevos se
+      // inscriben con crearInscripcion (sin plazo de pago, 2.15), que proyecta
+      // su reserva y pasa la clase a COMPLETO al llenar el cupo.
+      const actor = actorUsuario(usuarioId);
+      const elegidos = new Set(input.alumno_ids);
+      for (const vigente of await inscripcionesVigentes(tx, turnoId, momento)) {
+        if (elegidos.has(vigente.alumnoId)) elegidos.delete(vigente.alumnoId);
+        else await finalizarInscripcion(tx, { inscripcionId: vigente.id, vigencia: "QUITADA_CENTRO", actor, fecha: momento });
+      }
+      for (const alumnoId of input.alumno_ids.filter((id) => elegidos.has(id))) {
+        await crearInscripcion(tx, { turnoId, alumnoId, origen: "CENTRO", conReserva: false, actor, bloqueosTomados: true, momento });
+      }
+      const estado = input.alumno_ids.length >= cupo ? "COMPLETO" as const : "DISPONIBLE" as const;
       return {
         respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: profesorId, cupo_maximo: cupo, estado },
         evento: { fecha: fecha(turno.fechaTurno), hora_inicio: horaDeMinutos(intervalo.inicio), hora_fin: horaDeMinutos(intervalo.fin), aula_id: aulaId, materia_id: turno.materiaId },
       };
-    }, { timeout: 15_000 });
+    }, { tiempos: { timeoutMs: 15_000 } });
   } catch (error) {
     if (esConflictoDeReserva(error)) throw errorDeReserva(error);
     throw error;
@@ -364,30 +398,25 @@ async function bloquearTurno(tx: Prisma.TransactionClient, turnoId: string) {
   return { ...fila, cupoMaximoTurno, ...horario };
 }
 
-/** Núcleo común para HU-C-04 §2.5 y HU-C-12 §2.14.2; el caller emite eventos después del commit. */
+/**
+ * Núcleo común para HU-C-04 §2.5 y HU-C-12 §2.14.2; el caller emite eventos
+ * después del commit. Inscribe con `crearInscripcion` (PR-0.md §2.13 y
+ * §2.15: sin plazo de pago, queda PAGO_SIN_REGISTRAR), que bloquea al alumno
+ * y la clase, vence perezosamente las reservas, revalida estado, cupo,
+ * repetido y superposición con los mismos códigos y textos de hoy, y
+ * recalcula el estado guardado de la clase. `tx` lo abre `transaccion()`.
+ */
 export async function inscribirAlumnoEnTurno(
   turnoId: string,
   alumnoId: string,
   { origen, usuarioId, alumnoActivo }: { origen: OrigenInscripcion; usuarioId: string; alumnoActivo?: boolean },
   tx: Prisma.TransactionClient,
 ) {
-  const turno = await bloquearTurno(tx, turnoId);
-  if (turno.estadoTurno === "COMPLETO") throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
-  if (alumnoActivo === false) throw new ServiceError("ALUMNO_INACTIVO", "La ficha del alumno está inactiva");
-  if (alumnoActivo === undefined && !(await verificarAlumnoActivo(alumnoId, tx))) throw alumnoInactivo(alumnoId);
-  if (await tx.turnoAlumno.findUnique({ where: { turnoId_alumnoId: { turnoId, alumnoId } } })) {
-    throw new ServiceError("ALUMNO_YA_ASIGNADO", origen === "AUTOSERVICIO" ? "Ya estás inscripto en este turno" : "El mismo alumno no puede agregarse dos veces al mismo turno", { alumno_id: alumnoId });
-  }
-  if (await alumnoConTurnoSuperpuesto(tx, turnoId, turno.fechaTurno, intervaloTurno(turno), [alumnoId])) throw alumnoOcupado(alumnoId);
-
-  // Con la fila bloqueada, el conteo no puede quedar desactualizado.
-  const inscriptos = await tx.turnoAlumno.count({ where: { turnoId } });
-  if (inscriptos >= turno.cupoMaximoTurno) throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
-  await tx.turnoAlumno.create({ data: { turnoId, alumnoId } });
-  const completado = inscriptos + 1 >= turno.cupoMaximoTurno
-    && (await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "DISPONIBLE" }, data: { estadoTurno: "COMPLETO", modificadoPorUsuarioId: usuarioId } })).count > 0;
-  const alumnoIds = completado ? (await tx.turnoAlumno.findMany({ where: { turnoId }, select: { alumnoId: true } })).map(({ alumnoId }) => alumnoId) : [];
-  return { completado, alumnoIds, cupo: turno.cupoMaximoTurno, inscriptos: inscriptos + 1 };
+  const creada = await crearInscripcion(tx, {
+    turnoId, alumnoId, origen: origen === "AUTOSERVICIO" ? "ALUMNO" : "CENTRO", conReserva: false,
+    actor: actorUsuario(usuarioId), alumnoActivo,
+  });
+  return { completado: creada.completado, alumnoIds: creada.completado ? creada.alumnoIds : [], cupo: creada.cupo, inscriptos: creada.inscriptos };
 }
 
 async function emitirEventosInscripcion(turnoId: string, alumnoId: string, usuarioId: string, origen: OrigenInscripcion, resultado: Awaited<ReturnType<typeof inscribirAlumnoEnTurno>>) {
@@ -401,7 +430,7 @@ async function emitirEventosInscripcion(turnoId: string, alumnoId: string, usuar
 export async function agregarAlumnoTurno(turnoId: string, input: AgregarAlumnoTurnoInput, usuarioId: string) {
   let resultado;
   try {
-    resultado = await prisma.$transaction((tx) => inscribirAlumnoEnTurno(turnoId, input.alumno_id, { origen: "MESA_ENTRADA", usuarioId }, tx));
+    resultado = await transaccion((tx) => inscribirAlumnoEnTurno(turnoId, input.alumno_id, { origen: "MESA_ENTRADA", usuarioId }, tx));
   } catch (error) {
     if (esConflictoDeReserva(error)) throw alumnoOcupado(input.alumno_id);
     throw error;
@@ -416,7 +445,7 @@ export async function solicitarTurnoPropio(turnoId: string, usuarioId: string) {
   if (!alumno) throw new ServiceError("SIN_PERMISO", "Tu cuenta no tiene una ficha de alumno vinculada");
   let resultado;
   try {
-    resultado = await prisma.$transaction((tx) => inscribirAlumnoEnTurno(turnoId, alumno.id, { origen: "AUTOSERVICIO", usuarioId, alumnoActivo: alumno.activo }, tx));
+    resultado = await transaccion((tx) => inscribirAlumnoEnTurno(turnoId, alumno.id, { origen: "AUTOSERVICIO", usuarioId, alumnoActivo: alumno.activo }, tx));
   } catch (error) {
     if (esConflictoDeReserva(error)) throw new ServiceError("ALUMNO_NO_DISPONIBLE", "Ya tenés otro turno en ese horario");
     if (error instanceof ServiceError && (error.code === "TURNO_PENDIENTE" || error.code === "TURNO_CANCELADO")) {
@@ -443,19 +472,22 @@ export async function listarOpcionesInscripcion(query: OpcionesInscripcionQuery,
   const valor = (tipo: string) => partes.find((parte) => parte.type === tipo)!.value;
   const hoy = new Date(`${valor("year")}-${valor("month")}-${valor("day")}T00:00:00.000Z`);
 
+  // El estado guardado puede estar viejo por el vencimiento perezoso: se
+  // ofrecen las clases confirmadas y decide la ocupación vigente (PR-0.md §2.2).
+  const vigente = filtroVigenteEn(relojAhora());
   const [turnos, materias] = await Promise.all([
     prisma.turno.findMany({
       where: {
-        estadoTurno: "DISPONIBLE", fechaTurno: { gte: hoy },
+        estadoTurno: { in: ESTADOS_AGENDADOS }, fechaTurno: { gte: hoy },
         ...(query.materia_id ? { materiaId: query.materia_id } : {}),
         ...(query.profesor_id ? { profesorId: query.profesor_id } : {}),
-        alumnos: { none: { alumnoId: alumno.id } },
+        alumnos: { none: { alumnoId: alumno.id, ...vigente } },
       },
       select: {
         idTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true,
         materiaId: true, profesorId: true, cupoMaximoTurno: true,
         aula: { select: { nombreAula: true } },
-        _count: { select: { alumnos: true } },
+        _count: { select: { alumnos: { where: vigente } } },
       },
       orderBy: [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { idTurno: "asc" }],
     }),
@@ -498,19 +530,27 @@ export async function listarOpcionesInscripcion(query: OpcionesInscripcionQuery,
 }
 
 /**
- * HU-C-04 §2.5: baja individual en un turno DISPONIBLE o COMPLETO. Borra
- * solo el vínculo TurnoAlumno (no es entidad de dominio: la Regla N.° 1 no
- * aplica). Puede dejar el turno DISPONIBLE en 0/N inscriptos.
+ * HU-C-04 §2.5: baja individual en un turno DISPONIBLE o COMPLETO. La
+ * inscripción no se borra (PR-0.md §2.0): pasa a QUITADA_CENTRO con fecha y
+ * usuario (`finalizarInscripcion`), que libera la franja del alumno y
+ * recalcula el estado de la clase. Puede dejar el turno DISPONIBLE en 0/N.
  */
 export async function quitarAlumnoTurno(turnoId: string, alumnoId: string, usuarioId: string) {
-  const resultado = await prisma.$transaction(async (tx) => {
+  const resultado = await transaccion(async (tx) => {
+    const momento = relojAhora();
+    await bloquear(tx, { clases: [turnoId] });
     const turno = await bloquearTurno(tx, turnoId);
-    const borrado = await tx.turnoAlumno.deleteMany({ where: { turnoId, alumnoId } });
-    if (borrado.count === 0) throw new ServiceError("ALUMNO_NO_ASIGNADO", "El alumno no está inscripto en este turno", { alumno_id: alumnoId });
-    const liberado = turno.estadoTurno === "COMPLETO"
-      && (await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "COMPLETO" }, data: { estadoTurno: "DISPONIBLE", modificadoPorUsuarioId: usuarioId } })).count > 0;
-    const inscriptos = await tx.turnoAlumno.count({ where: { turnoId } });
-    return { liberado, cupo: turno.cupoMaximoTurno, inscriptos, estado: liberado ? "DISPONIBLE" : turno.estadoTurno };
+    // Una reserva vencida sin marcar ya no es una inscripción: se marca primero (2.2).
+    const marcadas = await marcarVencidas(tx, turnoId, { momento });
+    const estadoAntes = marcadas === 0 ? turno.estadoTurno
+      : (await tx.turno.findUniqueOrThrow({ where: { idTurno: turnoId }, select: { estadoTurno: true } })).estadoTurno;
+    const inscripcion = await inscripcionVigenteDelPar(alumnoId, turnoId, tx);
+    if (!inscripcion) throw new ServiceError("ALUMNO_NO_ASIGNADO", "El alumno no está inscripto en este turno", { alumno_id: alumnoId });
+    const finalizada = await finalizarInscripcion(tx, { inscripcionId: inscripcion.id, vigencia: "QUITADA_CENTRO", actor: actorUsuario(usuarioId), fecha: momento });
+    const estado = finalizada.estadoTurno?.nuevo ?? estadoAntes;
+    const liberado = estadoAntes === "COMPLETO" && estado === "DISPONIBLE";
+    const inscriptos = (await inscripcionesVigentes(tx, turnoId, momento)).length;
+    return { liberado, cupo: turno.cupoMaximoTurno, inscriptos, estado };
   });
   await emitirEventoTurno("turno:alumno_quitado", turnoId, usuarioId, { turno_id: turnoId, alumno_id: alumnoId, usuario_id: usuarioId });
   if (resultado.liberado) {
@@ -543,7 +583,9 @@ function presentar(turno: TurnoConRelaciones) {
     aula: turno.aula?.nombreAula ?? "Sin asignar",
     aula_id: turno.aulaId,
     aula_capacidad: turno.aula?.capacidadAula ?? null,
-    estado: turno.estadoTurno,
+    // Estado mostrado según la ocupación vigente (PR-0.md §2.2): el guardado
+    // puede estar viejo por una reserva vencida sin marcar.
+    estado: estadoSegunOcupacion(turno.estadoTurno, alumnos.length, turno.cupoMaximoTurno),
     prioridad: turno.prioridadTurno,
     creado_en: turno.createdAtTurno.toISOString(),
     actualizado_en: turno.updatedAtTurno.toISOString(),
@@ -606,7 +648,7 @@ export async function listarTurnos(pagina: number, porPaginaSolicitado: number |
   const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
   const turnos = await prisma.turno.findMany({
       where,
-      include: turnoInclude,
+      include: incluirTurno(relojAhora()),
       orderBy: [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }],
       skip: (paginaActual - 1) * porPagina,
       take: porPagina,
@@ -637,7 +679,7 @@ export async function obtenerTurno(id: string, usuario: { id: string; rol: RolUs
     if (!propio) return { resultado: "sin_permiso" };
     alcance = { profesorId: propio.id };
   }
-  const turno = await prisma.turno.findFirst({ where: { idTurno: id, ...alcance }, include: turnoInclude });
+  const turno = await prisma.turno.findFirst({ where: { idTurno: id, ...alcance }, include: incluirTurno(relojAhora()) });
   if (!turno) return { resultado: usuario.rol === "PROFESOR" ? "sin_permiso" : "no_encontrado" };
   const creadoPor = turno.creadoPorUsuarioId ? await obtenerEmailDeUsuario(turno.creadoPorUsuarioId) : null;
   return { resultado: "ok", turno: { ...presentar(turno), creado_por: creadoPor } };

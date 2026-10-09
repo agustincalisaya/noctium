@@ -10,6 +10,35 @@
 | Responsable | Adriel (Scrum Master) |
 | Base de datos | **Se exige `prisma migrate reset`** en todos los entornos (decisión del PO): no hay datos que preservar; la base se regenera con el seed según las HU que se muestran |
 
+## Alcance reducido (decisión del responsable del PR 0)
+
+El PR 0 se recorta al máximo para mergearlo a `develop` cuanto antes. Cada desarrollador implementa los servicios de sus HU; los que ya escribió el PR 0 quedan disponibles (firmas en 5.2 a 5.4). Esta decisión prevalece sobre lo que el resto del documento pide para las partes que quedan fuera; la sección 4 marca qué validaciones aplican.
+
+**Queda dentro:**
+- Etapa 1: esquema, migraciones, permisos (filas de la tabla cerrada de 2.9.1 en migración y seed) y seed base (5.1).
+- Etapa 2, partes 1 a 3: los servicios ya escritos, con sus pruebas (5.2 a 5.4).
+- Etapa 3 reducida: la adaptación mínima del código de los Sprints 1 y 2 para que todo compile y sus pruebas sigan en verde (2.0, con las consolidaciones de 5.3 y 5.4), una caja abierta por cuenta de mesa de entrada de prueba en el seed base y la carpeta de fixtures vacía (5.5).
+
+**Queda fuera** (no lo hace el PR 0):
+- El seed de escenarios (etapa 2, parte 4) y sus fixtures.
+- Los cambios de sesión de 2.7 (rechazo de cuentas inactivas, sesiones revocadas y cambio de contraseña pendiente en `withPermission`, el proxy y la reemisión de la sesión).
+- Las rutas de permisos de 2.9 (`rutas-por-rol.ts`, `proxy.ts`).
+- El historial académico de prueba de 2.16.
+- La actualización de `RULES.md` (2.10).
+- La etapa 4: CI (2.12) y la Definición de Terminado completa.
+
+**Lo que cae a cada HU:**
+
+| Tema | Quién lo hace |
+|---|---|
+| Seed de escenarios y fixtures (2.16) | Cada HU agrega los datos que muestra o prueba, con los servicios, en su propio archivo de `prisma/seed/fixtures/` y una línea en el índice, sin editar `seed.ts`: reservas pendientes y vencidas (HU-C-22, C-24, C-26), pagos, anulaciones y comprobantes (HU-I-10, I-06, I-11), cajas históricas y cierres (HU-I-12), meses de indicadores (HU-H-06, H-07, H-10), escenarios de baja de profesores (HU-D-08), formas de pago inactivas (HU-I-07), enlace de recuperación vencido (HU-A-05) y bajas de alumnos (HU-B-07). |
+| Historial académico de prueba (2.16) | HU-E-09 (clases con asistencia, con su `registrarClaseDictada`) y HU-E-02, E-04, E-10 y E-11 (clases sin control, exámenes, indicaciones, correcciones y anulaciones), cada una con sus fixtures. |
+| Sesión (2.7) | HU-A-06 (cambio de contraseña obligatorio, revocación de sesiones y reemisión) y HU-A-05 (rutas públicas de recuperación). |
+| Rutas de permisos (2.9) | Cada HU que agrega o cambia una pantalla suma su ruta en `rutas-por-rol.ts` y `proxy.ts`: entre otras, HU-E-02 (alcance acotado del Profesor al historial), HU-D-05 y D-08 (Gerente en Profesores) e HU-I-12 (cajas). El Profesor conserva `alumnos:leer`: HU-E-02 se lo quita, con una migración nueva, en el mismo cambio en que agrega su acceso acotado (5.5). |
+| `RULES.md` (2.10) | Cada HU que implementa una regla de 2.10 la agrega a `RULES.md` en su PR (concurrencia y bloqueos, historial después del commit, valor vigente). |
+| CI (2.12) | Fuera del sprint de HU: queda como tarea técnica del Scrum Master. Mientras tanto, cada HU corre `npm run test:pg` en local antes de pedir revisión. |
+
+
 > **Instrucciones para Claude Code**
 >
 > 1. Antes de escribir código, leé completos: `prisma/schema.prisma`, todas las migraciones de `prisma/migrations/` (en especial `20260924150000_turnos_reservas_recursos_v2` y `20260928150100_sprint2_modelo`), `docs/RULES.md`, `docs/DESIGN.md`, `prisma/seed.ts`, `src/auth.ts`, `src/proxy.ts`, `src/server/shared/with-permission.ts`, `src/server/shared/rutas-por-rol.ts`, `src/server/shared/parametros.ts`, `src/server/turnos/turno.service.ts`, `src/server/turnos/turno.publico.ts`, `src/server/pagos/pago.service.ts` y las specs de todos los módulos (`docs/specs/spec_modulo_A.md` a `spec_modulo_N.md`, en su Revisión 3; los pedidos de cada una a este PR están en 2.18). Mirá también cómo están hechas las tasks de `docs/tasks/Sprint 2/` y respetá sus convenciones.
@@ -578,56 +607,58 @@ Cada fila es un pedido de la sección «Pedidos al PR 0» de la spec indicada (R
 
 ## 4. Definición de Terminado (convención 8 i)
 
+> **Alcance reducido:** cada ítem dice si aplica y se cumplió (`[x]`), si aplica y está pendiente, o si queda fuera del alcance reducido (ver el inicio del documento).
+
 **Validaciones de modelo y migración (obligatorias antes del único merge)**
-- [ ] `prisma migrate reset` corre sin errores desde cero; sobre una base con datos en cualquiera de las tablas de negocio de la guarda, la migración falla con el mensaje de la guarda de 2.1.
-- [ ] La migración también corre sobre una base **sin seed** (solo migraciones) y deja parámetros, datos del centro y permisos.
-- [ ] **Diferencias de esquema:** `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url <descartable> --script` y la misma comparación `--from-url <descartable migrada>` dan **la misma salida**: vacía, o solo sentencias sobre los objetos manuales listados en "Decisiones tomadas" (índices parciales, EXCLUDE, CHECK, triggers, collation, secuencia). No actives `postgresqlExtensions` en este PR. Si aparecen `DROP INDEX` de índices parciales, queda documentado que toda migración futura se revisa a mano para quitarlos (Pendiente 6).
-- [ ] **Índices parciales y migraciones posteriores:** en una base descartable y sobre una **copia** de `prisma/` (nunca en el repo ni en la base de desarrollo), `prisma migrate dev --create-only` no genera `DROP` de los índices parciales. Si los genera, documentá el procedimiento para evitarlo (Pendiente de la planning).
-- [ ] Existen los **índices únicos parciales** (inscripción vigente por alumno y clase, clase dictada no anulada por clase, caja abierta por integrante), la unicidad simple de `ObservacionClase.claseDictadaId` y la **secuencia** del comprobante. Se verifica con consultas a `pg_indexes` y `pg_class`.
-- [ ] **Prueba de la matriz de permisos:** cada rol contra cada acción de la tabla cerrada de 2.9.1, incluidos el 403 del profesor fuera de su alcance, el del gerente al registrar un pago, el del gerente al cancelar una clase fuera del flujo de baja, el de todo rol que no sea mesa de entrada en `reservas:leer` y el del profesor que registra una indicación antes de su primera clase propia dictada con ese alumno (`profesorPuedeRegistrarIndicacion`, incluido el caso del alumno ausente y el de la clase dictada anulada). La prueba compara seed y migraciones.
-- [ ] `RULES.md` actualizado según 2.10 y `.env.example` según 2.11.
-- [ ] El seed corre desde cero (`prisma migrate reset`) y deja tarifas, parámetros, datos del centro, `esEfectivo`, fichas del personal y las cuentas extra.
-- [ ] El seed de escenarios del PR 0 usa solo los servicios de 2.13: ningún `create` directo sobre inscripciones, operaciones, pagos, comprobantes ni cajas en `prisma/seed.ts`. Deja una caja abierta por cuenta de mesa de entrada de prueba y casos mínimos de reserva y pago; la prueba de equivalencia de «Pagada» pasa sobre esos datos. Los casos históricos y cierres especiales se agregan con las HU que los muestran.
-- [ ] El script para abrir una caja está documentado y probado sobre una base con seed: se cierra la caja de una cuenta operativa de mesa de entrada y el script la vuelve a abrir para esa misma cuenta.
-- [ ] El seed corre **dos veces seguidas** sin error y conserva conteos, ids, relaciones, estados y números de comprobante; la segunda corrida no vuelve a consumir la secuencia. La prueba de renombrar «Efectivo» y desactivar «Mercado Pago» entre corridas conserva ambos cambios, la marca `esEfectivo` y los ids, sin duplicar formas de pago. Evidencia anotada en «Decisiones tomadas».
-- [ ] Después de correr el seed, el GERENTE conserva `profesores:leer` y sus permisos nuevos (`ACCIONES_SOLO_MESA_ENTRADA` revisada).
-- [ ] Pruebas de las lecturas públicas de 2.13 (inscripciones por alumno, conteos por mes y vigencia, asistencias, pagos por alumno con montos vigentes, reservas pendientes, vencidas y su resumen, incluidas las vencidas sin marcar).
+- [x] `prisma migrate reset` corre sin errores desde cero; sobre una base con datos en cualquiera de las tablas de negocio de la guarda, la migración falla con el mensaje de la guarda de 2.1. — **Aplica, cumplido:** la guarda se probó en la etapa 1 (5.1) y las migraciones corren desde cero, con el seed, en bases descartables (5.5). El `reset` sobre la base de desarrollo lo corre el responsable.
+- [x] La migración también corre sobre una base **sin seed** (solo migraciones) y deja parámetros, datos del centro y permisos. — **Aplica, cumplido** (5.1; `npm run test:pg` migra bases sin seed).
+- [x] **Diferencias de esquema:** `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url <descartable> --script` y la misma comparación `--from-url <descartable migrada>` dan **la misma salida**: vacía, o solo sentencias sobre los objetos manuales listados en "Decisiones tomadas" (índices parciales, EXCLUDE, CHECK, triggers, collation, secuencia). No actives `postgresqlExtensions` en este PR. Si aparecen `DROP INDEX` de índices parciales, queda documentado que toda migración futura se revisa a mano para quitarlos (Pendiente 6). — **Aplica, cumplido** en la etapa 1 (5.1).
+- [ ] **Índices parciales y migraciones posteriores:** en una base descartable y sobre una **copia** de `prisma/` (nunca en el repo ni en la base de desarrollo), `prisma migrate dev --create-only` no genera `DROP` de los índices parciales. Si los genera, documentá el procedimiento para evitarlo (Pendiente de la planning). — **Aplica, queda como nota:** no se corrió `migrate dev --create-only` sobre una copia de `prisma/` (5.5).
+- [x] Existen los **índices únicos parciales** (inscripción vigente por alumno y clase, clase dictada no anulada por clase, caja abierta por integrante), la unicidad simple de `ObservacionClase.claseDictadaId` y la **secuencia** del comprobante. Se verifica con consultas a `pg_indexes` y `pg_class`. — **Aplica, cumplido** (5.1).
+- [ ] **Prueba de la matriz de permisos:** cada rol contra cada acción de la tabla cerrada de 2.9.1, incluidos el 403 del profesor fuera de su alcance, el del gerente al registrar un pago, el del gerente al cancelar una clase fuera del flujo de baja, el de todo rol que no sea mesa de entrada en `reservas:leer` y el del profesor que registra una indicación antes de su primera clase propia dictada con ese alumno (`profesorPuedeRegistrarIndicacion`, incluido el caso del alumno ausente y el de la clase dictada anulada). La prueba compara seed y migraciones. — **Fuera del alcance reducido:** los 403 por alcance dependen de las rutas de 2.9. La tabla cerrada sí está en migración y seed, con el mismo resultado (5.1 y 5.5).
+- [ ] `RULES.md` actualizado según 2.10 y `.env.example` según 2.11. — **Fuera del alcance reducido** para `RULES.md`; `.env.example` está hecho (5.1).
+- [x] El seed corre desde cero (`prisma migrate reset`) y deja tarifas, parámetros, datos del centro, `esEfectivo`, fichas del personal y las cuentas extra. — **Aplica, cumplido** (5.1 y 5.5).
+- [ ] El seed de escenarios del PR 0 usa solo los servicios de 2.13: ningún `create` directo sobre inscripciones, operaciones, pagos, comprobantes ni cajas en `prisma/seed.ts`. Deja una caja abierta por cuenta de mesa de entrada de prueba y casos mínimos de reserva y pago; la prueba de equivalencia de «Pagada» pasa sobre esos datos. Los casos históricos y cierres especiales se agregan con las HU que los muestran. — **Fuera del alcance reducido**, salvo la caja abierta por cuenta de mesa de entrada, que el seed base crea con `abrirCaja` (5.5). Los casos de reserva y pago los agregan las HU como fixtures.
+- [x] El script para abrir una caja está documentado y probado sobre una base con seed: se cierra la caja de una cuenta operativa de mesa de entrada y el script la vuelve a abrir para esa misma cuenta. — **Aplica, cumplido** (5.4).
+- [x] El seed corre **dos veces seguidas** sin error y conserva conteos, ids, relaciones, estados y números de comprobante; la segunda corrida no vuelve a consumir la secuencia. La prueba de renombrar «Efectivo» y desactivar «Mercado Pago» entre corridas conserva ambos cambios, la marca `esEfectivo` y los ids, sin duplicar formas de pago. Evidencia anotada en «Decisiones tomadas». — **Aplica, cumplido** (5.5). No hay comprobantes en el seed base; la prueba de «Efectivo» y «Mercado Pago» está en 5.1.
+- [x] Después de correr el seed, el GERENTE conserva `profesores:leer` y sus permisos nuevos (`ACCIONES_SOLO_MESA_ENTRADA` revisada). — **Aplica, cumplido** (5.1).
+- [x] Pruebas de las lecturas públicas de 2.13 (inscripciones por alumno, conteos por mes y vigencia, asistencias, pagos por alumno con montos vigentes, reservas pendientes, vencidas y su resumen, incluidas las vencidas sin marcar). — **Aplica, cumplido** (5.4).
 
 **Validaciones de adaptación e integración (obligatorias antes del único merge)**
-- [ ] **Prueba de la equivalencia de "Pagada":** para toda inscripción vigente, `estadoPago = PAGADA` si y solo si tiene al menos un pago no anulado. Cubre registro, corrección y anulación hechas por los servicios (R3-PR0-I10) y los datos del seed.
-- [ ] Prueba del servicio "vigente a un momento dado": reserva antes, en y después de `venceEl`; `marcarVencidas` idempotente; `marcarVencidasDelAlumno` libera una superposición con el proceso detenido. Reprogramar una clase cuyo inicio original acortó el vencimiento conserva `venceBaseEl` y usa el nuevo inicio; una reserva que ya venció antes de reprogramar no se reactiva; cambiar el parámetro de plazo no altera esa reserva.
-- [ ] Prueba de triggers contra PostgreSQL real: quitar a un alumno y volver a inscribirlo en la misma clase no viola la PK de `reservas_turno`; una inscripción no vigente no tiene reserva; finalizar una inscripción libera al alumno para otra clase superpuesta (EXCLUDE); y el trigger de `turno` escucha `UPDATE OF "profesorId"`.
-- [ ] **Sesión:** una sesión iniciada antes de `sesionesValidasDesde` recibe 401 en la siguiente solicitud a una API y a una pantalla que llama a `exigirPermiso`; al cambiar la contraseña, la sesión actual sigue válida y las otras no; con `debeCambiarPassword` el proxy redirige al cambio de contraseña y las API (salvo cambiarla, cerrar sesión y `sesion:ping`) rechazan; `cambiarPassword` con `conservarSesionActual = false` revoca también la actual; un `update` del token desde el cliente no cambia `iat_sesion` ni la marca; las rutas de HU-A-05 y el endpoint del proceso programado no redirigen al login.
-- [ ] **Compatibilidad (1.1):** las colecciones Postman de los Sprints 1 y 2 corren **sin modificarse** contra el servidor con el PR 0 y dan los mismos resultados. En particular, `POST /api/pagos`, `GET /api/pagos/opciones`, `POST /api/turnos/[id]/inscripcion`, `/participantes` y `/alumnos` de la clase mantienen pedido, respuesta y códigos de error. Toda diferencia está en «Decisiones tomadas» con su motivo.
-- [ ] Ningún test de los Sprints 1 y 2 se borró ni se debilitó; los modificados están listados en «Decisiones tomadas», cada uno con su motivo.
-- [ ] **Alta de materia (HU-L-01):** crear una materia sin tarifa funciona como antes; inscribir en esa materia se rechaza con `MATERIA_SIN_TARIFA`; las materias del seed traen tarifa.
-- [ ] `ErrorDeDominio` extiende `ServiceError` y los Route Handlers existentes mapean sus errores sin cambios. `listarPagosDeTurno` y `sumarPagosPorMes` conservan firma y forma del resultado.
-- [ ] La **regresión de los Sprints 1 y 2 pasa**: `npm test` sin fallas, todos los `*.pg.test.ts` (los 82 existentes y los nuevos) corridos contra PostgreSQL real y `tsc --noEmit` sin errores.
-- [ ] Pruebas de los servicios de 2.13: cada transición de inscripción (con y sin reserva, la reapertura por anulación y la anulación del último pago después del inicio o en una clase cancelada, que dejan `PAGO_SIN_REGISTRAR`), `registrarOperacion` con caja cerrada (rechaza), cobro de una inscripción `PAGO_SIN_REGISTRAR` antes del inicio (acepta), todo cobro o inscripción después del inicio (rechaza, aunque la fecha de pago informada sea anterior), cobro en una clase cancelada (rechaza), `finalizarInscripcion` con `soloSiReservaPendiente` sobre una reserva pagada o vencida (rechaza), emisión y reemplazo de comprobante, `revocarSesiones`.
-- [ ] Prueba del comportamiento interino de 2.15: con el PR 0 mergeado y ninguna HU, se puede inscribir (queda `PAGO_SIN_REGISTRAR`, sin plazo), pagar desde el detalle de la clase con la caja del seed antes del inicio (queda pagada y con comprobante) y quitar (queda quitada, no se borra).
-- [ ] Prueba de concurrencia con PostgreSQL real: dos cobros simultáneos de la misma inscripción (uno falla); un cobro contra un cierre de caja simultáneo, forzando los dos órdenes (si el cobro —en efectivo o en otra forma de pago— confirma primero, el cierre falla por resumen cambiado; si el cierre confirma primero, el cobro falla por caja cerrada); y una inscripción contra un cobro con inscripción del mismo alumno en clases superpuestas (sin interbloqueo, 2.16).
-- [ ] Prueba del estado guardado de la clase: llenar el cupo la pasa a COMPLETO; quitar, cancelar o vencer una inscripción la devuelve a DISPONIBLE; con el proceso detenido, una clase completa solo por reservas vencidas sin marcar se ofrece como Disponible.
-- [ ] Prueba de claves de error: todo `codigo` de `ErrorDeDominio` existe en el archivo central de textos (se suma a la prueba de claves de HU-C-23).
-- [ ] Las firmas reales de 2.13 y 2.16 están anotadas en "Decisiones tomadas" (es el contrato de las HU) y en las specs según 2.17.
-- [ ] **Contrato del comprobante:** un único esquema (por ejemplo, Zod) define el JSON `datos` del comprobante; una prueba valida con ese esquema los comprobantes que emite `emitirComprobante` (registro y reemplazo).
-- [ ] El CI corre `npm test`, `tsc` y los tests `*.pg.test.ts` con PostgreSQL y `TZ=UTC`.
+- [x] **Prueba de la equivalencia de "Pagada":** para toda inscripción vigente, `estadoPago = PAGADA` si y solo si tiene al menos un pago no anulado. Cubre registro, corrección y anulación hechas por los servicios (R3-PR0-I10) y los datos del seed. — **Aplica, cumplido** sobre los servicios (5.3 y 5.4). El seed base no tiene pagos.
+- [x] Prueba del servicio "vigente a un momento dado": reserva antes, en y después de `venceEl`; `marcarVencidas` idempotente; `marcarVencidasDelAlumno` libera una superposición con el proceso detenido. Reprogramar una clase cuyo inicio original acortó el vencimiento conserva `venceBaseEl` y usa el nuevo inicio; una reserva que ya venció antes de reprogramar no se reactiva; cambiar el parámetro de plazo no altera esa reserva. — **Aplica, cumplido** (5.2 y 5.3).
+- [x] Prueba de triggers contra PostgreSQL real: quitar a un alumno y volver a inscribirlo en la misma clase no viola la PK de `reservas_turno`; una inscripción no vigente no tiene reserva; finalizar una inscripción libera al alumno para otra clase superpuesta (EXCLUDE); y el trigger de `turno` escucha `UPDATE OF "profesorId"`. — **Aplica, cumplido** (5.1, 5.3 y 5.5).
+- [ ] **Sesión:** una sesión iniciada antes de `sesionesValidasDesde` recibe 401 en la siguiente solicitud a una API y a una pantalla que llama a `exigirPermiso`; al cambiar la contraseña, la sesión actual sigue válida y las otras no; con `debeCambiarPassword` el proxy redirige al cambio de contraseña y las API (salvo cambiarla, cerrar sesión y `sesion:ping`) rechazan; `cambiarPassword` con `conservarSesionActual = false` revoca también la actual; un `update` del token desde el cliente no cambia `iat_sesion` ni la marca; las rutas de HU-A-05 y el endpoint del proceso programado no redirigen al login. — **Fuera del alcance reducido** (2.7).
+- [ ] **Compatibilidad (1.1):** las colecciones Postman de los Sprints 1 y 2 corren **sin modificarse** contra el servidor con el PR 0 y dan los mismos resultados. En particular, `POST /api/pagos`, `GET /api/pagos/opciones`, `POST /api/turnos/[id]/inscripcion`, `/participantes` y `/alumnos` de la clase mantienen pedido, respuesta y códigos de error. Toda diferencia está en «Decisiones tomadas» con su motivo. — **Aplica, pendiente:** por decisión del responsable, las colecciones no se corren. La evidencia son las pruebas de punta a punta con PostgreSQL de 5.5 más una prueba manual del responsable.
+- [x] Ningún test de los Sprints 1 y 2 se borró ni se debilitó; los modificados están listados en «Decisiones tomadas», cada uno con su motivo. — **Aplica, cumplido** (lista en 5.5).
+- [x] **Alta de materia (HU-L-01):** crear una materia sin tarifa funciona como antes; inscribir en esa materia se rechaza con `MATERIA_SIN_TARIFA`; las materias del seed traen tarifa. — **Aplica, cumplido** (5.3 y 5.5).
+- [x] `ErrorDeDominio` extiende `ServiceError` y los Route Handlers existentes mapean sus errores sin cambios. `listarPagosDeTurno` y `sumarPagosPorMes` conservan firma y forma del resultado. — **Aplica, cumplido**. `POST /api/pagos` suma la respuesta de los códigos nuevos (5.5).
+- [x] La **regresión de los Sprints 1 y 2 pasa**: `npm test` sin fallas, todos los `*.pg.test.ts` (los 82 existentes y los nuevos) corridos contra PostgreSQL real y `tsc --noEmit` sin errores. — **Aplica, cumplido** (5.5).
+- [x] Pruebas de los servicios de 2.13: cada transición de inscripción (con y sin reserva, la reapertura por anulación y la anulación del último pago después del inicio o en una clase cancelada, que dejan `PAGO_SIN_REGISTRAR`), `registrarOperacion` con caja cerrada (rechaza), cobro de una inscripción `PAGO_SIN_REGISTRAR` antes del inicio (acepta), todo cobro o inscripción después del inicio (rechaza, aunque la fecha de pago informada sea anterior), cobro en una clase cancelada (rechaza), `finalizarInscripcion` con `soloSiReservaPendiente` sobre una reserva pagada o vencida (rechaza), emisión y reemplazo de comprobante, `revocarSesiones`. — **Aplica, cumplido** (5.3 y 5.4).
+- [x] Prueba del comportamiento interino de 2.15: con el PR 0 mergeado y ninguna HU, se puede inscribir (queda `PAGO_SIN_REGISTRAR`, sin plazo), pagar desde el detalle de la clase con la caja del seed antes del inicio (queda pagada y con comprobante) y quitar (queda quitada, no se borra). — **Aplica, cumplido** (`turno.inscripciones.pg.test.ts`, 5.5).
+- [x] Prueba de concurrencia con PostgreSQL real: dos cobros simultáneos de la misma inscripción (uno falla); un cobro contra un cierre de caja simultáneo, forzando los dos órdenes (si el cobro —en efectivo o en otra forma de pago— confirma primero, el cierre falla por resumen cambiado; si el cierre confirma primero, el cobro falla por caja cerrada); y una inscripción contra un cobro con inscripción del mismo alumno en clases superpuestas (sin interbloqueo, 2.16). — **Aplica, cumplido** (5.3 y 5.4).
+- [x] Prueba del estado guardado de la clase: llenar el cupo la pasa a COMPLETO; quitar, cancelar o vencer una inscripción la devuelve a DISPONIBLE; con el proceso detenido, una clase completa solo por reservas vencidas sin marcar se ofrece como Disponible. — **Aplica, cumplido** (5.2, 5.3 y 5.5).
+- [x] Prueba de claves de error: todo `codigo` de `ErrorDeDominio` existe en el archivo central de textos (se suma a la prueba de claves de HU-C-23). — **Aplica, cumplido**.
+- [x] Las firmas reales de 2.13 y 2.16 están anotadas en "Decisiones tomadas" (es el contrato de las HU) y en las specs según 2.17. — **Aplica, cumplido** en «Decisiones tomadas». Las notas aditivas en las specs (2.17) quedan **fuera del alcance reducido**: las agrega cada dueño de módulo.
+- [x] **Contrato del comprobante:** un único esquema (por ejemplo, Zod) define el JSON `datos` del comprobante; una prueba valida con ese esquema los comprobantes que emite `emitirComprobante` (registro y reemplazo). — **Aplica, cumplido** (5.3).
+- [ ] El CI corre `npm test`, `tsc` y los tests `*.pg.test.ts` con PostgreSQL y `TZ=UTC`. — **Fuera del alcance reducido** (2.12).
 **Pedidos de las specs (v20)** (obligatorios antes del único merge)
-- [ ] **Tabla cerrada completa:** la prueba de la matriz recorre todas las filas de 2.9.1, incluidas las nuevas de B, D, E, F, G, I, L y N, y comprueba que migraciones y seed dan el mismo resultado. El profesor no tiene `alumnos:leer`; el gerente tiene `profesores:leer` y no `profesores:crear`/`editar`; ningún rol salvo el gerente tiene `profesores:cambiar_estado` ni `indicadores:leer`.
-- [ ] **Cuentas (A):** `cambiarEmailCuenta` no revoca sesiones; `desactivarCuenta` las revoca; `revocarSesiones` no retrocede `sesionesValidasDesde`; `filtrarCuentasActivas` y `obtenerResumenCuenta` (incluido `SIN_CUENTA`); `crearCuentaParaFicha` rechaza un email en uso con `EMAIL_YA_ASOCIADO`; el simulador de email funciona sin `RESEND_API_KEY`. Los tests de `withPermission` incluyen `usuario` en sus mocks y verifican `DEBE_CAMBIAR_PASSWORD`.
-- [ ] **Historial de estados:** `registrarCambioEstado` y `listarHistorialEstados` para las cinco entidades de 2.13, con la escritura después del commit y reintento.
-- [ ] **`bloquear`:** acepta profesor, ficha del personal, varias fichas de gerente por id ascendente y el nivel «formas de pago»; pedir un nivel anterior al ya tomado falla en las pruebas.
-- [ ] **Servicios de inscripción:** `crearInscripcion` conserva `ALUMNO_NO_ENCONTRADO` y `ALUMNO_INACTIVO`, rechaza a un alumno desactivado entre la lectura y el bloqueo, y no cambia el estado de una clase `PENDIENTE` ni `CANCELADO`; `marcarVencidas` devuelve la cantidad; `exigeInscripcionConPago` devuelve el motivo.
-- [ ] **`registrarOperacion`:** pruebas en los dos modos (`completo` y `compatSprint2`, este último permanente) y del envoltorio de `POST /api/pagos`; ítems `{ inscripcionId }` y `{ crearInscripcion: { turnoId } }`; la materia sin tarifa rechaza con `MATERIA_SIN_TARIFA`.
-- [ ] **Pago de Sprint 2:** `Pago` conserva `formaPagoId`, `fechaPago` y `creadoPorUsuarioId`; las lecturas `listarPagosDeTurno` y `sumarPagosPorMes` devuelven el valor vigente y excluyen anulados sin cambiar firma ni forma.
-- [ ] **Caja:** `efectivoDeclarado` admite vacío; `declararEfectivo` solo guarda si está vacío y la caja está abierta; la huella de `calcularResumen` cambia con una corrección o anulación de pago; el cambio de forma de pago de una caja cerrada genera un par de ajustes.
-- [ ] **Esquema de E:** el índice parcial de `ClaseDictada` con `ON CONFLICT … WHERE "anuladaEl" IS NULL` (registrar, anular, registrar de nuevo y dos registros simultáneos) contra PostgreSQL real.
-- [ ] **Triggers:** el trigger de `turno` escucha `UPDATE OF "profesorId"` (si no, migración aditiva) y cambiar el profesor de una clase actualiza la reserva del profesor.
-- [ ] **Parámetros:** `parametrosVigentes()` devuelve `plazo_pago_horas`, `cancelacion_anticipacion_horas` y `umbral_presentismo` como enteros, y lee la base en cada llamada.
-- [ ] **Seed de escenarios ampliado (2.16):** existe al menos una inscripción en cada vigencia, reservas pendientes y vencidas, un pago anulado, una forma de pago inactiva, un alumno con forma preferida inactiva, un enlace de recuperación vencido y los escenarios de HU-D-08; el seed corre dos veces seguidas sin cambios.
-- [ ] **Etapa 1 disponible:** la etapa 1 cumple su condición y se entrega al equipo (0) con la lista de errores de `tsc` conocidos y la tabla cerrada de 2.9.1.
-- [ ] **Orden de publicación:** las firmas de los grupos (a), (b), (c) y (d) de 0 están anotadas en «Decisiones tomadas» al pasar las pruebas de cada grupo.
+- [ ] **Tabla cerrada completa:** la prueba de la matriz recorre todas las filas de 2.9.1, incluidas las nuevas de B, D, E, F, G, I, L y N, y comprueba que migraciones y seed dan el mismo resultado. El profesor no tiene `alumnos:leer` (alcance reducido: lo conserva hasta HU-E-02, que se lo quita con una migración nueva); el gerente tiene `profesores:leer` y no `profesores:crear`/`editar`; ningún rol salvo el gerente tiene `profesores:cambiar_estado` ni `indicadores:leer`. — **Fuera del alcance reducido** como prueba automática. Migración y seed coinciden (5.1 y 5.5), con `alumnos:leer` del Profesor conservado.
+- [x] **Cuentas (A):** `cambiarEmailCuenta` no revoca sesiones; `desactivarCuenta` las revoca; `revocarSesiones` no retrocede `sesionesValidasDesde`; `filtrarCuentasActivas` y `obtenerResumenCuenta` (incluido `SIN_CUENTA`); `crearCuentaParaFicha` rechaza un email en uso con `EMAIL_YA_ASOCIADO`; el simulador de email funciona sin `RESEND_API_KEY`. Los tests de `withPermission` incluyen `usuario` en sus mocks y verifican `DEBE_CAMBIAR_PASSWORD`. — **Aplica, cumplido** para los servicios (5.4). Los tests de `withPermission` son de 2.7, **fuera del alcance reducido**.
+- [x] **Historial de estados:** `registrarCambioEstado` y `listarHistorialEstados` para las cinco entidades de 2.13, con la escritura después del commit y reintento. — **Aplica, cumplido** (5.2 y 5.4).
+- [x] **`bloquear`:** acepta profesor, ficha del personal, varias fichas de gerente por id ascendente y el nivel «formas de pago»; pedir un nivel anterior al ya tomado falla en las pruebas. — **Aplica, cumplido** (5.2).
+- [x] **Servicios de inscripción:** `crearInscripcion` conserva `ALUMNO_NO_ENCONTRADO` y `ALUMNO_INACTIVO`, rechaza a un alumno desactivado entre la lectura y el bloqueo, y no cambia el estado de una clase `PENDIENTE` ni `CANCELADO`; `marcarVencidas` devuelve la cantidad; `exigeInscripcionConPago` devuelve el motivo. — **Aplica, cumplido** (5.3).
+- [x] **`registrarOperacion`:** pruebas en los dos modos (`completo` y `compatSprint2`, este último permanente) y del envoltorio de `POST /api/pagos`; ítems `{ inscripcionId }` y `{ crearInscripcion: { turnoId } }`; la materia sin tarifa rechaza con `MATERIA_SIN_TARIFA`. — **Aplica, cumplido** (5.3 y 5.5).
+- [x] **Pago de Sprint 2:** `Pago` conserva `formaPagoId`, `fechaPago` y `creadoPorUsuarioId`; las lecturas `listarPagosDeTurno` y `sumarPagosPorMes` devuelven el valor vigente y excluyen anulados sin cambiar firma ni forma. — **Aplica, cumplido** (5.5).
+- [x] **Caja:** `efectivoDeclarado` admite vacío; `declararEfectivo` solo guarda si está vacío y la caja está abierta; la huella de `calcularResumen` cambia con una corrección o anulación de pago; el cambio de forma de pago de una caja cerrada genera un par de ajustes. — **Aplica, cumplido** (5.4).
+- [ ] **Esquema de E:** el índice parcial de `ClaseDictada` con `ON CONFLICT … WHERE "anuladaEl" IS NULL` (registrar, anular, registrar de nuevo y dos registros simultáneos) contra PostgreSQL real. — **Aplica, queda como nota:** no hay una prueba con PostgreSQL de registrar, anular y volver a registrar, ni de dos registros simultáneos. La hace quien tome HU-E-09 o HU-E-11 (5.5).
+- [x] **Triggers:** el trigger de `turno` escucha `UPDATE OF "profesorId"` (si no, migración aditiva) y cambiar el profesor de una clase actualiza la reserva del profesor. — **Aplica, cumplido:** confirmado contra la migración (5.1).
+- [x] **Parámetros:** `parametrosVigentes()` devuelve `plazo_pago_horas`, `cancelacion_anticipacion_horas` y `umbral_presentismo` como enteros, y lee la base en cada llamada. — **Aplica, cumplido** (5.3).
+- [ ] **Seed de escenarios ampliado (2.16):** existe al menos una inscripción en cada vigencia, reservas pendientes y vencidas, un pago anulado, una forma de pago inactiva, un alumno con forma preferida inactiva, un enlace de recuperación vencido y los escenarios de HU-D-08; el seed corre dos veces seguidas sin cambios. — **Fuera del alcance reducido.**
+- [x] **Etapa 1 disponible:** la etapa 1 cumple su condición y se entrega al equipo (0) con la lista de errores de `tsc` conocidos y la tabla cerrada de 2.9.1. — **Aplica, cumplido.**
+- [x] **Orden de publicación:** las firmas de los grupos (a), (b), (c) y (d) de 0 están anotadas en «Decisiones tomadas» al pasar las pruebas de cada grupo. — **Aplica, cumplido** (5.2 a 5.4).
 
-- [ ] Integrado en un único push y merge luego de cumplir todas las validaciones de esta sección.
+- [ ] Integrado en un único push y merge luego de cumplir todas las validaciones de esta sección. — **Aplica, pendiente:** el merge lo hace el equipo.
 
 ## 5. Decisiones tomadas
 
@@ -641,7 +672,7 @@ _(Las completa quien implementa: nombres reales de modelos y campos, decisión d
 |---|---|
 | `20261008120000_sprint3_eventos_seguridad` | Los 6 valores nuevos de `TipoEventoSeguridad` (`CUENTA_CREADA`, `PASSWORD_CAMBIADA`, `RECUPERACION_SOLICITADA`, `RECUPERACION_LIMITADA`, `RECUPERACION_ENVIO_FALLIDO`, `RECUPERACION_CONFIRMADA`) con `ADD VALUE IF NOT EXISTS`, solos en su migración: ninguna migración los usa. |
 | `20261008120100_sprint3_modelo` | Guarda de base vacía, todo el modelo del sprint (2.1, 2.3–2.8, 2.14), los objetos SQL manuales, el SQL de los triggers de reservas (2.0), `esEfectivo` de `formapago-efectivo` y los parámetros nuevos con sus valores por defecto. En una sola transacción (`BEGIN`/`COMMIT`). |
-| `20261008120200_sprint3_permisos` | La matriz RBAC completa de 2.9.1: lo que solo estaba en el seed, la corrección de `profesores:*`, el cambio de `alumnos:leer` y todas las acciones nuevas. |
+| `20261008120200_sprint3_permisos` | La matriz RBAC completa de 2.9.1: lo que solo estaba en el seed (incluido `alumnos:leer` del Profesor, que se conserva hasta HU-E-02), la corrección de `profesores:*`, `alumnos:leer` para el Gerente y todas las acciones nuevas. |
 
 **Decisión de 2.0 (`TurnoAlumno`):** se extiende el mismo modelo, la misma tabla `turno_alumno` y la misma relación `Turno.alumnos`. La PK compuesta `(turnoId, alumnoId)` se reemplaza por `idInscripcion` (cuid); desaparece el selector `turnoId_alumnoId`. La FK que apunta a la inscripción se llama `inscripcionId` (como en las specs C e I). Se conservan los `onDelete: Cascade` de `turnoId` y `alumnoId` que ya tenía la tabla: los `*.pg.test.ts` limpian borrando turnos. `Pago → inscripción` es `RESTRICT`, así que un turno con pagos sigue sin poder borrarse, como hoy.
 
@@ -699,7 +730,7 @@ Enums creados por el PR 0: `VigenciaInscripcion`, `EstadoPagoInscripcion`, `Acto
 
 **Deriva de esquema previa (no es de este PR):** `migrate diff` (desde las migraciones y desde la base migrada, con la misma salida) muestra solo `DROP`/`ADD CONSTRAINT "reservas_turno_turnoId_fkey"`: la migración de Sprint 2 la creó sin `ON UPDATE CASCADE` y Prisma la espera con él. Ya estaba en `develop` y no se tocó (1.1). Los índices parciales **no** aparecen en el diff.
 
-**Permisos (2.9 y 2.9.1).** La tabla cerrada queda **sin renombres**: todas las acciones tienen el nombre de 2.9.1. Las 91 filas (65 acciones) están en migración y en `PERMISOS` del seed. Se comprobó que una base con solo migraciones y la misma base después del seed tienen **exactamente** la misma lista.
+**Permisos (2.9 y 2.9.1).** La tabla cerrada queda **sin renombres**: todas las acciones tienen el nombre de 2.9.1. Las 92 filas (65 acciones) están en migración y en `PERMISOS` del seed. Se comprobó que una base con solo migraciones y la misma base después del seed tienen **exactamente** la misma lista.
 
 | Acción | Roles | HU |
 |---|---|---|
@@ -711,7 +742,7 @@ Enums creados por el PR 0: `VigenciaInscripcion`, `EstadoPagoInscripcion`, `Acto
 | `materias:ver_tarifa` | M | HU-L-06 crit. 7 |
 | `aulas:crear`, `aulas:leer`, `aulas:editar` | G | HU-K-01..03 (`crear`/`leer` pasan a migración) |
 | `alumnos:crear`, `alumnos:editar` | M | HU-B-01..06 (`crear` pasa a migración) |
-| `alumnos:leer` | M, G | HU-E-02 crit. 8; **el Profesor la pierde** (8 g) |
+| `alumnos:leer` | M, G, P | HU-E-02 crit. 8. **El Profesor la conserva** hasta HU-E-02, que se la quita (8 g) con una migración nueva, en el mismo cambio en que agrega su acceso acotado al historial |
 | `alumnos:cambiar_estado` | M | HU-B-07 |
 | `profesores:crear`, `profesores:editar` | M | HU-D-01..07 (corregido: la migración se los daba a G) |
 | `profesores:leer` | M, G | HU-D-05, D-08 |
@@ -746,7 +777,7 @@ Enums creados por el PR 0: `VigenciaInscripcion`, `EstadoPagoInscripcion`, `Acto
 | `configuracion:leer`, `configuracion:editar` | G | HU-N-01 |
 
 - `ACCIONES_SOLO_MESA_ENTRADA` del seed queda en `profesores:crear` y `profesores:editar`, así que el Gerente conserva `profesores:leer` después del seed (verificado).
-- Nuevo `PERMISOS_REVOCADOS` en el seed (`PROFESOR alumnos:leer`): el upsert no borra filas viejas, y la migración ya las borra.
+- Nuevo `PERMISOS_REVOCADOS` en el seed, por ahora vacío: el upsert no borra filas viejas. HU-E-02 agrega ahí `PROFESOR alumnos:leer` junto con su migración.
 - La migración borra filas de `roles_permisos` (`DELETE`): es configuración, no una entidad de dominio, y el seed ya lo hacía.
 - Las rutas (`rutas-por-rol.ts`, `proxy.ts`) son de la etapa 3.
 
@@ -1409,6 +1440,127 @@ Además se prueban:
 4. **`cancelada_el` desde `eventos_turno`.** Si C prefiere una columna en la clase, es una migración nueva. Confirmar con el dueño de C.
 5. **`desactivarCuenta` idempotente** (no revoca si ya estaba inactiva). Confirmar con el dueño de A.
 6. **Envío de email con `fetch`** en lugar de la librería de Resend. Confirmar con el dueño de A.
+
+### 5.5 Etapa 3 reducida — adaptación del código de los Sprints 1 y 2
+
+Alcance: el de «Alcance reducido» al inicio del documento. No incluye sesión (2.7), rutas (2.9), seed de escenarios, historial académico de prueba, `RULES.md` ni CI.
+
+**Finales de línea.** Con `core.autocrlf=true`, git deja en CRLF la copia de trabajo de los archivos que no se tocaron, aunque el índice esté en LF. Cada archivo de esta etapa se pasó a LF antes de editarlo. `src/server/profesores/profesor.publico.ts` tenía 198 CR en la copia de trabajo (el índice estaba en LF): se pasó a LF sin cambiar el contenido. La revisión de la parte 3 no los había visto porque el `grep $'\r'` de Git Bash ignora el CR al final de la línea; ahora se cuentan los bytes con `tr -cd '\r' | wc -c`.
+
+**Usos de 2.0 adaptados** (archivo y línea del código actual):
+
+1. **Inscripción** (`src/server/turnos/turno.service.ts`). El selector `turnoId_alumnoId`, el `count`, el `create`, el `createMany` y los `deleteMany` sobre `turnoAlumno` desaparecen:
+   - `inscribirAlumnoEnTurno` (:415) llama a `crearInscripcion` con origen `CENTRO` (mesa de entrada) o `ALUMNO` (autoservicio) y `conReserva: false`, como pide 2.15. Mantiene su firma y su resultado. Su `tx` lo abren `agregarAlumnoTurno` (:433) y `solicitarTurnoPropio` (:448) con `transaccion()`, porque el historial se encola para después del commit. Ya no usa su propio `SELECT … FOR UPDATE` ni el conteo: bloquea, vence reservas, cuenta vigentes y revalida `crearInscripcion`, con los mismos códigos y textos.
+   - `asignarParticipantesTurno` (:277–:356):
+     - toma un solo `bloquear` en orden canónico: los alumnos, la clase y las clases con reservas vencidas de esos alumnos;
+     - confirma la clase (`PENDIENTE` → `DISPONIBLE`, el trigger reserva profesor y aula);
+     - pasa a `QUITADA_CENTRO` las vigentes que no siguen (`finalizarInscripcion`) e inscribe a los nuevos con `crearInscripcion` (`bloqueosTomados`), que lleva la clase a `COMPLETO` al llenar el cupo.
+     - La respuesta y los eventos no cambian. Conserva los 15 s de tiempo máximo que tenía, con `transaccion(…, { tiempos: { timeoutMs: 15_000 } })`.
+   - `quitarAlumnoTurno` (:539): bloquea la clase, mantiene las validaciones de hoy, marca las reservas vencidas y pasa la inscripción vigente del par a `QUITADA_CENTRO` con fecha y usuario. `alumnos_inscriptos` cuenta solo vigentes. Mismos códigos, respuesta y eventos.
+2. **Lecturas por la relación `Turno.alumnos`** (solo inscripciones vigentes a `ahora()`):
+   - filtro de Prisma nuevo `filtroVigenteEn(momento)`, equivalente a `esVigenteEn` y a `sqlVigenteEn`; la prueba de `inscripcion.vigencia.pg.test.ts` verifica las tres;
+   - `turno.service.ts`: :43 (`incluirTurno`, el `include` del listado y del detalle, que también usa `turno.detalle.ts`), :89 (`listarTurnosPropios`), :253 (`listarOpcionesAlumnoTurno`) y :477 (`listarOpcionesInscripcion`);
+   - `turno.publico.ts`: :100 (`bloquearTurnoParaOperacion`, que usan Pagos y Clase dictada), :122 (`obtenerAlumnosInscriptosDeTurno`) y :250 (`ajustarCuposPorCapacidadDeAula`);
+   - `turno.disponibilidad.ts:91` (`alumnosConTurnoSuperpuesto`, que ahora recibe el momento: ver la decisión 3);
+   - `turno.reprogramacion.service.ts`: :67 (inscriptos) y :99 (opciones);
+   - `turno.aula.service.ts`: :29 y :59 (`_count`);
+   - `turno.cancelacion.service.ts:41`;
+   - `calendario.service.ts:105`.
+3. **SQL crudo con `sqlVigenteEn`:** `turno.publico.ts:191` (inscriptos de `listarTurnosFuturosDeProfesorPorMateria`) y :353 (`promediarOcupacionTurnosPorMes`).
+4. **Estado de la clase por la ocupación vigente** (`estadoSegunOcupacion`, igual que `ocupacion(db, turnoId, ahora())` pero sin otra consulta, porque cada lectura ya tiene los inscriptos vigentes y el cupo):
+   - `turno.service.ts`: :129 (Mis turnos) y :588 (`presentar`: listado y detalle);
+   - `turno.publico.ts`: :106 y :212;
+   - `calendario.service.ts:133`.
+   - «Solicitar clase» (`listarOpcionesInscripcion`) ofrece las clases `DISPONIBLE` o `COMPLETO` guardadas y decide con los inscriptos vigentes y el cupo. El rechazo de `CUPO_INSUFICIENTE` por estado guardado (`turno.service.ts:375` de 5.1) desaparece: lo decide `crearInscripcion` contando vigentes.
+5. **Reprogramación y cancelación** (2.0):
+   - `reprogramarTurno` (`turno.reprogramacion.service.ts:150`) corre con `transaccion()`. Llama a `marcarVencidas` (:157) antes de mover la clase y a `recalcularVencimientos` (:170) después.
+   - `cancelarTurno` (`turno.cancelacion.service.ts:28`) corre con `transaccion()` y llama a `marcarVencidas` (:40) antes de cancelar, salvo en una clase `PENDIENTE`. El evento lista las inscripciones vigentes.
+6. **Pagos** (`src/server/pagos/`):
+   - `registrarPago` (`pago.service.ts:23`) envuelve `registrarOperacion` en modo `compatSprint2`, con la inscripción vigente del par y un solo ítem. Antes valida turno, estado e inscripción sin bloquear, con los códigos y el orden de Sprint 2; `registrarOperacion` revalida con todo bloqueado y sigue con forma, fecha y caja. La respuesta suma el campo extra `comprobante: { id, numero }`.
+   - `obtenerOpcionesPago` recibe solo vigentes.
+   - `POST /api/pagos` (`src/app/api/pagos/route.ts`) suma, después de su tabla de Sprint 2, la respuesta de cualquier `ErrorDeDominio` con su `code`, su texto y su HTTP: `409 CAJA_NO_ABIERTA` y `409 TRANSACCION_OCUPADA`. Los códigos de Sprint 2 conservan su texto de la tabla.
+   - `listarPagosDeTurno` y `sumarPagosPorMes` (`pago.publico.ts`) conservan firma y forma y leen el valor vigente. Sus consumidores (`turno.detalle.ts`, `indicadores.service.ts`) no cambian.
+7. **Clase dictada (1:N)**:
+   - `clase-dictada.service.ts` :70, :80 y :101, e `historial.publico.ts:14` (`obtenerClaseDictadaDeTurno`): `findFirst` con `anuladaEl: null`.
+   - `registrarClaseDictada` toma los alumnos de `bloquearTurnoParaOperacion`, que ya devuelve solo vigentes: un alumno quitado no figura.
+   - `profesorAtendioAlumno` (`historial.publico.ts:37`) no cuenta clases anuladas.
+   - No se implementó la asistencia por alumno (HU-E-09).
+
+**Consolidaciones de 5.3 y 5.4** (sin cambiar firmas ni respuestas de hoy):
+- `turno.publico.ts` recibe `contarClasesPorMes` y `gerentePuedeGestionarClaseDeBaja`; se borra `clases.publico.ts`.
+- `pago.publico.ts` recibe `listarPagosDeAlumno`, `listarPagosDeClase` y `usuarioRegistroOperaciones`, y sus dos funciones de Sprint 2 pasan a ser las versiones con valor vigente; se borra `pago.lecturas.publico.ts`. Los nombres provisionales `listarPagosDeTurnoVigente` y `sumarPagosPorMesVigente` de 5.4 dejan de existir: el contrato son los nombres de Sprint 2.
+- `historial.publico.ts` recibe las lecturas de asistencia y `profesorPuedeRegistrarIndicacion`; se borra `asistencia.publico.ts`. `profesorPuedeVerHistorial` va a `historial.service.ts` y no a la fachada, porque combina una lectura de C con una de E (R2-PR0-4); se borra `alcance-profesor.ts`.
+- `profesor.publico.ts` ya tenía `obtenerProfesoresBasicos` (parte 3); solo se corrigieron sus finales de línea.
+- `profesor.service.ts`: su chequeo privado de email en uso delega en `verificarEmailNoAsociadoAOtraCuenta` del módulo A y conserva su respuesta de hoy (`EMAIL_YA_ASOCIADO`, «El email pertenece a otra cuenta»).
+
+**Otras decisiones de esta etapa:**
+1. **`src/server/turnos/inscripcion.filtro.ts` (nuevo):** contiene `filtroVigenteEn` sin dependencias de servidor (solo tipos de Prisma), y `inscripcion.vigencia.ts` lo reexporta. Hace falta porque `turno.disponibilidad.ts` también lo importa un componente de cliente (`turno-recurrente.tsx` usa `iniciosPosibles`): con el reloj (`node:async_hooks`) en ese archivo, `npm run build` fallaba.
+2. **Momento de `alumnosConTurnoSuperpuesto`:** lo recibe como cuarto parámetro opcional (por defecto el reloj del sistema). Los servicios le pasan `ahora()`.
+3. **`transaccion()`:** el tipo de `opciones.tiempos` acepta cualquier número (antes exigía los literales por defecto).
+4. **`npm run test:pg`:** los `*.pg.test.ts` de Sprint 2 cuya guarda exige un nombre de base fijo (`noctium_test` en HU-C-05, C-06 y C-10, y un nombre con `hu_c17_fase3` en HU-C-17) estaban siempre saltados. El script los corre ahora en pasadas propias, con una base descartable de ese nombre que se borra al terminar. Si `noctium_test` ya existe, no la toca y la pasada falla con un aviso.
+5. **Seed base:**
+   - **Cajas de prueba:** una caja abierta para cada cuenta de `CUENTAS_CON_CAJA` (`mesa.entrada@` y `mesa.entrada2@`, la lista fija de cuentas del seed por su email, porque la base genera el id de la cuenta). Se crea con `abrirCaja` dentro de `transaccion()`. Si el integrante ya tiene alguna caja, abierta o cerrada, no se crea otra. `validarDatos()` verifica que esas cuentas sean de mesa de entrada.
+   - **Fixtures:** al final, después del seed base y de las cajas, `correrFixtures` corre `prisma/seed/fixtures/index.ts`. El índice tiene el comentario para las HU y una lista vacía. El proyecto corre como CommonJS (sin `"type": "module"`), así que el índice no puede ser solo un comentario: necesita la lista y la función que la recorre para que el seed espere a cada fixture. No hay ningún escenario.
+   - **Horarios de profesores:** el seed (desde Sprint 1) los borraba y recreaba en cada corrida, y la segunda corrida cambiaba sus ids. Ahora se recrean solo si cambiaron.
+6. **Parámetros (5.3, decisión 1):** las lecturas de `turno.generacion.service.ts` y `turno.validaciones.ts` usan otras claves (horario operativo, límites de generación, anticipación) que `parametrosVigentes()` no cubre. Quedan como están.
+
+**Tests de los Sprints 1 y 2 modificados** (solo mocks y datos de persistencia; las aserciones de respuestas, códigos, textos y reglas se mantienen, salvo lo que se indica):
+
+| Test | Motivo |
+|---|---|
+| `turno.participantes.test.ts` | El `tx` simulado suma lo que usan `transaccion()` y `bloquear()`, y cada transacción recibe su propia copia. Se simula el servicio de inscripción. El `deleteMany`/`createMany` pasa a: altas con `crearInscripcion` y `QUITADA_CENTRO` para las que no siguen (caso nuevo). La confirmación guarda `DISPONIBLE` y las altas llevan la clase a `COMPLETO`, así que las inscripciones van después de confirmar (antes, el `createMany` iba antes). |
+| `turno.inscripciones.test.ts` | Se simula `crearInscripcion`/`finalizarInscripcion`. Los casos de cupo, estado, alumno, repetido y superposición simulan el error que lanza `crearInscripcion` y conservan código, texto, detalles y la falta de eventos. Esas reglas se prueban de punta a punta en `turno.inscripciones.pg.test.ts`. La aserción del `SELECT … FOR UPDATE` pasa a: la transacción abre con los tiempos de 2.10 antes de inscribir. El `deleteMany` pasa a `QUITADA_CENTRO`. Mismos 13 casos. |
+| `turno.autoservicio.test.ts` | Igual que el anterior para el autoservicio. La consulta de opciones pide clases `DISPONIBLE` o `COMPLETO` y descarta las del alumno con inscripción vigente (2.0, estado por ocupación). |
+| `turno.cancelacion.test.ts` | El `tx` suma `$executeRawUnsafe`; los inscriptos salen de `inscripcionesVigentes`. Suma las aserciones de `marcarVencidas` (antes de cancelar y no en una `PENDIENTE`). |
+| `turno.reprogramacion.test.ts` | Igual, más `marcarVencidas` y `recalcularVencimientos` (orden respecto del UPDATE). La forma de la consulta incluye el filtro de vigencia y el momento de `alumnosConTurnoSuperpuesto`. |
+| `turno.publico.test.ts` | Las filas simuladas suman cupo y las columnas de vigencia. Las consultas incluyen el filtro de vigencia; el fragmento `sqlVigenteEn` se verifica en su posición. |
+| `turno.propios.test.ts`, `turno.opciones-alumnos.test.ts`, `turno.detalle.test.ts` | Las consultas incluyen el filtro de vigencia; las filas suman `_count` y cupo. |
+| `calendario.service.test.ts` | Dos datos de prueba: una clase `COMPLETO` ahora tiene el cupo lleno, porque el estado mostrado sale de la ocupación (2.2). |
+| `clase-dictada.service.test.ts`, `historial.publico.test.ts` | `findUnique` por `turnoId` pasa a `findFirst` con `anuladaEl: null` (1:N). |
+| `pago.service.test.ts` | Se simula `registrarOperacion` y la fachada de C. Forma, fecha y parciales los valida ahora `registrarOperacion`: se simula su error y se verifican el código y los datos que recibe. Esas reglas se prueban con PostgreSQL en `operacion.service.pg.test.ts` y `turno.inscripciones.pg.test.ts`. Caso nuevo: `CAJA_NO_ABIERTA`. |
+| `pago.publico.test.ts` | Los pagos se leen desde la operación con su valor vigente. `sumarPagosPorMes` verifica el SQL con monto y fecha vigentes y sin anulados. La consulta de alumnos en lote recibe ids sin repetir. Caso nuevo: monto corregido y pago anulado. |
+| `publico.aislamiento.test.ts` | La lista permitida de `turno.publico.ts` suma `inscripcion.vigencia`; la de `pago.publico.ts`, `comprobante.schema` y `pago.vigente`. Se agrega `historial.publico.ts`. Se quitan las tres fachadas provisionales de la parte 3 y se suman 4 casos de rechazo. |
+| `turno.publico.pg`, `turno.reservas.pg`, `turno.propios.pg`, `turno.participantes.pg`, `turno.cancelacion.pg`, `turno.reprogramacion.pg`, `pago.publico.pg`, `pago.service.pg` | Datos: las inscripciones directas suman `estadoPago`, `precio` y `reservadaEl`; las materias que inscriben por servicio tienen tarifa (HU-L-06). Cada pago tiene su operación, su caja y su inscripción; el que registra por `POST /api/pagos` es una cuenta de mesa de entrada con caja abierta (2.15). Los borrados por `turnoId_alumnoId` pasan a `QUITADA_CENTRO`, y `turno.reservas.pg` verifica además que se libera la reserva. La clase `COMPLETO` de `turno.propios.pg` tiene cupo. `turno.reprogramacion.pg` lee la clase dictada con `findFirst`. |
+| `turno.participantes.pg.test.ts` | **Aserción cambiada:** el test fuerza un alumno repetido para provocar un error dentro de la transacción y espera `P2002`. Con `crearInscripcion`, el repetido se detecta antes del índice único y sale `ALUMNO_YA_ASIGNADO`. Las aserciones de reversión (profesor, participantes y eventos) son las mismas. |
+
+Además, tests del PR 0: `errores-dominio.test.ts` fija los literales de Sprint 2 en lugar de leerlos de `turno.service.ts`. `correccion.service.pg.test.ts` e `inscripcion.service.pg.test.ts` calculaban «ayer» y «mañana» con la fecha UTC y fallaban entre las 21 y las 24 del centro; ahora usan la fecha del centro. Los demás solo cambian sus imports. Pruebas nuevas: `turno.inscripciones.pg.test.ts` (10, el comportamiento interino de 2.15 de punta a punta) y la equivalencia de `filtroVigenteEn` en `inscripcion.vigencia.pg.test.ts`.
+
+**Resultado:**
+- `npx tsc --noEmit`: 0 errores.
+- `npm run lint`: 0 errores; queda el aviso de `Sidebar.tsx`, que ya existía.
+- `npm test`: 148 archivos (124 pasan, 24 saltados), 1884 pruebas (1718 pasan, 166 saltadas), 0 fallas. Los saltados son los `*.pg.test.ts`.
+- `npm run test:pg` (todos): 24 archivos y 166 pruebas en tres pasadas, todas pasan:
+  - la base descartable general: 20 archivos y 132 pruebas; los otros 4 archivos corren en las pasadas de nombre fijo;
+  - `noctium_test`: 3 archivos y 18 pruebas;
+  - `noctium_pruebas_hu_c17_fase3_…`: 1 archivo y 16 pruebas.
+  - Las tres bases se borraron.
+- `npm run build` con el `DATABASE_URL` ficticio del CI: compila.
+- Seed dos veces seguidas sobre una base descartable migrada: la segunda corrida no cambia conteos ni ids de ninguna tabla, ni las cajas, ni la secuencia de comprobantes. Abre las 2 cajas en la primera corrida y ninguna en la segunda. La base se borró.
+- Colecciones Postman (`docs/testing/HU-I-01.postman_collection.json`, `docs/testing/HU-H-01-H-02-revision.postman_collection.json`): no se corrieron. Ver la duda 6.
+
+**Dudas abiertas de esta parte:**
+1. **El Profesor perdió `alumnos:leer`** con la migración de permisos de la etapa 1. Su menú sigue mostrando «Alumnos > Listado», que exige ese permiso, y ahora le responde «sin permiso». La ficha por historial sigue andando con `historial:leer`. La tabla de 1.1 decía que se resolvía en el mismo cambio (2.9), que quedó fuera. ¿Se quita el ítem del menú del Profesor, se devuelve el permiso hasta HU-E-02, o se acepta así?
+2. **Códigos nuevos en las rutas de turnos:** las rutas de hoy responden 409 a todo `ServiceError` que no sea de inexistencia. Por eso `MATERIA_SIN_TARIFA` (422 en el catálogo) y `TRANSACCION_OCUPADA` salen como 409 por `POST /api/turnos/[id]/alumnos`, `/inscripcion` y `/participantes`. ¿Se ajustan esas rutas (cambio aditivo) o queda así?
+3. **Registrar clase dictada no marca reservas vencidas antes** (2.2 lo pide). Las reservas vencidas igual no se registran, porque se filtran con `esVigenteEn`. Marcar exige que la clase dictada corra en `transaccion()` y tome su bloqueo con `bloquear`; lo hace HU-E-09 al pasar a `registrarClaseDictada(tx, …)`.
+4. **`turno.participantes.pg.test.ts`:** el código esperado pasa de `P2002` a `ALUMNO_YA_ASIGNADO` (tabla de arriba). Confirmar que se acepta.
+5. **Reparto de `RULES.md` y del CI** («Alcance reducido»): es una propuesta. Confirmar con el equipo.
+6. **Colecciones Postman:** necesitan cambiar de sesión a mano entre pedidos, cookies que no traen y datos que el seed base ya no tiene (inscriptos de `seed-turno-02`, meses de indicadores), así que correrlas exigía modificarlas. Además, `newman` no está en el repo. Quedan para la prueba manual o para cuando las HU agreguen sus fixtures.
+7. **Validaciones pendientes que aplican** (sección 4): `migrate dev --create-only` sobre una copia de `prisma/`, y la prueba con PostgreSQL del índice parcial de la clase dictada.
+8. **Parámetros de generación y validación de clases:** siguen leyendo `parametroSistema` directo, con claves que `parametrosVigentes()` no cubre. ¿Las suma HU-N-01?
+
+**Respuestas del responsable del PR 0 a las dudas de esta parte:**
+1. El Profesor conserva `alumnos:leer` hasta que HU-E-02 traiga su acceso acotado al historial. Se editó la migración `20261008120200_sprint3_permisos` (todavía no publicada): ya no le quita `alumnos:leer` al Profesor y lo inserta, porque hasta ahora solo lo sembraba el seed. `PERMISOS` del seed lo incluye y `PERMISOS_REVOCADOS` queda vacía. El resto de la matriz de 2.9.1 no cambia. HU-E-02 se lo quita con una migración nueva, en el mismo cambio en que agrega su acceso acotado. Verificado en una base descartable: migraciones solas y la misma base después del seed dan exactamente las mismas 92 filas (65 acciones).
+2. En las rutas de turnos, un `ErrorDeDominio` con un `code` nuevo del PR 0 responde con el HTTP de su catálogo; los `code` que ya existían en los Sprints 1 y 2 conservan su respuesta de hoy.
+   - `CODIGOS_SPRINTS_1_Y_2` (`errores-dominio.ts`) lista los 29 `code` del catálogo que ya existían en `develop`.
+   - `statusDeErrorNuevo(error)` (`error-dominio.ts`) devuelve el HTTP del catálogo solo para los demás.
+   - La usan, antes de su tabla de hoy, las seis rutas que llaman a los servicios del PR 0: `POST /api/turnos/[id]/alumnos`, `DELETE …/alumnos/[alumnoId]`, `POST …/inscripcion`, `PATCH …/participantes`, `POST …/cancelacion` y `PATCH …/reprogramacion`.
+   - Pruebas: `src/app/api/turnos/[id]/errores-dominio.route.test.ts` (por ruta, `MATERIA_SIN_TARIFA` 422, `TRANSACCION_OCUPADA` 409 y otros códigos nuevos con su HTTP; y códigos existentes lanzados como `ErrorDeDominio` con un HTTP de catálogo distinto, que conservan la respuesta de hoy) y dos casos en `errores-dominio.test.ts`.
+3. La marca de reservas vencidas al registrar una clase dictada queda para HU-E-09.
+4. Se acepta el cambio de aserción de `P2002` a `ALUMNO_YA_ASIGNADO` en `turno.participantes.pg.test.ts`.
+5. El reparto de `RULES.md` y del CI se confirma con el equipo.
+6. Las colecciones Postman no se corren. La evidencia de compatibilidad son las pruebas de punta a punta con PostgreSQL más una prueba manual del responsable del PR 0.
+7. `migrate dev --create-only` sobre una copia de `prisma/` y la prueba del índice parcial de la clase dictada quedan como nota. La segunda la hace quien tome HU-E-09 o HU-E-11.
+8. Los parámetros de generación y validación de clases los suma HU-N-01.
 
 ## 6. Decisiones alineadas y datos que debe completar el equipo
 

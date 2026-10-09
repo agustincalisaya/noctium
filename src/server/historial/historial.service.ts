@@ -4,7 +4,8 @@ import { obtenerAlumnoBasico } from "@/server/alumnos/alumno.publico";
 import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
 import { ServiceError } from "@/server/shared/service-error";
-import { profesorAtendioAlumno } from "./historial.publico";
+import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
+import { profesorAtendioAlumno, profesorPuedeRegistrarIndicacion } from "./historial.publico";
 import type { HistorialQuery } from "./historial.schema";
 
 const MENSAJES = {
@@ -159,4 +160,24 @@ export async function obtenerHistorialAlumno(
       por_pagina: limite,
     },
   };
+}
+
+/**
+ * Alcance del Profesor sobre el historial académico (convención 8 g, PR-0.md
+ * §2.9, spec_modulo_E.md §2.5.3). Vive en el servicio de E y no en la
+ * fachada, porque combina una lectura de C con una de E (R2-PR0-4).
+ *
+ * `true` si el alumno tiene una inscripción vigente en una clase de ese
+ * profesor y esa materia (incluidas las futuras), o si figura en el registro
+ * de una clase dictada no anulada de ese profesor y esa materia. Con `false`
+ * el servidor responde 403 antes de consultar si el alumno existe.
+ */
+export async function profesorPuedeVerHistorial(
+  profesorId: string,
+  alumnoId: string,
+  materiaId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<boolean> {
+  return (await existeInscripcionVigenteConProfesor(alumnoId, profesorId, materiaId, db))
+    || (await profesorPuedeRegistrarIndicacion(profesorId, alumnoId, materiaId, db));
 }

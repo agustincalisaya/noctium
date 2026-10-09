@@ -12,9 +12,12 @@
 //
 // SPRINT 3 (PR-0.md §2.16): este archivo es el SEED BASE — catálogos, formas
 // de pago, tarifas, parámetros, datos del centro, cuentas, fichas y clases.
-// NO crea inscripciones, pagos, comprobantes, cajas ni clases dictadas: esos
-// datos los crea el seed de escenarios llamando a los servicios de dominio
-// (etapa 2 del PR 0), para que cumplan las mismas reglas que la aplicación.
+// NO crea inscripciones, pagos, comprobantes ni clases dictadas: esos datos
+// los crean los fixtures de cada HU llamando a los servicios de dominio, para
+// que cumplan las mismas reglas que la aplicación. Lo único que crea con un
+// servicio es una caja abierta por cuenta de mesa de entrada de prueba
+// (CUENTAS_CON_CAJA, con `abrirCaja`, PR-0.md §2.15), así se puede cobrar desde
+// el detalle de la clase. Al final corre los fixtures de prisma/seed/fixtures/.
 // Las clases confirmadas quedan DISPONIBLE (con profesor, aula y cupo) y sin
 // inscriptos: una clase llega a COMPLETO por sus inscripciones. El campo
 // `alumnos` de TURNOS es el plan de inscriptos para ese seed de escenarios;
@@ -96,7 +99,7 @@
 //  - Parámetros: los técnicos se actualizan; los que edita HU-N-01 y los datos
 //    del centro solo se crean si faltan.
 //  - Fichas de mesa de entrada y de gerente: por DNI, solo se crean si faltan.
-//  - HorarioProfesor (sin clave única): se borra y recrea por profesor.
+//  - HorarioProfesor (sin clave única): se recrea por profesor solo si cambió.
 //  - Turnos: ids fijos ("seed-turno-XX"), solo se crean si faltan (no se
 //    borran ni se mueven: conservan la fecha de la primera corrida y lo que
 //    les hayan agregado las HU o el seed de escenarios).
@@ -121,6 +124,9 @@ import { ContactoSchema } from "../src/server/shared/contacto.schema";
 import { crearIdentidadAlumnoSchema } from "../src/server/alumnos/alumno.schema";
 import { DURACIONES_PERMITIDAS_TURNO_MIN } from "../src/server/turnos/turno.schema";
 import { ahora, conReloj } from "../src/server/shared/reloj";
+import { transaccion } from "../src/server/shared/transaccion";
+import { abrirCaja } from "../src/server/pagos/caja.service";
+import { correrFixtures } from "./seed/fixtures";
 import { fechaCentro, instanteCentro } from "../src/server/shared/fechas-centro";
 import {
   DIAS_SEMANA,
@@ -740,6 +746,15 @@ type PersonalSeed = {
   telefono: string | null;
 };
 
+/**
+ * Cuentas de mesa de entrada de prueba que reciben una caja abierta (PR-0.md
+ * §2.15 y §2.16). Lista fija de cuentas del seed, por su email (la clave
+ * natural de la cuenta: el id lo genera la base). Si la cuenta ya tiene alguna
+ * caja, abierta o cerrada, el seed no crea otra: una caja cerrada se vuelve a
+ * abrir con `npm run caja:abrir -- <email>`.
+ */
+const CUENTAS_CON_CAJA = ["mesa.entrada@noctium.local", "mesa.entrada2@noctium.local"] as const;
+
 const PERSONAL: PersonalSeed[] = [
   { email: "mesa.entrada@noctium.local", rol: "MESA_ENTRADA", nombre: "Marta", apellido: "Ruiz", dni: "25100001", nacimiento: [1985, 5, 14], genero: "FEMENINO", telefono: "+54 11 5570-0001" },
   { email: "mesa.entrada2@noctium.local", rol: "MESA_ENTRADA", nombre: "Pablo", apellido: "Ferreyra", dni: "25100002", nacimiento: [1990, 9, 3], genero: "MASCULINO", telefono: null },
@@ -836,13 +851,15 @@ const PERMISOS: [RolUsuario, string][] = [
   // Alumnos (HU-B-01 alta, HU-B-02 contacto, HU-B-04 listado/detalle):
   // crear/editar exclusivos de Mesa de Entrada (spec_modulo_B.md §2.1). Turnos
   // consume Alumno vía servicio público, no por estos permisos. Sprint 3:
-  // el Gerente consulta alumnos (convención 8 d) y el Profesor pierde
-  // alumnos:leer (convención 8 g: su acceso al historial es acotado, ver
-  // PERMISOS_REVOCADOS). Baja y reactivación (HU-B-07): solo Mesa de Entrada.
+  // el Gerente consulta alumnos (convención 8 d). El Profesor conserva
+  // alumnos:leer hasta HU-E-02, que se lo quita (convención 8 g) con una
+  // migración nueva en el mismo cambio en que agrega su acceso acotado al
+  // historial. Baja y reactivación (HU-B-07): solo Mesa de Entrada.
   ["MESA_ENTRADA", "alumnos:crear"],
   ["MESA_ENTRADA", "alumnos:editar"],
   ["MESA_ENTRADA", "alumnos:leer"],
   ["GERENTE", "alumnos:leer"],
+  ["PROFESOR", "alumnos:leer"],
   ["MESA_ENTRADA", "alumnos:cambiar_estado"],
   // Profesores (HU-D-01..07): crear/editar exclusivos de Mesa de Entrada (ver
   // ACCIONES_SOLO_MESA_ENTRADA). Sprint 3 (HU-D-08): el Gerente consulta y
@@ -947,10 +964,9 @@ const ACCIONES_SOLO_MESA_ENTRADA = ["profesores:crear", "profesores:editar"] as 
 
 // Filas que un rol tuvo y perdió (también las borra la migración de permisos
 // del Sprint 3). El upsert con update: {} no las quitaría de una base vieja.
-const PERMISOS_REVOCADOS: [RolUsuario, string][] = [
-  // Convención 8 g: el Profesor accede al historial solo con el alcance acotado.
-  ["PROFESOR", "alumnos:leer"],
-];
+// Filas que el seed borra en bases existentes (el upsert no las quita). Vacía
+// por ahora: HU-E-02 agrega acá PROFESOR alumnos:leer junto con su migración.
+const PERMISOS_REVOCADOS: [RolUsuario, string][] = [];
 
 type TurnoSeed = {
   id: string;
@@ -1223,6 +1239,9 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
     }
   }
   if (new Set(PERSONAL.map((p) => p.email)).size !== PERSONAL.length) errores.push("Fichas del personal con email repetido");
+  for (const email of CUENTAS_CON_CAJA) {
+    if (!PERSONAL.some((p) => p.email === email && p.rol === "MESA_ENTRADA")) errores.push(`${email} recibe caja pero no es una cuenta de mesa de entrada del seed`);
+  }
   for (const rol of ["MESA_ENTRADA", "GERENTE"] as const) {
     const delRol = PERSONAL.filter((p) => p.rol === rol);
     if (delRol.length < 2) errores.push(`Se necesitan al menos 2 cuentas de ${rol} con ficha (PR-0.md §2.7)`);
@@ -1751,16 +1770,24 @@ async function main() {
     });
     totalAsociaciones += p.materias.length;
 
-    await prisma.horarioProfesor.deleteMany({ where: { profesorId } });
-    await prisma.horarioProfesor.createMany({
-      data: p.horarios.map((h) => ({
-        profesorId,
-        diaSemanaHorario: DIAS[h.dia],
-        horaDesdeHorario: horaTime(h.desde),
-        horaHastaHorario: horaTime(h.hasta),
-        creadoPorUsuarioId: gerenteId,
-      })),
+    // Sin clave única: se recrean solo si cambiaron, así una segunda corrida
+    // conserva los ids (seed repetible, PR-0.md §2.16).
+    const deseados = p.horarios.map((h) => ({
+      profesorId,
+      diaSemanaHorario: DIAS[h.dia],
+      horaDesdeHorario: horaTime(h.desde),
+      horaHastaHorario: horaTime(h.hasta),
+      creadoPorUsuarioId: gerenteId,
+    }));
+    const clave = (h: { diaSemanaHorario: string; horaDesdeHorario: Date; horaHastaHorario: Date }) =>
+      `${h.diaSemanaHorario}|${h.horaDesdeHorario.toISOString()}|${h.horaHastaHorario.toISOString()}`;
+    const actuales = await prisma.horarioProfesor.findMany({
+      where: { profesorId }, select: { diaSemanaHorario: true, horaDesdeHorario: true, horaHastaHorario: true },
     });
+    if (actuales.map(clave).sort().join(",") !== deseados.map(clave).sort().join(",")) {
+      await prisma.horarioProfesor.deleteMany({ where: { profesorId } });
+      await prisma.horarioProfesor.createMany({ data: deseados });
+    }
     totalHorarios += p.horarios.length;
   }
   console.log(`✓ ${totalAsociaciones} asociaciones profesor-materia y ${totalHorarios} horarios de atención creados`);
@@ -1847,6 +1874,22 @@ async function main() {
     });
   }
   console.log(`✓ ${PERMISOS.length} permisos RBAC creados (${new Set(PERMISOS.map(([, accion]) => accion)).size} acciones)`);
+
+  // 11) Cajas de prueba (PR-0.md §2.15 y §2.16) ----------------
+  // Con el servicio abrirCaja (exige la ficha de mesa de entrada activa), nunca
+  // con un create directo. Clave natural: si el integrante ya tiene alguna
+  // caja, abierta o cerrada, no se crea otra (un segundo seed no cambia nada).
+  let cajasAbiertas = 0;
+  for (const email of CUENTAS_CON_CAJA) {
+    const usuarioId = usuarioPersonalIds.get(email)!;
+    if (await prisma.caja.findFirst({ where: { usuarioId }, select: { idCaja: true } })) continue;
+    await transaccion((tx) => abrirCaja(tx, { usuarioId, fondoInicial: "0" }), { db: prisma });
+    cajasAbiertas += 1;
+  }
+  console.log(`✓ Cajas de prueba: ${cajasAbiertas} abiertas en esta corrida (${CUENTAS_CON_CAJA.length} cuentas de mesa de entrada)`);
+
+  // 12) Fixtures de las HU (prisma/seed/fixtures/index.ts) --------
+  await correrFixtures({ prisma });
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }

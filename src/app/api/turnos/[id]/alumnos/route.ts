@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
+import { statusDeErrorNuevo } from "@/server/shared/error-dominio";
 import { AgregarAlumnoTurnoSchema } from "@/server/turnos/turno.schema";
 import { agregarAlumnoTurno } from "@/server/turnos/turno.service";
 
@@ -15,7 +16,7 @@ export const POST = withPermission("turnos:asignar_participantes", async (req, c
   try {
     return NextResponse.json({ data: await agregarAlumnoTurno(id, parsed.data, req.auth!.user.id), error: null });
   } catch (error) {
-    if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message, ...(error.detalles ? { detalles: error.detalles } : {}) } }, { status: error.code === "TURNO_NO_ENCONTRADO" ? 404 : 409 });
+    if (error instanceof ServiceError) return NextResponse.json({ data: null, error: { code: error.code, message: error.message, ...(error.detalles ? { detalles: error.detalles } : {}) } }, { status: statusDeErrorNuevo(error) ?? (error.code === "TURNO_NO_ENCONTRADO" ? 404 : 409) });
     throw error;
   }
 });

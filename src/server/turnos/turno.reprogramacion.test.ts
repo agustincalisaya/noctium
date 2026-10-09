@@ -5,6 +5,8 @@ const m = vi.hoisted(() => ({
   transaction: vi.fn(), queryRaw: vi.fn(), updateMany: vi.fn(), turnoAlumnoFindMany: vi.fn(), eventoCreate: vi.fn(),
   findUnique: vi.fn(), turnoFindMany: vi.fn(), parametros: vi.fn(),
   enHorario: vi.fn(), horarios: vi.fn(), profesores: vi.fn(), aula: vi.fn(), alumnos: vi.fn(),
+  // Persistencia de la inscripción (PR-0.md §2.0): vencimiento de reservas antes y después de mover la clase.
+  marcarVencidas: vi.fn(), recalcularVencimientos: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
   $transaction: m.transaction,
@@ -17,6 +19,11 @@ vi.mock("@/server/profesores/profesor.publico", async (original) => ({
   ...(await original<typeof import("@/server/profesores/profesor.publico")>()),
   estaDentroDeHorarioAtencion: m.enHorario, obtenerHorariosDeAtencion: m.horarios,
 }));
+// turnoAlumnoFindMany: las inscripciones vigentes de la clase (inscripcionesVigentes, PR-0.md §2.2).
+vi.mock("./inscripcion.vigencia", async (original) => ({
+  ...(await original<typeof import("./inscripcion.vigencia")>()), inscripcionesVigentes: m.turnoAlumnoFindMany,
+}));
+vi.mock("./inscripcion.service", () => ({ marcarVencidas: m.marcarVencidas, recalcularVencimientos: m.recalcularVencimientos }));
 vi.mock("./turno.disponibilidad", async (original) => ({
   ...(await original<typeof import("./turno.disponibilidad")>()),
   profesoresConTurnoSuperpuesto: m.profesores, aulaConTurnoSuperpuesto: m.aula, alumnosConTurnoSuperpuesto: m.alumnos,
@@ -35,7 +42,8 @@ const fila = (extra: Record<string, unknown> = {}) => ({
   idTurno: "turno-1", estadoTurno: "DISPONIBLE", fechaTurno: fecha("2026-10-06"), horaInicioTurno: hora("16:00"),
   duracionMinutosTurno: 60, profesorId: "prof-1", aulaId: "aula-1", ...extra,
 });
-const tx = () => ({ $queryRaw: m.queryRaw, turno: { updateMany: m.updateMany }, turnoAlumno: { findMany: m.turnoAlumnoFindMany } });
+// transaccion() (PR-0.md §2.16) fija los tiempos de la transacción al empezar ($executeRawUnsafe).
+const tx = () => ({ $executeRawUnsafe: vi.fn(), $queryRaw: m.queryRaw, turno: { updateMany: m.updateMany }, turnoAlumno: { findMany: m.turnoAlumnoFindMany } });
 const input = (valor = "2026-10-07", horaInicio = "17:00") => ({ fecha: fecha(valor), hora_inicio: horaInicio });
 
 beforeEach(() => {
@@ -43,7 +51,9 @@ beforeEach(() => {
   m.parametros.mockResolvedValue([]);
   m.queryRaw.mockResolvedValue([fila()]);
   m.findUnique.mockResolvedValue(fila());
-  m.turnoAlumnoFindMany.mockResolvedValue([{ alumnoId: "alumno-1" }, { alumnoId: "alumno-2" }]);
+  m.turnoAlumnoFindMany.mockResolvedValue([{ id: "insc-2", alumnoId: "alumno-2" }, { id: "insc-1", alumnoId: "alumno-1" }]);
+  m.marcarVencidas.mockResolvedValue(0);
+  m.recalcularVencimientos.mockResolvedValue({ marcadas: 0, recalculadas: 0 });
   m.updateMany.mockResolvedValue({ count: 1 });
   m.eventoCreate.mockResolvedValue({});
   m.enHorario.mockResolvedValue(true);
@@ -70,6 +80,11 @@ describe("HU-C-06 reprogramarTurno", () => {
       where: { idTurno: "turno-1", estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } },
       data: { fechaTurno: fecha("2026-10-07"), horaInicioTurno: hora("17:00"), modificadoPorUsuarioId: "mesa-1" },
     });
+    // Reservas (PR-0.md §2.0): las vencidas se marcan antes de mover la clase y las que siguen recalculan su vencimiento después.
+    expect(m.marcarVencidas).toHaveBeenCalledWith(expect.anything(), "turno-1");
+    expect(m.recalcularVencimientos).toHaveBeenCalledWith(expect.anything(), "turno-1");
+    expect(m.marcarVencidas.mock.invocationCallOrder[0]).toBeLessThan(m.updateMany.mock.invocationCallOrder[0]);
+    expect(m.updateMany.mock.invocationCallOrder[0]).toBeLessThan(m.recalcularVencimientos.mock.invocationCallOrder[0]);
     expect(m.eventoCreate).toHaveBeenCalledExactlyOnceWith({ data: {
       tipoEvento: "turno:reprogramado", turnoId: "turno-1", usuarioId: "mesa-1",
       payloadEvento: { turno_id: "turno-1", fecha_anterior: "2026-10-06", hora_inicio_anterior: "16:00", fecha_nueva: "2026-10-07",
@@ -83,7 +98,8 @@ describe("HU-C-06 reprogramarTurno", () => {
     expect(m.enHorario).toHaveBeenCalledWith("prof-1", fecha("2026-10-07"), "17:00", "18:00", expect.anything());
     expect(m.profesores).toHaveBeenCalledWith(expect.anything(), candidato, ["prof-1"]);
     expect(m.aula).toHaveBeenCalledWith(expect.anything(), candidato, "aula-1");
-    expect(m.alumnos).toHaveBeenCalledWith(expect.anything(), candidato, ["alumno-1", "alumno-2"]);
+    // Con el momento de la operación: solo ocupa una inscripción vigente (PR-0.md §2.2).
+    expect(m.alumnos).toHaveBeenCalledWith(expect.anything(), candidato, ["alumno-1", "alumno-2"], expect.any(Date));
   });
 
   it.each([
@@ -186,7 +202,8 @@ describe("HU-C-06 opcionesReprogramacion", () => {
     expect(inicios.map((inicio) => inicio.hora_inicio)).toEqual(["16:00", "18:00", "18:30", "19:00"]);
     expect(m.turnoFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
       idTurno: { not: "turno-1" }, fechaTurno: fecha("2026-10-06"), estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] },
-      OR: [{ profesorId: "prof-1" }, { aulaId: "aula-1" }, { alumnos: { some: { alumnoId: { in: ["alumno-1", "alumno-2"] } } } }],
+      // Solo las inscripciones vigentes ahora ocupan al alumno (PR-0.md §2.2).
+      OR: [{ profesorId: "prof-1" }, { aulaId: "aula-1" }, { alumnos: { some: expect.objectContaining({ alumnoId: { in: ["alumno-1", "alumno-2"] }, vigencia: "VIGENTE" }) } }],
     }) }));
   });
 

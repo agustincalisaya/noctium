@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
+import { esErrorDeDominio } from "@/server/shared/error-dominio";
 import { RegistrarPagoSchema } from "@/server/pagos/pago.schema";
 import { registrarPago } from "@/server/pagos/pago.service";
 
@@ -25,6 +26,11 @@ export const POST = withPermission("pagos:crear", async (req) => {
     if (error instanceof ServiceError && ERRORES[error.code]) {
       const { status, message } = ERRORES[error.code];
       return NextResponse.json({ data: null, error: { code: error.code, message } }, { status });
+    }
+    // Condiciones nuevas del PR 0 (PR-0.md §2.15): caja no abierta y
+    // transacción ocupada, con el código y el texto del catálogo central.
+    if (esErrorDeDominio(error)) {
+      return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.status });
     }
     throw error;
   }

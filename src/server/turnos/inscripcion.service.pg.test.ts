@@ -11,7 +11,7 @@ import {
 import { conReloj, ahora } from "@/server/shared/reloj";
 import { transaccion, type Tx } from "@/server/shared/transaccion";
 import { actorUsuario, PROCESO_AUTOMATICO } from "@/server/shared/historial";
-import { inicioDeTurno } from "@/server/shared/fechas-centro";
+import { inicioDeTurno, fechaCentro } from "@/server/shared/fechas-centro";
 import {
   clasesConReservasVencidas,
   crearInscripcion,
@@ -223,7 +223,8 @@ describe.skipIf(!basePgHabilitada)("servicio de inscripción con PostgreSQL real
     const turno = await crearTurnoDePrueba(db, { enDias: 6, hora: "10:00" });
     const alumno = await crearAlumnoDePrueba(db);
     const reserva = await inscribir({ turnoId: turno.idTurno, alumnoId: alumno.idAlumno, origen: "ALUMNO", conReserva: true });
-    const nuevaFecha = new Date(new Date(ahora().toISOString().slice(0, 10) + "T00:00:00.000Z").getTime() + 24 * HORA);
+    // Mañana en el centro (UTC−3), no en UTC.
+    const nuevaFecha = new Date(fechaCentro(ahora()).getTime() + 24 * HORA);
     // La clase pasa a mañana a las 08:00: antes que el vencimiento original de 24 h.
     await db.turno.update({ where: { idTurno: turno.idTurno }, data: { fechaTurno: nuevaFecha, horaInicioTurno: new Date("1970-01-01T08:00:00.000Z") } });
     const actualizado = await db.turno.findUniqueOrThrow({ where: { idTurno: turno.idTurno } });

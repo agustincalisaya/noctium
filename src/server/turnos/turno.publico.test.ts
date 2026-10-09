@@ -40,12 +40,15 @@ describe("bloquearTurnoParaOperacion", () => {
     idTurno: turnoId, estadoTurno: "COMPLETO",
     fechaTurno: new Date("2026-09-28T00:00:00.000Z"),
     horaInicioTurno: new Date("1970-01-01T10:30:00.000Z"),
-    duracionMinutosTurno: 120, materiaId: "materia-1", profesorId: "profesor-1", aulaId,
+    duracionMinutosTurno: 120, materiaId: "materia-1", profesorId: "profesor-1", aulaId, cupoMaximoTurno: 2,
   };
+  /** Inscripción vigente sin plazo de pago (PR-0.md §2.1), como la lee inscripcionesVigentes. */
+  const inscripcion = (alumnoId: string) => ({ idInscripcion: `insc-${alumnoId}`, alumnoId, vigencia: "VIGENTE", estadoPago: "PAGO_SIN_REGISTRAR", venceEl: null });
 
   it("bloquea con FOR SHARE y lee los inscriptos después de adquirirlo", async () => {
     db.$queryRaw.mockResolvedValue([fila]);
-    db.turnoAlumno.findMany.mockResolvedValue([{ alumnoId: "alumno-1" }, { alumnoId: "alumno-2" }]);
+    db.turno.findUnique.mockResolvedValue({ estadoTurno: "COMPLETO" });
+    db.turnoAlumno.findMany.mockResolvedValue([inscripcion("alumno-2"), inscripcion("alumno-1")]);
     await expect(bloquearTurnoParaOperacion(turnoId, tx)).resolves.toEqual({
       id: turnoId, estado: "COMPLETO", fecha: "2026-09-28", hora_inicio: "10:30", hora_fin: "12:30",
       duracion_min: 120, materia_id: "materia-1", profesor_id: "profesor-1", aula_id: aulaId,
@@ -54,9 +57,8 @@ describe("bloquearTurnoParaOperacion", () => {
     expect(sql()).toMatch(/FROM "turnos" WHERE "idTurno" = \? FOR SHARE/);
     expect(db.$queryRaw.mock.calls[0]![1]).toBe(turnoId);
     expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.turnoAlumno.findMany.mock.invocationCallOrder[0]);
-    expect(db.turnoAlumno.findMany).toHaveBeenCalledWith({
-      where: { turnoId }, select: { alumnoId: true }, orderBy: { alumnoId: "asc" },
-    });
+    // Solo las inscripciones vigentes ahora (PR-0.md §2.0 y §2.2), ordenadas por alumno.
+    expect(db.turnoAlumno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { turnoId, vigencia: "VIGENTE" } }));
   });
 
   it("devuelve null sin consultar inscriptos si no existe, y marca vencido desde la hora de inicio", async () => {
@@ -75,9 +77,10 @@ describe("obtenerAlumnosInscriptosDeTurno", () => {
     await expect(obtenerAlumnosInscriptosDeTurno(turnoId, tx)).resolves.toBeNull();
     await expect(obtenerAlumnosInscriptosDeTurno(turnoId, tx)).resolves.toEqual([]);
     await expect(obtenerAlumnosInscriptosDeTurno(turnoId, tx)).resolves.toEqual(["a", "b"]);
+    // Solo las inscripciones vigentes ahora (PR-0.md §2.0 y §2.2).
     expect(db.turno.findUnique).toHaveBeenCalledWith({
       where: { idTurno: turnoId },
-      select: { alumnos: { select: { alumnoId: true }, orderBy: { alumnoId: "asc" } } },
+      select: { alumnos: { where: expect.objectContaining({ vigencia: "VIGENTE" }), select: { alumnoId: true }, orderBy: { alumnoId: "asc" } } },
     });
   });
 });
@@ -260,7 +263,10 @@ describe("promediarOcupacionTurnosPorMes", () => {
     expect(sql()).toContain("t.\"cupoMaximoTurno\" > 0");
     expect(sql()).toContain("FROM \"turno_alumno\"");
     expect(sql()).toContain("::numeric / t.\"cupoMaximoTurno\")::float8");
-    expect(db.$queryRaw.mock.calls[0]!.slice(1)).toEqual(["2026-12-01", "2027-02-01", "2027-01-15"]);
+    // Solo cuentan las inscripciones vigentes (sqlVigenteEn, PR-0.md §2.2).
+    const [, vigentes, ...valores] = db.$queryRaw.mock.calls[0]!;
+    expect((vigentes as { sql: string }).sql).toContain("\"vigencia\" = 'VIGENTE'");
+    expect(valores).toEqual(["2026-12-01", "2027-02-01", "2027-01-15"]);
   });
 
   it("omite los meses sin turnos elegibles", async () => {

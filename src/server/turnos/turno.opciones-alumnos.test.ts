@@ -25,8 +25,9 @@ describe("opciones preventivas de alumnos para un turno persistido", () => {
     expect(listarIds).toHaveBeenCalledOnce();
     expect(basicos).toHaveBeenCalledExactlyOnceWith(["a", "b", "c"]);
     expect(findMany).toHaveBeenCalledWith({ where: { idTurno: { not: "turno-1" }, fechaTurno: turno.fechaTurno,
-      estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }, alumnos: { some: { alumnoId: { in: ["a", "b", "c"] } } } },
-      select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: ["a", "b", "c"] } }, select: { alumnoId: true } } } });
+      // Solo ocupan al alumno sus inscripciones vigentes ahora (PR-0.md §2.0 y §2.2).
+      estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] }, alumnos: { some: expect.objectContaining({ alumnoId: { in: ["a", "b", "c"] }, vigencia: "VIGENTE" }) } },
+      select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: expect.objectContaining({ alumnoId: { in: ["a", "b", "c"] }, vigencia: "VIGENTE" }), select: { alumnoId: true } } } });
   });
 
   it("excluye solapamientos y conserva intervalos contiguos", async () => {

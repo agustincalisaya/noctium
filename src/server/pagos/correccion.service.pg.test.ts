@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { basePgHabilitada, clientePg } from "@/server/testing/pg";
 import { crearAlumnoDePrueba, crearFichaMesaEntradaDePrueba, crearTurnoDePrueba, crearUsuarioDePrueba } from "@/server/testing/fabricas";
+import { fechaCentro } from "@/server/shared/fechas-centro";
 import { ahora, conReloj } from "@/server/shared/reloj";
 import { transaccion, type Tx } from "@/server/shared/transaccion";
 import { actorUsuario } from "@/server/shared/historial";
@@ -12,9 +13,9 @@ import { ComprobanteDatosSchema } from "@/server/pagos/comprobante.schema";
 import {
   listarPagosDeAlumno,
   listarPagosDeClase,
-  listarPagosDeTurnoVigente,
-  sumarPagosPorMesVigente,
-} from "@/server/pagos/pago.lecturas.publico";
+  listarPagosDeTurno,
+  sumarPagosPorMes,
+} from "@/server/pagos/pago.publico";
 import { sqlFechaPagoVigente, sqlFormaPagoVigente, sqlMontoVigente, sqlPagoNoAnulado } from "@/server/pagos/pago.vigente";
 import { crearInscripcion } from "@/server/turnos/inscripcion.publico";
 
@@ -86,7 +87,8 @@ describe.skipIf(!basePgHabilitada)("corrección y anulación de pagos con Postgr
 
   it("corregirOperacion: forma y fecha, una corrección por campo, alcanza a todos los pagos de la operación", async () => {
     const op = await operacion(mesa, 2);
-    const ayer = new Date(new Date(ahora().toISOString().slice(0, 10) + "T00:00:00.000Z").getTime() - DIA);
+    // Ayer en el centro (UTC−3): con la fecha UTC, entre las 21 y las 24 «ayer» sería hoy.
+    const ayer = new Date(fechaCentro(ahora()).getTime() - DIA);
     const r = await enTx((tx) => corregirOperacion(tx, { pagoId: op.pagos[0]!.id, formaPagoId: "formapago-transferencia", fechaPago: ayer, motivo: "Error de carga", usuario: mesa }));
     expect(r.correcciones).toHaveLength(2);
     expect(r.clasesAbarcadas).toBe(2);
@@ -173,19 +175,19 @@ describe.skipIf(!basePgHabilitada)("corrección y anulación de pagos con Postgr
     expect(enSql).toEqual(enTs);
   });
 
-  it("listarPagosDeClase incluye los anulados; listarPagosDeTurnoVigente y sumarPagosPorMesVigente los excluyen y usan el monto vigente", async () => {
+  it("listarPagosDeClase incluye los anulados; listarPagosDeTurno y sumarPagosPorMes los excluyen y usan el monto vigente", async () => {
     const op = await operacion(mesa, 2);
     await enTx((tx) => corregirPago(tx, { pagoId: op.pagos[0]!.id, monto: "11000", motivo: "x", usuario: mesa }));
     await enTx((tx) => anularPago(tx, { pagoId: op.pagos[1]!.id, motivo: "x", usuario: mesa }));
     const turnoA = op.pagos[0]!.turnoId;
     const turnoB = op.pagos[1]!.turnoId;
     expect(await listarPagosDeClase(turnoB, db)).toEqual([expect.objectContaining({ id: op.pagos[1]!.id, anulado: true, operacion_id: op.operacion.id })]);
-    expect(await listarPagosDeTurnoVigente(turnoB, db)).toEqual([]);
-    expect(await listarPagosDeTurnoVigente(turnoA, db)).toEqual([
+    expect(await listarPagosDeTurno(turnoB, db)).toEqual([]);
+    expect(await listarPagosDeTurno(turnoA, db)).toEqual([
       expect.objectContaining({ id: op.pagos[0]!.id, monto: "11000.00", forma_pago: { id: "formapago-efectivo", nombre: expect.any(String) } }),
     ]);
     const mes = op.operacion.fechaPago.toISOString().slice(0, 7);
-    const [total] = await sumarPagosPorMesVigente(mes, mes, db);
+    const [total] = await sumarPagosPorMes(mes, mes, db);
     const esperado = (await db.$queryRaw<{ total: string }[]>(Prisma.sql`
       SELECT SUM(${sqlMontoVigente("p")})::text AS total FROM "pagos" p
       WHERE ${sqlPagoNoAnulado("p")} AND to_char(${sqlFechaPagoVigente("p")}, 'YYYY-MM') = ${mes}`))[0]!.total;

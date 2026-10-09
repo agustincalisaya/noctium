@@ -27,7 +27,7 @@ export type OpcionesTransaccion = {
   /** Cliente a usar (por defecto el de la app). Lo usan el seed y las pruebas. */
   db?: PrismaClient;
   /** Solo para pruebas: tiempos más cortos para provocar la espera de un bloqueo. */
-  tiempos?: Partial<typeof TIEMPOS_TRANSACCION>;
+  tiempos?: Partial<Record<keyof typeof TIEMPOS_TRANSACCION, number>>;
 };
 
 const colas = new WeakMap<object, TareaPosterior[]>();

@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { TEXTOS, texto } from "@/lib/textos";
-import { ERRORES_DE_DOMINIO } from "@/server/shared/errores-dominio";
-import { ErrorDeDominio, esErrorDeDominio } from "@/server/shared/error-dominio";
+import { CODIGOS_SPRINTS_1_Y_2, ERRORES_DE_DOMINIO } from "@/server/shared/errores-dominio";
+import { ErrorDeDominio, esErrorDeDominio, statusDeErrorNuevo } from "@/server/shared/error-dominio";
 import { ServiceError } from "@/server/shared/service-error";
 
 const SRC = fileURLToPath(new URL("../..", import.meta.url));
@@ -55,15 +55,44 @@ describe("prueba de claves (HU-C-23, PR-0.md §2.13)", () => {
     }
   });
 
-  it("los errores de inscripción que ya existían conservan code y texto de turno.service (1.1)", () => {
-    const servicio = readFileSync(join(SRC, "server/turnos/turno.service.ts"), "utf8");
-    for (const clave of [
-      "errores.turno.cupoInsuficiente", "errores.alumno.inactivo", "errores.alumno.inactivoPropio",
-      "errores.inscripcion.alumnoYaAsignado", "errores.inscripcion.alumnoYaAsignadoPropio",
-    ] as const) {
-      expect(servicio, clave).toContain(TEXTOS[clave]);
-      expect(servicio, clave).toContain(ERRORES_DE_DOMINIO[clave].code);
+  it("los errores de inscripción que ya existían conservan code y texto de Sprint 2 (1.1)", () => {
+    // Literales de turno.service.ts de Sprint 2: desde la etapa 3 la inscripción
+    // los lanza con estas claves (crearInscripcion), así que se fijan acá.
+    const sprint2 = {
+      "errores.turno.cupoInsuficiente": ["CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo"],
+      "errores.alumno.inactivo": ["ALUMNO_INACTIVO", "La ficha del alumno está inactiva"],
+      "errores.alumno.inactivoPropio": ["ALUMNO_INACTIVO", "Tu ficha de alumno no está activa"],
+      "errores.inscripcion.alumnoYaAsignado": ["ALUMNO_YA_ASIGNADO", "El mismo alumno no puede agregarse dos veces al mismo turno"],
+      "errores.inscripcion.alumnoYaAsignadoPropio": ["ALUMNO_YA_ASIGNADO", "Ya estás inscripto en este turno"],
+      "errores.inscripcion.alumnoNoDisponible": ["ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario"],
+      "errores.inscripcion.alumnoNoDisponiblePropio": ["ALUMNO_NO_DISPONIBLE", "Ya tenés otro turno en ese horario"],
+      "errores.inscripcion.alumnoNoDisponibleOInactivo": ["ALUMNO_NO_DISPONIBLE", "El alumno no existe o no está activo"],
+      "errores.turno.noEncontrado": ["TURNO_NO_ENCONTRADO", "No se encontró el turno"],
+      "errores.turno.cancelado": ["TURNO_CANCELADO", "El turno está cancelado"],
+      "errores.turno.pendiente": ["TURNO_PENDIENTE", "El turno está pendiente: los alumnos se cargan desde la asignación de participantes"],
+      "errores.turno.sinAula": ["TURNO_SIN_AULA", "El turno no tiene aula asignada"],
+      "errores.turno.vencido": ["TURNO_VENCIDO", "El horario del turno ya pasó"],
+    } as const;
+    for (const [clave, [code, texto]] of Object.entries(sprint2) as [keyof typeof sprint2, readonly [string, string]][]) {
+      expect(TEXTOS[clave], clave).toBe(texto);
+      expect(ERRORES_DE_DOMINIO[clave].code, clave).toBe(code);
     }
+  });
+});
+
+describe("códigos existentes y códigos nuevos (1.1)", () => {
+  it("los code de los Sprints 1 y 2 están en el catálogo", () => {
+    const codes = new Set(Object.values(ERRORES_DE_DOMINIO).map(({ code }) => code));
+    for (const code of CODIGOS_SPRINTS_1_Y_2) expect(codes.has(code), code).toBe(true);
+  });
+
+  it("statusDeErrorNuevo: el HTTP del catálogo solo para un code nuevo; null para los existentes y otros errores", () => {
+    expect(statusDeErrorNuevo(new ErrorDeDominio("errores.inscripcion.materiaSinTarifaCentro"))).toBe(422);
+    expect(statusDeErrorNuevo(new ErrorDeDominio("errores.transaccion.ocupada"))).toBe(409);
+    expect(statusDeErrorNuevo(new ErrorDeDominio("errores.alumno.noEncontrado"))).toBeNull();
+    expect(statusDeErrorNuevo(new ErrorDeDominio("errores.turno.cupoInsuficiente"))).toBeNull();
+    expect(statusDeErrorNuevo(new ServiceError("MATERIA_SIN_TARIFA"))).toBeNull();
+    expect(statusDeErrorNuevo(new Error("x"))).toBeNull();
   });
 });
 

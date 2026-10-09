@@ -64,6 +64,9 @@ export function sqlVigenteEn(alias: string, momento: Date): Prisma.Sql {
   ))`;
 }
 
+// Filtro de Prisma equivalente, en un archivo sin dependencias de servidor.
+export { filtroVigenteEn } from "./inscripcion.filtro";
+
 /** Inscripciones de la clase vigentes a `momento`, como las expone la fachada de C. */
 export async function inscripcionesVigentes(db: Db, turnoId: string, momento: Date): Promise<{ id: string; alumnoId: string }[]> {
   const turno = await db.turno.findUnique({ where: { idTurno: turnoId }, select: { estadoTurno: true } });

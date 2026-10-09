@@ -1,5 +1,6 @@
 import type { EstadoTurno, Prisma } from "@prisma/client";
 import { intervalosSeSuperponen, type IntervaloMinutos } from "@/lib/horario-atencion";
+import { filtroVigenteEn } from "./inscripcion.filtro";
 
 /** Solo los turnos confirmados reservan recursos (spec_modulo_C.md §3.2). */
 export const ESTADOS_AGENDADOS: EstadoTurno[] = ["DISPONIBLE", "COMPLETO"];
@@ -81,13 +82,19 @@ export async function aulaConTurnoSuperpuesto(db: Prisma.TransactionClient, turn
   return otros.some((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro)));
 }
 
-/** Alumnos ocupados por otro turno confirmado, en el orden recibido. */
-export async function alumnosConTurnoSuperpuesto(db: Prisma.TransactionClient, turno: TurnoConHorario, alumnoIds: string[]): Promise<string[]> {
+/**
+ * Alumnos ocupados por otro turno confirmado, en el orden recibido. Solo
+ * ocupa una inscripción vigente a `momento` (PR-0.md §2.2): los servicios
+ * pasan `ahora()`, que este archivo no importa porque también lo usa un
+ * componente de cliente (`iniciosPosibles`).
+ */
+export async function alumnosConTurnoSuperpuesto(db: Prisma.TransactionClient, turno: TurnoConHorario, alumnoIds: string[], momento: Date = new Date()): Promise<string[]> {
   if (!alumnoIds.length) return [];
   const intervalo = intervaloTurno(turno);
+  const vigente = { alumnoId: { in: alumnoIds }, ...filtroVigenteEn(momento) };
   const otros = await db.turno.findMany({
-    where: { ...(turno.idTurno ? { idTurno: { not: turno.idTurno } } : {}), fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: { alumnoId: { in: alumnoIds } } } },
-    select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: { alumnoId: { in: alumnoIds } }, select: { alumnoId: true } } },
+    where: { ...(turno.idTurno ? { idTurno: { not: turno.idTurno } } : {}), fechaTurno: turno.fechaTurno, estadoTurno: { in: ESTADOS_AGENDADOS }, alumnos: { some: vigente } },
+    select: { horaInicioTurno: true, duracionMinutosTurno: true, alumnos: { where: vigente, select: { alumnoId: true } } },
   });
   const ocupados = new Set(otros.filter((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro))).flatMap((otro) => otro.alumnos.map(({ alumnoId }) => alumnoId)));
   return alumnoIds.filter((alumnoId) => ocupados.has(alumnoId));

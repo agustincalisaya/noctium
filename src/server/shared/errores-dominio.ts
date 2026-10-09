@@ -118,3 +118,18 @@ export const ERRORES_DE_DOMINIO = {
 } as const satisfies Partial<Record<ClaveTexto, { code: string; status: 400 | 403 | 404 | 409 | 422 }>>;
 
 export type CodigoErrorDominio = keyof typeof ERRORES_DE_DOMINIO;
+
+/**
+ * `code` del catálogo que ya existían en los Sprints 1 y 2. Los Route
+ * Handlers existentes les conservan su respuesta de hoy (1.1); a los demás
+ * (los nuevos del PR 0) les responden el HTTP del catálogo
+ * (`statusDeErrorNuevo` en `error-dominio.ts`).
+ */
+export const CODIGOS_SPRINTS_1_Y_2: ReadonlySet<string> = new Set([
+  "TURNO_NO_ENCONTRADO", "TURNO_PENDIENTE", "TURNO_CANCELADO", "TURNO_VENCIDO", "CUPO_INSUFICIENTE", "TURNO_SIN_AULA",
+  "ALUMNO_NO_ENCONTRADO", "ALUMNO_INACTIVO", "ALUMNO_YA_ASIGNADO", "ALUMNO_NO_DISPONIBLE", "ALUMNO_NO_ASIGNADO",
+  "PROFESOR_INACTIVO", "PROFESOR_NO_ENCONTRADO", "PROFESOR_NO_DICTA_MATERIA", "CONFLICTO_EDICION_CONCURRENTE",
+  "EMAIL_YA_ASOCIADO", "VALIDATION_ERROR", "TURNO_NO_ADMITE_CLASE", "CLASE_NO_FINALIZADA", "CLASE_NO_REGISTRADA",
+  "MATERIA_NO_CURSADA", "FECHA_EXAMEN_FUTURA", "NOTA_FUERA_DE_RANGO", "TURNO_NO_ADMITE_PAGO", "ALUMNO_NO_INSCRIPTO",
+  "FORMA_PAGO_NO_ENCONTRADA", "FORMA_PAGO_NO_DISPONIBLE", "FECHA_PAGO_FUTURA", "NOMBRE_DUPLICADO",
+]);

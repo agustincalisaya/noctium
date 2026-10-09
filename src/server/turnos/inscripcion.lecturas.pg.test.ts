@@ -15,7 +15,7 @@ import {
   listarReservasVencidas,
   resumenReservas,
 } from "@/server/turnos/inscripcion.publico";
-import { contarClasesPorMes, gerentePuedeGestionarClaseDeBaja } from "@/server/turnos/clases.publico";
+import { contarClasesPorMes, gerentePuedeGestionarClaseDeBaja } from "@/server/turnos/turno.publico";
 
 // PostgreSQL real (`npm run test:pg -- <ruta>`): lecturas públicas de C
 // (PR-0.md §2.13). Las clases de los conteos por mes van a un mes lejano para

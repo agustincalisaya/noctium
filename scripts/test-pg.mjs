@@ -10,11 +10,15 @@
 // 3. Corre vitest con DATABASE_URL y todas las HU_*_TEST_DATABASE_URL apuntando
 //    a esa base, sin paralelismo entre archivos y con TZ=UTC.
 // 4. Borra la base aunque las pruebas fallen.
+// Algunos *.pg.test.ts de los Sprints 1 y 2 solo corren en una base con un
+// nombre fijo (su guarda lo exige): esos archivos corren además en una pasada
+// propia, con una base descartable de ese nombre (ver NOMBRES_EXIGIDOS). Si
+// esa base ya existe, no se toca: la pasada falla con un aviso.
 // Nunca escribe en la base de DATABASE_URL: solo se conecta a la base
 // administrativa "postgres" del mismo servidor para crear y borrar la descartable.
 import "dotenv/config";
 import { spawnSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
@@ -41,14 +45,22 @@ if (!["localhost", "127.0.0.1", "::1"].includes(servidor.hostname)) {
   process.exit(1);
 }
 
-const nombre = `noctium_pruebas_${randomBytes(4).toString("hex")}`;
+const aleatorio = () => randomBytes(4).toString("hex");
 const conBase = (base) => {
   const url = new URL(servidor);
   url.pathname = `/${base}`;
   return url.toString();
 };
 const admin = new PrismaClient({ datasources: { db: { url: conBase("postgres") } } });
-const urlPruebas = conBase(nombre);
+
+/**
+ * Guardas de nombre de base de los *.pg.test.ts existentes: si el archivo
+ * contiene `patron`, corre también en una base descartable llamada `base()`.
+ */
+const NOMBRES_EXIGIDOS = [
+  { patron: '=== "/noctium_test"', base: () => "noctium_test", fija: true },
+  { patron: 'includes("hu_c17_fase3")', base: () => `noctium_pruebas_hu_c17_fase3_${aleatorio()}`, fija: false },
+];
 
 /** Los *.pg.test.ts de las rutas pedidas (carpetas o archivos); sin rutas, los de src/. */
 function archivosPg(rutas) {
@@ -72,25 +84,45 @@ function correr(comando, args, env) {
   return r.status ?? 1;
 }
 
-let codigo = 1;
+/** Crea la base, aplica las migraciones, corre los archivos y la borra aunque fallen. */
+async function pasada(nombre, archivos, { fija = false } = {}) {
+  if (fija) {
+    const existe = await admin.$queryRawUnsafe(`SELECT 1 FROM pg_database WHERE datname = $1`, nombre);
+    if (existe.length > 0) {
+      console.error(`La base ${nombre} ya existe y no es descartable: no se corren ${archivos.join(", ")}.`);
+      return 1;
+    }
+  }
+  const url = conBase(nombre);
+  let codigo = 1;
+  try {
+    await admin.$executeRawUnsafe(`CREATE DATABASE "${nombre}"`);
+    console.log(`Base descartable: ${nombre}`);
+    const envPruebas = { DATABASE_URL: url, TZ: "UTC", ...Object.fromEntries(VARIABLES_PG.map((v) => [v, url])) };
+    codigo = correr("npx", ["prisma", "migrate", "deploy"], envPruebas);
+    if (codigo === 0) codigo = correr("npx", ["vitest", "run", "--no-file-parallelism", ...archivos], envPruebas);
+  } finally {
+    await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${nombre}" WITH (FORCE)`).catch((error) => {
+      console.error(`No se pudo borrar ${nombre}:`, error);
+    });
+  }
+  return codigo;
+}
+
+let codigo = 0;
 try {
-  await admin.$executeRawUnsafe(`CREATE DATABASE "${nombre}"`);
-  console.log(`Base descartable: ${nombre}`);
-  const envPruebas = { DATABASE_URL: urlPruebas, TZ: "UTC", ...Object.fromEntries(VARIABLES_PG.map((v) => [v, urlPruebas])) };
-  codigo = correr("npx", ["prisma", "migrate", "deploy"], envPruebas);
-  if (codigo === 0) {
-    const archivos = archivosPg(process.argv.slice(2));
-    if (archivos.length === 0) {
-      console.error("No hay archivos *.pg.test.ts en las rutas indicadas.");
-      codigo = 1;
-    } else {
-      codigo = correr("npx", ["vitest", "run", "--no-file-parallelism", ...archivos], envPruebas);
+  const archivos = archivosPg(process.argv.slice(2));
+  if (archivos.length === 0) {
+    console.error("No hay archivos *.pg.test.ts en las rutas indicadas.");
+    codigo = 1;
+  } else {
+    codigo = Math.max(codigo, await pasada(`noctium_pruebas_${aleatorio()}`, archivos));
+    for (const { patron, base, fija } of NOMBRES_EXIGIDOS) {
+      const propios = archivos.filter((archivo) => readFileSync(archivo, "utf8").includes(patron));
+      if (propios.length > 0) codigo = Math.max(codigo, await pasada(base(), propios, { fija }));
     }
   }
 } finally {
-  await admin.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${nombre}" WITH (FORCE)`).catch((error) => {
-    console.error(`No se pudo borrar ${nombre}:`, error);
-  });
   await admin.$disconnect();
 }
 process.exit(codigo);

@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import type { EstadoTurno, Prisma } from "@prisma/client";
+import { ahora as relojAhora } from "@/server/shared/reloj";
+import { transaccion } from "@/server/shared/transaccion";
+import { marcarVencidas, recalcularVencimientos } from "./inscripcion.service";
+import { filtroVigenteEn, inscripcionesVigentes } from "./inscripcion.vigencia";
 import { diaSemanaDeFecha, horaAMinutos, minutosAHora } from "@/lib/horario-atencion";
 import { estaDentroDeHorarioAtencion, obtenerHorariosDeAtencion } from "@/server/profesores/profesor.publico";
 import { ServiceError } from "@/server/shared/service-error";
@@ -50,7 +54,7 @@ async function conflictosDelHorario(db: Prisma.TransactionClient, turno: FilaTur
     if (!enHorario || ocupado) conflictos.push({ recurso: "PROFESOR", id: turno.profesorId });
   }
   if (turno.aulaId && await aulaConTurnoSuperpuesto(db, candidato, turno.aulaId)) conflictos.push({ recurso: "AULA", id: turno.aulaId });
-  for (const alumnoId of await alumnosConTurnoSuperpuesto(db, candidato, alumnoIds)) conflictos.push({ recurso: "ALUMNO", id: alumnoId });
+  for (const alumnoId of await alumnosConTurnoSuperpuesto(db, candidato, alumnoIds, relojAhora())) conflictos.push({ recurso: "ALUMNO", id: alumnoId });
   return conflictos;
 }
 
@@ -58,9 +62,10 @@ function errorConflicto(conflictos: ConflictoReprogramacion[]) {
   return new ServiceError("REPROGRAMACION_CONFLICTO", MENSAJE_CONFLICTO, { conflictos });
 }
 
+/** Alumnos con inscripción vigente ahora (PR-0.md §2.2), por id. */
 async function inscriptos(db: Prisma.TransactionClient, turnoId: string) {
-  const filas = await db.turnoAlumno.findMany({ where: { turnoId }, select: { alumnoId: true }, orderBy: { alumnoId: "asc" } });
-  return filas.map(({ alumnoId }) => alumnoId);
+  const filas = await inscripcionesVigentes(db, turnoId, relojAhora());
+  return filas.map(({ alumnoId }) => alumnoId).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 const SELECT_TURNO = {
@@ -91,7 +96,7 @@ export async function opcionesReprogramacion(id: string, fecha: Date) {
         OR: [
           ...(turno.profesorId ? [{ profesorId: turno.profesorId }] : []),
           ...(turno.aulaId ? [{ aulaId: turno.aulaId }] : []),
-          ...(alumnoIds.length ? [{ alumnos: { some: { alumnoId: { in: alumnoIds } } } }] : []),
+          ...(alumnoIds.length ? [{ alumnos: { some: { alumnoId: { in: alumnoIds }, ...filtroVigenteEn(relojAhora()) } } }] : []),
         ],
       },
       select: { horaInicioTurno: true, duracionMinutosTurno: true },
@@ -133,19 +138,23 @@ export async function opcionesReprogramacion(id: string, fecha: Date) {
  * con la fila bloqueada; el trigger mueve las reservas y la exclusión GiST es
  * la defensa final (23P01 → REPROGRAMACION_CONFLICTO, con rollback). Estado,
  * duración, materia, profesor, aula, cupo, prioridad, inscripciones y pagos
- * no se escriben. Evento `turno:reprogramado` después del COMMIT.
+ * no se escriben. Las reservas: antes de mover la clase se marcan las ya
+ * vencidas (con su `venceEl` anterior) y después se recalcula el vencimiento
+ * de las que siguen con el nuevo inicio (`recalcularVencimientos`, PR-0.md
+ * §2.0). Evento `turno:reprogramado` después del COMMIT.
  */
 export async function reprogramarTurno(id: string, input: ReprogramarTurnoInput, usuarioId: string) {
   let bloqueado: FilaTurno | null = null;
   let resultado: { turno: FilaTurno; horaFin: string };
   try {
-    resultado = await prisma.$transaction(async (tx) => {
+    resultado = await transaccion(async (tx) => {
       const [turno] = await tx.$queryRaw<FilaTurno[]>`
         SELECT "idTurno", "estadoTurno", "fechaTurno", "horaInicioTurno", "duracionMinutosTurno", "profesorId", "aulaId"
         FROM "turnos" WHERE "idTurno" = ${id} FOR UPDATE
       `;
       verificarReprogramable(turno ?? null);
       bloqueado = turno;
+      await marcarVencidas(tx, id);
       const parametros = await parametrosConfiguracionTurno();
       const tope = calcularTopeReprogramacion(turno.fechaTurno, parametros);
       const { hora_fin } = await validarFechaHoraTurno({ fecha: input.fecha, hora_inicio: input.hora_inicio, duracion_min: turno.duracionMinutosTurno }, { topeFecha: tope, parametros });
@@ -158,6 +167,7 @@ export async function reprogramarTurno(id: string, input: ReprogramarTurnoInput,
         data: { fechaTurno: input.fecha, horaInicioTurno: horaFecha(input.hora_inicio), modificadoPorUsuarioId: usuarioId },
       });
       if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+      await recalcularVencimientos(tx, id);
       return { turno, horaFin: hora_fin };
     });
   } catch (error) {

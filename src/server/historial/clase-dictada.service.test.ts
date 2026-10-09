@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { tx, lecturaClase, bloquearTurno, terminoTurno, alumnos, email, profesor } = vi.hoisted(() => ({
   tx: {
-    claseDictada: { createMany: vi.fn(), findUniqueOrThrow: vi.fn(), findUnique: vi.fn() },
+    claseDictada: { createMany: vi.fn(), findFirstOrThrow: vi.fn(), findFirst: vi.fn() },
     claseDictadaAlumno: { createMany: vi.fn() },
   },
   lecturaClase: vi.fn(),
@@ -15,7 +15,7 @@ const { tx, lecturaClase, bloquearTurno, terminoTurno, alumnos, email, profesor 
 
 vi.mock("@/lib/prisma", () => ({ prisma: {
   $transaction: vi.fn((callback) => callback(tx)),
-  claseDictada: { findUnique: lecturaClase },
+  claseDictada: { findFirst: lecturaClase },
 } }));
 vi.mock("@/server/turnos/turno.publico", () => ({ bloquearTurnoParaOperacion: bloquearTurno }));
 vi.mock("@/server/turnos/turno.acciones", () => ({ turnoYaTermino: terminoTurno }));
@@ -38,8 +38,8 @@ beforeEach(() => {
   terminoTurno.mockReturnValue(true);
   profesor.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Giménez, Laura" });
   tx.claseDictada.createMany.mockResolvedValue({ count: 1 });
-  tx.claseDictada.findUniqueOrThrow.mockResolvedValue({ idClaseDictada: "clase-1" });
-  tx.claseDictada.findUnique.mockResolvedValue({
+  tx.claseDictada.findFirstOrThrow.mockResolvedValue({ idClaseDictada: "clase-1" });
+  tx.claseDictada.findFirst.mockResolvedValue({
     idClaseDictada: "clase-1", createdAtClaseDictada: new Date("2026-09-30T12:00:00.000Z"), _count: { alumnos: 2 },
   });
   lecturaClase.mockResolvedValue(null);
@@ -71,7 +71,7 @@ describe("HU-E-01 registrarClaseDictada", () => {
       id: "clase-1", ya_existia: true, alumnos_registrados: 2,
     });
 
-    expect(tx.claseDictada.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(tx.claseDictada.findFirstOrThrow).not.toHaveBeenCalled();
     expect(tx.claseDictadaAlumno.createMany).not.toHaveBeenCalled();
   });
 
@@ -97,7 +97,7 @@ describe("HU-E-01 registrarClaseDictada", () => {
 
   it("permite el turno elegible sin alumnos y omite solo la tabla de vínculos", async () => {
     bloquearTurno.mockResolvedValue({ ...turno, alumno_ids: [] });
-    tx.claseDictada.findUnique.mockResolvedValue({
+    tx.claseDictada.findFirst.mockResolvedValue({
       idClaseDictada: "clase-1", createdAtClaseDictada: new Date("2026-09-30T12:00:00.000Z"), _count: { alumnos: 0 },
     });
 

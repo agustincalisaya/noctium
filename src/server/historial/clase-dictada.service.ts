@@ -19,8 +19,11 @@ type UsuarioHistorial = { id: string; rol: RolUsuario };
 
 /**
  * Registra la clase como un hecho inmutable. `createMany(skipDuplicates)` usa
- * PostgreSQL `ON CONFLICT DO NOTHING`; el constraint único por turno protege
- * también ante dos solicitudes concurrentes.
+ * PostgreSQL `ON CONFLICT DO NOTHING`; el índice único parcial por turno
+ * (clase dictada no anulada, PR-0.md §2.8) protege también ante dos
+ * solicitudes concurrentes. Registra a los alumnos con inscripción vigente
+ * (un alumno quitado no figura) y queda «sin control de asistencia» (estados
+ * vacíos): la asistencia por alumno es de HU-E-09.
  */
 export async function registrarClaseDictada(
   turnoId: string,
@@ -63,8 +66,8 @@ export async function registrarClaseDictada(
     const insercion = await tx.claseDictada.createMany({ data: [datosClase], skipDuplicates: true });
 
     if (insercion.count === 1 && turno.alumno_ids.length > 0) {
-      const clase = await tx.claseDictada.findUniqueOrThrow({
-        where: { turnoId },
+      const clase = await tx.claseDictada.findFirstOrThrow({
+        where: { turnoId, anuladaEl: null },
         select: { idClaseDictada: true },
       });
       await tx.claseDictadaAlumno.createMany({
@@ -73,8 +76,8 @@ export async function registrarClaseDictada(
       });
     }
 
-    const clase = await tx.claseDictada.findUnique({
-      where: { turnoId },
+    const clase = await tx.claseDictada.findFirst({
+      where: { turnoId, anuladaEl: null },
       select: {
         idClaseDictada: true,
         createdAtClaseDictada: true,
@@ -94,8 +97,8 @@ export async function registrarClaseDictada(
 
 /** Registro del hecho dictado, resolviendo nombres por los contratos de A y B. */
 export async function obtenerRegistroClaseDictada(turnoId: string, usuario: UsuarioHistorial) {
-  const clase = await prisma.claseDictada.findUnique({
-    where: { turnoId },
+  const clase = await prisma.claseDictada.findFirst({
+    where: { turnoId, anuladaEl: null },
     select: {
       idClaseDictada: true,
       profesorId: true,

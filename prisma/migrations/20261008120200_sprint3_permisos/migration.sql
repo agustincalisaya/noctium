@@ -9,9 +9,10 @@
 --  2. Corrige profesores:*: las migraciones 20260923015526 y 20260923200000
 --     se las daban a GERENTE y ninguna a MESA_ENTRADA, al revés de la spec.
 --     Queda crear/editar solo de M y leer de M y G (convención 8 d).
---  3. Convención 8 g: el PROFESOR pierde alumnos:leer en el mismo cambio en
---     que gana su acceso acotado al historial (helper del módulo E); el
---     GERENTE gana alumnos:leer (consulta).
+--  3. El PROFESOR conserva alumnos:leer (hasta ahora solo lo sembraba el
+--     seed; acá pasa a migración). Lo pierde (convención 8 g) con una
+--     migración nueva de HU-E-02, en el mismo cambio en que gana su acceso
+--     acotado al historial. El GERENTE gana alumnos:leer (consulta).
 --  4. Agrega todas las acciones nuevas del sprint (tabla cerrada).
 -- roles_permisos es configuración (no una entidad de dominio): quitar una
 -- fila es la forma de revocar una acción, como ya hacía el seed.
@@ -19,8 +20,7 @@
 BEGIN;
 
 DELETE FROM "roles_permisos"
-WHERE ("rolPermiso" = 'PROFESOR' AND "accionPermiso" = 'alumnos:leer')
-   OR ("rolPermiso" <> 'MESA_ENTRADA' AND "accionPermiso" IN ('profesores:crear', 'profesores:editar'));
+WHERE "rolPermiso" <> 'MESA_ENTRADA' AND "accionPermiso" IN ('profesores:crear', 'profesores:editar');
 
 INSERT INTO "roles_permisos" ("idPermiso", "rolPermiso", "accionPermiso", "creadoEnPermiso")
 SELECT 's3-' || lower(rol) || '-' || replace(replace(accion, ':', '-'), '_', '-'), rol::"RolUsuario", accion, now()
@@ -37,8 +37,9 @@ FROM (VALUES
   ('MESA_ENTRADA', 'profesores:crear'),
   ('MESA_ENTRADA', 'profesores:editar'),
   ('MESA_ENTRADA', 'profesores:leer'), ('GERENTE', 'profesores:leer'),
-  -- 3. Alumnos en consulta para el Gerente (HU-E-02 criterio 8)
-  ('GERENTE', 'alumnos:leer'),
+  -- 3. Alumnos en consulta: el Gerente (HU-E-02 criterio 8) y el Profesor,
+  --    que lo conserva hasta HU-E-02
+  ('GERENTE', 'alumnos:leer'), ('PROFESOR', 'alumnos:leer'),
   -- 4. Acciones nuevas del Sprint 3 (tabla cerrada de PR-0.md §2.9.1)
   ('MESA_ENTRADA', 'cuenta:cambiar_password'), ('GERENTE', 'cuenta:cambiar_password'),
   ('PROFESOR', 'cuenta:cambiar_password'), ('ALUMNO', 'cuenta:cambiar_password'),
