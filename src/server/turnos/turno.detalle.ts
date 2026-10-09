@@ -1,6 +1,7 @@
 import type { RolUsuario } from "@prisma/client";
 import { listarPagosDeTurno } from "@/server/pagos/pago.publico";
-import { obtenerClaseDictadaDeTurno, profesorAtendioAlumno } from "@/server/historial/historial.publico";
+import { obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion } from "@/server/historial/historial.publico";
+import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
 import type { TurnoDetalle } from "@/types/turno.types";
 import { calcularAccionesHabilitadas, type CapacidadesAcciones } from "@/server/turnos/turno.acciones";
 import { obtenerTurno } from "@/server/turnos/turno.service";
@@ -36,7 +37,10 @@ export async function obtenerDetalleTurno(
   const alumnos = await Promise.all(turno.alumnos.map(async (alumno) => ({
     ...alumno,
     puede_ver_historial: capacidades.verHistorial && (usuario.rol !== "PROFESOR"
-      || (turno.profesor_id !== null && await profesorAtendioAlumno(turno.profesor_id, alumno.id))),
+      || (turno.profesor_id !== null && turno.materia_id !== null && (
+        await existeInscripcionVigenteConProfesor(alumno.id, turno.profesor_id, turno.materia_id)
+        || await profesorPuedeRegistrarIndicacion(turno.profesor_id, alumno.id, turno.materia_id)
+      ))),
   })));
   const acciones_habilitadas = calcularAccionesHabilitadas({
     estado: turno.estado,

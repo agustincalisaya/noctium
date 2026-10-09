@@ -6,7 +6,8 @@ import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/serv
 import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
-import { profesorAtendioAlumno, profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
+import { profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
+import { opcionesDeIndicacion as obtenerOpcionesDeIndicacion } from "./indicacion.service";
 import type { HistorialQuery } from "./historial.schema";
 
 const MENSAJES = {
@@ -20,12 +21,16 @@ type FilaHistorial = {
   asistencia: "PRESENTE" | "AUSENTE" | null;
   total: bigint;
   materias_disponibles: string[];
-  tipo: "CLASE_DICTADA" | "EXAMEN" | null;
+  tipo: "CLASE_DICTADA" | "EXAMEN" | "INDICACION" | null;
   fecha: Date | null;
   materia_id: string | null;
   profesor_id: string | null;
   nota: Prisma.Decimal | string | number | null;
   observaciones: string | null;
+  indicacion: string | null;
+  registrada_en: Date | null;
+  clase_dictada_id: string | null;
+  creado_por_usuario_id: string | null;
   turno_id: string | null;
   registro_id: string | null;
   temas_vistos: string | null;
@@ -43,11 +48,12 @@ function fechaCalendario(fecha: Date): string {
 async function autorizarAlcanceAlumno(
   alumnoId: string,
   usuario: UsuarioHistorial,
+  materiaId: string | undefined,
   db: Prisma.TransactionClient = prisma,
 ): Promise<string | null> {
   if (usuario.rol !== "PROFESOR") return null;
   const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, db);
-  if (!profesor || !(await profesorAtendioAlumno(profesor.id, alumnoId, db))) {
+  if (!materiaId || !profesor || !(await profesorPuedeVerHistorial(profesor.id, alumnoId, materiaId, db))) {
     throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
   }
   return profesor.id;
@@ -59,7 +65,7 @@ export async function obtenerHistorialAlumno(
   query: HistorialQuery,
   usuario: UsuarioHistorial,
 ) {
-  const profesorId = await autorizarAlcanceAlumno(alumnoId, usuario);
+  const profesorId = await autorizarAlcanceAlumno(alumnoId, usuario, query.materia_id);
   const alumno = await obtenerAlumnoBasico(alumnoId);
   if (!alumno) throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
 
@@ -79,6 +85,10 @@ export async function obtenerHistorialAlumno(
         observacion."observacionesInternas" AS observaciones_internas,
         observacion."createdAtObservacion" AS observacion_registrada_en,
         observacion."creadoPorUsuarioId" AS observacion_creada_por_id,
+        NULL::text AS indicacion,
+        NULL::timestamp AS registrada_en,
+        NULL::text AS clase_dictada_id,
+        NULL::text AS creado_por_usuario_id,
         clase."turnoId" AS turno_id,
         clase."createdAtClaseDictada" AS creado_en,
         clase."idClaseDictada" AS registro_id,
@@ -101,12 +111,40 @@ export async function obtenerHistorialAlumno(
         NULL::text AS observaciones_internas,
         NULL::timestamp AS observacion_registrada_en,
         NULL::text AS observacion_creada_por_id,
+        NULL::text AS indicacion,
+        NULL::timestamp AS registrada_en,
+        NULL::text AS clase_dictada_id,
+        NULL::text AS creado_por_usuario_id,
         NULL::text AS turno_id,
         examen."createdAtResultadoExamen" AS creado_en,
         examen."idResultadoExamen" AS registro_id,
         NULL::"EstadoAsistencia" AS asistencia
       FROM "resultados_examen" AS examen
       WHERE examen."alumnoId" = ${alumnoId}
+      UNION ALL
+      SELECT
+        'INDICACION'::text AS tipo,
+        (indicacion."createdAtIndicacion" AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS fecha,
+        indicacion."materiaId" AS materia_id,
+        NULL::text AS profesor_id,
+        NULL::numeric AS nota,
+        NULL::text AS observaciones,
+        indicacion."texto" AS indicacion,
+        indicacion."createdAtIndicacion" AS registrada_en,
+        CASE WHEN clase."idClaseDictada" IS NOT NULL AND clase."anuladaEl" IS NULL
+          THEN indicacion."claseDictadaId" ELSE NULL END AS clase_dictada_id,
+        indicacion."creadoPorUsuarioId" AS creado_por_usuario_id,
+        NULL::text AS temas_vistos,
+        NULL::text AS observaciones_internas,
+        NULL::timestamp AS observacion_registrada_en,
+        NULL::text AS observacion_creada_por_id,
+        NULL::text AS turno_id,
+        indicacion."createdAtIndicacion" AS creado_en,
+        indicacion."idIndicacion" AS registro_id,
+        NULL::"EstadoAsistencia" AS asistencia
+      FROM "indicaciones" AS indicacion
+      LEFT JOIN "clases_dictadas" AS clase ON clase."idClaseDictada" = indicacion."claseDictadaId"
+      WHERE indicacion."alumnoId" = ${alumnoId}
     ),
     filtrados AS (
       SELECT * FROM registros
@@ -126,7 +164,9 @@ export async function obtenerHistorialAlumno(
     )
     SELECT conteo.total, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
-      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id, pagina.asistencia,
+      pagina.nota, pagina.observaciones, pagina.indicacion, pagina.registrada_en,
+      pagina.clase_dictada_id, pagina.creado_por_usuario_id,
+      pagina.turno_id, pagina.registro_id, pagina.asistencia,
       pagina.temas_vistos, pagina.observaciones_internas, pagina.observacion_registrada_en,
       pagina.observacion_creada_por_id
     FROM conteo CROSS JOIN materias
@@ -137,14 +177,21 @@ export async function obtenerHistorialAlumno(
   const filaInicial = filas[0];
   const total = Number(filaInicial?.total ?? 0);
   const registros = filas.filter((fila) => fila.tipo !== null);
-  const autoresObservaciones = [...new Set(registros.flatMap((fila) => fila.observacion_creada_por_id ? [fila.observacion_creada_por_id] : []))];
-  const [materias, profesores, emailsObservaciones] = await Promise.all([
-    obtenerMateriasPorIds(filaInicial?.materias_disponibles ?? []),
+  const idsMateriasDisponibles = usuario.rol === "PROFESOR"
+    ? (query.materia_id ? [query.materia_id] : [])
+    : (filaInicial?.materias_disponibles ?? []);
+  const autores = [...new Set(registros.flatMap((fila) => [fila.creado_por_usuario_id, fila.observacion_creada_por_id]
+    .filter((id): id is string => Boolean(id))))];
+  const [materias, profesores, emailsAutores, opcionesIndicacion] = await Promise.all([
+    obtenerMateriasPorIds(idsMateriasDisponibles),
     obtenerNombresProfesores(registros.flatMap((fila) => fila.profesor_id ? [fila.profesor_id] : [])),
-    Promise.all(autoresObservaciones.map(async (id) => [id, await obtenerEmailDeUsuario(id)] as const)),
+    Promise.all(autores.map(async (id) => [id, await obtenerEmailDeUsuario(id)] as const)),
+    usuario.rol === "MESA_ENTRADA" || usuario.rol === "PROFESOR"
+      ? obtenerOpcionesDeIndicacion(alumnoId, query.materia_id)
+      : Promise.resolve({ materias: [], clases: [] }),
   ]);
   const materiasPorId = new Map(materias.map((materia) => [materia.id, materia.nombre]));
-  const emailsObservacionesPorId = new Map(emailsObservaciones);
+  const emailsPorUsuario = new Map(emailsAutores);
 
   const items = registros.map((fila) => {
     if (!fila.fecha || !fila.materia_id || !fila.registro_id) {
@@ -163,11 +210,12 @@ export async function obtenerHistorialAlumno(
             ? { observaciones_internas: fila.observaciones_internas }
             : {}),
           registrada_en: fila.observacion_registrada_en.toISOString(),
-          registrada_por: fila.observacion_creada_por_id ? emailsObservacionesPorId.get(fila.observacion_creada_por_id) ?? null : null,
+          registrada_por: fila.observacion_creada_por_id ? emailsPorUsuario.get(fila.observacion_creada_por_id) ?? null : null,
         }
         : undefined;
       return {
         tipo: "CLASE_DICTADA" as const,
+        id: fila.registro_id,
         fecha: fechaCalendario(fila.fecha),
         materia: { id: fila.materia_id, nombre: nombreMateria },
         profesor,
@@ -176,12 +224,24 @@ export async function obtenerHistorialAlumno(
         ...(observacion ? { observacion } : {}),
       };
     }
-    return {
+    if (fila.tipo === "EXAMEN") return {
       tipo: "EXAMEN" as const,
+      id: fila.registro_id,
       fecha: fechaCalendario(fila.fecha),
       materia: { id: fila.materia_id, nombre: nombreMateria },
       nota: String(fila.nota),
       observaciones: fila.observaciones,
+    };
+    if (!fila.indicacion || !fila.registrada_en) throw new Error(`La indicación ${fila.registro_id} está incompleta`);
+    return {
+      tipo: "INDICACION" as const,
+      id: fila.registro_id,
+      fecha: fechaCalendario(fila.fecha),
+      materia: { id: fila.materia_id, nombre: nombreMateria },
+      indicacion: fila.indicacion,
+      registrada_en: fila.registrada_en.toISOString(),
+      registrada_por: fila.creado_por_usuario_id ? emailsPorUsuario.get(fila.creado_por_usuario_id) ?? null : null,
+      clase_dictada_id: fila.clase_dictada_id,
     };
   });
 
@@ -197,12 +257,19 @@ export async function obtenerHistorialAlumno(
       asistenciaPorMateria = await asistenciaDeAlumno(alumnoId, query.materia_id);
     }
   }
+  let puede_registrar_indicacion: boolean | undefined;
+  if (usuario.rol === "PROFESOR" && query.materia_id) {
+    const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    puede_registrar_indicacion = Boolean(profesor && await profesorPuedeRegistrarIndicacion(profesor.id, alumnoId, query.materia_id));
+  }
   return {
     asistencia_por_materia: asistenciaPorMateria,
     alumno: { id: alumno.id, nombre_completo: `${alumno.apellido}, ${alumno.nombre}` },
     materias_disponibles: materias
       .map(({ id, nombre }) => ({ id, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR")),
+    indicaciones_opciones: opcionesIndicacion,
+    ...(puede_registrar_indicacion === undefined ? {} : { puede_registrar_indicacion }),
     items,
     paginacion: {
       total,

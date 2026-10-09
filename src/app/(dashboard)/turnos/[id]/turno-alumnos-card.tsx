@@ -8,6 +8,7 @@ import { texto } from "@/lib/textos";
 import { TurnoClaseCard } from "./turno-clase-card";
 import type { EstadoAsistencia, RegistroClaseDictada } from "@/types/historial.types";
 import { BuscadorAlumnos } from "../buscador-alumnos";
+import { RegistrarIndicacionDialog } from "../../alumnos/[id]/registrar-indicacion-dialog";
 
 /**
  * Tarjeta «Alumnos inscriptos · N de M» (mockup pág. 5): el listado completo,
@@ -16,7 +17,7 @@ import { BuscadorAlumnos } from "../buscador-alumnos";
  * alumno» en el encabezado y «Quitar» por fila. Cada acción se aplica en el
  * momento; el estado Disponible ⇄ Completo lo resuelve el servidor.
  */
-export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = false, onCambio }: { turno: TurnoDetalle; gestionable: boolean; puedeRegistrarClase?: boolean; onCambio: () => Promise<void> }) {
+export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = false, puedeRegistrarIndicacion = false, esProfesor = false, onCambio }: { turno: TurnoDetalle; gestionable: boolean; puedeRegistrarClase?: boolean; puedeRegistrarIndicacion?: boolean; esProfesor?: boolean; onCambio: () => Promise<void> }) {
   const [momento, setMomento] = useState(() => Date.now());
   useEffect(() => { const timer = window.setInterval(() => setMomento(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   const [guardandoAsistencia, setGuardandoAsistencia] = useState(false);
@@ -43,6 +44,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
   const asistencias = turno.alumnos.map(({ id }) => ({ alumno_id: id, estado: seleccion[id] ?? "PRESENTE" as EstadoAsistencia }));
   const todosAusentes = asistencias.length > 0 && asistencias.every(({ estado }) => estado === "AUSENTE");
   const asistenciaGuardada = new Map(registro?.alumnos.map(({ id, asistencia }) => [id, asistencia]));
+  const registroVisible = registro && registro.id === registroId ? registro : null;
   const [procesando, setProcesando] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
   const [error, setError] = useState("");
@@ -103,7 +105,9 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
           </span>}
           {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
         </div>
-        {alumno.puede_ver_historial && <Link className="ml-10 inline-flex text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/alumnos/${encodeURIComponent(alumno.id)}?tab=historial&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
+        {alumno.puede_ver_historial && <Link className="ml-10 inline-flex text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={esProfesor
+          ? `/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumno.id)}/historial`
+          : `/alumnos/${encodeURIComponent(alumno.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
         {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
       </li>;
     })}</ul>}
@@ -111,11 +115,34 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
     {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.cargando")}</p>}
     {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>Reintentar</Button></div>}
     {registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
+    {puedeRegistrarIndicacion && registroVisible && <div className="space-y-3 rounded-md border border-border bg-background p-3">
+      <h3 className="text-sm font-semibold">Indicaciones académicas de esta clase</h3>
+      <ul className="divide-y divide-border" aria-label="Alumnos de la clase dictada para registrar indicaciones">
+        {registroVisible.alumnos.map((alumnoRegistro) => <li key={alumnoRegistro.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+          <span className="text-sm">{alumnoRegistro.nombre_completo}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            {!turno.alumnos.some(({ id }) => id === alumnoRegistro.id) && <Link className="text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={esProfesor
+              ? `/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumnoRegistro.id)}/historial`
+              : `/alumnos/${encodeURIComponent(alumnoRegistro.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
+            <RegistrarIndicacionDialog
+              alumnoId={alumnoRegistro.id}
+              nombreAlumno={alumnoRegistro.nombre_completo}
+              materias={[{ id: turno.materia_id, nombre: turno.materia }]}
+              clases={[{ id: registroVisible.id, materia_id: turno.materia_id, fecha: turno.fecha }]}
+              materiaInicial={turno.materia_id}
+              materiaFija={esProfesor}
+              claseInicial={registroVisible.id}
+              onRegistrado={onCambio}
+            />
+          </div>
+        </li>)}
+      </ul>
+    </div>}
     {(puedeRegistrarClase || registroId) && <TurnoClaseCard
       turno={turno}
       puedeRegistrarClase={puedeRegistrarClase}
       asistencias={asistencias}
-      registro={registroId && registro?.id === registroId ? registro : null}
+      registro={registroVisible}
       onProcesandoChange={setGuardandoAsistencia}
       onRegistrada={onCambio}
       onObservacionRegistrada={() => { void cargarAsistencia(); }}

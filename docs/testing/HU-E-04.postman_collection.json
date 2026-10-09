@@ -1,0 +1,124 @@
+{
+  "info": {
+    "name": "HU-E-04 — Indicaciones académicas",
+    "description": "Casos manuales reproducibles del contrato de POST indicaciones y GET historial. Antes de ejecutarlos, correr el seed y completar ids/cookies en variables. Varias altas válidas son intencionales: las indicaciones admiten registros repetidos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "cookie_mesa", "value": "" },
+    { "key": "cookie_profesor", "value": "" },
+    { "key": "alumno_id", "value": "cmv11e2v3000ojmpth73cnlbv" },
+    { "key": "materia_id", "value": "cmv11e2yc004jjmptvmwf545x" },
+    { "key": "clase_dictada_id", "value": "04284f06-9bcd-4158-81be-d416a0e958eb" },
+    { "key": "clase_dictada_no_corresponde_id", "value": "ad5a74bf-83a5-4d2a-99af-32b0e00dc671" },
+    { "key": "profesor_sin_primera_clase_alumno_id", "value": "cmv11e2vv001mjmptg8l7xbsv" }
+  ],
+  "item": [
+    {
+      "name": "Mesa — registrar con clase relacionada (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{cookie_mesa}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"indicacion\": \"Resolver ejercicios de práctica antes de la próxima clase.\",\n  \"clase_dictada_id\": \"{{clase_dictada_id}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/indicaciones"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('201 Created', () => pm.response.to.have.status(201));",
+        "pm.test('Contrato de respuesta', () => { const r = pm.response.json(); pm.expect(r.error).to.eql(null); pm.expect(r.data).to.include({ alumno_id: pm.variables.get('alumno_id'), materia_id: pm.variables.get('materia_id'), clase_dictada_id: pm.variables.get('clase_dictada_id') }); pm.expect(r.data.registrada_en).to.be.a('string'); pm.expect(r.data.registrada_por).to.be.a('string'); });"
+      ] } }]
+    },
+    {
+      "name": "Mesa — registrar sin vínculo (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{cookie_mesa}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"indicacion\": \"Resolver los ejercicios pares del capítulo.\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/indicaciones"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('201 Created', () => pm.response.to.have.status(201));",
+        "pm.test('Sin clase devuelve null', () => pm.expect(pm.response.json().data.clase_dictada_id).to.eql(null));"
+      ] } }]
+    },
+    {
+      "name": "Profesor — registrar en su materia y clase (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{cookie_profesor}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"indicacion\": \"Resolver y justificar el desarrollo paso a paso.\",\n  \"clase_dictada_id\": \"{{clase_dictada_id}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/indicaciones"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('201 Created', () => pm.response.to.have.status(201));",
+        "pm.test('El autor es el Profesor de sesión', () => pm.expect(pm.response.json().data.registrada_por).to.be.a('string'));"
+      ] } }]
+    },
+    {
+      "name": "Profesor — antes de su primera clase dictada (403)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{cookie_profesor}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"indicacion\": \"No debe registrarse antes de la primera clase.\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/alumnos/{{profesor_sin_primera_clase_alumno_id}}/indicaciones"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('403 SIN_PERMISO', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'); });"
+      ] } }]
+    },
+    {
+      "name": "Mesa — clase de otra materia o sin el alumno (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{cookie_mesa}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"indicacion\": \"El vínculo debe rechazarse.\",\n  \"clase_dictada_id\": \"{{clase_dictada_no_corresponde_id}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/indicaciones"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('409 CLASE_DICTADA_NO_CORRESPONDE', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().error.code).to.eql('CLASE_DICTADA_NO_CORRESPONDE'); });"
+      ] } }]
+    },
+    {
+      "name": "Mesa — id de clase inexistente (404)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{cookie_mesa}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"indicacion\": \"Referencia inexistente.\",\n  \"clase_dictada_id\": \"no-existe\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/indicaciones"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('404 CLASE_DICTADA_NO_ENCONTRADA', () => { pm.response.to.have.status(404); pm.expect(pm.response.json().error.code).to.eql('CLASE_DICTADA_NO_ENCONTRADA'); });"
+      ] } }]
+    },
+    {
+      "name": "Historial — verificar indicaciones y materia filtrada (200)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Cookie", "value": "{{cookie_profesor}}" }],
+        "url": "{{base_url}}/api/alumnos/{{alumno_id}}/historial?pagina=1&por_pagina=10&materia_id={{materia_id}}"
+      },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('200 OK', () => pm.response.to.have.status(200));",
+        "pm.test('Incluye ítems INDICACION de la materia', () => { const d = pm.response.json().data; pm.expect(d.materias_disponibles.every(m => m.id === pm.variables.get('materia_id'))).to.eql(true); pm.expect(d.items.some(i => i.tipo === 'INDICACION')).to.eql(true); });"
+      ] } }]
+    }
+  ]
+}

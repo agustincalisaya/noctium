@@ -1,0 +1,5 @@
+25. [GET] http://127.0.0.1:3131/api/alumnos/cmv11e2v3000ojmpth73cnlbv/historial?pagina=1&por_pagina=10&materia_id=cmv11e2yc004jjmptvmwf545x => [200] OK
+33. [POST] http://127.0.0.1:3131/api/alumnos/cmv11e2v3000ojmpth73cnlbv/indicaciones => [201] Created
+34. [GET] http://127.0.0.1:3131/api/alumnos/cmv11e2v3000ojmpth73cnlbv/historial?pagina=1&por_pagina=10&materia_id=cmv11e2yc004jjmptvmwf545x => [200] OK
+
+Note: 24 static requests not shown, run with "static" option to see them.
