@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/shared/pagination";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import type { HistorialAcademicoData } from "@/types/historial.types";
+import { texto } from "@/lib/textos";
 import { RegistrarResultadoExamenDialog } from "./registrar-resultado-examen-dialog";
 
 function fechaCorta(fecha: string) {
@@ -61,6 +62,14 @@ export function HistorialAcademico({
   return (
     <section className="space-y-4" aria-label="Historial académico">
       {mostrarNombre && datos && <h1 className="text-2xl font-semibold">{datos.alumno.nombre_completo}</h1>}
+      {datos && datos.asistencia_por_materia?.length > 0 && <section aria-label={texto("asistencia.resumen")} className="space-y-2 rounded-md border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold">{texto("asistencia.resumen")}</h2>
+        <ul className="space-y-2">{datos.asistencia_por_materia.map((resumen) => <li key={resumen.materia_id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+          <span>{datos.materias_disponibles.find(({ id }) => id === resumen.materia_id)?.nombre ?? resumen.materia_id}</span>
+          <span className="font-medium tabular-nums">{resumen.porcentaje === null ? texto("asistencia.soloSinControl") : texto("asistencia.porcentaje", resumen)}</span>
+          {resumen.sin_control > 0 && <span className="w-full text-xs text-muted-foreground">{texto("asistencia.excluidas", { cantidad: resumen.sin_control })}</span>}
+        </li>)}</ul>
+      </section>}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="materia-historial" className="sr-only">Filtrar historial por materia</label>
@@ -110,7 +119,7 @@ export function HistorialAcademico({
                       {item.tipo === "CLASE_DICTADA" ? "Clase dictada" : "Examen"}
                     </span>
                   </div>
-                  {item.tipo === "CLASE_DICTADA" && <p className="pl-4 text-xs text-muted-foreground">{item.profesor}</p>}
+                  {item.tipo === "CLASE_DICTADA" && <><p className="pl-4 text-xs text-muted-foreground">{item.profesor}</p><span className={`ml-4 inline-block rounded-md px-2 py-1 text-xs font-medium ${item.asistencia === "PRESENTE" ? "bg-success text-success-foreground" : item.asistencia === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>{texto(item.asistencia === "PRESENTE" ? "asistencia.asistio" : item.asistencia === "AUSENTE" ? "asistencia.ausente" : "asistencia.sinControl")}</span></>}
                   {item.tipo === "EXAMEN" && item.observaciones && <p className="pl-4 text-xs text-muted-foreground">{item.observaciones}</p>}
                 </div>
                 {item.tipo === "EXAMEN" && <span className="whitespace-nowrap pt-1 text-sm font-semibold">{item.nota.replace(".", ",")} / 10</span>}

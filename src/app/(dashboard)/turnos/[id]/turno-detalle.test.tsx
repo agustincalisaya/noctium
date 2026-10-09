@@ -35,8 +35,8 @@ const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: as
 let root: Root;
 let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarPago?: boolean } = {}) => {
-  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarPago={props.puedeRegistrarPago ?? false} />));
+const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarPago?: boolean; puedeRegistrarClase?: boolean } = {}) => {
+  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarPago={props.puedeRegistrarPago ?? false} puedeRegistrarClase={props.puedeRegistrarClase ?? false} />));
   await esperar();
 };
 const valor = (etiqueta: string) => [...container.querySelectorAll("dt")].find((dt) => dt.textContent === etiqueta)?.nextElementSibling?.textContent;
@@ -332,5 +332,46 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("No tenés permisos para acceder a esta sección");
     expect(container.querySelector('nav[aria-label="Breadcrumb"]')?.textContent).toBe("Turnos");
     expect(container.querySelector("h1")?.textContent).toBe("Detalle del turno");
+  });
+});
+
+
+describe("HU-E-09 asistencia dentro de alumnos", () => {
+  it("todos presentes, cambio individual y acción masiva accesible", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ acciones_habilitadas: ["registrar_clase"] })));
+    await montar({ puedeRegistrarClase: true });
+    const grupos = container.querySelectorAll('[role="group"][aria-label^="Asistencia de"]');
+    expect(grupos).toHaveLength(2);
+    expect(grupos[0].querySelector('[aria-pressed="true"]')?.textContent).toBe("Presente");
+    await act(async () => (grupos[0].querySelectorAll("button")[1] as HTMLButtonElement).click());
+    expect(grupos[0].querySelector('[aria-pressed="true"]')?.textContent).toBe("Ausente");
+    const masiva = [...container.querySelectorAll("button")].find((b) => b.textContent === "Marcar todos ausentes")!;
+    await act(async () => masiva.click());
+    expect([...grupos].every((g) => g.querySelector('[aria-pressed="true"]')?.textContent === "Ausente")).toBe(true);
+    expect(texto()).toContain("Marcar todos presentes");
+    expect(container.querySelector('[aria-labelledby="inscripciones-titulo"]')?.textContent).toContain("Registrar clase dictada");
+  });
+  it("confirmación envía estados y muestra persistencia sin tarjeta aparte", async () => {
+    const sinRegistro = detalle({ clase_dictada: null, acciones_habilitadas: ["registrar_clase"] });
+    const registrada = detalle({ clase_dictada: { id: "clase-1", registrada_en: "2026-10-06T20:05:00Z" }, acciones_habilitadas: [] });
+    let guardada = false;
+    fetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") { guardada = true; return respuesta({ id: "clase-1", ya_existia: false }); }
+      if (url.endsWith("clase-dictada")) return respuesta({ id: "clase-1", registrada_en: "2026-10-06T20:05:00Z", con_control_asistencia: true, alumnos: [{ id: "alumno-1", nombre_completo: "Pérez, Juan", asistencia: "AUSENTE" }, { id: "alumno-2", nombre_completo: "Gómez, Lucía", asistencia: "PRESENTE" }], totales: { presentes: 1, ausentes: 1 } });
+      return respuesta(guardada ? registrada : sinRegistro);
+    });
+    await montar({ puedeRegistrarClase: true });
+    const grupo = container.querySelector('[role="group"][aria-label^="Asistencia de"]')!;
+    await act(async () => (grupo.querySelectorAll("button")[1] as HTMLButtonElement).click());
+    await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.click());
+    await esperar();
+    const dialogo = document.querySelector('[role="alertdialog"]')!;
+    expect(dialogo.textContent).toContain("1 presentes y 1 ausentes");
+    await act(async () => [...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.click());
+    await esperar(); await esperar();
+    const peticion = fetch.mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(JSON.parse(peticion[1].body)).toEqual({ asistencias: [{ alumno_id: "alumno-1", estado: "AUSENTE" }, { alumno_id: "alumno-2", estado: "PRESENTE" }] });
+    expect(texto()).toContain("1 presentes · 1 ausentes");
+    expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(0);
   });
 });

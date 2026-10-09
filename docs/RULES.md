@@ -69,3 +69,7 @@ Cada módulo (Sesión, Materias, Aulas, Turnos, etc.) ubica sus archivos siempre
 - **`src/app/**`** contiene únicamente `page.tsx`, `layout.tsx` y componentes propios de esa ruta — nunca tipos, actions ni services sueltos junto a una página.
 
 Las importaciones a estos archivos usan siempre el alias configurado (`@/types/...`, `@/server/...`), nunca rutas relativas (`../actions`, `./materia.types`).
+
+## Sprint 3 — Registro de asistencia (HU-E-09)
+
+Registrar una clase dictada toma primero el bloqueo canónico de la clase con `bloquear`, dentro de `transaccion`. Con el mismo momento del reloj, vence perezosamente las reservas y copia exclusivamente inscripciones vigentes. Las transiciones de vencimiento que encola C se escriben después del commit; si la validación revierte, se descartan. La clase y sus estados de asistencia son un snapshot inmutable con auditoría en la misma fila; marcar Ausente no cambia pagos, precios ni inscripciones. La unicidad no anulada se protege con el índice parcial y `ON CONFLICT` parametrizado, sin captura de P2002 dentro de la transacción. Todas las lecturas usan el valor vigente compartido de E y excluyen clases anuladas.

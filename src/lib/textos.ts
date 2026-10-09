@@ -11,6 +11,27 @@
  * Los huecos se escriben `{nombre}` y se completan con `texto(clave, valores)`.
  */
 export const TEXTOS = {
+  // --- Asistencia individual (HU-E-09) ---
+  "asistencia.presente": "Presente",
+  "asistencia.ausente": "Ausente",
+  "asistencia.asistio": "Asistió",
+  "asistencia.sinControl": "Asistió (sin control de asistencia)",
+  "asistencia.marcarAusentes": "Marcar todos ausentes",
+  "asistencia.marcarPresentes": "Marcar todos presentes",
+  "asistencia.totales": "{presentes} presentes · {ausentes} ausentes",
+  "asistencia.registrar": "Registrar clase dictada",
+  "asistencia.registrando": "Registrando…",
+  "asistencia.confirmar": "¿Registrar clase dictada?",
+  "asistencia.confirmacion": "Se registrarán {presentes} presentes y {ausentes} ausentes. Esta acción no se puede deshacer.",
+  "asistencia.guardada": "Clase dictada registrada correctamente",
+  "asistencia.errorRegistro": "No se pudo registrar la clase dictada. Intentá nuevamente.",
+  "asistencia.errorLectura": "No se pudo consultar la asistencia. Intentá nuevamente.",
+  "asistencia.cargando": "Cargando asistencia…",
+  "asistencia.resumen": "Asistencia por materia",
+  "asistencia.porcentaje": "{porcentaje} % de asistencia",
+  "asistencia.soloSinControl": "Sin clases con control de asistencia",
+  "asistencia.excluidas": "{cantidad} clases sin control excluidas del porcentaje",
+  "asistencia.esperarFin": "Podés registrarla cuando la clase haya terminado.",
   // --- Transversales (PR-0.md §2.10) ---
   "errores.transaccion.ocupada": "Otra persona está modificando estos datos. Intentá de nuevo.",
 
