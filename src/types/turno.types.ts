@@ -1,6 +1,25 @@
 /** Estado de un turno (spec_modulo_C.md §2, Revisión 5). */
 export type EstadoTurno = "PENDIENTE" | "DISPONIBLE" | "COMPLETO" | "CANCELADO";
 
+/** Resumen informativo previo al POST (C §2.17.1); no reserva ni fija tarifa. */
+export type ResumenInscripcion = {
+  turno_id: string;
+  materia: { id: string; nombre: string };
+  profesor: { id: string; nombre_para_mostrar: string };
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  duracion_min: number;
+  aula: { id: string; nombre: string };
+  cupo: number;
+  lugares_disponibles: number;
+  precio: number;
+  plazo_pago_horas: number | null;
+  vence_pago_el: string | null;
+  limite_cancelacion_en_linea: string;
+  limite_cancelacion_pasado: boolean;
+};
+
 /** Prioridad del turno (`Turno.prioridadTurno`, spec_modulo_C.md §2.12). */
 export type PrioridadTurno = "NORMAL" | "ALTA" | "URGENTE";
 
