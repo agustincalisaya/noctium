@@ -1,0 +1,149 @@
+{
+  "info": {
+    "name": "Noctium — HU-E-07 observaciones de clase",
+    "description": "Reproduce la lectura y escritura de observaciones en una base de pruebas. Configure una clase dictada vigente y sin observación para la solicitud de alta.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET — observación de la clase",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Cookie", "value": "{{sessionCookie}}" }],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('La lectura responde 200', () => pm.response.to.have.status(200));",
+            "pm.test('La respuesta mantiene el sobre data/error', () => pm.expect(pm.response.json()).to.have.property('data'));"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "POST — validar temas obligatorios (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{sessionCookie}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"temas_vistos\": \"   \" }",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/observaciones"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('Los temas vacíos responden 400', () => pm.response.to.have.status(400));"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "POST — registrar observaciones (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{sessionCookie}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"temas_vistos\": \"Ecuaciones lineales y verificación de resultados\",\n  \"observaciones_internas\": \"Retomar los ejercicios 4–6 en el próximo encuentro.\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/observaciones"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('El alta responde 201', () => pm.response.to.have.status(201));",
+            "pm.test('Devuelve la observación y el autor', () => { const body = pm.response.json(); pm.expect(body.error).to.eql(null); pm.expect(body.data.temas_vistos).to.be.a('string'); pm.expect(body.data.registrada_por).to.be.a('string'); pm.expect(body.data.registrada_en).to.be.a('string'); });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "POST — duplicar observación (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Cookie", "value": "{{sessionCookie}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"temas_vistos\": \"Segundo registro de prueba\" }",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/observaciones"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('La observación duplicada responde 409', () => pm.response.to.have.status(409));"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "GET — historial académico del alumno",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Cookie", "value": "{{sessionCookie}}" }],
+        "url": "{{baseUrl}}/api/alumnos/{{alumnoId}}/historial?pagina=1&por_pagina=10"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('El historial responde 200', () => pm.response.to.have.status(200));",
+            "pm.test('El item incluye los temas vistos', () => { const items = pm.response.json().data.items; pm.expect(items.some(item => item.observacion?.temas_vistos)).to.eql(true); });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "POST — sin sesión (401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"temas_vistos\": \"No debe guardarse\" }",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/observaciones"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "type": "text/javascript",
+          "exec": [
+            "pm.test('La solicitud sin sesión responde 401', () => pm.response.to.have.status(401));"
+          ]
+        }
+      }]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3100" },
+    { "key": "turnoId", "value": "" },
+    { "key": "alumnoId", "value": "" },
+    { "key": "sessionCookie", "value": "" }
+  ]
+}

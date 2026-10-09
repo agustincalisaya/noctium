@@ -6,6 +6,7 @@ import { Pagination } from "@/components/shared/pagination";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import type { HistorialAcademicoData } from "@/types/historial.types";
 import { texto } from "@/lib/textos";
+import { fechaHoraDeInstante } from "@/lib/turno-detalle";
 import { RegistrarResultadoExamenDialog } from "./registrar-resultado-examen-dialog";
 
 function fechaCorta(fecha: string) {
@@ -121,7 +122,20 @@ export function HistorialAcademico({
                       {item.tipo === "CLASE_DICTADA" ? "Clase dictada" : "Examen"}
                     </span>
                   </div>
-                  {item.tipo === "CLASE_DICTADA" && <><p className="pl-4 text-xs text-muted-foreground">{item.profesor}</p><span className={`ml-4 inline-block rounded-md px-2 py-1 text-xs font-medium ${item.asistencia === "PRESENTE" ? "bg-success text-success-foreground" : item.asistencia === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>{texto(item.asistencia === "PRESENTE" ? "ui.historial.asistencia.asistio" : item.asistencia === "AUSENTE" ? "ui.historial.asistencia.ausente" : "ui.historial.asistencia.sinControl")}</span></>}
+                  {item.tipo === "CLASE_DICTADA" && <><p className="pl-4 text-xs text-muted-foreground">{item.profesor}</p><span className={`ml-4 inline-block rounded-md px-2 py-1 text-xs font-medium ${item.asistencia === "PRESENTE" ? "bg-success text-success-foreground" : item.asistencia === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>{texto(item.asistencia === "PRESENTE" ? "ui.historial.asistencia.asistio" : item.asistencia === "AUSENTE" ? "ui.historial.asistencia.ausente" : "ui.historial.asistencia.sinControl")}</span>
+                    {item.observacion && <div className="mt-2 space-y-1 rounded-md bg-muted/50 p-3">
+                      <h3 className="text-xs font-semibold">{texto("ui.historial.observaciones.temasEnClase")}</h3>
+                      <p className="whitespace-pre-wrap text-sm">{item.observacion.temas_vistos}</p>
+                      {item.observacion.observaciones_internas && <div className="space-y-1 border-t border-border pt-2">
+                        <h4 className="text-xs font-semibold">{texto("ui.historial.observaciones.internasEnClase")}</h4>
+                        <p className="whitespace-pre-wrap text-sm">{item.observacion.observaciones_internas}</p>
+                      </div>}
+                      <p className="text-xs text-muted-foreground">{texto("ui.historial.observaciones.registradaPor", {
+                        fechaHora: fechaHoraDeInstante(item.observacion.registrada_en),
+                        usuario: item.observacion.registrada_por ?? texto("ui.historial.observaciones.sinRegistrar"),
+                      })}</p>
+                    </div>}
+                  </>}
                   {item.tipo === "EXAMEN" && item.observaciones && <p className="pl-4 text-xs text-muted-foreground">{item.observaciones}</p>}
                 </div>
                 {item.tipo === "EXAMEN" && <span className="whitespace-nowrap pt-1 text-sm font-semibold">{item.nota.replace(".", ",")} / 10</span>}

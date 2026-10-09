@@ -111,7 +111,15 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
     {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.cargando")}</p>}
     {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>Reintentar</Button></div>}
     {registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
-    {(puedeRegistrarClase || registroId) && <TurnoClaseCard turno={turno} puedeRegistrarClase={puedeRegistrarClase} asistencias={asistencias} onProcesandoChange={setGuardandoAsistencia} onRegistrada={onCambio} />}
+    {(puedeRegistrarClase || registroId) && <TurnoClaseCard
+      turno={turno}
+      puedeRegistrarClase={puedeRegistrarClase}
+      asistencias={asistencias}
+      registro={registroId && registro?.id === registroId ? registro : null}
+      onProcesandoChange={setGuardandoAsistencia}
+      onRegistrada={onCambio}
+      onObservacionRegistrada={() => { void cargarAsistencia(); }}
+    />}
     {procesando === "agregar" && <p role="status" className="text-sm text-muted-foreground">Agregando alumno…</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {aviso && <p role="status" className="rounded-md bg-success p-3 text-sm text-success-foreground">{aviso}</p>}
