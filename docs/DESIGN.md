@@ -330,6 +330,35 @@ de un desplegable simple.
 
 ---
 
+## 9. Contrato de textos de interfaz — HU-C-23 (09/10/2026)
+
+Los textos visibles nuevos o modificados en Sprint 3 provienen de
+`src/lib/textos.ts`, mediante `texto(clave, valores?)`. Incluye etiquetas
+accesibles, emails e impresiones. Los números calculados y los datos de
+negocio no son copy. La migración de pantallas anteriores corresponde a C-19.
+
+Cada módulo mantiene sus claves `ui.<modulo>.<grupo>.<nombre>`; el equipo que
+mantiene el componente compartido es responsable de `ui.comun.*` (paginación:
+`ui.comun.paginacion.*`). Las claves legacy `errores.*` y sus consumidores se
+conservan. La interfaz del sprint nombra “Clase” y estados en femenino
+(“Completa”, “Cancelada”), sin cambiar nombres técnicos ni contratos de API.
+
+`texto()` es síncrona y compartida por cliente/servidor. Interpola `{nombre}`;
+un valor nulo o ausente deja el hueco intacto. Una clave ausente devuelve la
+clave y emite `console.warn(clave)`, sin valores ni datos personales.
+
+La suite y `scripts/verificar-claves-textos.ts` usan el mismo comprobador de
+símbolos de TypeScript: referencias a catálogo/función, errores de dominio,
+alias, ternarias, mapas finitos y wrappers cerrados. Los casts no sustituyen
+la expresión analizada. En mapas se verifica conservadoramente todo el
+conjunto de valores. Una referencia indeterminada o un símbolo que escapa a
+los usos comprobables falla con archivo y línea. El workflow de textos corre
+en `pull_request` sin filtros; su ejecución efectiva requiere evidencia de
+un run de GitHub. Cambiar un valor central se propaga al volver a renderizar
+sus consumidores, sin editar sus fuentes.
+
+---
+
 ## Historial de cambios de este documento
 
 - **28/09/2026:** se retira la mención a "Asociar forma de pago" (HU-C-11,
@@ -339,3 +368,6 @@ de un desplegable simple.
   6.4; se agrega 6.5 (etiquetas de estado y avisos de error); se agrega la
   sección 8 (paginación y selector con buscador). No se renumeraron
   secciones existentes.
+- **09/10/2026:** HU-C-23 agrega el contrato transversal de textos (§9).
+  Tras auditoría se ubica antes del historial, conservando contenido y
+  numeración de las secciones.

@@ -15,7 +15,7 @@ export type GraficoIndicadorProps = {
   referencia?: {valor:number;etiqueta:string};
 };
 const compacto = new Intl.NumberFormat("es-AR", {notation:"compact",maximumFractionDigits:1});
-export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,claveCategoria="mes",anchoCategoria=150,orientacion="vertical",formatearValor=(v)=>String(v),formatearCategoria=(v)=>v,estado,onReintentar,textoVacio,error,mensual=false,diferenciaClave,diferenciaEtiqueta=texto("indicadores.panel.ausentes"),referencia}:GraficoIndicadorProps) {
+export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,claveCategoria="mes",anchoCategoria=150,orientacion="vertical",formatearValor=(v)=>String(v),formatearCategoria=(v)=>v,estado,onReintentar,textoVacio,error,mensual=false,diferenciaClave,diferenciaEtiqueta=texto("ui.indicadores.panel.ausentes"),referencia}:GraficoIndicadorProps) {
   const [tabla,setTabla] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const [desborda,setDesborda] = useState(false);
@@ -35,13 +35,13 @@ export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,clav
   return <Card aria-labelledby={`${id}-titulo`} aria-busy={estado==="cargando"} role="region" className={largo?"min-w-0 lg:col-span-2":"min-w-0"}>
     <CardHeader className="gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle id={`${id}-titulo`} className="text-lg font-semibold">{titulo}</CardTitle><p className="mt-1 text-xl font-semibold tabular-nums">{estado==="ok" ? total : "—"}</p></div>
-        <button type="button" aria-pressed={tabla} onClick={()=>setTabla(v=>!v)} className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{texto("indicadores.panel.tabla")}</button>
+        <button type="button" aria-pressed={tabla} onClick={()=>setTabla(v=>!v)} className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{texto("ui.indicadores.panel.tabla")}</button>
       </div><CardDescription>{leyendaFecha}</CardDescription>
     </CardHeader>
     <CardContent>
-      {estado==="cargando" && <div role="status" aria-label={texto("indicadores.panel.cargando",{titulo})}><Skeleton className="h-64 w-full" /></div>}
-      {estado==="error" && <div role="alert" className="space-y-3 rounded-md bg-destructive-soft p-4 text-sm text-destructive-soft-foreground"><p>{error || texto("indicadores.panel.error")}</p><button type="button" onClick={onReintentar} className="rounded-md border border-current px-3 py-2 font-medium focus-visible:ring-2 focus-visible:ring-ring">{texto("indicadores.panel.reintentar")}</button></div>}
-      {estado==="vacio" && <p role="status" className="py-16 text-center text-sm text-muted-foreground">{textoVacio || texto("indicadores.panel.vacio")}</p>}
+      {estado==="cargando" && <div role="status" aria-label={texto("ui.indicadores.panel.cargando",{titulo})}><Skeleton className="h-64 w-full" /></div>}
+      {estado==="error" && <div role="alert" className="space-y-3 rounded-md bg-destructive-soft p-4 text-sm text-destructive-soft-foreground"><p>{error || texto("ui.indicadores.panel.error")}</p><button type="button" onClick={onReintentar} className="rounded-md border border-current px-3 py-2 font-medium focus-visible:ring-2 focus-visible:ring-ring">{texto("ui.indicadores.panel.reintentar")}</button></div>}
+      {estado==="vacio" && <p role="status" className="py-16 text-center text-sm text-muted-foreground">{textoVacio || texto("ui.indicadores.panel.vacio")}</p>}
       {estado==="ok" && <>
         <div ref={scroll} className={tabla?"hidden":"overflow-x-auto overscroll-x-contain"} tabIndex={desborda?0:undefined} aria-label={desborda?titulo:undefined}>
           <div style={{minWidth:anchoMinimo || undefined}}>
@@ -63,10 +63,10 @@ export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,clav
           </div>
         </div>
         {!tabla && <div className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">{series.map(s=><span key={s.clave} className="inline-flex items-center gap-2"><span aria-hidden className="h-2.5 w-2.5 rounded-sm" style={{background:s.color}}/>{s.etiqueta} ({s.unidad})</span>)}</div>}
-        {!tabla && desborda && <p className="mt-3 text-xs text-muted-foreground">{texto("indicadores.panel.scroll")}</p>}
+        {!tabla && desborda && <p className="mt-3 text-xs text-muted-foreground">{texto("ui.indicadores.panel.scroll")}</p>}
       </>}
       <div className={tabla?"overflow-x-auto":"sr-only"}>
-        <table className="w-full text-left text-sm tabular-nums"><caption className="sr-only">{titulo}</caption><thead className="border-b border-border"><tr><th scope="col" className="px-3 py-2">{mensual?texto("indicadores.panel.mes"):titulo}</th>{series.map(s=><th scope="col" key={s.clave} className="px-3 py-2">{s.etiqueta} ({s.unidad})</th>)}{diferenciaClave && !series.some(s=>s.clave===diferenciaClave) && <th scope="col" className="px-3 py-2">{diferenciaEtiqueta}</th>}</tr></thead><tbody>{estado==="ok" && datos.map((fila,i)=><tr key={String(fila[claveCategoria])} className="border-b border-border"><th scope="row" className="px-3 py-2 font-medium">{categoriaExacta(String(fila[claveCategoria]),i)}</th>{series.map(s=><td key={s.clave} className="px-3 py-2">{fila[s.clave]==null?"—":formatearValor(Number(fila[s.clave]),s.clave)}</td>)}{diferenciaClave && !series.some(s=>s.clave===diferenciaClave) && <td className="px-3 py-2">{fila[diferenciaClave]}</td>}</tr>)}</tbody></table>
+        <table className="w-full text-left text-sm tabular-nums"><caption className="sr-only">{titulo}</caption><thead className="border-b border-border"><tr><th scope="col" className="px-3 py-2">{mensual?texto("ui.indicadores.panel.mes"):titulo}</th>{series.map(s=><th scope="col" key={s.clave} className="px-3 py-2">{s.etiqueta} ({s.unidad})</th>)}{diferenciaClave && !series.some(s=>s.clave===diferenciaClave) && <th scope="col" className="px-3 py-2">{diferenciaEtiqueta}</th>}</tr></thead><tbody>{estado==="ok" && datos.map((fila,i)=><tr key={String(fila[claveCategoria])} className="border-b border-border"><th scope="row" className="px-3 py-2 font-medium">{categoriaExacta(String(fila[claveCategoria]),i)}</th>{series.map(s=><td key={s.clave} className="px-3 py-2">{fila[s.clave]==null?"—":formatearValor(Number(fila[s.clave]),s.clave)}</td>)}{diferenciaClave && !series.some(s=>s.clave===diferenciaClave) && <td className="px-3 py-2">{fila[diferenciaClave]}</td>}</tr>)}</tbody></table>
       </div>
     </CardContent>
   </Card>;

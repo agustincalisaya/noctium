@@ -11,30 +11,48 @@
  * Los huecos se escriben `{nombre}` y se completan con `texto(clave, valores)`.
  */
 export const TEXTOS = {
-  "indicadores.panel.ausentes": "Ausentes",
-  "indicadores.panel.titulo": "Indicadores",
-  "indicadores.panel.actividad": "Actividad",
-  "indicadores.panel.presentismo": "Índice de Presentismo",
-  "indicadores.panel.cancelaciones": "Cancelaciones",
-  "indicadores.panel.periodo": "Por defecto, los últimos 6 meses incluido el actual. El período se conserva entre pestañas.",
-  "indicadores.panel.desde": "Desde",
-  "indicadores.panel.hasta": "Hasta",
-  "indicadores.panel.maximo": "El período máximo es de 24 meses.",
-  "indicadores.panel.error": "No se pudo cargar este indicador. Intentá nuevamente.",
-  "indicadores.panel.reintentar": "Reintentar",
-  "indicadores.panel.tabla": "Ver como tabla",
-  "indicadores.panel.vacio": "No hay datos para el período seleccionado",
-  "indicadores.panel.scroll": "Se muestran los meses más recientes. Desplazá el gráfico hacia la izquierda para ver los anteriores.",
-  "indicadores.panel.cargando": "Cargando {titulo}",
-  "indicadores.panel.mes": "Mes",
-  "indicadores.panel.ingresos": "Ingresos cobrados",
-  "indicadores.panel.ocupacion": "Tasa de ocupación",
-  "indicadores.panel.leyendaIngresos": "Por fecha de pago. Monto vigente de cada pago, sin los anulados.",
-  "indicadores.panel.leyendaOcupacion": "Por fecha de la clase. Inscripciones vigentes (reservadas no vencidas, pagadas y pago sin registrar) sobre el cupo, en clases Disponibles y Completas hasta hoy.",
-  "indicadores.panel.pesos": "pesos",
-  "indicadores.panel.porcentaje": "%",
-  "indicadores.panel.meta": "Meta {valor}%",
+  "ui.indicadores.panel.ausentes": "Ausentes",
+  "ui.indicadores.panel.titulo": "Indicadores",
+  "ui.indicadores.panel.actividad": "Actividad",
+  "ui.indicadores.panel.presentismo": "Índice de Presentismo",
+  "ui.indicadores.panel.cancelaciones": "Cancelaciones",
+  "ui.indicadores.panel.periodo": "Por defecto, los últimos 6 meses incluido el actual. El período se conserva entre pestañas.",
+  "ui.indicadores.panel.desde": "Desde",
+  "ui.indicadores.panel.hasta": "Hasta",
+  "ui.indicadores.panel.maximo": "El período máximo es de 24 meses.",
+  "ui.indicadores.panel.error": "No se pudo cargar este indicador. Intentá nuevamente.",
+  "ui.indicadores.panel.reintentar": "Reintentar",
+  "ui.indicadores.panel.tabla": "Ver como tabla",
+  "ui.indicadores.panel.vacio": "No hay datos para el período seleccionado",
+  "ui.indicadores.panel.scroll": "Se muestran los meses más recientes. Desplazá el gráfico hacia la izquierda para ver los anteriores.",
+  "ui.indicadores.panel.cargando": "Cargando {titulo}",
+  "ui.indicadores.panel.mes": "Mes",
+  "ui.indicadores.panel.ingresos": "Ingresos cobrados",
+  "ui.indicadores.panel.ocupacion": "Tasa de ocupación",
+  "ui.indicadores.panel.leyendaIngresos": "Por fecha de pago. Monto vigente de cada pago, sin los anulados.",
+  "ui.indicadores.panel.leyendaOcupacion": "Por fecha de la clase. Inscripciones vigentes (reservadas no vencidas, pagadas y pago sin registrar) sobre el cupo, en clases Disponibles y Completas hasta hoy.",
+  "ui.indicadores.panel.pesos": "pesos",
+  "ui.indicadores.panel.porcentaje": "%",
+  "ui.indicadores.panel.meta": "Meta {valor}%",
 
+  // UI: cada módulo es dueño de ui.<modulo>.<grupo>.<nombre>.
+  // ui.comun pertenece a los componentes compartidos; no a sus consumidores.
+  "ui.comun.paginacion.nombre": "Paginación",
+  "ui.comun.paginacion.pagina": "Página {pagina} de {totalPaginas}",
+  "ui.comun.paginacion.paginaConTotal": "Página {pagina} de {totalPaginas} · {total} en total",
+  "ui.comun.paginacion.rango": "Mostrando {desde}–{hasta} de {total}",
+  "ui.comun.paginacion.anterior": "Anterior",
+  "ui.comun.paginacion.siguiente": "Siguiente",
+  "ui.comun.paginacion.paginaAnterior": "Página anterior",
+  "ui.comun.paginacion.paginaSiguiente": "Página siguiente",
+  "ui.comun.paginacion.numero": "Página {pagina}",
+  "ui.comun.paginacion.elipsis": "…",
+  // Módulo C: vocabulario para las pantallas del Sprint 3; legacy se conserva.
+  "ui.turnos.clase.nombre": "Clase",
+  "ui.turnos.estado.pendiente": "Pendiente",
+  "ui.turnos.estado.disponible": "Disponible",
+  "ui.turnos.estado.completa": "Completa",
+  "ui.turnos.estado.cancelada": "Cancelada",
   // --- Transversales (PR-0.md §2.10) ---
   "errores.transaccion.ocupada": "Otra persona está modificando estos datos. Intentá de nuevo.",
 
@@ -176,6 +194,10 @@ export type ClaveTexto = keyof typeof TEXTOS;
 
 /** Texto de `clave` con sus huecos `{nombre}` completados. Un hueco sin valor queda tal cual. */
 export function texto(clave: ClaveTexto, valores?: Record<string, unknown>): string {
+  if (!Object.prototype.hasOwnProperty.call(TEXTOS, clave)) {
+    console.warn(clave);
+    return clave;
+  }
   const plantilla: string = TEXTOS[clave];
   if (!valores) return plantilla;
   return plantilla.replace(/\{(\w+)\}/g, (hueco, nombre: string) =>
