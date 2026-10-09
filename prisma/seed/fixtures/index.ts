@@ -12,6 +12,7 @@
 // clave estable antes de crearlos (correr el seed dos veces no cambia nada) y
 // anota en su PR qué agrega.
 import { fixtureHuE09 } from "./hu-e-09";
+import { fixtureHuE07 } from "./hu-e-07";
 import { fixtureHuH06 } from "./hu-h-06";
 import { fixtureHuH07 } from "./hu-h-07";
 import type { PrismaClient } from "@prisma/client";
@@ -22,7 +23,7 @@ export type ContextoFixtures = { prisma: PrismaClient };
 type Fixture = { nombre: string; correr: (contexto: ContextoFixtures) => Promise<void> };
 
 /** Fixtures en orden de ejecución: una línea por HU. */
-const FIXTURES: Fixture[] = [{ nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }];
+const FIXTURES: Fixture[] = [{ nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }];
 
 export async function correrFixtures(contexto: ContextoFixtures): Promise<void> {
   for (const fixture of FIXTURES) {

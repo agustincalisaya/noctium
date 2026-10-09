@@ -220,7 +220,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
   prohibido (6.1). Cualquier caso nuevo de este tipo se agrega acá y en la
   tabla 6.4 antes de escribir el task.
 
-### 6.4 Tabla resumen — qué usa cada acción de Sprint 2
+### 6.4 Tabla resumen — qué usa cada acción del producto
 
 | Acción | Disparador | Feedback de éxito |
 |---|---|---|
@@ -231,6 +231,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Nueva forma de pago (HU-I-03) | `Dialog` | Toast |
 | Registrar clase dictada (HU-E-01) | `AlertDialog` (confirmación simple) | Toast |
 | Registrar resultado de examen (HU-E-06) | `Dialog` | Toast |
+| Registrar observaciones de clase (HU-E-07) | `Dialog` con campos y confirmación `AlertDialog` de C-25 | Toast «Observaciones registradas correctamente» |
 | Ver turnos que impiden quitar una materia (HU-D-07) | `Dialog` informativo (6.3) | Ninguno — no modifica datos |
 | Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { obtenerAlumnoBasico } from "@/server/alumnos/alumno.publico";
 import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
+import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
 import { profesorAtendioAlumno, profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
@@ -27,6 +28,10 @@ type FilaHistorial = {
   observaciones: string | null;
   turno_id: string | null;
   registro_id: string | null;
+  temas_vistos: string | null;
+  observaciones_internas: string | null;
+  observacion_registrada_en: Date | null;
+  observacion_creada_por_id: string | null;
 };
 
 type UsuarioHistorial = { id: string; rol: RolUsuario };
@@ -39,12 +44,13 @@ async function autorizarAlcanceAlumno(
   alumnoId: string,
   usuario: UsuarioHistorial,
   db: Prisma.TransactionClient = prisma,
-) {
-  if (usuario.rol !== "PROFESOR") return;
+): Promise<string | null> {
+  if (usuario.rol !== "PROFESOR") return null;
   const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, db);
   if (!profesor || !(await profesorAtendioAlumno(profesor.id, alumnoId, db))) {
     throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
   }
+  return profesor.id;
 }
 
 /** Historial unificado: la unión, el filtro y la paginación se resuelven en PostgreSQL. */
@@ -53,7 +59,7 @@ export async function obtenerHistorialAlumno(
   query: HistorialQuery,
   usuario: UsuarioHistorial,
 ) {
-  await autorizarAlcanceAlumno(alumnoId, usuario);
+  const profesorId = await autorizarAlcanceAlumno(alumnoId, usuario);
   const alumno = await obtenerAlumnoBasico(alumnoId);
   if (!alumno) throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
 
@@ -69,6 +75,10 @@ export async function obtenerHistorialAlumno(
         clase."profesorId" AS profesor_id,
         NULL::numeric AS nota,
         NULL::text AS observaciones,
+        observacion."temasVistos" AS temas_vistos,
+        observacion."observacionesInternas" AS observaciones_internas,
+        observacion."createdAtObservacion" AS observacion_registrada_en,
+        observacion."creadoPorUsuarioId" AS observacion_creada_por_id,
         clase."turnoId" AS turno_id,
         clase."createdAtClaseDictada" AS creado_en,
         clase."idClaseDictada" AS registro_id,
@@ -76,6 +86,8 @@ export async function obtenerHistorialAlumno(
       FROM "clases_dictadas" AS clase
       INNER JOIN "clases_dictadas_alumnos" AS inscripto
         ON inscripto."claseDictadaId" = clase."idClaseDictada"
+      LEFT JOIN "observaciones_clase" AS observacion
+        ON observacion."claseDictadaId" = clase."idClaseDictada"
       WHERE inscripto."alumnoId" = ${alumnoId} AND ${sqlClaseDictadaVigente("clase")}
       UNION ALL
       SELECT
@@ -85,6 +97,10 @@ export async function obtenerHistorialAlumno(
         NULL::text AS profesor_id,
         examen."notaExamen" AS nota,
         examen."observaciones" AS observaciones,
+        NULL::text AS temas_vistos,
+        NULL::text AS observaciones_internas,
+        NULL::timestamp AS observacion_registrada_en,
+        NULL::text AS observacion_creada_por_id,
         NULL::text AS turno_id,
         examen."createdAtResultadoExamen" AS creado_en,
         examen."idResultadoExamen" AS registro_id,
@@ -110,7 +126,9 @@ export async function obtenerHistorialAlumno(
     )
     SELECT conteo.total, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
-      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id, pagina.asistencia
+      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id, pagina.asistencia,
+      pagina.temas_vistos, pagina.observaciones_internas, pagina.observacion_registrada_en,
+      pagina.observacion_creada_por_id
     FROM conteo CROSS JOIN materias
     LEFT JOIN pagina ON TRUE
     ORDER BY pagina.fecha DESC NULLS LAST, pagina.creado_en DESC NULLS LAST, pagina.registro_id DESC NULLS LAST
@@ -119,11 +137,14 @@ export async function obtenerHistorialAlumno(
   const filaInicial = filas[0];
   const total = Number(filaInicial?.total ?? 0);
   const registros = filas.filter((fila) => fila.tipo !== null);
-  const [materias, profesores] = await Promise.all([
+  const autoresObservaciones = [...new Set(registros.flatMap((fila) => fila.observacion_creada_por_id ? [fila.observacion_creada_por_id] : []))];
+  const [materias, profesores, emailsObservaciones] = await Promise.all([
     obtenerMateriasPorIds(filaInicial?.materias_disponibles ?? []),
     obtenerNombresProfesores(registros.flatMap((fila) => fila.profesor_id ? [fila.profesor_id] : [])),
+    Promise.all(autoresObservaciones.map(async (id) => [id, await obtenerEmailDeUsuario(id)] as const)),
   ]);
   const materiasPorId = new Map(materias.map((materia) => [materia.id, materia.nombre]));
+  const emailsObservacionesPorId = new Map(emailsObservaciones);
 
   const items = registros.map((fila) => {
     if (!fila.fecha || !fila.materia_id || !fila.registro_id) {
@@ -135,6 +156,16 @@ export async function obtenerHistorialAlumno(
       if (!fila.profesor_id || !fila.turno_id) throw new Error(`La clase ${fila.registro_id} no tiene profesor o turno`);
       const profesor = profesores[fila.profesor_id];
       if (!profesor) throw new Error(`No se encontró el profesor ${fila.profesor_id} de la clase ${fila.registro_id}`);
+      const observacion = fila.temas_vistos !== null && fila.observacion_registrada_en
+        ? {
+          temas_vistos: fila.temas_vistos,
+          ...((usuario.rol === "MESA_ENTRADA" || usuario.rol === "GERENTE" || (usuario.rol === "PROFESOR" && profesorId === fila.profesor_id))
+            ? { observaciones_internas: fila.observaciones_internas }
+            : {}),
+          registrada_en: fila.observacion_registrada_en.toISOString(),
+          registrada_por: fila.observacion_creada_por_id ? emailsObservacionesPorId.get(fila.observacion_creada_por_id) ?? null : null,
+        }
+        : undefined;
       return {
         tipo: "CLASE_DICTADA" as const,
         fecha: fechaCalendario(fila.fecha),
@@ -142,6 +173,7 @@ export async function obtenerHistorialAlumno(
         profesor,
         turno_id: fila.turno_id,
         asistencia: fila.asistencia ?? null,
+        ...(observacion ? { observacion } : {}),
       };
     }
     return {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queryRaw, alumno, materias, profesores, profesorUsuario, profesorAtendio, asistencia, vigente, propia } = vi.hoisted(() => ({
-  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), profesorAtendio: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(),
+const { queryRaw, alumno, materias, profesores, profesorUsuario, profesorAtendio, asistencia, vigente, propia, email } = vi.hoisted(() => ({
+  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), profesorAtendio: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(), email: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: queryRaw } }));
@@ -11,6 +11,7 @@ vi.mock("@/server/profesores/profesor.publico", () => ({
   obtenerNombresProfesores: profesores,
   obtenerOpcionProfesorDeUsuario: profesorUsuario,
 }));
+vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario: email }));
 vi.mock("./historial.publico", () => ({ profesorAtendioAlumno: profesorAtendio, asistenciaDeAlumno: asistencia, profesorPuedeRegistrarIndicacion: propia }));
 
 vi.mock("@/server/turnos/inscripcion.publico", () => ({ existeInscripcionVigenteConProfesor: vigente }));
@@ -22,11 +23,13 @@ const registroClase = {
   total: 2n, materias_disponibles: ["materia-1"], tipo: "CLASE_DICTADA" as const,
   fecha: new Date("2026-09-28T00:00:00.000Z"), materia_id: "materia-1", profesor_id: "profesor-1",
   nota: null, observaciones: null, turno_id: "turno-1", registro_id: "clase-1",
+  temas_vistos: null, observaciones_internas: null, observacion_registrada_en: null, observacion_creada_por_id: null,
 };
 const registroExamen = {
   total: 2n, materias_disponibles: ["materia-1"], tipo: "EXAMEN" as const,
   fecha: new Date("2026-09-30T00:00:00.000Z"), materia_id: "materia-1", profesor_id: null,
   nota: "8.5", observaciones: "Parcial de cinemática", turno_id: null, registro_id: "examen-1",
+  temas_vistos: null, observaciones_internas: null, observacion_registrada_en: null, observacion_creada_por_id: null,
 };
 
 beforeEach(() => {
@@ -37,6 +40,7 @@ beforeEach(() => {
   profesorUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Acuña, Sergio" });
   profesorAtendio.mockResolvedValue(true);
   vigente.mockResolvedValue(true); propia.mockResolvedValue(false);
+  email.mockResolvedValue("profesor@noctium.local");
   queryRaw.mockResolvedValue([registroExamen, registroClase]);
   asistencia.mockResolvedValue([{ materia_id: "materia-1", presentes: 1, ausentes: 1, sin_control: 1, porcentaje: 50 }]);
 });
@@ -82,10 +86,32 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
     expect(parametros).toContain(10);
   });
 
+  it("adjunta la observación de clase y limita el texto interno al Profesor titular", async () => {
+    queryRaw.mockResolvedValue([{ ...registroClase, temas_vistos: "Funciones lineales", observaciones_internas: "Preparar práctica", observacion_registrada_en: new Date("2026-09-29T14:00:00.000Z"), observacion_creada_por_id: "autor-1" }]);
+    const resultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, mesa);
+    expect(resultado.items[0]).toMatchObject({ observacion: {
+      temas_vistos: "Funciones lineales", observaciones_internas: "Preparar práctica",
+      registrada_en: "2026-09-29T14:00:00.000Z", registrada_por: "profesor@noctium.local",
+    } });
+    expect(email).toHaveBeenCalledWith("autor-1");
+
+    const profesorAjeno = { id: "usuario-profesor", rol: "PROFESOR" as const };
+    profesorUsuario.mockResolvedValue({ id: "otro-profesor", nombreParaMostrar: "Otro" });
+    const acotado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, profesorAjeno);
+    expect(acotado.items[0]).toMatchObject({ observacion: {
+      temas_vistos: "Funciones lineales", registrada_por: "profesor@noctium.local",
+    } });
+    expect(acotado.items[0]).not.toHaveProperty("observacion.observaciones_internas");
+
+    const gerente = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, { id: "gerente-1", rol: "GERENTE" });
+    expect(gerente.items[0]).toMatchObject({ observacion: { observaciones_internas: "Preparar práctica" } });
+  });
+
   it("devuelve una lista vacía con paginación cero sin registros", async () => {
     queryRaw.mockResolvedValue([{
       total: 0n, materias_disponibles: [], tipo: null, fecha: null, materia_id: null,
       profesor_id: null, nota: null, turno_id: null, registro_id: null,
+      temas_vistos: null, observaciones_internas: null, observacion_registrada_en: null, observacion_creada_por_id: null,
     }]);
     materias.mockResolvedValue([]);
     profesores.mockResolvedValue({});

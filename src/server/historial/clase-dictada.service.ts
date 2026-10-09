@@ -14,6 +14,7 @@ import { bloquearTurnoParaOperacion } from "@/server/turnos/turno.publico";
 import { inscripcionesVigentes, marcarVencidas } from "@/server/turnos/inscripcion.publico";
 import { turnoYaTermino } from "@/server/turnos/turno.acciones";
 import { sqlAsistenciaVigente, sqlConControlVigente } from "@/server/historial/valor-vigente";
+import { leerObservacionDeClase } from "@/server/historial/observacion-clase.service";
 import type { RegistrarClaseDictadaInput } from "@/server/historial/clase-dictada.schema";
 
 const MENSAJES = {
@@ -167,9 +168,14 @@ export async function obtenerRegistroClaseDictada(turnoId: string, usuario: Usua
   }
   const asistencia = await leerAsistencia(prisma, clase.idClaseDictada);
   const ids = asistencia.alumnos.map(({ alumno_id }) => alumno_id);
-  const [alumnos, registradaPor] = await Promise.all([
+  const [alumnos, registradaPor, observacion, permisoObservaciones] = await Promise.all([
     obtenerAlumnosBasicos(ids),
     clase.creadoPorUsuarioId ? obtenerEmailDeUsuario(clase.creadoPorUsuarioId) : Promise.resolve(null),
+    leerObservacionDeClase(clase.idClaseDictada, usuario),
+    prisma.rolPermiso.findUnique({
+      where: { rolPermiso_accionPermiso: { rolPermiso: usuario.rol, accionPermiso: "observaciones:registrar" } },
+      select: { accionPermiso: true },
+    }),
   ]);
   const porId = new Map(alumnos.map((alumno) => [alumno.id, alumno]));
   const nombres = asistencia.alumnos.map(({ alumno_id: id, asistencia }) => {
@@ -180,5 +186,7 @@ export async function obtenerRegistroClaseDictada(turnoId: string, usuario: Usua
   return {
     id: clase.idClaseDictada, registrada_en: clase.createdAtClaseDictada.toISOString(), registrada_por: registradaPor,
     alumnos: nombres, con_control_asistencia: asistencia.control, totales: asistencia.totales,
+    observacion,
+    acciones: { registrar_observaciones: permisoObservaciones !== null && observacion === null },
   };
 }

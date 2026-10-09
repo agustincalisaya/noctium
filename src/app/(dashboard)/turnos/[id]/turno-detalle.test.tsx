@@ -337,6 +337,36 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
 
 
 describe("HU-E-09 asistencia dentro de alumnos", () => {
+  it("HU-E-07 muestra temas, texto interno y auditoría de la observación en el detalle", async () => {
+    const registrada = detalle({ clase_dictada: { id: "clase-1", registrada_en: "2026-10-06T20:05:00Z" } });
+    fetch.mockImplementation(async (url: string) => {
+      if (url.endsWith("/api/turnos/turno-1/clase-dictada")) return respuesta({
+        id: "clase-1", registrada_en: "2026-10-06T20:05:00Z", alumnos: [], con_control_asistencia: false, totales: null,
+        observacion: { id: "obs-1", temas_vistos: "Funciones lineales", observaciones_internas: "Preparar práctica", registrada_en: "2026-10-06T20:10:00Z", registrada_por: "mesa@noctium.local" },
+        acciones: { registrar_observaciones: false },
+      });
+      return respuesta(registrada);
+    });
+    await montar(); await esperar();
+    expect(texto()).toContain("Funciones lineales");
+    expect(texto()).toContain("Observaciones internas");
+    expect(texto()).toContain("Preparar práctica");
+    expect(texto()).toContain("Registradas el 06/10/2026, 17:10 por mesa@noctium.local");
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Registrar observaciones")).toBe(false);
+  });
+
+  it("HU-E-07 ofrece el formulario solo cuando el GET autoriza el registro y todavía no hay observación", async () => {
+    fetch.mockImplementation(async (url: string) => {
+      if (url.endsWith("/api/turnos/turno-1/clase-dictada")) return respuesta({
+        id: "clase-1", registrada_en: "2026-10-06T20:05:00Z", alumnos: [], con_control_asistencia: false, totales: null,
+        observacion: null, acciones: { registrar_observaciones: true },
+      });
+      return respuesta(detalle({ clase_dictada: { id: "clase-1", registrada_en: "2026-10-06T20:05:00Z" } }));
+    });
+    await montar(); await esperar();
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Registrar observaciones")).toBe(true);
+  });
+
   it("todos presentes, cambio individual y acción masiva accesible", async () => {
     fetch.mockResolvedValue(respuesta(detalle({ acciones_habilitadas: ["registrar_clase"] })));
     await montar({ puedeRegistrarClase: true });
