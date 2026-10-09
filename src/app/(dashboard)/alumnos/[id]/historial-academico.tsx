@@ -17,14 +17,16 @@ export function HistorialAcademico({
   alumnoId,
   puedeRegistrarExamen,
   mostrarNombre,
+  materiaInicial = "",
 }: {
   alumnoId: string;
   puedeRegistrarExamen: boolean;
   mostrarNombre: boolean;
+  materiaInicial?: string;
 }) {
   const [datos, setDatos] = useState<HistorialAcademicoData | null>(null);
   const [pagina, setPagina] = useState(1);
-  const [materiaId, setMateriaId] = useState("");
+  const [materiaId, setMateriaId] = useState(materiaInicial);
   const [actualizacion, setActualizacion] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");

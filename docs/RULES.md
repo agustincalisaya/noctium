@@ -69,6 +69,9 @@ Cada módulo (Sesión, Materias, Aulas, Turnos, etc.) ubica sus archivos siempre
 - **`src/app/**`** contiene únicamente `page.tsx`, `layout.tsx` y componentes propios de esa ruta — nunca tipos, actions ni services sueltos junto a una página.
 
 Las importaciones a estos archivos usan siempre el alias configurado (`@/types/...`, `@/server/...`), nunca rutas relativas (`../actions`, `./materia.types`).
+### Textos incorporados por HU-H-07 (08/10/2026)
+
+Los textos nuevos del Índice de presentismo se centralizan bajo `ui.indicadores.presentismo.*` en `src/lib/textos.ts`: títulos y leyendas de gráficos, series, aviso de clases sin control, tabla y su umbral, columnas, enlace al historial y estados de carga/error/vacío/reintento. Los parámetros de aviso y umbral se interpolan mediante `texto()`. Esto documenta el cumplimiento de HU-C-23 sin modificar reglas de negocio ni permisos.
 
 ## Sprint 3 — Registro de asistencia (HU-E-09)
 

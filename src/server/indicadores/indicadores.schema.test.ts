@@ -73,3 +73,8 @@ describe("rango mensual de Indicadores", () => {
     expect(cantidadMesesInclusivos("2026-09", "2026-09")).toBe(1);
   });
 });
+
+ describe("página de presentismo bajo", () => {
+  it("usa página uno por defecto", async () => { const { PresentismoBajoQuerySchema } = await import("./indicadores.schema"); expect(PresentismoBajoQuerySchema.parse({}).pagina).toBe(1); });
+  it.each(["0", "-1", "1.5", "abc", ""])("rechaza página %s", async pagina => { const { PresentismoBajoQuerySchema } = await import("./indicadores.schema"); expect(PresentismoBajoQuerySchema.safeParse({ pagina }).success).toBe(false); });
+ });

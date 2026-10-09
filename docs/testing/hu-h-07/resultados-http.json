@@ -1,0 +1,563 @@
+{
+  "results": [
+    {
+      "name": "/api/indicadores/presentismo-por-mes",
+      "status": 200,
+      "body": {
+        "data": {
+          "meses": [
+            {
+              "mes": "2026-05",
+              "inscriptos": 48,
+              "presentes": 25,
+              "ausentes": 23,
+              "indice": 52.1
+            },
+            {
+              "mes": "2026-06",
+              "inscriptos": 24,
+              "presentes": 24,
+              "ausentes": 0,
+              "indice": 100
+            },
+            {
+              "mes": "2026-07",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            },
+            {
+              "mes": "2026-08",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            },
+            {
+              "mes": "2026-09",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            },
+            {
+              "mes": "2026-10",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            }
+          ],
+          "resumen": {
+            "inscriptos": 72,
+            "presentes": 49,
+            "ausentes": 23,
+            "indice": 68.1
+          },
+          "clases_sin_control": 1
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-materia",
+      "status": 200,
+      "body": {
+        "data": {
+          "items": [
+            {
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "inscriptos": 48,
+              "presentes": 25,
+              "ausentes": 23,
+              "indice": 52.1
+            },
+            {
+              "materia_id": "cmv0datfa004kjmelk2q50484",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "inscriptos": 24,
+              "presentes": 24,
+              "ausentes": 0,
+              "indice": 100
+            }
+          ],
+          "resumen": {
+            "inscriptos": 72,
+            "presentes": 49,
+            "ausentes": 23,
+            "indice": 68.1
+          },
+          "clases_sin_control": 1
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo",
+      "status": 200,
+      "body": {
+        "data": {
+          "umbral": 75,
+          "minimo_clases": 2,
+          "pagina": 1,
+          "por_pagina": 10,
+          "total": 11,
+          "items": [
+            {
+              "alumno_id": "cmv0datbh000ojmel39bo9cf4",
+              "nombre_completo": "Fernández, Sofía",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbj000qjmelgqyator1",
+              "nombre_completo": "Martínez, Lucas",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbl000sjmel0jy92zm1",
+              "nombre_completo": "López, Valentina",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbn000ujmeloj7g41n0",
+              "nombre_completo": "González, Mateo",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbo000wjmel5q6931j1",
+              "nombre_completo": "Rodríguez, Camila",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbp000yjmelpgsutphc",
+              "nombre_completo": "Pérez, Joaquín",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbs0010jmel9w3m83q4",
+              "nombre_completo": "Sánchez, Martina",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbu0012jmel1wdunsnj",
+              "nombre_completo": "Romero, Tomás",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbw0014jmel0miak7s3",
+              "nombre_completo": "Díaz, Julieta",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbx0016jmel7hlshlgm",
+              "nombre_completo": "Torres, Benjamín",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-mes?desde=2026-05&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "meses": [
+            {
+              "mes": "2026-05",
+              "inscriptos": 48,
+              "presentes": 25,
+              "ausentes": 23,
+              "indice": 52.1
+            },
+            {
+              "mes": "2026-06",
+              "inscriptos": 24,
+              "presentes": 24,
+              "ausentes": 0,
+              "indice": 100
+            },
+            {
+              "mes": "2026-07",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            },
+            {
+              "mes": "2026-08",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            },
+            {
+              "mes": "2026-09",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            },
+            {
+              "mes": "2026-10",
+              "inscriptos": 0,
+              "presentes": 0,
+              "ausentes": 0,
+              "indice": null
+            }
+          ],
+          "resumen": {
+            "inscriptos": 72,
+            "presentes": 49,
+            "ausentes": 23,
+            "indice": 68.1
+          },
+          "clases_sin_control": 1
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo?desde=2026-05&hasta=2026-10&pagina=1",
+      "status": 200,
+      "body": {
+        "data": {
+          "umbral": 75,
+          "minimo_clases": 2,
+          "pagina": 1,
+          "por_pagina": 10,
+          "total": 11,
+          "items": [
+            {
+              "alumno_id": "cmv0datbh000ojmel39bo9cf4",
+              "nombre_completo": "Fernández, Sofía",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbj000qjmelgqyator1",
+              "nombre_completo": "Martínez, Lucas",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbl000sjmel0jy92zm1",
+              "nombre_completo": "López, Valentina",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbn000ujmeloj7g41n0",
+              "nombre_completo": "González, Mateo",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbo000wjmel5q6931j1",
+              "nombre_completo": "Rodríguez, Camila",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbp000yjmelpgsutphc",
+              "nombre_completo": "Pérez, Joaquín",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbs0010jmel9w3m83q4",
+              "nombre_completo": "Sánchez, Martina",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbu0012jmel1wdunsnj",
+              "nombre_completo": "Romero, Tomás",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbw0014jmel0miak7s3",
+              "nombre_completo": "Díaz, Julieta",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            },
+            {
+              "alumno_id": "cmv0datbx0016jmel7hlshlgm",
+              "nombre_completo": "Torres, Benjamín",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo?desde=2026-05&hasta=2026-10&pagina=2",
+      "status": 200,
+      "body": {
+        "data": {
+          "umbral": 75,
+          "minimo_clases": 2,
+          "pagina": 2,
+          "por_pagina": 10,
+          "total": 11,
+          "items": [
+            {
+              "alumno_id": "cmv0datbz0018jmelp6uy2soi",
+              "nombre_completo": "Álvarez, Lucía",
+              "materia_id": "cmv0datf5004jjmelhwlbonb4",
+              "materia": "Matemática",
+              "clases_dictadas": 4,
+              "ausencias": 2,
+              "porcentaje": 50
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo?desde=2026-05&hasta=2026-10&pagina=3",
+      "status": 200,
+      "body": {
+        "data": {
+          "umbral": 75,
+          "minimo_clases": 2,
+          "pagina": 3,
+          "por_pagina": 10,
+          "total": 11,
+          "items": []
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo?pagina=0",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "pagina": [
+                "Too small: expected number to be >=1"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "mobile_chart_scroll",
+      "cards": [
+        {
+          "width": 326,
+          "scrollWidth": 1824,
+          "left": 1498
+        },
+        {
+          "width": 326,
+          "scrollWidth": 326,
+          "left": 0
+        }
+      ]
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-mes",
+      "status": 401,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SESION_INVALIDA",
+          "message": "Tu sesión expiró. Iniciá sesión nuevamente"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-mes",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-materia",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-mes",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-materia",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-mes",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/presentismo-por-materia",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "/api/indicadores/alumnos-presentismo-bajo",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "ui_review_complete",
+      "errors": []
+    }
+  ],
+  "errors": []
+}
