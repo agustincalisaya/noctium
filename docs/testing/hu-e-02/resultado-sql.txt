@@ -1,4 +1,4 @@
-  rolPermiso  | accionPermiso  
+  rolPermiso  | accionPermiso
 --------------+----------------
  PROFESOR     | historial:leer
  GERENTE      | alumnos:leer
@@ -7,26 +7,25 @@
  MESA_ENTRADA | historial:leer
 (5 rows)
 
-       idInscripcion       |          idTurno          | fechaTurno | horaInicioTurno | estadoTurno |     vigencia     |    finalizadaEl     |            idClaseDictada            | anuladaEl | estadoAsistencia 
+       idInscripcion       |          idTurno          | fechaTurno | horaInicioTurno | estadoTurno |     vigencia     |    finalizadaEl     |            idClaseDictada            | anuladaEl | estadoAsistencia
 ---------------------------+---------------------------+------------+-----------------+-------------+------------------+---------------------+--------------------------------------+-----------+------------------
- cmv1a12se008ejm60ah9moxvk | cmv1a12oz0086jm60mfguovk8 | 2026-10-21 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     |                                      |           | 
- cmv1a12qy008ajm60a8viidaj | cmv1a12oz0086jm60mfguovk8 | 2026-10-21 | 08:00:00        | DISPONIBLE  | CANCELADA_ALUMNO | 2026-10-06 12:00:00 |                                      |           | 
- cmv1a12n90081jm60f9tzhxna | cmv1a12kn007xjm60oq94lnb3 | 2026-10-20 | 08:00:00        | CANCELADO   | BAJA_ALUMNO      | 2026-10-07 14:00:00 |                                      |           | 
- cmv1a12j3007vjm60wpqzfwt2 | cmv1a12eu007njm60b9ih9kd3 | 2026-10-19 | 10:00:00        | DISPONIBLE  | RESERVA_VENCIDA  | 2026-10-03 12:00:00 |                                      |           | 
- cmv1a12hp007rjm60b9t94uhe | cmv1a12eu007njm60b9ih9kd3 | 2026-10-19 | 10:00:00        | DISPONIBLE  | QUITADA_CENTRO   | 2026-10-01 12:00:00 |                                      |           | 
- cmv1a12d6007jjm60k5c2e7ze | cmv19znnp008fjmzl5nf96guc | 2026-10-16 | 10:00:00        | DISPONIBLE  | QUITADA_CENTRO   | 2026-10-07 12:00:00 |                                      |           | 
- cmv19znmm008bjmzly0pgb8h9 | cmv19znlf0087jmzlxs8mg7h5 | 2026-10-15 | 08:00:00        | DISPONIBLE  | BAJA_ALUMNO      | 2026-10-07 12:00:00 |                                      |           | 
- cmv19znkg0083jmzlmi8fdbs8 | cmv19znj4007zjmzlgoys358h | 2026-10-14 | 10:00:00        | DISPONIBLE  | CANCELADA_ALUMNO | 2026-10-07 12:00:00 |                                      |           | 
- cmv19zni5007ujmzlr85i6jp0 | cmv19zngy007qjmzls3mv6l0a | 2026-10-13 | 08:00:00        | CANCELADO   | VIGENTE          |                     |                                      |           | 
- cmv19zng9007mjmzlx5guzs9l | cmv19zner007ijmzljcqaib9y | 2026-10-12 | 10:00:00        | DISPONIBLE  | VIGENTE          |                     |                                      |           | 
- cmv19z5hf008ajmvloxwsrnby | cmv19z5fg0086jmvlk0cxakfz | 2026-09-24 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     |                                      |           | 
- cmv19z5dv0082jmvlcdf7z8le | cmv19z5cb007yjmvlfj02ow6h | 2026-09-23 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     | 6d3001ec-22d3-4209-803b-d5aeea0337f4 |           | 
+ cmv1a12se008ejm60ah9moxvk | cmv1a12oz0086jm60mfguovk8 | 2026-10-21 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     |                                      |           |
+ cmv1a12qy008ajm60a8viidaj | cmv1a12oz0086jm60mfguovk8 | 2026-10-21 | 08:00:00        | DISPONIBLE  | CANCELADA_ALUMNO | 2026-10-06 12:00:00 |                                      |           |
+ cmv1a12n90081jm60f9tzhxna | cmv1a12kn007xjm60oq94lnb3 | 2026-10-20 | 08:00:00        | CANCELADO   | BAJA_ALUMNO      | 2026-10-07 14:00:00 |                                      |           |
+ cmv1a12j3007vjm60wpqzfwt2 | cmv1a12eu007njm60b9ih9kd3 | 2026-10-19 | 10:00:00        | DISPONIBLE  | RESERVA_VENCIDA  | 2026-10-03 12:00:00 |                                      |           |
+ cmv1a12hp007rjm60b9t94uhe | cmv1a12eu007njm60b9ih9kd3 | 2026-10-19 | 10:00:00        | DISPONIBLE  | QUITADA_CENTRO   | 2026-10-01 12:00:00 |                                      |           |
+ cmv1a12d6007jjm60k5c2e7ze | cmv19znnp008fjmzl5nf96guc | 2026-10-16 | 10:00:00        | DISPONIBLE  | QUITADA_CENTRO   | 2026-10-07 12:00:00 |                                      |           |
+ cmv19znmm008bjmzly0pgb8h9 | cmv19znlf0087jmzlxs8mg7h5 | 2026-10-15 | 08:00:00        | DISPONIBLE  | BAJA_ALUMNO      | 2026-10-07 12:00:00 |                                      |           |
+ cmv19znkg0083jmzlmi8fdbs8 | cmv19znj4007zjmzlgoys358h | 2026-10-14 | 10:00:00        | DISPONIBLE  | CANCELADA_ALUMNO | 2026-10-07 12:00:00 |                                      |           |
+ cmv19zni5007ujmzlr85i6jp0 | cmv19zngy007qjmzls3mv6l0a | 2026-10-13 | 08:00:00        | CANCELADO   | VIGENTE          |                     |                                      |           |
+ cmv19zng9007mjmzlx5guzs9l | cmv19zner007ijmzljcqaib9y | 2026-10-12 | 10:00:00        | DISPONIBLE  | VIGENTE          |                     |                                      |           |
+ cmv19z5hf008ajmvloxwsrnby | cmv19z5fg0086jmvlk0cxakfz | 2026-09-24 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     |                                      |           |
+ cmv19z5dv0082jmvlcdf7z8le | cmv19z5cb007yjmvlfj02ow6h | 2026-09-23 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     | 6d3001ec-22d3-4209-803b-d5aeea0337f4 |           |
  cmv19z5ao007ujmvl631z1mpk | cmv19z58o007qjmvl562kpytd | 2026-09-22 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     | 3998d662-76bc-43f3-8f83-f9c77112c378 |           | AUSENTE
  cmv19z57b007mjmvli6qotvkt | cmv19z55d007ijmvlcub7xwqc | 2026-09-21 | 08:00:00        | DISPONIBLE  | VIGENTE          |                     | 0d14740d-8ab1-4291-8408-c06a849f85d6 |           | PRESENTE
 (14 rows)
 
- turnos | inscripciones | clases | auditorias | pagos 
+ turnos | inscripciones | clases | auditorias | pagos
 --------+---------------+--------+------------+-------
      92 |           242 |     20 |          0 |    24
 (1 row)
-
