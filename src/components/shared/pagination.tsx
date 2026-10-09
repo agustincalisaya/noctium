@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { texto } from "@/lib/textos";
 
 /**
  * Paginación server-side genérica, conectada a query params (`?pagina=`) vía
@@ -50,24 +51,24 @@ export function Pagination({
   const paginas = mostrarNumeros ? paginasVisibles(paginaActual, totalPaginas) : [];
 
   return (
-    <nav className="flex flex-wrap items-center justify-between gap-3 pt-2" aria-label="Paginación">
+    <nav className="flex flex-wrap items-center justify-between gap-3 pt-2" aria-label={texto("ui.comun.paginacion.nombre")}>
       <span className="text-sm text-muted-foreground">
         {mostrarRango && total !== undefined
-          ? `Mostrando ${desde}–${hasta} de ${total}`
-          : <>Página {paginaActual} de {totalPaginas}{total !== undefined && ` · ${total} en total`}</>}
+          ? texto("ui.comun.paginacion.rango", { desde, hasta, total })
+          : texto(total === undefined ? "ui.comun.paginacion.pagina" : "ui.comun.paginacion.paginaConTotal", { pagina: paginaActual, totalPaginas, total })}
       </span>
       <div className="flex items-center gap-2">
-        <PaginationLink href={hayAnterior ? buildHref(paginaActual - 1) : null} onClick={hayAnterior && onPageChange ? () => onPageChange(paginaActual - 1) : undefined} aria-label="Página anterior">
+        <PaginationLink href={hayAnterior ? buildHref(paginaActual - 1) : null} onClick={hayAnterior && onPageChange ? () => onPageChange(paginaActual - 1) : undefined} aria-label={texto("ui.comun.paginacion.paginaAnterior")}>
           <ChevronLeft className="size-4" aria-hidden />
-          Anterior
+          {texto("ui.comun.paginacion.anterior")}
         </PaginationLink>
         {mostrarNumeros && <div className="flex items-center gap-1">
           {paginas.map((pagina, i) => pagina === null
-            ? <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground" aria-hidden>…</span>
+            ? <span key={`ellipsis-${i}`} className="px-1 text-sm text-muted-foreground" aria-hidden>{texto("ui.comun.paginacion.elipsis")}</span>
             : <PageButton key={pagina} pagina={pagina} actual={pagina === paginaActual} onClick={onPageChange ? () => onPageChange(pagina) : undefined} href={onPageChange ? undefined : buildHref(pagina)} />)}
         </div>}
-        <PaginationLink href={haySiguiente ? buildHref(paginaActual + 1) : null} onClick={haySiguiente && onPageChange ? () => onPageChange(paginaActual + 1) : undefined} aria-label="Página siguiente">
-          Siguiente
+        <PaginationLink href={haySiguiente ? buildHref(paginaActual + 1) : null} onClick={haySiguiente && onPageChange ? () => onPageChange(paginaActual + 1) : undefined} aria-label={texto("ui.comun.paginacion.paginaSiguiente")}>
+          {texto("ui.comun.paginacion.siguiente")}
           <ChevronRight className="size-4" aria-hidden />
         </PaginationLink>
       </div>
@@ -123,7 +124,7 @@ function PageButton({
   onClick?: () => void;
 }) {
   const className = buttonVariants({ variant: actual ? "default" : "outline", size: "sm" });
-  const props = { className, "aria-label": `Página ${pagina}`, ...(actual ? { "aria-current": "page" as const } : {}) };
+  const props = { className, "aria-label": texto("ui.comun.paginacion.numero", { pagina }), ...(actual ? { "aria-current": "page" as const } : {}) };
   return onClick
     ? <button type="button" onClick={onClick} {...props}>{pagina}</button>
     : <Link href={href ?? "#"} {...props}>{pagina}</Link>;
