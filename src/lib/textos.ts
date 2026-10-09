@@ -11,6 +11,30 @@
  * Los huecos se escriben `{nombre}` y se completan con `texto(clave, valores)`.
  */
 export const TEXTOS = {
+  "indicadores.ausentes": "Ausentes",
+  "indicadores.titulo": "Indicadores",
+  "indicadores.actividad": "Actividad",
+  "indicadores.presentismo": "Índice de Presentismo",
+  "indicadores.cancelaciones": "Cancelaciones",
+  "indicadores.periodo": "Por defecto, los últimos 6 meses incluido el actual. El período se conserva entre pestañas.",
+  "indicadores.desde": "Desde",
+  "indicadores.hasta": "Hasta",
+  "indicadores.maximo": "El período máximo es de 24 meses.",
+  "indicadores.error": "No se pudo cargar este indicador. Intentá nuevamente.",
+  "indicadores.reintentar": "Reintentar",
+  "indicadores.tabla": "Ver como tabla",
+  "indicadores.vacio": "No hay datos para el período seleccionado",
+  "indicadores.scroll": "Se muestran los meses más recientes. Desplazá el gráfico hacia la izquierda para ver los anteriores.",
+  "indicadores.cargando": "Cargando {titulo}",
+  "indicadores.mes": "Mes",
+  "indicadores.ingresos": "Ingresos cobrados",
+  "indicadores.ocupacion": "Tasa de ocupación",
+  "indicadores.leyendaIngresos": "Por fecha de pago. Monto vigente de cada pago, sin los anulados.",
+  "indicadores.leyendaOcupacion": "Por fecha de la clase. Inscripciones vigentes (reservadas no vencidas, pagadas y pago sin registrar) sobre el cupo, en clases Disponibles y Completas hasta hoy.",
+  "indicadores.pesos": "pesos",
+  "indicadores.porcentaje": "%",
+  "indicadores.meta": "Meta {valor}%",
+
   // --- Transversales (PR-0.md §2.10) ---
   "errores.transaccion.ocupada": "Otra persona está modificando estos datos. Intentá de nuevo.",
 

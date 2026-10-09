@@ -69,3 +69,7 @@ Cada módulo (Sesión, Materias, Aulas, Turnos, etc.) ubica sus archivos siempre
 - **`src/app/**`** contiene únicamente `page.tsx`, `layout.tsx` y componentes propios de esa ruta — nunca tipos, actions ni services sueltos junto a una página.
 
 Las importaciones a estos archivos usan siempre el alias configurado (`@/types/...`, `@/server/...`), nunca rutas relativas (`../actions`, `./materia.types`).
+
+### Lecturas y datos de presentación del Sprint 3
+
+Los indicadores componen exclusivamente lecturas de las fachadas públicas de los módulos dueños del dato (Regla N.° 3). Los fixtures de presentación se registran en `prisma/seed/fixtures/index.ts`, usan servicios de dominio para las mutaciones y comprueban una clave estable antes de crear: repetir el seed no duplica ni modifica hechos existentes.

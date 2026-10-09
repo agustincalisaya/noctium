@@ -1,161 +1,27 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IngresoMes, OcupacionMes } from "@/types/indicadores.types";
+import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { IndicadoresClient } from "./indicadores-client";
-
-const MESES = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
-const ingresos: IngresoMes[] = MESES.map((mes, i) => ({ mes, total: [450000, 0, 512000.5, 120000, 98000, 300000][i]! }));
-const ocupacion: OcupacionMes[] = MESES.map((mes, i) => ({ mes, ocupacion_promedio: [64.2, 0, 71.8, 68.3, 80, 55.5][i]! }));
-const respuesta = (cuerpo: unknown, ok = true) => ({ ok, json: async () => cuerpo }) as Response;
-
-let contenedor: HTMLDivElement;
-let raiz: Root;
-let fetchMock: ReturnType<typeof vi.fn>;
-
-function responderSegunRuta(datosIngresos: unknown = ingresos, datosOcupacion: unknown = ocupacion) {
-  fetchMock.mockImplementation(async (url: string) => respuesta({
-    data: url.startsWith("/api/indicadores/ingresos-por-mes") ? datosIngresos : datosOcupacion,
-    error: null,
-  }));
-}
-
-async function esperarRender() {
-  await act(async () => { await new Promise((resolver) => setTimeout(resolver, 0)); });
-}
-
-async function renderizar() {
-  await act(async () => raiz.render(<IndicadoresClient />));
-  await esperarRender();
-}
-
-async function cambiarMes(select: HTMLSelectElement, valor: string) {
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, valor);
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  await esperarRender();
-}
-
-const textoTabla = (titulo: string) =>
-  [...contenedor.querySelectorAll("table")].find((tabla) => tabla.caption?.textContent?.startsWith(titulo));
-
-beforeEach(() => {
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
-  fetchMock = vi.fn();
-  responderSegunRuta();
-  vi.stubGlobal("fetch", fetchMock);
-  contenedor = document.createElement("div");
-  document.body.appendChild(contenedor);
-  raiz = createRoot(contenedor);
+let container:HTMLDivElement;let root:Root;let fetchMock:ReturnType<typeof vi.fn>;
+const reply=(data:unknown,ok=true)=>({ok,json:async()=>({data,error:ok?null:{message:"fallo"}})}) as Response;
+beforeEach(()=>{
+  vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date("2026-10-08T12:00:00Z"));
+  (globalThis as {IS_REACT_ACT_ENVIRONMENT?:boolean}).IS_REACT_ACT_ENVIRONMENT=true;
+  vi.stubGlobal("ResizeObserver",class {observe(){}disconnect(){}unobserve(){}});
+  fetchMock=vi.fn(async (url:string)=>reply(url.includes("resumen")?{ocupacion_promedio:0,turnos:2}:url.includes("ingresos")?[{mes:"2026-10",total:3800000}]:[{mes:"2026-10",ocupacion_promedio:0}]));
+  vi.stubGlobal("fetch",fetchMock);container=document.createElement("div");document.body.append(container);root=createRoot(container);
 });
-
-afterEach(() => {
-  act(() => raiz.unmount());
-  contenedor.remove();
-  vi.unstubAllGlobals();
-});
-
-describe("IndicadoresClient", () => {
-  it("pide los dos indicadores con el mismo rango y precarga los selectores con el rango del servidor", async () => {
-    await renderizar();
-
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-      "/api/indicadores/ingresos-por-mes", "/api/indicadores/ocupacion-por-mes",
-    ]);
-    const desde = contenedor.querySelector<HTMLSelectElement>("#indicadores-desde")!;
-    const hasta = contenedor.querySelector<HTMLSelectElement>("#indicadores-hasta")!;
-    expect(desde.value).toBe("2026-04");
-    expect(hasta.value).toBe("2026-09");
-    expect(desde.options).toHaveLength(24);
-    expect(desde.labels?.[0]?.textContent).toBe("Desde");
-    expect(contenedor.textContent).toContain("Ingresos cobrados por mes");
-    expect(contenedor.textContent).toContain("Tasa de ocupación promedio");
-  });
-
-  it("muestra los valores exactos: moneda local para ingresos y porcentaje con 1 decimal para ocupación", async () => {
-    await renderizar();
-
-    const celdasIngresos = [...textoTabla("Ingresos cobrados por mes")!.querySelectorAll("tbody td")].map((td) => td.textContent);
-    const celdasOcupacion = [...textoTabla("Tasa de ocupación promedio")!.querySelectorAll("tbody td")].map((td) => td.textContent);
-    const moneda = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 });
-    expect(celdasIngresos).toEqual(ingresos.map(({ total }) => moneda.format(total)));
-    expect(celdasIngresos[1]).toBe(moneda.format(0)); // mes sin pagos: $0, no se omite
-    expect(celdasOcupacion).toEqual(["64,2%", "0,0%", "71,8%", "68,3%", "80,0%", "55,5%"]);
-    expect(textoTabla("Tasa de ocupación promedio")!.caption!.textContent).toContain("meta 80%");
-  });
-
-  it("los dos gráficos van en Card separadas, en grilla de 2 columnas en desktop y 1 en mobile", async () => {
-    await renderizar();
-
-    const tarjetas = contenedor.querySelectorAll('[data-slot="card"]');
-    expect(tarjetas).toHaveLength(2);
-    expect(tarjetas[0]!.parentElement!.className).toContain("grid-cols-1");
-    expect(tarjetas[0]!.parentElement!.className).toContain("lg:grid-cols-2");
-    expect(tarjetas[0]!.querySelector('[data-slot="chart"]')).not.toBeNull();
-    expect(tarjetas[1]!.querySelector('[data-slot="chart"]')).not.toBeNull();
-  });
-
-  it("muestra un Skeleton dentro de cada Card mientras resuelve", async () => {
-    fetchMock.mockImplementation(() => new Promise(() => {}));
-    await renderizar();
-
-    const tarjetas = contenedor.querySelectorAll('[data-slot="card"]');
-    expect(tarjetas).toHaveLength(2);
-    for (const tarjeta of tarjetas) {
-      expect(tarjeta.getAttribute("aria-busy")).toBe("true");
-      expect(tarjeta.querySelector('[data-slot="skeleton"]')).not.toBeNull();
-    }
-  });
-
-  it("actualiza los dos gráficos cuando cambia el rango compartido", async () => {
-    await renderizar();
-    await cambiarMes(contenedor.querySelector<HTMLSelectElement>("#indicadores-desde")!, "2026-05");
-
-    expect(fetchMock.mock.calls.slice(2).map(([url]) => url)).toEqual([
-      "/api/indicadores/ingresos-por-mes?desde=2026-05&hasta=2026-09",
-      "/api/indicadores/ocupacion-por-mes?desde=2026-05&hasta=2026-09",
-    ]);
-  });
-
-  it("sin datos en ninguno de los dos indicadores muestra el mensaje en vez de gráficos en cero", async () => {
-    responderSegunRuta(
-      MESES.map((mes) => ({ mes, total: 0 })),
-      MESES.map((mes) => ({ mes, ocupacion_promedio: 0 })),
-    );
-    await renderizar();
-
-    expect(contenedor.textContent).toContain("Todavía no hay suficientes datos para este período");
-    expect(contenedor.querySelector('[data-slot="card"]')).toBeNull();
-  });
-
-  it("si solo uno de los indicadores tiene datos, muestra ambos gráficos", async () => {
-    responderSegunRuta(MESES.map((mes) => ({ mes, total: 0 })), ocupacion);
-    await renderizar();
-
-    expect(contenedor.textContent).not.toContain("Todavía no hay suficientes datos");
-    expect(contenedor.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
-  });
-
-  it("no consulta un rango invertido y lo informa", async () => {
-    await renderizar();
-    await cambiarMes(contenedor.querySelector<HTMLSelectElement>("#indicadores-hasta")!, "2026-03");
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(contenedor.querySelector('[role="alert"]')?.textContent).toBe("El mes desde no puede ser posterior al mes hasta");
-  });
-
-  it("ante un error del servidor muestra el mensaje y permite reintentar", async () => {
-    fetchMock.mockResolvedValue(respuesta({ data: null, error: { message: "Error de prueba" } }, false));
-    await renderizar();
-
-    const alerta = contenedor.querySelector('[role="alert"]')!;
-    expect(alerta.textContent).toContain("Error de prueba");
-    responderSegunRuta();
-    await act(async () => alerta.querySelector("button")!.click());
-    await esperarRender();
-    expect(contenedor.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
-  });
+afterEach(()=>{act(()=>root.unmount());container.remove();vi.unstubAllGlobals();vi.useRealTimers();});
+async function render(){await act(async()=>root.render(<IndicadoresClient/>));}
+async function click(el:Element){await act(async()=>{(el as HTMLElement).click();});}
+async function change(id:string,value:string){await act(async()=>{const el=container.querySelector<HTMLSelectElement>(id)!;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"value")!.set!.call(el,value);el.dispatchEvent(new Event("change",{bubbles:true}));});}
+describe("Panel HU-H-06",()=>{
+ it("pide tres contratos con rango común y ofrece meses futuros",async()=>{await render();expect(fetchMock.mock.calls).toHaveLength(3);expect(fetchMock.mock.calls.every(([url])=>url.includes("desde=2026-05&hasta=2026-10"))).toBe(true);expect(container.querySelector("select")!.children).toHaveLength(27);expect(container.querySelectorAll('[role="tab"]')).toHaveLength(3);});
+ it("conserva período y difiere pedidos al cambiar de pestaña",async()=>{await render();await change("#indicadores-desde","2026-09");await click(container.querySelectorAll('[role="tab"]')[1]!);const n=fetchMock.mock.calls.length;expect(container.querySelector<HTMLSelectElement>("#indicadores-desde")!.value).toBe("2026-09");expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(0);await click(container.querySelectorAll('[role="tab"]')[0]!);expect(fetchMock.mock.calls.length).toBe(n+3);});
+ it("ocupa cero con clases es dato válido; tabla muestra mismos valores",async()=>{await render();const occupancy=container.querySelector('[aria-labelledby="indicador-ocupacion-titulo"]')!;expect(occupancy.textContent).toContain("0,0%");expect(occupancy.textContent).not.toContain("No hay datos");const button=occupancy.querySelector("button")!;await click(button);expect(button.getAttribute("aria-pressed")).toBe("true");expect(occupancy.querySelector("table")!.textContent).toContain("0,0%");});
+ it("error independiente y reintento no consulta ocupación",async()=>{fetchMock.mockImplementation(async(url:string)=>url.includes("ingresos")?reply(null,false):reply(url.includes("resumen")?{ocupacion_promedio:50,turnos:2}:[{mes:"2026-10",ocupacion_promedio:50}]));await render();expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);expect(container.textContent).toContain("50,0%");fetchMock.mockClear();await click(container.querySelector('[role="alert"] button')!);expect(fetchMock.mock.calls).toHaveLength(1);expect(fetchMock.mock.calls[0]![0]).toContain("ingresos");});
+ it("vacío independiente preserva ocupación",async()=>{fetchMock.mockImplementation(async(url:string)=>reply(url.includes("resumen")?{ocupacion_promedio:10,turnos:2}:url.includes("ingresos")?[{mes:"2026-10",total:0}]:[{mes:"2026-10",ocupacion_promedio:10}]));await render();expect(container.textContent).toContain("No hay datos para el período seleccionado");expect(container.textContent).toContain("10,0%");});
+ it("ajusta automáticamente el otro extremo y avisa",async()=>{await render();await change("#indicadores-desde","2027-01");expect(container.querySelector<HTMLSelectElement>("#indicadores-hasta")!.value).toBe("2027-01");expect(container.textContent).toContain("El período máximo es de 24 meses.");});
+ it("descarta respuesta de un período anterior aunque fetch ignore aborto",async()=>{let resolver:(r:Response)=>void=()=>{};fetchMock.mockImplementation((url:string)=>url.includes("ingresos")&&url.includes("desde=2026-05")?new Promise<Response>(r=>{resolver=r;}):Promise.resolve(reply(url.includes("resumen")?{ocupacion_promedio:10,turnos:2}:url.includes("ingresos")?[{mes:"2026-09",total:200}]:[{mes:"2026-09",ocupacion_promedio:10}])));await render();await change("#indicadores-desde","2026-09");await act(async()=>resolver(reply([{mes:"2026-10",total:9999999}])));expect(container.textContent).toContain("200,00");expect(container.textContent).not.toContain("9.999.999");});
 });

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ahora as leerAhora } from "@/server/shared/reloj";
 import { ServiceError } from "@/server/shared/service-error";
 import { DURACIONES_PERMITIDAS_TURNO_MIN, esDuracionPermitida, type ConfigurarTurnoInput } from "./turno.schema";
 
@@ -17,7 +18,7 @@ export function horaLocal(fecha: Date) {
 }
 
 /** fecha + hora_inicio > ahora, a precisión de minuto. `ahora` permite usar un único instante por request (HU-C-09). */
-export function turnoSigueVigente(fecha: Date, horaInicio: Date, ahora: Date = new Date()): boolean {
+export function turnoSigueVigente(fecha: Date, horaInicio: Date, ahora: Date = leerAhora()): boolean {
   const horaActual = horaLocal(ahora);
   const diaTurno = fecha.toISOString().slice(0, 10);
   const horaTurno = horaInicio.toISOString().slice(11, 16);
@@ -25,7 +26,7 @@ export function turnoSigueVigente(fecha: Date, horaInicio: Date, ahora: Date = n
 }
 
 /** Spec C §2.15 paso 1: fecha + hora_inicio >= ahora, a precisión de minuto. */
-export function turnoNoHaComenzado(fecha: Date, horaInicio: Date, ahora: Date = new Date()): boolean {
+export function turnoNoHaComenzado(fecha: Date, horaInicio: Date, ahora: Date = leerAhora()): boolean {
   const horaActual = horaLocal(ahora);
   const diaTurno = fecha.toISOString().slice(0, 10);
   const horaTurno = horaInicio.toISOString().slice(11, 16);
@@ -66,7 +67,7 @@ function topePorAnticipacion(parametros: ParametrosTurno, ahora: Date) {
 }
 
 /** N-4: no superar la fecha actual del turno ni el horizonte normal, el mayor de ambos. */
-export function calcularTopeReprogramacion(fechaActual: Date, parametros: ParametrosTurno, ahora: Date = new Date()): Date {
+export function calcularTopeReprogramacion(fechaActual: Date, parametros: ParametrosTurno, ahora: Date = leerAhora()): Date {
   const porAnticipacion = topePorAnticipacion(parametros, ahora);
   return fechaActual > porAnticipacion ? new Date(fechaActual) : porAnticipacion;
 }
@@ -81,7 +82,7 @@ function errorAnticipacion(parametros: ParametrosTurno, topeFecha?: Date) {
 export async function validarFechaHoraTurno(input: FechaHoraTurno, { topeFecha, parametros: dados }: { topeFecha?: Date; parametros?: ParametrosTurno } = {}) {
   const parametros = dados ?? await parametrosConfiguracionTurno();
   const fecha = input.fecha.toISOString().slice(0, 10);
-  const ahora = new Date();
+  const ahora = leerAhora();
   const hoy = horaLocal(ahora);
   if (fecha < hoy.fecha || (fecha === hoy.fecha && input.hora_inicio <= hoy.hora)) {
     throw new ServiceError("FECHA_PASADA", "La fecha y hora deben ser posteriores al momento actual");
@@ -106,7 +107,7 @@ export async function validarFechaHoraTurno(input: FechaHoraTurno, { topeFecha, 
 }
 
 /** Validación de día antes de ofrecer horarios. */
-export function validarDiaReprogramable(fecha: Date, topeFecha: Date, parametros: ParametrosTurno, ahora: Date = new Date()) {
+export function validarDiaReprogramable(fecha: Date, topeFecha: Date, parametros: ParametrosTurno, ahora: Date = leerAhora()) {
   if (fecha.toISOString().slice(0, 10) < horaLocal(ahora).fecha) {
     throw new ServiceError("FECHA_PASADA", "La fecha debe ser posterior al momento actual");
   }
