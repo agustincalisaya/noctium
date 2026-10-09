@@ -52,3 +52,9 @@ Capturas y respuestas reales de esta HU: `hu-h-06/`. Pestaña Cancelaciones qued
 Último build de producción después del ajuste visual: aprobado. Revisión final repetida con Playwright: cero excepciones de página. Tooltip real de ingresos: mayo de 2026, $ 993.000,00; navegación de pestañas con ArrowRight y enlace de historial con materia comprobados.
 
 PR propio: https://github.com/agustincalisaya/noctium/pull/218. Base develop, sin mezclar commits de otras HU.
+
+## Actualización de develop durante la entrega
+
+Se integró `b7c3b42` (HU-C-23 y componente HU-C-25) en cada rama por separado, preservando únicamente el diff de la historia frente a develop. Claves de UI migradas a `ui.historial.asistencia.*` / `ui.indicadores.*`, sin modificar claves legacy de dominio. Comprobador de referencias TypeScript aprobado. Suite completa sobre la integración actualizada: **1913 aprobados**, 177 PostgreSQL omitidos en la corrida unitaria; la verificación PostgreSQL de177 casos anterior sigue aplicando, sin cambios adicionales en los servicios ni persistencia. Lint actualizado: cero errores y el warning preexistente de Sidebar.
+
+Build webpack/TypeScript sobre develop actualizado: aprobado. Playwright repetido sobre ese build, sin errores de página. Los tres PR quedaron sin conflictos frente a develop al verificar GitHub.
