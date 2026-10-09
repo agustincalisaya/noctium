@@ -17,6 +17,7 @@ La fachada `promediarOcupacionTurnosPorMes` de C ya devuelve `{ mes, promedio, t
 ### Archivos nuevos a crear
 
 - `docs/tasks/Sprint 3/HU-H-06.md`: esta task.
+- `src/components/indicadores/presentismo-panel.tsx`: extensión vacía que H07 completa en su PR independiente sin copiar el cliente H06.
 - `src/components/indicadores/grafico-indicador.tsx`: componente común contractual.
 - `src/components/indicadores/grafico-indicador.test.tsx`: tabla, etiquetas, estados y series.
 - `src/components/indicadores/filtro-periodo.tsx`: selector y ajuste del rango.

@@ -9,13 +9,13 @@ export type DatoIndicador = Record<string, string | number | null>;
 export type SerieIndicador = { clave: string; etiqueta: string; unidad: string; tipo: "barra" | "linea"; color: string; ejePorcentaje?: boolean };
 export type GraficoIndicadorProps = {
   id: string; titulo: string; total: string; leyendaFecha: string; datos: DatoIndicador[]; series: SerieIndicador[];
-  claveCategoria?: string; orientacion?: "vertical" | "horizontal"; formatearValor?: (valor:number,clave:string)=>string;
+  claveCategoria?: string; anchoCategoria?: number; orientacion?: "vertical" | "horizontal"; formatearValor?: (valor:number,clave:string)=>string;
   formatearCategoria?: (valor:string,indice:number)=>string; estado: "cargando" | "error" | "vacio" | "ok";
   onReintentar?: ()=>void; textoVacio?:string; error?:string|null; mensual?:boolean; diferenciaClave?:string; diferenciaEtiqueta?:string;
   referencia?: {valor:number;etiqueta:string};
 };
 const compacto = new Intl.NumberFormat("es-AR", {notation:"compact",maximumFractionDigits:1});
-export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,claveCategoria="mes",orientacion="vertical",formatearValor=(v)=>String(v),formatearCategoria=(v)=>v,estado,onReintentar,textoVacio,error,mensual=false,diferenciaClave,diferenciaEtiqueta=texto("indicadores.ausentes"),referencia}:GraficoIndicadorProps) {
+export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,claveCategoria="mes",anchoCategoria=150,orientacion="vertical",formatearValor=(v)=>String(v),formatearCategoria=(v)=>v,estado,onReintentar,textoVacio,error,mensual=false,diferenciaClave,diferenciaEtiqueta=texto("indicadores.ausentes"),referencia}:GraficoIndicadorProps) {
   const [tabla,setTabla] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const [desborda,setDesborda] = useState(false);
@@ -29,7 +29,7 @@ export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,clav
     const medir=()=>{const excede=elemento.scrollWidth>elemento.clientWidth+1;setDesborda(excede);elemento.scrollLeft=elemento.scrollWidth;};
     medir(); const observer=new ResizeObserver(medir); observer.observe(elemento);return ()=>observer.disconnect();
   },[datos,tabla,estado]);
-  const etiquetas = (valor: unknown, clave:string) => valor == null || Number(valor) === 0 ? "" : largo ? (series.find(s=>s.clave===clave)?.ejePorcentaje || series.find(s=>s.clave===clave)?.unidad === "%" ? `${Math.round(Number(valor))}%` : compacto.format(Number(valor))) : formatearValor(Number(valor),clave);
+  const etiquetas = (valor: unknown, clave:string) => valor == null ? "" : largo ? (series.find(s=>s.clave===clave)?.ejePorcentaje || series.find(s=>s.clave===clave)?.unidad === "%" ? `${Math.round(Number(valor))}%` : compacto.format(Number(valor))) : formatearValor(Number(valor),clave);
   const categoriaExacta=(valor:string,indice:number)=>mensual && /^\d{4}-\d{2}$/.test(valor) ? new Intl.DateTimeFormat("es-AR",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(`${valor}-01T12:00:00Z`)) : formatearCategoria(valor,indice);
   const barras=series.filter(s=>s.tipo==="barra");
   return <Card aria-labelledby={`${id}-titulo`} aria-busy={estado==="cargando"} role="region" className={largo?"min-w-0 lg:col-span-2":"min-w-0"}>
@@ -48,15 +48,15 @@ export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,clav
             <ChartContainer config={config} className="aspect-auto w-full" style={{height:horizontal?Math.max(260,datos.length*68):280}}>
               <ComposedChart accessibilityLayer data={datos} layout={horizontal?"vertical":"horizontal"} margin={{top:30,right:horizontal?80:24,left:8,bottom:4}}>
                 <CartesianGrid vertical={horizontal} horizontal={!horizontal}/>
-                {horizontal ? <><XAxis type="number" tickLine={false} axisLine={false}/><YAxis type="category" dataKey={claveCategoria} width={150} tickLine={false} axisLine={false} tickFormatter={(v)=>formatearCategoria(String(v),datos.findIndex(d=>d[claveCategoria]===v))}/></> : <><XAxis dataKey={claveCategoria} tickLine={false} axisLine={false} tickMargin={10} interval={0} tickFormatter={(v)=>formatearCategoria(String(v),datos.findIndex(d=>d[claveCategoria]===v))}/><YAxis yAxisId="cantidad" tickLine={false} axisLine={false} width={60} tickFormatter={v=>series.every(s=>s.unidad==="%")?`${v}%`:compacto.format(Number(v))} domain={series.every(s=>s.unidad==="%")?[0,100]:undefined}/></>}
+                {horizontal ? <><XAxis type="number" tickLine={false} axisLine={false}/><YAxis type="category" dataKey={claveCategoria} width={anchoCategoria} tickLine={false} axisLine={false} tick={(props)=>{const valor=String(props.payload?.value??"");const etiqueta=formatearCategoria(valor,datos.findIndex(d=>d[claveCategoria]===valor));const lineas=etiqueta.split(" · ").flatMap(parte=>parte.match(/.{1,24}(?:\s|$)|\S{1,24}/g)??[parte]);return <text x={props.x} y={props.y} textAnchor="end" fill="var(--foreground)" fontSize={11}>{lineas.map((linea,i)=><tspan x={props.x} dy={i===0 ? -((lineas.length-1)*7) : 14} key={i}>{linea.trim()}</tspan>)}</text>;}}/></> : <><XAxis dataKey={claveCategoria} tickLine={false} axisLine={false} tickMargin={10} interval={0} tickFormatter={(v)=>formatearCategoria(String(v),datos.findIndex(d=>d[claveCategoria]===v))}/><YAxis yAxisId="cantidad" tickLine={false} axisLine={false} width={60} tickFormatter={v=>series.every(s=>s.unidad==="%")?`${v}%`:compacto.format(Number(v))} domain={series.every(s=>s.unidad==="%")?[0,100]:undefined}/></>}
                 {!horizontal && series.some(s=>s.ejePorcentaje) && <YAxis yAxisId="porcentaje" orientation="right" domain={[0,100]} ticks={[0,25,50,75,100]} tickFormatter={v=>`${v}%`} width={44}/>}
                 {referencia && <ReferenceLine y={referencia.valor} yAxisId={horizontal?undefined:"cantidad"} stroke="var(--muted-foreground)" strokeDasharray="4 4" label={{value:referencia.etiqueta,position:"insideTopRight",fill:"var(--muted-foreground)",fontSize:12}}/>}
                 <ChartTooltip content={<ChartTooltipContent labelFormatter={(_,payload)=>categoriaExacta(String(payload?.[0]?.payload?.[claveCategoria]??""),datos.findIndex(d=>d[claveCategoria]===payload?.[0]?.payload?.[claveCategoria]))} formatter={(v,name)=><span className="flex w-full justify-between gap-4"><span>{series.find(s=>s.clave===name)?.etiqueta}</span><span className="font-medium tabular-nums">{v==null?"—":formatearValor(Number(v),String(name))}</span></span>}/>} />
                 {series.map(s=>s.tipo==="barra" ? <Bar key={s.clave} dataKey={s.clave} name={s.clave} yAxisId={horizontal?undefined:"cantidad"} fill={s.color} maxBarSize={26} radius={horizontal?[0,3,3,0]:[3,3,0,0]}>
-                  <LabelList dataKey={s.clave} position={horizontal?"right":"top"} formatter={v=>etiquetas(v,s.clave)} fill="var(--foreground)" fontSize={11}/>
+                  <LabelList dataKey={(fila: DatoIndicador)=>mensual && Number(fila[s.clave])===0 && !series.some(serie=>serie.unidad!=="%" && Number(fila[serie.clave])>0) ? null : fila[s.clave]} position={horizontal?"right":"top"} formatter={v=>etiquetas(v,s.clave)} fill="var(--foreground)" fontSize={11}/>
                   {diferenciaClave && s.clave===barras[0]?.clave && <LabelList dataKey={diferenciaClave} position={horizontal?"right":"top"} offset={24} formatter={v=>v==null?"":`${diferenciaEtiqueta}: ${v}`} fill="var(--muted-foreground)" fontSize={11}/>}
                 </Bar> : <Line key={s.clave} dataKey={s.clave} name={s.clave} yAxisId={horizontal?undefined:s.ejePorcentaje?"porcentaje":"cantidad"} type="linear" stroke={s.color} strokeWidth={2} dot={{r:3}} connectNulls={false}>
-                  <LabelList dataKey={s.clave} position="top" formatter={v=>etiquetas(v,s.clave)} fill="var(--foreground)" fontSize={11}/>
+                  <LabelList dataKey={(fila: DatoIndicador)=>mensual && Number(fila[s.clave])===0 && !series.some(serie=>serie.unidad!=="%" && Number(fila[serie.clave])>0) ? null : fila[s.clave]} position="top" formatter={v=>etiquetas(v,s.clave)} fill="var(--foreground)" fontSize={11}/>
                 </Line>)}
               </ComposedChart>
             </ChartContainer>
