@@ -31,9 +31,9 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
     try {
       const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(turno.id)}/clase-dictada`, { cache: "no-store" });
       const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok || !valor?.data) throw new Error(valor?.error?.message ?? texto("asistencia.errorLectura"));
+      if (!respuesta.ok || !valor?.data) throw new Error(valor?.error?.message ?? texto("asistencia.clase.errorLectura"));
       setRegistro(valor.data);
-    } catch (error) { setErrorAsistencia(error instanceof Error ? error.message : texto("asistencia.errorLectura")); }
+    } catch (error) { setErrorAsistencia(error instanceof Error ? error.message : texto("asistencia.clase.errorLectura")); }
     finally { setCargandoAsistencia(false); }
   }, [turno.id, registroId]);
   useEffect(() => { const timer = window.setTimeout(() => void cargarAsistencia(), 0); return () => window.clearTimeout(timer); }, [cargarAsistencia]);
@@ -95,11 +95,11 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
               aria-pressed={(seleccion[alumno.id] ?? "PRESENTE") === estado}
               onClick={() => setSeleccion((actual) => ({ ...actual, [alumno.id]: estado }))}
               className={`disabled:cursor-wait disabled:opacity-60 min-h-9 rounded-md border px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${(seleccion[alumno.id] ?? "PRESENTE") === estado ? estado === "PRESENTE" ? "border-success-foreground/30 bg-success text-success-foreground" : "border-destructive-soft-foreground/30 bg-destructive-soft text-destructive-soft-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}>
-              {texto(estado === "PRESENTE" ? "asistencia.presente" : "asistencia.ausente")}
+              {texto(estado === "PRESENTE" ? "asistencia.clase.presente" : "asistencia.clase.ausente")}
             </button>)}
           </div>}
           {registroId && registro?.id === registroId && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium ${asistenciaGuardada.get(alumno.id) === "PRESENTE" ? "bg-success text-success-foreground" : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>
-            {asistenciaGuardada.get(alumno.id) === "PRESENTE" ? texto("asistencia.presente") : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? texto("asistencia.ausente") : "Sin control de asistencia"}
+            {asistenciaGuardada.get(alumno.id) === "PRESENTE" ? texto("asistencia.clase.presente") : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? texto("asistencia.clase.ausente") : "Sin control de asistencia"}
           </span>}
           {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
         </div>
@@ -107,10 +107,10 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
         {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
       </li>;
     })}</ul>}
-    {editable && asistencias.length > 0 && <Button type="button" variant="outline" size="sm" disabled={guardandoAsistencia} onClick={() => setSeleccion(Object.fromEntries(turno.alumnos.map(({ id }) => [id, todosAusentes ? "PRESENTE" : "AUSENTE"])))}>{texto(todosAusentes ? "asistencia.marcarPresentes" : "asistencia.marcarAusentes")}</Button>}
-    {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("asistencia.cargando")}</p>}
+    {editable && asistencias.length > 0 && <Button type="button" variant="outline" size="sm" disabled={guardandoAsistencia} onClick={() => setSeleccion(Object.fromEntries(turno.alumnos.map(({ id }) => [id, todosAusentes ? "PRESENTE" : "AUSENTE"])))}>{texto(todosAusentes ? "asistencia.clase.marcarPresentes" : "asistencia.clase.marcarAusentes")}</Button>}
+    {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("asistencia.clase.cargando")}</p>}
     {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>Reintentar</Button></div>}
-    {registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("asistencia.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
+    {registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("asistencia.clase.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
     {(puedeRegistrarClase || registroId) && <TurnoClaseCard turno={turno} puedeRegistrarClase={puedeRegistrarClase} asistencias={asistencias} onProcesandoChange={setGuardandoAsistencia} onRegistrada={onCambio} />}
     {procesando === "agregar" && <p role="status" className="text-sm text-muted-foreground">Agregando alumno…</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
