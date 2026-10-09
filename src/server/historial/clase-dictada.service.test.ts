@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   tx: { $executeRaw: vi.fn(), $queryRaw: vi.fn(), claseDictada: { findFirst: vi.fn(), findFirstOrThrow: vi.fn() }, claseDictadaAlumno: { createMany: vi.fn() } },
   lectura: vi.fn(), bloquear: vi.fn(), turno: vi.fn(), termino: vi.fn(), alumnos: vi.fn(), email: vi.fn(), profesor: vi.fn(), vigentes: vi.fn(), vencer: vi.fn(),
+  observacion: vi.fn(), permisoObservaciones: vi.fn(),
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { claseDictada: { findFirst: mocks.lectura }, $queryRaw: mocks.tx.$queryRaw } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { claseDictada: { findFirst: mocks.lectura }, $queryRaw: mocks.tx.$queryRaw, rolPermiso: { findUnique: mocks.permisoObservaciones } } }));
 vi.mock("@/server/shared/transaccion", () => ({ transaccion: vi.fn((fn) => fn(mocks.tx)) }));
 vi.mock("@/server/shared/bloquear", () => ({ bloquear: mocks.bloquear }));
 vi.mock("@/server/turnos/turno.publico", () => ({ bloquearTurnoParaOperacion: mocks.turno }));
@@ -13,6 +14,7 @@ vi.mock("@/server/turnos/turno.acciones", () => ({ turnoYaTermino: mocks.termino
 vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnosBasicos: mocks.alumnos }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario: mocks.email }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorDeUsuario: mocks.profesor }));
+vi.mock("@/server/historial/observacion-clase.service", () => ({ leerObservacionDeClase: mocks.observacion }));
 const { registrarClaseDictada, registrarClaseDictadaDesdeSolicitud: registrarSolicitud, obtenerRegistroClaseDictada } = await import("./clase-dictada.service");
 const turno = { id: "turno-1", estado: "DISPONIBLE", fecha: "2026-09-28", hora_inicio: "16:00", hora_fin: "17:00", duracion_min: 60, materia_id: "materia-1", profesor_id: "profesor-1", alumno_ids: ["alumno-1", "alumno-2"] };
 const mesa = { id: "mesa-1", rol: "MESA_ENTRADA" as const };
@@ -25,6 +27,7 @@ beforeEach(() => {
   mocks.profesor.mockResolvedValue({ id: "profesor-1" }); mocks.vigentes.mockResolvedValue(inscriptos);
   mocks.tx.claseDictada.findFirst.mockResolvedValue(null); mocks.tx.$executeRaw.mockResolvedValue(1);
   mocks.tx.$queryRaw.mockResolvedValue(sinControl); mocks.lectura.mockResolvedValue(null);
+  mocks.observacion.mockResolvedValue(null); mocks.permisoObservaciones.mockResolvedValue({ accionPermiso: "observaciones:registrar" });
 });
 
 describe("HU-E-01 compatible / HU-E-09 registro", () => {
@@ -99,7 +102,16 @@ describe("HU-E-01 GET ampliado", () => {
     mocks.alumnos.mockResolvedValue([{ id: "alumno-1", nombre: "Ana", apellido: "Pérez" }, { id: "alumno-2", nombre: "Luis", apellido: "Acosta" }]); mocks.email.mockResolvedValue("mesa@noctium.local");
     await expect(obtenerRegistroClaseDictada("turno-1", mesa)).resolves.toEqual({ id: "clase-1", registrada_en: "2026-09-30T12:00:00.000Z", registrada_por: "mesa@noctium.local", alumnos: [
       { id: "alumno-2", nombre_completo: "Acosta, Luis", asistencia: null }, { id: "alumno-1", nombre_completo: "Pérez, Ana", asistencia: null },
-    ], con_control_asistencia: false, totales: null });
+    ], con_control_asistencia: false, totales: null, observacion: null, acciones: { registrar_observaciones: true, corregir_asistencia: true, anular_registro: true, plazo_correccion_vencido: false } });
+  });
+  it("incluye los metadatos de observación y oculta el botón cuando ya existe", async () => {
+    mocks.lectura.mockResolvedValue({ idClaseDictada: "clase-1", profesorId: "profesor-1", creadoPorUsuarioId: "mesa-1", createdAtClaseDictada: new Date("2026-09-30T12:00:00Z") });
+    mocks.tx.$queryRaw.mockResolvedValue([{ alumno_id: null, asistencia: null, con_control: false }]);
+    mocks.alumnos.mockResolvedValue([]); mocks.email.mockResolvedValue("mesa@noctium.local");
+    const observacion = { id: "obs-1", temas_vistos: "Funciones", observaciones_internas: "Revisar ejercicio 2", registrada_en: "2026-09-30T13:00:00.000Z", registrada_por: "prof@noctium.local" };
+    mocks.observacion.mockResolvedValue(observacion);
+    await expect(obtenerRegistroClaseDictada("turno-1", mesa)).resolves.toMatchObject({ observacion, acciones: { registrar_observaciones: false } });
+    expect(mocks.permisoObservaciones).toHaveBeenCalledWith({ where: { rolPermiso_accionPermiso: { rolPermiso: "MESA_ENTRADA", accionPermiso: "observaciones:registrar" } }, select: { accionPermiso: true } });
   });
   it("conserva 404 sin registro y deniega clase ajena registrada", async () => {
     await expect(obtenerRegistroClaseDictada("turno-1", { id: "prof", rol: "PROFESOR" })).rejects.toMatchObject({ code: "CLASE_NO_REGISTRADA" });
@@ -107,4 +119,13 @@ describe("HU-E-01 GET ampliado", () => {
     mocks.lectura.mockResolvedValue({ idClaseDictada: "clase-1", profesorId: "ajeno" });
     await expect(obtenerRegistroClaseDictada("turno-1", { id: "prof", rol: "PROFESOR" })).rejects.toMatchObject({ code: "SIN_PERMISO" });
   });
+});
+
+import { conReloj } from "@/server/shared/reloj";
+it("E11 GET calcula acciones por plazo calendario, sin repetirlo en UI", async () => {
+ mocks.lectura.mockResolvedValue({ idClaseDictada: "clase-1", profesorId: "profesor-1", fechaClaseDictada: new Date("2026-10-01T00:00:00Z"), createdAtClaseDictada: new Date("2026-10-01T17:00:00Z") });
+ mocks.tx.$queryRaw.mockResolvedValue([{ alumno_id: null, asistencia: null, con_control: false }]); mocks.alumnos.mockResolvedValue([]);
+ const usuario = { id: "prof", rol: "PROFESOR" as const };
+ await conReloj(new Date("2026-10-09T02:59:59Z"), () => expect(obtenerRegistroClaseDictada("t", usuario)).resolves.toMatchObject({ acciones: { corregir_asistencia: true, anular_registro: true, plazo_correccion_vencido: false } }));
+ await conReloj(new Date("2026-10-09T03:00:00Z"), () => expect(obtenerRegistroClaseDictada("t", usuario)).resolves.toMatchObject({ acciones: { corregir_asistencia: false, anular_registro: false, plazo_correccion_vencido: true } }));
 });

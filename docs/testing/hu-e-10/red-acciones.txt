@@ -1,0 +1,9 @@
+Playwright: HTTP confirmado
+
+POST /api/alumnos/cmv11e2v3000ojmpth73cnlbv/examenes/cmv13ma52007jjm9mgon66p6g/correccion => 201 Created
+  Profesor corrige su propio resultado; respuesta guardada en profesor-correccion-201.json.
+
+POST /api/alumnos/cmv11e2v3000ojmpth73cnlbv/examenes/cmv13ma57007ljm9mltljpmko/correccion => 403 Forbidden
+  Profesor intenta corregir el resultado de Mesa; respuesta SIN_PERMISO.
+
+Mesa: corrección y anulación completadas desde la interfaz. La persistencia y los autores se verifican en resultado-sql.txt.

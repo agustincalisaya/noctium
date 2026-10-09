@@ -1,19 +1,21 @@
 import type { RolUsuario } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { turno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno, obtenerClaseDictadaDeTurno, profesorAtendioAlumno } = vi.hoisted(() => ({
+const { turno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno, obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion, existeInscripcionVigente } = vi.hoisted(() => ({
   turno: { findFirst: vi.fn() },
   obtenerOpcionProfesorDeUsuario: vi.fn(),
   obtenerEmailDeUsuario: vi.fn(),
   listarPagosDeTurno: vi.fn(),
   obtenerClaseDictadaDeTurno: vi.fn(),
-  profesorAtendioAlumno: vi.fn(),
+  profesorPuedeRegistrarIndicacion: vi.fn(),
+  existeInscripcionVigente: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { turno } }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorDeUsuario }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario }));
 vi.mock("@/server/pagos/pago.publico", () => ({ listarPagosDeTurno }));
-vi.mock("@/server/historial/historial.publico", () => ({ obtenerClaseDictadaDeTurno, profesorAtendioAlumno }));
+vi.mock("@/server/historial/historial.publico", () => ({ obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion }));
+vi.mock("@/server/turnos/inscripcion.publico", () => ({ existeInscripcionVigenteConProfesor: existeInscripcionVigente }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: vi.fn() }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: vi.fn() }));
 vi.mock("@/server/profesores/profesor.service", () => ({ profesorActivoDictaMateria: vi.fn(), estaDentroDeHorarioAtencion: vi.fn(), intervalosSeSuperponen: vi.fn(), listarProfesoresActivosPorMateria: vi.fn() }));
@@ -60,7 +62,8 @@ beforeEach(() => {
   obtenerOpcionProfesorDeUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Méndez, Laura" });
   listarPagosDeTurno.mockResolvedValue([PAGO]);
   obtenerClaseDictadaDeTurno.mockResolvedValue(null);
-  profesorAtendioAlumno.mockResolvedValue(false);
+  profesorPuedeRegistrarIndicacion.mockResolvedValue(false);
+  existeInscripcionVigente.mockResolvedValue(false);
 });
 
 describe("HU-C-09 alcance por rol (AC2)", () => {
@@ -146,6 +149,21 @@ describe("HU-C-09 campos del detalle (AC1)", () => {
     expect(resultado.alumnos).toHaveLength(25);
     expect(resultado.alumnos[0]).toEqual({ id: "alumno-0", nombre: "Pérez, Ana 0", dni: "30000000", puede_ver_historial: true });
     expect(resultado.alumnos_inscriptos).toBe("25/30");
+  });
+
+  it("da al Profesor acceso al historial de su materia desde una inscripción vigente, antes de la primera clase", async () => {
+    existeInscripcionVigente.mockResolvedValue(true);
+    const resultado = await ok(PROFESOR, CAPACIDADES_PROFESOR);
+    expect(resultado.alumnos[0]?.puede_ver_historial).toBe(true);
+    expect(existeInscripcionVigente).toHaveBeenCalledWith("alumno-0", "profesor-1", "materia-1");
+  });
+
+  it("solo da al Profesor el historial cuando tiene inscripción vigente o clase propia en la materia", async () => {
+    const resultado = await ok(PROFESOR, CAPACIDADES_PROFESOR);
+    expect(resultado.alumnos[0]?.puede_ver_historial).toBe(false);
+    profesorPuedeRegistrarIndicacion.mockResolvedValue(true);
+    const resultadoConClase = await ok(PROFESOR, CAPACIDADES_PROFESOR);
+    expect(resultadoConClase.alumnos[0]?.puede_ver_historial).toBe(true);
   });
 
   it.each([

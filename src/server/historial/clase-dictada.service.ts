@@ -13,8 +13,9 @@ import { transaccion, type Tx } from "@/server/shared/transaccion";
 import { bloquearTurnoParaOperacion } from "@/server/turnos/turno.publico";
 import { inscripcionesVigentes, marcarVencidas } from "@/server/turnos/inscripcion.publico";
 import { turnoYaTermino } from "@/server/turnos/turno.acciones";
-import { sqlAsistenciaVigente, sqlConControlVigente } from "@/server/historial/valor-vigente";
-import type { RegistrarClaseDictadaInput } from "@/server/historial/clase-dictada.schema";
+import { dentroDePlazoDeCorreccion, sqlAsistenciaVigente, sqlConControlVigente } from "@/server/historial/valor-vigente";
+import { leerObservacionDeClase } from "@/server/historial/observacion-clase.service";
+import type { CorregirAsistenciaInput, RegistrarClaseDictadaInput } from "@/server/historial/clase-dictada.schema";
 
 const MENSAJES = {
   SIN_PERMISO: "No tenés permisos para registrar o consultar esta clase",
@@ -158,7 +159,7 @@ export async function registrarClaseDictadaDesdeSolicitud(turnoId: string, usuar
 export async function obtenerRegistroClaseDictada(turnoId: string, usuario: UsuarioHistorial) {
   const clase = await prisma.claseDictada.findFirst({
     where: { turnoId, anuladaEl: null },
-    select: { idClaseDictada: true, profesorId: true, creadoPorUsuarioId: true, createdAtClaseDictada: true },
+    select: { idClaseDictada: true, profesorId: true, fechaClaseDictada: true, creadoPorUsuarioId: true, createdAtClaseDictada: true },
   });
   if (!clase) throw new ServiceError("CLASE_NO_REGISTRADA", MENSAJES.CLASE_NO_REGISTRADA);
   if (usuario.rol === "PROFESOR") {
@@ -167,9 +168,15 @@ export async function obtenerRegistroClaseDictada(turnoId: string, usuario: Usua
   }
   const asistencia = await leerAsistencia(prisma, clase.idClaseDictada);
   const ids = asistencia.alumnos.map(({ alumno_id }) => alumno_id);
-  const [alumnos, registradaPor] = await Promise.all([
+  const [alumnos, registradaPor, observacion, permisoObservaciones, permisoCorreccion] = await Promise.all([
     obtenerAlumnosBasicos(ids),
     clase.creadoPorUsuarioId ? obtenerEmailDeUsuario(clase.creadoPorUsuarioId) : Promise.resolve(null),
+    leerObservacionDeClase(clase.idClaseDictada, usuario),
+    prisma.rolPermiso.findUnique({
+      where: { rolPermiso_accionPermiso: { rolPermiso: usuario.rol, accionPermiso: "observaciones:registrar" } },
+      select: { accionPermiso: true },
+    }),
+    prisma.rolPermiso.findUnique({ where: { rolPermiso_accionPermiso: { rolPermiso: usuario.rol, accionPermiso: "clases:corregir" } }, select: { accionPermiso: true } }),
   ]);
   const porId = new Map(alumnos.map((alumno) => [alumno.id, alumno]));
   const nombres = asistencia.alumnos.map(({ alumno_id: id, asistencia }) => {
@@ -180,5 +187,59 @@ export async function obtenerRegistroClaseDictada(turnoId: string, usuario: Usua
   return {
     id: clase.idClaseDictada, registrada_en: clase.createdAtClaseDictada.toISOString(), registrada_por: registradaPor,
     alumnos: nombres, con_control_asistencia: asistencia.control, totales: asistencia.totales,
+    observacion,
+    acciones: {
+      registrar_observaciones: permisoObservaciones !== null && observacion === null,
+      corregir_asistencia: permisoCorreccion !== null && (usuario.rol === "MESA_ENTRADA" || (usuario.rol === "PROFESOR" && plazoDeClase(clase.fechaClaseDictada, ahora()))),
+      anular_registro: permisoCorreccion !== null && (usuario.rol === "MESA_ENTRADA" || (usuario.rol === "PROFESOR" && plazoDeClase(clase.fechaClaseDictada, ahora()))),
+      plazo_correccion_vencido: usuario.rol === "PROFESOR" && !plazoDeClase(clase.fechaClaseDictada, ahora()),
+    },
   };
+}
+
+/** @db.Date representa calendario UTC, no un instante en Buenos Aires. */
+function plazoDeClase(fecha: Date, momento: Date) {
+  return dentroDePlazoDeCorreccion(new Date(`${fecha.toISOString().slice(0, 10)}T00:00:00-03:00`), momento);
+}
+async function claseParaCorreccion(tx: Tx, turnoId: string, usuario: UsuarioHistorial, momento: Date) {
+  if (usuario.rol !== "MESA_ENTRADA" && usuario.rol !== "PROFESOR") throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  await bloquear(tx, { clases: [turnoId] });
+  const clase = await tx.claseDictada.findFirst({ where: { turnoId, anuladaEl: null } });
+  if (!clase) throw new ServiceError("CLASE_NO_REGISTRADA", MENSAJES.CLASE_NO_REGISTRADA);
+  if (usuario.rol === "PROFESOR") {
+    const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, tx);
+    if (!profesor || profesor.id !== clase.profesorId) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+    if (!plazoDeClase(clase.fechaClaseDictada, momento)) throw new ErrorDeDominio("errores.correccion.plazoVencido");
+  }
+  return clase;
+}
+export async function corregirAsistenciaClaseDictada(turnoId: string, usuario: UsuarioHistorial, datos: CorregirAsistenciaInput) {
+  const momento = ahora();
+  const resultado = await transaccion(async tx => {
+    const clase = await claseParaCorreccion(tx, turnoId, usuario, momento);
+    const anterior = await leerAsistencia(tx, clase.idClaseDictada);
+    validarConjunto(anterior.alumnos.map(a => a.alumno_id), datos.asistencias.map(a => a.alumno_id));
+    const nuevos = new Map(datos.asistencias.map(a => [a.alumno_id, a.estado]));
+    if (anterior.control && anterior.alumnos.every(a => a.asistencia === nuevos.get(a.alumno_id))) throw new ErrorDeDominio("errores.asistencia.sinCambios");
+    const correccion = await tx.correccionAsistencia.create({ data: {
+      claseDictadaId: clase.idClaseDictada, motivo: datos.motivo, creadoPorUsuarioId: usuario.id,
+      createdAtCorreccion: momento, conControlAsistencia: true,
+      alumnos: { create: anterior.alumnos.map(a => ({ alumnoId: a.alumno_id, estadoAnterior: a.asistencia, estadoNuevo: nuevos.get(a.alumno_id)! })) },
+    } });
+    return { id: correccion.idCorreccionAsistencia, clase_dictada_id: clase.idClaseDictada, con_control_asistencia: true,
+      totales: { presentes: datos.asistencias.filter(a => a.estado === "PRESENTE").length, ausentes: datos.asistencias.filter(a => a.estado === "AUSENTE").length },
+      motivo: datos.motivo, registrada_en: momento.toISOString() };
+  });
+  return { ...resultado, registrada_por: await obtenerEmailDeUsuario(usuario.id) };
+}
+export async function anularClaseDictada(turnoId: string, usuario: UsuarioHistorial, motivo: string) {
+  const momento = ahora();
+  const id = await transaccion(async tx => {
+    const clase = await claseParaCorreccion(tx, turnoId, usuario, momento);
+    const modificadas = await tx.claseDictada.updateMany({ where: { idClaseDictada: clase.idClaseDictada, anuladaEl: null },
+      data: { anuladaEl: momento, anuladaPorUsuarioId: usuario.id, motivoAnulacion: motivo } });
+    if (modificadas.count !== 1) throw new ErrorDeDominio("errores.claseDictada.yaAnulada");
+    return clase.idClaseDictada;
+  });
+  return { id, turno_id: turnoId, anulada_en: momento.toISOString(), anulada_por: await obtenerEmailDeUsuario(usuario.id), motivo };
 }

@@ -1,11 +1,15 @@
 import type { Prisma, RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { obtenerAlumnoBasico } from "@/server/alumnos/alumno.publico";
+import { obtenerAlumnoBasico, obtenerAlumnoDeUsuario } from "@/server/alumnos/alumno.publico";
 import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
+import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { ServiceError } from "@/server/shared/service-error";
+import { ahora } from "@/server/shared/reloj";
 import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
-import { profesorAtendioAlumno, profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
+import { profesorPuedeRegistrarIndicacion, asistenciaDeAlumno } from "./historial.publico";
+import { opcionesDeIndicacion as obtenerOpcionesDeIndicacion } from "./indicacion.service";
+import type { MiHistorialData } from "@/types/historial.types";
 import type { HistorialQuery } from "./historial.schema";
 
 const MENSAJES = {
@@ -13,20 +17,41 @@ const MENSAJES = {
   ALUMNO_NO_ENCONTRADO: "No se encontró el alumno",
 } as const;
 
-import { sqlAsistenciaVigente, sqlClaseDictadaVigente } from "@/server/historial/valor-vigente";
+import {
+  dentroDePlazoDeCorreccion,
+  sqlAsistenciaVigente,
+  sqlClaseDictadaVigente,
+  sqlFechaExamenVigente,
+  sqlNotaExamenVigente,
+} from "@/server/historial/valor-vigente";
 
 type FilaHistorial = {
   asistencia: "PRESENTE" | "AUSENTE" | null;
   total: bigint;
   materias_disponibles: string[];
-  tipo: "CLASE_DICTADA" | "EXAMEN" | null;
+  tipo: "CLASE_DICTADA" | "EXAMEN" | "INDICACION" | null;
   fecha: Date | null;
   materia_id: string | null;
   profesor_id: string | null;
+  creado_en: Date | null;
   nota: Prisma.Decimal | string | number | null;
   observaciones: string | null;
+  indicacion: string | null;
+  registrada_en: Date | null;
+  clase_dictada_id: string | null;
+  creado_por_usuario_id: string | null;
   turno_id: string | null;
   registro_id: string | null;
+  temas_vistos: string | null;
+  observaciones_internas: string | null;
+  observacion_registrada_en: Date | null;
+  observacion_creada_por_id: string | null;
+  corregido: boolean | null;
+  anulado: boolean | null;
+  anulacion_motivo: string | null;
+  anulacion_en: Date | null;
+  anulacion_por: string | null;
+  resultado_creado_por: string | null;
 };
 
 type UsuarioHistorial = { id: string; rol: RolUsuario };
@@ -38,13 +63,15 @@ function fechaCalendario(fecha: Date): string {
 async function autorizarAlcanceAlumno(
   alumnoId: string,
   usuario: UsuarioHistorial,
+  materiaId: string | undefined,
   db: Prisma.TransactionClient = prisma,
-) {
-  if (usuario.rol !== "PROFESOR") return;
+): Promise<string | null> {
+  if (usuario.rol !== "PROFESOR") return null;
   const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, db);
-  if (!profesor || !(await profesorAtendioAlumno(profesor.id, alumnoId, db))) {
+  if (!materiaId || !profesor || !(await profesorPuedeVerHistorial(profesor.id, alumnoId, materiaId, db))) {
     throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
   }
+  return profesor.id;
 }
 
 /** Historial unificado: la unión, el filtro y la paginación se resuelven en PostgreSQL. */
@@ -53,7 +80,11 @@ export async function obtenerHistorialAlumno(
   query: HistorialQuery,
   usuario: UsuarioHistorial,
 ) {
-  await autorizarAlcanceAlumno(alumnoId, usuario);
+  if (usuario.rol === "ALUMNO") {
+    const propio = await obtenerAlumnoDeUsuario(usuario.id);
+    if (!propio || propio.id !== alumnoId) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  }
+  const profesorId = await autorizarAlcanceAlumno(alumnoId, usuario, query.materia_id);
   const alumno = await obtenerAlumnoBasico(alumnoId);
   if (!alumno) throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
 
@@ -69,28 +100,101 @@ export async function obtenerHistorialAlumno(
         clase."profesorId" AS profesor_id,
         NULL::numeric AS nota,
         NULL::text AS observaciones,
+        observacion."temasVistos" AS temas_vistos,
+        observacion."observacionesInternas" AS observaciones_internas,
+        observacion."createdAtObservacion" AS observacion_registrada_en,
+        observacion."creadoPorUsuarioId" AS observacion_creada_por_id,
+        NULL::text AS indicacion,
+        NULL::timestamp AS registrada_en,
+        NULL::text AS clase_dictada_id,
+        NULL::text AS creado_por_usuario_id,
         clase."turnoId" AS turno_id,
         clase."createdAtClaseDictada" AS creado_en,
         clase."idClaseDictada" AS registro_id,
-        ${sqlAsistenciaVigente("inscripto")} AS asistencia
+        ${sqlAsistenciaVigente("inscripto")} AS asistencia,
+        NULL::boolean AS corregido,
+        NULL::boolean AS anulado,
+        NULL::text AS anulacion_motivo,
+        NULL::timestamp AS anulacion_en,
+        NULL::text AS anulacion_por,
+        NULL::text AS resultado_creado_por
       FROM "clases_dictadas" AS clase
       INNER JOIN "clases_dictadas_alumnos" AS inscripto
         ON inscripto."claseDictadaId" = clase."idClaseDictada"
+      LEFT JOIN "observaciones_clase" AS observacion
+        ON observacion."claseDictadaId" = clase."idClaseDictada"
       WHERE inscripto."alumnoId" = ${alumnoId} AND ${sqlClaseDictadaVigente("clase")}
       UNION ALL
       SELECT
         'EXAMEN'::text AS tipo,
-        examen."fechaExamen" AS fecha,
+        ${sqlFechaExamenVigente("examen")} AS fecha,
         examen."materiaId" AS materia_id,
         NULL::text AS profesor_id,
-        examen."notaExamen" AS nota,
+        ${sqlNotaExamenVigente("examen")} AS nota,
         examen."observaciones" AS observaciones,
+        NULL::text AS temas_vistos,
+        NULL::text AS observaciones_internas,
+        NULL::timestamp AS observacion_registrada_en,
+        NULL::text AS observacion_creada_por_id,
+        NULL::text AS indicacion,
+        NULL::timestamp AS registrada_en,
+        NULL::text AS clase_dictada_id,
+        NULL::text AS creado_por_usuario_id,
         NULL::text AS turno_id,
         examen."createdAtResultadoExamen" AS creado_en,
         examen."idResultadoExamen" AS registro_id,
-        NULL::"EstadoAsistencia" AS asistencia
+        NULL::"EstadoAsistencia" AS asistencia,
+        EXISTS (
+          SELECT 1 FROM "correcciones_resultado_examen" ce
+          WHERE ce."resultadoExamenId" = examen."idResultadoExamen"
+        ) AS corregido,
+        EXISTS (
+          SELECT 1 FROM "anulaciones_resultado_examen" ae
+          WHERE ae."resultadoExamenId" = examen."idResultadoExamen"
+        ) AS anulado,
+        (SELECT ae."motivo" FROM "anulaciones_resultado_examen" ae
+          WHERE ae."resultadoExamenId" = examen."idResultadoExamen" LIMIT 1) AS anulacion_motivo,
+        (SELECT ae."createdAtAnulacion" FROM "anulaciones_resultado_examen" ae
+          WHERE ae."resultadoExamenId" = examen."idResultadoExamen" LIMIT 1) AS anulacion_en,
+        (SELECT ae."creadoPorUsuarioId" FROM "anulaciones_resultado_examen" ae
+          WHERE ae."resultadoExamenId" = examen."idResultadoExamen" LIMIT 1) AS anulacion_por,
+        examen."creadoPorUsuarioId" AS resultado_creado_por
       FROM "resultados_examen" AS examen
       WHERE examen."alumnoId" = ${alumnoId}
+        AND (${usuario.rol !== "PROFESOR" && usuario.rol !== "ALUMNO"}::boolean OR NOT EXISTS (
+          SELECT 1 FROM "anulaciones_resultado_examen" ae
+          WHERE ae."resultadoExamenId" = examen."idResultadoExamen"
+        ))
+      UNION ALL
+      SELECT
+        'INDICACION'::text AS tipo,
+        (indicacion."createdAtIndicacion" AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS fecha,
+        indicacion."materiaId" AS materia_id,
+        NULL::text AS profesor_id,
+        NULL::numeric AS nota,
+        NULL::text AS observaciones,
+        NULL::text AS temas_vistos,
+        NULL::text AS observaciones_internas,
+        NULL::timestamp AS observacion_registrada_en,
+        NULL::text AS observacion_creada_por_id,
+        indicacion."texto" AS indicacion,
+        indicacion."createdAtIndicacion" AS registrada_en,
+        CASE WHEN clase."idClaseDictada" IS NOT NULL AND clase."anuladaEl" IS NULL
+          THEN indicacion."claseDictadaId" ELSE NULL END AS clase_dictada_id,
+        indicacion."creadoPorUsuarioId" AS creado_por_usuario_id,
+        NULL::text AS turno_id,
+        indicacion."createdAtIndicacion" AS creado_en,
+        indicacion."idIndicacion" AS registro_id,
+        NULL::"EstadoAsistencia" AS asistencia,
+        NULL::boolean AS corregido,
+        NULL::boolean AS anulado,
+        NULL::text AS anulacion_motivo,
+        NULL::timestamp AS anulacion_en,
+        NULL::text AS anulacion_por,
+        NULL::text AS resultado_creado_por
+      FROM "indicaciones" AS indicacion
+      LEFT JOIN "clases_dictadas" AS clase ON clase."idClaseDictada" = indicacion."claseDictadaId"
+      WHERE indicacion."alumnoId" = ${alumnoId}
     ),
     filtrados AS (
       SELECT * FROM registros
@@ -110,7 +214,12 @@ export async function obtenerHistorialAlumno(
     )
     SELECT conteo.total, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
-      pagina.nota, pagina.observaciones, pagina.turno_id, pagina.registro_id, pagina.asistencia
+      pagina.nota, pagina.observaciones, pagina.indicacion, pagina.registrada_en,
+      pagina.clase_dictada_id, pagina.creado_por_usuario_id,
+      pagina.turno_id, pagina.registro_id, pagina.asistencia,
+      pagina.temas_vistos, pagina.observaciones_internas, pagina.observacion_registrada_en,
+      pagina.observacion_creada_por_id, pagina.creado_en, pagina.corregido, pagina.anulado,
+      pagina.anulacion_motivo, pagina.anulacion_en, pagina.anulacion_por, pagina.resultado_creado_por
     FROM conteo CROSS JOIN materias
     LEFT JOIN pagina ON TRUE
     ORDER BY pagina.fecha DESC NULLS LAST, pagina.creado_en DESC NULLS LAST, pagina.registro_id DESC NULLS LAST
@@ -119,13 +228,24 @@ export async function obtenerHistorialAlumno(
   const filaInicial = filas[0];
   const total = Number(filaInicial?.total ?? 0);
   const registros = filas.filter((fila) => fila.tipo !== null);
-  const [materias, profesores] = await Promise.all([
-    obtenerMateriasPorIds(filaInicial?.materias_disponibles ?? []),
+  const idsMateriasDisponibles = usuario.rol === "PROFESOR"
+    ? (query.materia_id ? [query.materia_id] : [])
+    : (filaInicial?.materias_disponibles ?? []);
+  const autores = [...new Set(registros.flatMap((fila) => [fila.creado_por_usuario_id, fila.observacion_creada_por_id]
+    .filter((id): id is string => Boolean(id))))];
+  const [materias, profesores, emailsAutores, opcionesIndicacion] = await Promise.all([
+    obtenerMateriasPorIds(idsMateriasDisponibles),
     obtenerNombresProfesores(registros.flatMap((fila) => fila.profesor_id ? [fila.profesor_id] : [])),
+    Promise.all(autores.map(async (id) => [id, await obtenerEmailDeUsuario(id)] as const)),
+    usuario.rol === "MESA_ENTRADA" || usuario.rol === "PROFESOR"
+      ? obtenerOpcionesDeIndicacion(alumnoId, query.materia_id)
+      : Promise.resolve({ materias: [], clases: [] }),
   ]);
   const materiasPorId = new Map(materias.map((materia) => [materia.id, materia.nombre]));
+  const emailsPorUsuario = new Map(emailsAutores);
 
-  const items = registros.map((fila) => {
+  const momentoConsulta = ahora();
+  const items = await Promise.all(registros.map(async (fila) => {
     if (!fila.fecha || !fila.materia_id || !fila.registro_id) {
       throw new Error("La consulta de historial devolvió una fila incompleta");
     }
@@ -135,23 +255,64 @@ export async function obtenerHistorialAlumno(
       if (!fila.profesor_id || !fila.turno_id) throw new Error(`La clase ${fila.registro_id} no tiene profesor o turno`);
       const profesor = profesores[fila.profesor_id];
       if (!profesor) throw new Error(`No se encontró el profesor ${fila.profesor_id} de la clase ${fila.registro_id}`);
+      const observacion = fila.temas_vistos !== null && fila.observacion_registrada_en
+        ? {
+          temas_vistos: fila.temas_vistos,
+          ...((usuario.rol === "MESA_ENTRADA" || usuario.rol === "GERENTE" || (usuario.rol === "PROFESOR" && profesorId === fila.profesor_id))
+            ? { observaciones_internas: fila.observaciones_internas }
+            : {}),
+          registrada_en: fila.observacion_registrada_en.toISOString(),
+          registrada_por: fila.observacion_creada_por_id ? emailsPorUsuario.get(fila.observacion_creada_por_id) ?? null : null,
+        }
+        : undefined;
       return {
         tipo: "CLASE_DICTADA" as const,
+        id: fila.registro_id,
         fecha: fechaCalendario(fila.fecha),
         materia: { id: fila.materia_id, nombre: nombreMateria },
         profesor,
         turno_id: fila.turno_id,
         asistencia: fila.asistencia ?? null,
+        ...(observacion ? { observacion } : {}),
       };
     }
-    return {
+    const anulacionVisible = fila.anulado === true && (usuario.rol === "MESA_ENTRADA" || usuario.rol === "GERENTE");
+    const puedeCorregir = fila.anulado !== true && (
+      usuario.rol === "MESA_ENTRADA"
+      || (usuario.rol === "PROFESOR" && fila.resultado_creado_por === usuario.id
+        && dentroDePlazoDeCorreccion(fila.creado_en ?? fila.fecha, momentoConsulta))
+    );
+    if (fila.tipo === "EXAMEN") return {
       tipo: "EXAMEN" as const,
+      id: fila.registro_id,
       fecha: fechaCalendario(fila.fecha),
       materia: { id: fila.materia_id, nombre: nombreMateria },
       nota: String(fila.nota),
       observaciones: fila.observaciones,
+      corregido: fila.corregido === true,
+      anulado: fila.anulado === true,
+      puede_corregir: puedeCorregir,
+      ...(anulacionVisible ? {
+        anulacion: {
+          motivo: fila.anulacion_motivo ?? "",
+          anulada_en: fila.anulacion_en?.toISOString() ?? "",
+          anulada_por: fila.anulacion_por ? await obtenerEmailDeUsuario(fila.anulacion_por) : null,
+        },
+      } : {}),
     };
-  });
+    if (fila.tipo !== "INDICACION") throw new Error(`Tipo de registro desconocido: ${fila.tipo}`);
+    if (!fila.indicacion || !fila.registrada_en) throw new Error(`La indicación ${fila.registro_id} está incompleta`);
+    return {
+      tipo: "INDICACION" as const,
+      id: fila.registro_id,
+      fecha: fechaCalendario(fila.fecha),
+      materia: { id: fila.materia_id, nombre: nombreMateria },
+      indicacion: fila.indicacion,
+      registrada_en: fila.registrada_en.toISOString(),
+      registrada_por: fila.creado_por_usuario_id ? emailsPorUsuario.get(fila.creado_por_usuario_id) ?? null : null,
+      clase_dictada_id: fila.clase_dictada_id,
+    };
+  }));
 
   // Resumen completo: no cambia con el filtro ni con la página.
   // El campo aditivo no amplía el alcance del Profesor. Hasta E-02 no hay
@@ -165,12 +326,19 @@ export async function obtenerHistorialAlumno(
       asistenciaPorMateria = await asistenciaDeAlumno(alumnoId, query.materia_id);
     }
   }
+  let puede_registrar_indicacion: boolean | undefined;
+  if (usuario.rol === "PROFESOR" && query.materia_id) {
+    const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    puede_registrar_indicacion = Boolean(profesor && await profesorPuedeRegistrarIndicacion(profesor.id, alumnoId, query.materia_id));
+  }
   return {
     asistencia_por_materia: asistenciaPorMateria,
     alumno: { id: alumno.id, nombre_completo: `${alumno.apellido}, ${alumno.nombre}` },
     materias_disponibles: materias
       .map(({ id, nombre }) => ({ id, nombre }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR")),
+    indicaciones_opciones: opcionesIndicacion,
+    ...(puede_registrar_indicacion === undefined ? {} : { puede_registrar_indicacion }),
     items,
     paginacion: {
       total,
@@ -199,4 +367,23 @@ export async function profesorPuedeVerHistorial(
 ): Promise<boolean> {
   return (await existeInscripcionVigenteConProfesor(alumnoId, profesorId, materiaId, db))
     || (await profesorPuedeRegistrarIndicacion(profesorId, alumnoId, materiaId, db));
+}
+
+/** Dueño obtenido exclusivamente de la sesión; DTO público por lista permitida. */
+export async function obtenerMiHistorial(query: HistorialQuery, usuario: UsuarioHistorial): Promise<MiHistorialData> {
+  if (usuario.rol !== "ALUMNO") throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  const alumno = await obtenerAlumnoDeUsuario(usuario.id);
+  if (!alumno) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+  const historial = await obtenerHistorialAlumno(alumno.id, query, usuario);
+  return {
+    materias_disponibles: historial.materias_disponibles,
+    asistencia_por_materia: historial.asistencia_por_materia,
+    paginacion: historial.paginacion,
+    items: historial.items.map(item => {
+      const base = { id: item.id, fecha: item.fecha, materia: item.materia };
+      if (item.tipo === "CLASE_DICTADA") return { ...base, tipo: item.tipo, profesor: item.profesor, asistencia: item.asistencia, temas_vistos: item.observacion?.temas_vistos ?? null };
+      if (item.tipo === "EXAMEN") return { ...base, tipo: item.tipo, nota: item.nota };
+      return { ...base, tipo: item.tipo, indicacion: item.indicacion };
+    }),
+  };
 }

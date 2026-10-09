@@ -7,4 +7,11 @@ export const RegistrarClaseDictadaSchema = z.object({
     estado: EstadoAsistenciaSchema,
   }).strict()).max(500),
 }).strict();
+export const CorregirAsistenciaSchema = RegistrarClaseDictadaSchema.extend({
+  motivo: z.string().trim().min(1, "El motivo es obligatorio").max(300, "Máximo 300 caracteres"),
+}).strict();
+export const AnularClaseDictadaSchema = z.object({
+  motivo: z.string().trim().min(1, "El motivo es obligatorio").max(300, "Máximo 300 caracteres"),
+}).strict();
+export type CorregirAsistenciaInput = z.infer<typeof CorregirAsistenciaSchema>;
 export type RegistrarClaseDictadaInput = z.infer<typeof RegistrarClaseDictadaSchema>;

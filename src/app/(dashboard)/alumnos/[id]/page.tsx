@@ -28,11 +28,12 @@ export default async function AlumnoDetallePage({
 }) {
   const { id } = await params;
   const { pagina, q, tab, volver, materia_id } = await searchParams;
-  const [usuarioFicha, usuarioHistorial, usuarioEditar, usuarioRegistrarExamen] = await Promise.all([
+  const [usuarioFicha, usuarioHistorial, usuarioEditar, usuarioRegistrarExamen, usuarioRegistrarIndicacion] = await Promise.all([
     permisoOpcional("alumnos:leer"),
     permisoOpcional("historial:leer"),
     permisoOpcional("alumnos:editar"),
     permisoOpcional("examenes:registrar"),
+    permisoOpcional("indicaciones:registrar"),
   ]);
   const puedeLeerFicha = usuarioFicha !== null;
   const puedeLeerHistorial = usuarioHistorial !== null;
@@ -107,6 +108,7 @@ export default async function AlumnoDetallePage({
           alumnoId={id}
           materiaInicial={materia_id}
           puedeRegistrarExamen={usuarioRegistrarExamen !== null}
+          puedeRegistrarIndicacion={usuarioRegistrarIndicacion !== null}
           mostrarNombre={!puedeLeerFicha}
         />
       )}

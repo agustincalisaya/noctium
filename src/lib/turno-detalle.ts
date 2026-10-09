@@ -35,6 +35,13 @@ export function fechaDeInstante(instante: string): string {
   return new Intl.DateTimeFormat("es-AR", { timeZone: ZONA, day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(instante));
 }
 
+/** Instante ISO → «dd/mm/aaaa, hh:mm» en la zona del centro. */
+export function fechaHoraDeInstante(instante: string): string {
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: ZONA, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(new Date(instante));
+}
+
 /** Múltiplo de 60 → «1 hora» / «N horas»; si no, «N min» (P2, SM 30/09). */
 export function duracion(minutos: number): string {
   if (minutos > 0 && minutos % 60 === 0) {

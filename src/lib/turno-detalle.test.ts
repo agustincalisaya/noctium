@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cupo, diaAbreviadoYFecha, diaMes, duracion, fechaCorta, fechaDeInstante, fechaLarga, iniciales, monto } from "./turno-detalle";
+import { cupo, diaAbreviadoYFecha, diaMes, duracion, fechaCorta, fechaDeInstante, fechaHoraDeInstante, fechaLarga, iniciales, monto } from "./turno-detalle";
 
 describe("formatos del detalle de turno (mockup pág. 5)", () => {
   it("fechas de calendario sin correr el día", () => {
@@ -13,6 +13,10 @@ describe("formatos del detalle de turno (mockup pág. 5)", () => {
     expect(fechaDeInstante("2026-09-24T12:00:00.000Z")).toBe("24/09/2026");
     // 01:30 UTC del 25 son las 22:30 del 24 en Buenos Aires.
     expect(fechaDeInstante("2026-09-25T01:30:00.000Z")).toBe("24/09/2026");
+  });
+
+  it("fecha y hora de creación en la zona del centro", () => {
+    expect(fechaHoraDeInstante("2026-09-25T01:30:00.000Z")).toBe("24/09/2026, 22:30");
   });
 
   it.each([[60, "1 hora"], [120, "2 horas"], [180, "3 horas"], [90, "90 min"], [45, "45 min"]])("duración %i → %s", (minutos, esperado) => {
