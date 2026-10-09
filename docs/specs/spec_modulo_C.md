@@ -43,6 +43,7 @@
 |---|---|---|
 | Modelo de inscripción (convención 8 a) | `TurnoAlumno` con PK compuesta, sin estado, borrado físico | Nueva sección 2.16: extensión de `TurnoAlumno` con vigencia, estado de pago, plazo y precio; qué cambia por dentro en 2.2, 2.4, 2.5, 2.10, 2.11, 2.14 y 2.15 sin cambiar sus contratos |
 | HU-C-20 | Sin contrato (HU-C-12 inscribía directamente al tocar «Inscribirme») | Nueva sección 2.17.1: resumen de la clase (endpoint de solo lectura) |
+| HU-C-20, sincronización local (09/10/2026) | §2.17.1 pendiente de implementación | Servicio, GET y resumen en `ConfirmarAccionDialog`; contrato K §2.3; comportamiento interino y límite de tarifa GET→POST documentados junto a §2.17.1 |
 | HU-C-22 | Sin contrato | Nuevas secciones 2.17.2 a 2.17.5: reserva con plazo, precio congelado, regla de re-reserva y estado de pago en «Mis turnos» |
 | HU-C-24 | Sin contrato | Nueva sección 2.18: proceso de vencimiento, validación por fecha, inscripción desde el centro, reservas en el detalle, plazo nuevo tras anulación y clases canceladas |
 | HU-C-14 | Diferida desde Sprint 2 (criterio 6 de HU-C-05 y 5 de HU-C-13) | Nueva sección 2.19 |
@@ -1448,6 +1449,24 @@ Ninguna fila de esta tabla cambia ruta, cuerpo, respuesta ni `code` de error. La
 - **`limite_cancelacion_en_linea`** (HU-C-20 criterio 3): `inicio de la clase − cancelacion_anticipacion_horas` (24 h por defecto, `parametrosVigentes()`). **`limite_cancelacion_pasado`** = ese instante ya pasó al momento de mostrar el resumen; lo calcula el servidor para que la interfaz no compare relojes. Si es `true`, la última oración del criterio 3 se reemplaza por «Si ya pagaste, ya no vas a poder cancelar en línea; comunicate con el centro.» (texto central). El límite que se muestra es informativo: al cancelar rige el valor vigente en ese momento (HU-C-14, 2.19).
 
 **Interino (HU-C-20 antes de HU-C-22).** Hasta que se mergee HU-C-22 la inscripción queda sin plazo (2.16.4): `plazo_pago_horas` y `vence_pago_el` van `null` y la interfaz no muestra la leyenda del plazo ni la del criterio 3 (que depende del plazo y de HU-C-14, verificación diferida). El precio, los datos de la clase y los dos botones sí se muestran desde HU-C-20.
+
+**Nota de sincronización HU-C-20 (09/10/2026; decisión de alcance de la HU).**
+`obtenerResumenInscripcion(turnoId, usuarioId, db?)` calcula el importe antes
+de existir una inscripción, con `precioClase` y la lectura pública de L.
+Resuelve el aula por `obtenerNombreAula` (K §2.3), incluso si está inactiva.
+El GET no crea eventos, inscripciones ni reservas y no toma bloqueos.
+El POST vigente de C-12 se conserva: `solicitarTurnoPropio` llama a
+`crearInscripcion` en modo interino y calcula/guarda el precio con la tarifa
+vigente **al confirmar**. Si esa tarifa cambia entre GET y POST, el precio
+almacenado puede diferir del mostrado. Queda fijo desde el alta; su consulta
+posterior toma el importe guardado, sin recalcularlo con la tarifa actual.
+No hay congelación anticipada, rechazo por tarifa cambiada ni recotización.
+Esto identifica la diferencia con la frase normativa anterior «el precio
+que quedará congelado»: esa frase no acredita una garantía del importe
+mostrado frente a un cambio previo al POST.
+Decisión aceptada por Tomás el 09/10/2026: el precio mostrado en el GET puede diferir del guardado por el POST si la tarifa cambia entre ambos; el importe queda fijo desde el alta.
+La política del POST se conserva en C-20. Las leyendas y reglas futuras
+siguen diferidas.
 
 **Condiciones previas** (mismos códigos que el `POST`; todas se evalúan antes de armar la respuesta):
 1. La clase existe: `404 TURNO_NO_ENCONTRADO`.

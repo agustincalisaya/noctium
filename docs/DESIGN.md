@@ -235,6 +235,13 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Ver turnos que impiden quitar una materia (HU-D-07) | `Dialog` informativo (6.3) | Ninguno — no modifica datos |
 | Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
+| Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
+
+**Excepción específica HU-C-20 (09/10/2026):** el resumen confirma la
+inscripción de la página completa C-12 y, tras el POST exitoso, navega a
+Mis clases con su banner existente. No agrega toast: la navegación ya
+lleva a la pantalla que informa el resultado. Un rechazo se muestra dentro
+del diálogo y conserva la selección; Volver cierra el resumen sin perderla.
 
 Si una HU nueva no está en esta tabla, se define su feedback con el mismo
 criterio (¿la acción vive en modal o en página completa?) y se agrega acá
@@ -372,6 +379,8 @@ sus consumidores, sin editar sus fuentes.
 - **09/10/2026:** HU-C-23 agrega el contrato transversal de textos (§9).
   Tras auditoría se ubica antes del historial, conservando contenido y
   numeración de las secciones.
+- **09/10/2026:** HU-C-20 agrega en §6.4 la excepción de navegación/banner
+  tras confirmar el resumen, reutilizando `ConfirmarAccionDialog`.
 
 ## Selección de asistencia (HU-E-11)
 

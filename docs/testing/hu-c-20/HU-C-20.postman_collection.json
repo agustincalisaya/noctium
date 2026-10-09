@@ -1,0 +1,441 @@
+{
+  "info": {
+    "name": "HU-C-20 — Resumen y confirmación",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Nivel 2 pendiente de ejecución con identidad y permisos reales. Ejecutar por caso en base aislada descartable, preparando sus ids. Autenticarse con el login vigente y Cookie Jar de Postman fuera de esta colección; cambiar cuenta para rol sin permiso, sin ficha e inactiva. No exportar cookies, contraseñas ni tokens. No ejecutar POST en una base habitual. Tras GET comparar HU-C-20.sql; antes del POST de cupo/superposición introducir la otra inscripción con el servicio/ruta vigente en la misma base aislada. Para tarifa GET→POST simular cambio solo como fixture y contrastar el precio almacenado: no se garantiza que sea el mostrado. Ninguna petición a L-06/N-01 futura."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "turno_id",
+      "value": ""
+    },
+    {
+      "key": "turno_pendiente",
+      "value": ""
+    },
+    {
+      "key": "turno_cancelado",
+      "value": ""
+    },
+    {
+      "key": "turno_vencido",
+      "value": ""
+    },
+    {
+      "key": "turno_lleno",
+      "value": ""
+    },
+    {
+      "key": "turno_ya_asignado",
+      "value": ""
+    },
+    {
+      "key": "turno_sin_tarifa",
+      "value": ""
+    },
+    {
+      "key": "turno_confirmacion",
+      "value": ""
+    },
+    {
+      "key": "turno_superpuesto",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "GET resumen, sesión ALUMNO vinculada",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Resumen completo\", () => { pm.expect(body.data).to.have.keys(\"turno_id\",\"materia\",\"profesor\",\"fecha\",\"hora_inicio\",\"hora_fin\",\"duracion_min\",\"aula\",\"cupo\",\"lugares_disponibles\",\"precio\",\"plazo_pago_horas\",\"vence_pago_el\",\"limite_cancelacion_en_linea\",\"limite_cancelacion_pasado\"); });",
+              "pm.test(\"Interino null\", () => { pm.expect(body.data.plazo_pago_horas).to.eql(null); pm.expect(body.data.vence_pago_el).to.eql(null); });",
+              "pm.test(\"Fechas y enteros\", () => { pm.expect(body.data.fecha).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); pm.expect(body.data.hora_inicio).to.match(/^\\d{2}:\\d{2}$/); pm.expect(body.data.hora_fin).to.match(/^\\d{2}:\\d{2}$/); pm.expect(body.data.limite_cancelacion_en_linea).to.match(/-03:00$/); [\"duracion_min\",\"cupo\",\"lugares_disponibles\",\"precio\"].forEach(k => pm.expect(Number.isInteger(body.data[k])).to.eql(true)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET sin sesión",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET rol sin permiso (iniciar sesión como PROFESOR)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET ALUMNO sin ficha (otra cuenta de prueba)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Inexistente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/no-existe/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error TURNO_NO_ENCONTRADO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"TURNO_NO_ENCONTRADO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Pendiente",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_pendiente}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error TURNO_NO_DISPONIBLE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"TURNO_NO_DISPONIBLE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Cancelada",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_cancelado}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error TURNO_NO_DISPONIBLE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"TURNO_NO_DISPONIBLE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Iniciada",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_vencido}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error TURNO_VENCIDO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"TURNO_VENCIDO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Sin cupo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_lleno}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error CUPO_INSUFICIENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CUPO_INSUFICIENTE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Ficha inactiva (otra cuenta de prueba)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error ALUMNO_INACTIVO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_INACTIVO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Ya asignado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_ya_asignado}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error ALUMNO_YA_ASIGNADO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_YA_ASIGNADO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET Sin tarifa",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_sin_tarifa}}/inscripcion/resumen",
+        "description": "Usar el id del caso y la sesión indicada en un entorno de prueba aislado. GET no debe mutar: contrastar SQL antes/después."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error MATERIA_SIN_TARIFA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_SIN_TARIFA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST confirmar inscripción interina (datos nuevos aislados)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_confirmacion}}/inscripcion",
+        "description": "Solo en base aislada: confirma mediante el POST vigente C-12; no deja RESERVADA ni plazo antes de C-22."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST después de ocupar último lugar desde otra cuenta",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_lleno}}/inscripcion",
+        "description": "Solo en base aislada: confirma mediante el POST vigente C-12; no deja RESERVADA ni plazo antes de C-22."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error CUPO_INSUFICIENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CUPO_INSUFICIENTE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST después de inscripción superpuesta del mismo alumno",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_superpuesto}}/inscripcion",
+        "description": "Solo en base aislada: confirma mediante el POST vigente C-12; no deja RESERVADA ni plazo antes de C-22."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error ALUMNO_NO_DISPONIBLE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_NO_DISPONIBLE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST sin tarifa",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_sin_tarifa}}/inscripcion",
+        "description": "Solo en base aislada: confirma mediante el POST vigente C-12; no deja RESERVADA ni plazo antes de C-22."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"No cache\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store, must-revalidate\"));",
+              "pm.test(\"Error MATERIA_SIN_TARIFA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_SIN_TARIFA\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

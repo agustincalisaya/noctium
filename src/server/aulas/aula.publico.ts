@@ -1,6 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+/** C-20: nombre del aula asignada, incluso inactiva; solo lectura, sin bloqueo. */
+export async function obtenerNombreAula(id: string, db: Prisma.TransactionClient = prisma): Promise<{ id: string; nombre: string } | null> {
+  const aula = await db.aula.findUnique({
+    where: { idAula: id }, select: { idAula: true, nombreAula: true },
+  });
+  return aula ? { id: aula.idAula, nombre: aula.nombreAula } : null;
+}
+
 /** Contrato acotado para HU-C-15; no concede el permiso general aulas:leer. */
 export async function listarAulasActivasParaTurno(cupoMaximo: number) {
   const aulas = await prisma.aula.findMany({
