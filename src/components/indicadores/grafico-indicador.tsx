@@ -29,7 +29,7 @@ export function GraficoIndicador({id,titulo,total,leyendaFecha,datos,series,clav
     const medir=()=>{const excede=elemento.scrollWidth>elemento.clientWidth+1;setDesborda(excede);elemento.scrollLeft=elemento.scrollWidth;};
     medir(); const observer=new ResizeObserver(medir); observer.observe(elemento);return ()=>observer.disconnect();
   },[datos,tabla,estado]);
-  const etiquetas = (valor: unknown, clave:string) => valor == null ? "" : largo ? (series.find(s=>s.clave===clave)?.ejePorcentaje || series.find(s=>s.clave===clave)?.unidad === "%" ? `${Math.round(Number(valor))}%` : compacto.format(Number(valor))) : formatearValor(Number(valor),clave);
+  const etiquetas = (valor: unknown, clave:string) => valor == null ? "" : largo || (series.find(s=>s.clave===clave)?.unidad === "pesos" && Math.abs(Number(valor)) >= 10_000) ? (series.find(s=>s.clave===clave)?.ejePorcentaje || series.find(s=>s.clave===clave)?.unidad === "%" ? `${Math.round(Number(valor))}%` : compacto.format(Number(valor))) : formatearValor(Number(valor),clave);
   const categoriaExacta=(valor:string,indice:number)=>mensual && /^\d{4}-\d{2}$/.test(valor) ? new Intl.DateTimeFormat("es-AR",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(`${valor}-01T12:00:00Z`)) : formatearCategoria(valor,indice);
   const barras=series.filter(s=>s.tipo==="barra");
   return <Card aria-labelledby={`${id}-titulo`} aria-busy={estado==="cargando"} role="region" className={largo?"min-w-0 lg:col-span-2":"min-w-0"}>
