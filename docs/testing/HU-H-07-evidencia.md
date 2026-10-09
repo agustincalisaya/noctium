@@ -46,3 +46,5 @@ Capturas y resultados: `hu-h-07/`. **Entrega como PR borrador dependiente de E09
 - Edición del umbral por UI: HU-N-01; la consulta ya lee el parámetro vigente.
 
 Último build integrado de producción y revisión final Playwright: aprobados.
+
+PR propio: https://github.com/agustincalisaya/noctium/pull/219. Draft hasta integrar #217 y #218; no afirmar compilación independiente antes de esos prerrequisitos.

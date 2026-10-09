@@ -143,8 +143,10 @@ El PR documenta fixtures, evidencia realmente ejecutada y verificaciones diferid
 - [x] Lint, TypeScript/build y comprobación de diff aprobados.
 - [x] Playwright y capturas contrastadas con figura 55, incluido móvil y 24 meses.
 - [x] Evidencia distingue lo verificado de E02, E11 y N01 diferidos.
-- [ ] PR propio de HU-H-07 con diff exclusivo y base/dependencias explícitas.
+- [x] PR propio de HU-H-07 con diff exclusivo y base/dependencias explícitas.
 
 ## Cierre de verificación
 
 Evidencia efectiva en `docs/testing/HU-H-07-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.
+
+PR individual: https://github.com/agustincalisaya/noctium/pull/219. Base `develop`. Borrador, dependiente de #217 y #218.

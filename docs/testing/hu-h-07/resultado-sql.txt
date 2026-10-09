@@ -1,26 +1,26 @@
-   mes   | inscriptos | presentes | ausentes | indice 
+   mes   | inscriptos | presentes | ausentes | indice
 ---------+------------+-----------+----------+--------
  2026-05 |         48 |        25 |       23 |   52.1
  2026-06 |         24 |        24 |        0 |  100.0
 (2 rows)
 
- clases_sin_control 
+ clases_sin_control
 --------------------
                   1
 (1 row)
 
-       clave        | valor 
+       clave        | valor
 --------------------+-------
  umbral_presentismo | 75
 (1 row)
 
-         materiaId         | nombreMateria | activaMateria | inscriptos | presentes | ausentes | indice 
+         materiaId         | nombreMateria | activaMateria | inscriptos | presentes | ausentes | indice
 ---------------------------+---------------+---------------+------------+-----------+----------+--------
  cmv0datf5004jjmelhwlbonb4 | Matemática    | t             |         48 |        25 |       23 |   52.1
  cmv0datfa004kjmelk2q50484 | Física        | t             |         24 |        24 |        0 |  100.0
 (2 rows)
 
-         alumnoId          |         materiaId         | clases | presentes | ausentes | porcentaje 
+         alumnoId          |         materiaId         | clases | presentes | ausentes | porcentaje
 ---------------------------+---------------------------+--------+-----------+----------+------------
  cmv0datbh000ojmel39bo9cf4 | cmv0datf5004jjmelhwlbonb4 |      4 |         2 |        2 |       50.0
  cmv0datbj000qjmelgqyator1 | cmv0datf5004jjmelhwlbonb4 |      4 |         2 |        2 |       50.0
@@ -34,4 +34,3 @@
  cmv0datbx0016jmel7hlshlgm | cmv0datf5004jjmelhwlbonb4 |      4 |         2 |        2 |       50.0
  cmv0datbz0018jmelp6uy2soi | cmv0datf5004jjmelhwlbonb4 |      4 |         2 |        2 |       50.0
 (11 rows)
-
