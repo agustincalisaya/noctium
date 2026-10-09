@@ -22,7 +22,7 @@ export const TEXTOS = {
   "asistencia.clase.registrar": "Registrar clase dictada",
   "asistencia.clase.registrando": "Registrando…",
   "asistencia.clase.confirmar": "¿Registrar clase dictada?",
-  "asistencia.clase.confirmacion": "Se registrarán {presentes} presentes y {ausentes} ausentes. Esta acción no se puede deshacer.",
+  "asistencia.clase.confirmacion": "Presentes: {presentes}. Ausentes: {ausentes}. Esta acción no se puede deshacer.",
   "asistencia.clase.guardada": "Clase dictada registrada correctamente",
   "asistencia.clase.errorRegistro": "No se pudo registrar la clase dictada. Intentá nuevamente.",
   "asistencia.clase.errorLectura": "No se pudo consultar la asistencia. Intentá nuevamente.",

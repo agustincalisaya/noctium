@@ -366,7 +366,7 @@ describe("HU-E-09 asistencia dentro de alumnos", () => {
     await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.click());
     await esperar();
     const dialogo = document.querySelector('[role="alertdialog"]')!;
-    expect(dialogo.textContent).toContain("1 presentes y 1 ausentes");
+    expect(dialogo.textContent).toContain("Presentes: 1. Ausentes: 1.");
     await act(async () => [...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.click());
     await esperar(); await esperar();
     const peticion = fetch.mock.calls.find(([, init]) => init?.method === "POST")!;
