@@ -150,3 +150,7 @@ El PR documenta fixtures, evidencia realmente ejecutada y verificaciones diferid
 Evidencia efectiva en `docs/testing/HU-H-07-evidencia.md`; validación completa realizada en integración local con las tres ramas. Dependencias y accesos diferidos conservados.
 
 PR individual: https://github.com/agustincalisaya/noctium/pull/219. Base `develop`. Borrador, dependiente de #217 y #218.
+
+## Dependencias resueltas
+
+H06 #218 y E09 #217 están integradas. H07 actualizado desde develop875435d; fixtures E09/H06/H07 conservados. Suite independiente1913 aprobados y CI remoto de código completamente aprobado; build antes bloqueado por el helper de E09 resuelto.

@@ -62,3 +62,13 @@ Sobre el commit de código `df83eb6`: [Textos C23](https://github.com/agustincal
 ## Actualización posterior al merge de H06
 
 Develop28fdbed incorpora #218. Se resolvieron conflictos conservando reglas y tipos de ambas historias, fixtures H06/H07 en ese orden y exportación del panel real de H07.53 pruebas de servicios, endpoints y componentes de indicadores aprobadas; comprobador de textos aprobado; diff check aprobado. E09 #217 sigue abierta: queda pendiente su helper para el fixture y, por lo tanto, el build independiente. No se incorporan archivos de E09 a este PR.
+
+## Prerrequisitos integrados — cierre independiente
+
+Develop875435d ya incorpora H06 #218 y E09 #217. Se resolvió el índice conservando E09/H06/H07 en ese orden. La rama tiene únicamente el diff de H07 contra develop.
+
+`vitest run --maxWorkers=1`:1913 aprobados,177 PostgreSQL omitidos. La primera corrida concurrente sufrió SIGKILL del worker de claves y timeouts; se repitió sin otras validaciones simultáneas y sin modificar tests ni timeouts. PostgreSQL real del caso de umbral/paginación H07:1 prueba aprobada (exactamente75 %, mínimo de clases y páginas10/1/0). Lint:0 errores, el warning preexistente de Sidebar.
+
+CI del commit a63b297: [build](https://github.com/agustincalisaya/noctium/actions/runs/37933938909), [textos](https://github.com/agustincalisaya/noctium/actions/runs/37933938896) y CodeQL aprobados. Queda resuelta la falta del módulo hu-e-09 que ocasionaba el fallo anterior.
+
+Build local webpack/TypeScript aprobado sobre esta rama independiente. Playwright contra ese build:desktop/móvil,6/24 meses, vacío, páginas10/1/0,403 por roles y401 sin sesión; sin errores de página y sin overflow documental. Capturas finales inspeccionadas y resultados HTTP actualizados. Se retira el estado de borrador porque ambos prerrequisitos y la CI de código están aprobados; no se mergea el PR automáticamente.
