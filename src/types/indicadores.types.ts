@@ -17,3 +17,4 @@ export type PresentismoMateria = ResumenPresentismo & { materia_id: string; nomb
 export type PresentismoMateriasData = { items: PresentismoMateria[]; resumen: ResumenPresentismo; clases_sin_control: number };
 export type AlumnoPresentismoBajo = { alumno_id: string; nombre_completo: string; materia_id: string; materia: string; clases_dictadas: number; ausencias: number; porcentaje: number };
 export type PresentismoBajoData = { umbral: number; minimo_clases: number; pagina: number; por_pagina: number; total: number; items: AlumnoPresentismoBajo[] };
+export type ResumenOcupacion = { ocupacion_promedio: number; turnos: number };

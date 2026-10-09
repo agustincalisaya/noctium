@@ -87,3 +87,16 @@ describe("obtenerOcupacionPromedioPorMes", () => {
     ]);
   });
 });
+
+describe("obtenerResumenOcupacion",()=>{
+ it("promedia por clase y no por mes",async()=>{
+  const {obtenerResumenOcupacion}=await import("./indicadores.service");
+  promediarOcupacion.mockResolvedValue([{mes:"2026-08",promedio:1,turnos:1},{mes:"2026-09",promedio:0,turnos:9}]);
+  await expect(obtenerResumenOcupacion({desde:"2026-08",hasta:"2026-09"})).resolves.toEqual({ocupacion_promedio:10,turnos:10});
+ });
+ it("sin clases y redondeo de porcentaje",async()=>{
+  const {obtenerResumenOcupacion}=await import("./indicadores.service");
+  promediarOcupacion.mockResolvedValue([]);await expect(obtenerResumenOcupacion({})).resolves.toEqual({ocupacion_promedio:0,turnos:0});
+  promediarOcupacion.mockResolvedValue([{mes:"2026-09",promedio:0.3875,turnos:4}]);await expect(obtenerResumenOcupacion({})).resolves.toEqual({ocupacion_promedio:38.8,turnos:4});
+ });
+});

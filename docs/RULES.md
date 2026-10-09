@@ -71,4 +71,8 @@ Cada módulo (Sesión, Materias, Aulas, Turnos, etc.) ubica sus archivos siempre
 Las importaciones a estos archivos usan siempre el alias configurado (`@/types/...`, `@/server/...`), nunca rutas relativas (`../actions`, `./materia.types`).
 ### Textos incorporados por HU-H-07 (08/10/2026)
 
-Los textos nuevos del Índice de presentismo se centralizan bajo `indicadores.presentismo.*` en `src/lib/textos.ts`: títulos y leyendas de gráficos, series, aviso de clases sin control, tabla y su umbral, columnas, enlace al historial y estados de carga/error/vacío/reintento. Los parámetros de aviso y umbral se interpolan mediante `texto()`. Esto documenta el cumplimiento de HU-C-23 sin modificar reglas de negocio ni permisos.
+Los textos nuevos del Índice de presentismo se centralizan bajo `ui.indicadores.presentismo.*` en `src/lib/textos.ts`: títulos y leyendas de gráficos, series, aviso de clases sin control, tabla y su umbral, columnas, enlace al historial y estados de carga/error/vacío/reintento. Los parámetros de aviso y umbral se interpolan mediante `texto()`. Esto documenta el cumplimiento de HU-C-23 sin modificar reglas de negocio ni permisos.
+
+### Lecturas y datos de presentación del Sprint 3
+
+Los indicadores componen exclusivamente lecturas de las fachadas públicas de los módulos dueños del dato (Regla N.° 3). Los fixtures de presentación se registran en `prisma/seed/fixtures/index.ts`, usan servicios de dominio para las mutaciones y comprueban una clave estable antes de crear: repetir el seed no duplica ni modifica hechos existentes.

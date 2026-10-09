@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { conReloj } from "@/server/shared/reloj";
 
 const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: { parametroSistema: { findMany } } }));
@@ -104,5 +105,20 @@ describe("HU-C-06 tope de reprogramación (N-4) y validaciones compartidas", () 
     expect(() => validarDiaReprogramable(fecha("2026-09-23"), tope, parametros)).toThrow(expect.objectContaining({ code: "FECHA_PASADA" }));
     expect(() => validarDiaReprogramable(fecha("2026-09-26"), tope, parametros)).toThrow(expect.objectContaining({ code: "DIA_NO_OPERATIVO" }));
     expect(() => validarDiaReprogramable(fecha("2026-10-26"), tope, parametros)).toThrow(expect.objectContaining({ code: "ANTICIPACION_EXCEDIDA" }));
+  });
+});
+
+
+describe("fixtures históricos con reloj de dominio (PR 0)", () => {
+  it("valida con el contexto inyectado y conserva la fecha real fuera de él", async () => {
+    const historico = { fecha: new Date("2024-10-03T00:00:00.000Z"), hora_inicio: "10:00", duracion_min: 60 };
+    await conReloj(new Date("2024-10-01T12:00:00.000Z"), async () => {
+      await expect(validarFechaHoraTurno(historico)).resolves.toMatchObject({ fecha: "2024-10-03", hora_fin: "11:00" });
+      expect(turnoSigueVigente(historico.fecha, new Date("1970-01-01T10:00:00.000Z"))).toBe(true);
+      const parametros = await parametrosConfiguracionTurno();
+      expect(calcularTopeReprogramacion(historico.fecha, parametros).toISOString().slice(0, 10)).toBe("2024-10-31");
+      expect(() => validarDiaReprogramable(historico.fecha, new Date("2024-10-31T00:00:00.000Z"), parametros)).not.toThrow();
+    });
+    await expect(validarFechaHoraTurno(historico)).rejects.toMatchObject({ code: "FECHA_PASADA" });
   });
 });

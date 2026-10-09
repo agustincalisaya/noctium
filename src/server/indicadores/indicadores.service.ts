@@ -19,7 +19,7 @@ export async function obtenerIngresosPorMes(query: RangoIndicadoresInput): Promi
  * PostgreSQL. `toPrecision(12)` quita el ruido binario de la multiplicación
  * (0.38749999999999996 × 1000 ≠ 387.5) antes de redondear.
  */
-function porcentajeUnDecimal(razon: number): number {
+export function porcentajeUnDecimal(razon: number): number {
   return Math.round(Number((razon * 1000).toPrecision(12))) / 10;
 }
 
@@ -34,4 +34,13 @@ export async function obtenerOcupacionPromedioPorMes(query: RangoIndicadoresInpu
   const promedios = await promediarOcupacionTurnosPorMes(rango.desde, rango.hasta, fechaActualBuenosAires());
   const promedioPorMes = new Map(promedios.map(({ mes, promedio }) => [mes, porcentajeUnDecimal(promedio)]));
   return rango.meses.map((mes) => ({ mes, ocupacion_promedio: promedioPorMes.get(mes) ?? 0 }));
+}
+
+/** Promedio simple por clase de todo el período; los meses pesan por clases, no por cupos. */
+export async function obtenerResumenOcupacion(query: RangoIndicadoresInput) {
+  const rango = resolverRangoIndicadores(query);
+  const filas = await promediarOcupacionTurnosPorMes(rango.desde, rango.hasta, fechaActualBuenosAires());
+  const turnos = filas.reduce((total, fila) => total + fila.turnos, 0);
+  const suma = filas.reduce((total, fila) => total + fila.promedio * fila.turnos, 0);
+  return { ocupacion_promedio: turnos ? porcentajeUnDecimal(suma / turnos) : 0, turnos };
 }
