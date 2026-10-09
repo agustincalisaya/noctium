@@ -1,0 +1,6 @@
+Solicitudes de mutación relevantes registradas por Playwright; se omiten recursos estáticos.
+
+POST /api/alumnos/cmv11e2v3000ojmpth73cnlbv/examenes/cmv13ma52007jjm9mgon66p6g/correccion => 201 Created
+POST /api/alumnos/cmv11e2v3000ojmpth73cnlbv/examenes/cmv13ma57007ljm9mltljpmko/correccion => 403 Forbidden
+
+El 201 corresponde a la corrección propia de Profesor. El 403 corresponde al intento de Profesor sobre el resultado de Mesa y devuelve SIN_PERMISO.

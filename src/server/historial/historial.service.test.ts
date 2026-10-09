@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { queryRaw, alumno, materias, profesores, profesorUsuario, email, opciones, asistencia, vigente, propia } = vi.hoisted(() => ({
-  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), email: vi.fn(), opciones: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(),
+const { queryRaw, alumno, materias, profesores, profesorUsuario, email, opciones, asistencia, vigente, propia, now } = vi.hoisted(() => ({
+  queryRaw: vi.fn(), alumno: vi.fn(), materias: vi.fn(), profesores: vi.fn(), profesorUsuario: vi.fn(), email: vi.fn(), opciones: vi.fn(), asistencia: vi.fn(), vigente: vi.fn(), propia: vi.fn(), now: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { $queryRaw: queryRaw } }));
@@ -12,6 +12,7 @@ vi.mock("@/server/profesores/profesor.publico", () => ({
   obtenerOpcionProfesorDeUsuario: profesorUsuario,
 }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario: email }));
+vi.mock("@/server/shared/reloj", () => ({ ahora: () => now() }));
 vi.mock("./indicacion.service", () => ({ opcionesDeIndicacion: opciones }));
 vi.mock("./historial.publico", () => ({ asistenciaDeAlumno: asistencia, profesorPuedeRegistrarIndicacion: propia }));
 vi.mock("@/server/turnos/inscripcion.publico", () => ({ existeInscripcionVigenteConProfesor: vigente }));
@@ -25,6 +26,8 @@ const registroClase = {
   nota: null, observaciones: null, indicacion: null, registrada_en: null, clase_dictada_id: null, creado_por_usuario_id: null,
   turno_id: "turno-1", registro_id: "clase-1", temas_vistos: null, observaciones_internas: null,
   observacion_registrada_en: null, observacion_creada_por_id: null,
+  creado_en: new Date("2026-09-28T12:00:00.000Z"), asistencia: null,
+  corregido: null, anulado: null, anulacion_motivo: null, anulacion_en: null, anulacion_por: null, resultado_creado_por: null,
 };
 const registroExamen = {
   total: 2n, materias_disponibles: ["materia-1"], tipo: "EXAMEN" as const,
@@ -32,6 +35,8 @@ const registroExamen = {
   nota: "8.5", observaciones: "Parcial de cinemática", indicacion: null, registrada_en: null, clase_dictada_id: null, creado_por_usuario_id: null,
   turno_id: null, registro_id: "examen-1", temas_vistos: null, observaciones_internas: null,
   observacion_registrada_en: null, observacion_creada_por_id: null,
+  creado_en: new Date("2026-10-01T12:00:00.000Z"), asistencia: null,
+  corregido: false, anulado: false, anulacion_motivo: null, anulacion_en: null, anulacion_por: null, resultado_creado_por: "mesa-1",
 };
 const registroIndicacion = {
   total: 1n, materias_disponibles: ["materia-1"], tipo: "INDICACION" as const,
@@ -39,7 +44,15 @@ const registroIndicacion = {
   nota: null, observaciones: null, indicacion: "Practicar ecuaciones", registrada_en: new Date("2026-09-30T01:30:00.000Z"),
   clase_dictada_id: "clase-1", creado_por_usuario_id: "mesa-1", turno_id: null, registro_id: "indicacion-1",
   temas_vistos: null, observaciones_internas: null, observacion_registrada_en: null, observacion_creada_por_id: null,
+  creado_en: new Date("2026-09-30T01:30:00.000Z"), asistencia: null,
+  corregido: null, anulado: null, anulacion_motivo: null, anulacion_en: null, anulacion_por: null, resultado_creado_por: null,
 };
+
+function valoresSql(valor: unknown): unknown[] {
+  if (Array.isArray(valor)) return valor.flatMap(valoresSql);
+  if (valor && typeof valor === "object" && "values" in valor) return valoresSql((valor as { values: unknown }).values);
+  return [valor];
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -48,6 +61,7 @@ beforeEach(() => {
   profesores.mockResolvedValue({ "profesor-1": "Acuña, Sergio" });
   profesorUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Acuña, Sergio" });
   email.mockResolvedValue("mesa@noctium.local");
+  now.mockReturnValue(new Date("2026-10-02T12:00:00.000Z"));
   opciones.mockResolvedValue({ materias: [], clases: [] });
   vigente.mockResolvedValue(true);
   propia.mockResolvedValue(false);
@@ -65,7 +79,7 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
       materias_disponibles: [{ id: "materia-1", nombre: "Programación I" }],
       indicaciones_opciones: { materias: [], clases: [] },
       items: [
-        { tipo: "EXAMEN", id: "examen-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5", observaciones: "Parcial de cinemática" },
+        { tipo: "EXAMEN", id: "examen-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5", observaciones: "Parcial de cinemática", corregido: false, anulado: false, puede_corregir: true },
         { tipo: "CLASE_DICTADA", id: "clase-1", fecha: "2026-09-28", materia: { id: "materia-1", nombre: "Programación I" }, profesor: "Acuña, Sergio", turno_id: "turno-1", asistencia: null },
       ],
       paginacion: { total: 2, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
@@ -135,7 +149,8 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
       total: 0n, materias_disponibles: [], tipo: null, fecha: null, materia_id: null, profesor_id: null, nota: null,
       observaciones: null, indicacion: null, registrada_en: null, clase_dictada_id: null, creado_por_usuario_id: null,
       turno_id: null, registro_id: null, asistencia: null, temas_vistos: null, observaciones_internas: null,
-      observacion_registrada_en: null, observacion_creada_por_id: null,
+      observacion_registrada_en: null, observacion_creada_por_id: null, creado_en: null,
+      corregido: null, anulado: null, anulacion_motivo: null, anulacion_en: null, anulacion_por: null, resultado_creado_por: null,
     }]);
     materias.mockResolvedValue([]);
     profesores.mockResolvedValue({});
@@ -179,5 +194,60 @@ describe("HU-E-09 resumen aditivo de Profesor", () => {
     propia.mockResolvedValue(false);
     await expect(obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "ajena" }, profesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
     expect(asistencia).not.toHaveBeenCalled();
+  });
+});
+
+describe("HU-E-10 valores vigentes y visibilidad de resultados de examen", () => {
+  it("permite corregir a Mesa, limita al Profesor creador y no permite al Gerente", async () => {
+    const profesor = { id: "usuario-profesor", rol: "PROFESOR" as const };
+    const gerente = { id: "gerente-1", rol: "GERENTE" as const };
+    queryRaw.mockResolvedValue([{ ...registroExamen, resultado_creado_por: "usuario-profesor", creado_en: new Date("2026-10-01T12:00:00.000Z") }]);
+    const deProfesor = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "materia-1" }, profesor);
+    expect(deProfesor.items[0]).toMatchObject({ id: "examen-1", corregido: false, anulado: false, puede_corregir: true });
+
+    queryRaw.mockResolvedValue([{ ...registroExamen, resultado_creado_por: "otro-profesor" }]);
+    const deOtro = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "materia-1" }, profesor);
+    expect(deOtro.items[0]).toMatchObject({ puede_corregir: false });
+
+    const deGerente = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, gerente);
+    expect(deGerente.items[0]).toMatchObject({ puede_corregir: false });
+  });
+
+  it("muestra anulados con motivo a Mesa y Gerencia, y los excluye para Profesor", async () => {
+    queryRaw.mockResolvedValue([{
+      ...registroExamen,
+      anulado: true,
+      anulacion_motivo: "Error de carga",
+      anulacion_en: new Date("2026-10-02T14:00:00.000Z"),
+      anulacion_por: "mesa-1",
+    }]);
+    const mesaResultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, mesa);
+    expect(mesaResultado.items[0]).toMatchObject({
+      id: "examen-1", anulado: true, puede_corregir: false,
+      anulacion: { motivo: "Error de carga", anulada_en: "2026-10-02T14:00:00.000Z", anulada_por: "mesa@noctium.local" },
+    });
+    const gerenteResultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, { id: "gerente-1", rol: "GERENTE" });
+    expect(gerenteResultado.items[0]).toMatchObject({ anulado: true, puede_corregir: false });
+    queryRaw.mockResolvedValue([]);
+    const profesorResultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "materia-1" }, { id: "profesor-1", rol: "PROFESOR" });
+    expect(profesorResultado.items).toEqual([]);
+  });
+
+  it("excluye examen anulado en el SQL del Profesor y trae corrección vigente", async () => {
+    const profesor = { id: "usuario-profesor", rol: "PROFESOR" as const };
+    queryRaw.mockResolvedValue([{
+      ...registroExamen,
+      resultado_creado_por: "usuario-profesor",
+      corregido: true,
+      fecha: new Date("2026-10-01T00:00:00.000Z"),
+      nota: "9.5",
+    }]);
+    const resultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "materia-1" }, profesor);
+    const [plantilla] = queryRaw.mock.calls.at(-1)! as unknown as [TemplateStringsArray, ...unknown[]];
+    const sql = plantilla.join("?");
+    const parametros = valoresSql(queryRaw.mock.calls.at(-1));
+    expect(sql).toContain("anulaciones_resultado_examen");
+    expect(parametros).toContain(false);
+    expect(resultado.items[0]).toMatchObject({ fecha: "2026-10-01", nota: "9.5", corregido: true, puede_corregir: true });
   });
 });
