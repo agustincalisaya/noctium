@@ -9,3 +9,13 @@ describe("HU-E-09 schema HTTP", () => {
     expect(RegistrarClaseDictadaSchema.safeParse(payload).success).toBe(false);
   });
 });
+
+import { CorregirAsistenciaSchema, AnularClaseDictadaSchema } from "./clase-dictada.schema";
+it.each(["", "   ", "x".repeat(301)])("E11 exige motivo válido: %s", motivo => {
+ expect(AnularClaseDictadaSchema.safeParse({ motivo }).success).toBe(false);
+ expect(CorregirAsistenciaSchema.safeParse({ motivo, asistencias: [] }).success).toBe(false);
+});
+it("E11 acepta motivo de 300 y rechaza campos desconocidos", () => {
+ expect(AnularClaseDictadaSchema.parse({ motivo: "x".repeat(300) }).motivo.length).toBe(300);
+ expect(CorregirAsistenciaSchema.safeParse({ motivo: "ok", asistencias: [], extra: true }).success).toBe(false);
+});

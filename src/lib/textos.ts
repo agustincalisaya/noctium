@@ -11,6 +11,28 @@
  * Los huecos se escriben `{nombre}` y se completan con `texto(clave, valores)`.
  */
 export const TEXTOS = {
+  "ui.historial.correccionClase.corregir": "Corregir asistencia",
+  "ui.historial.correccionClase.motivoCorreccion": "Motivo de la corrección",
+  "ui.historial.correccionClase.motivo": "Motivo",
+  "ui.historial.correccionClase.placeholderCorreccion": "Ej.: se marcó ausente por error",
+  "ui.historial.correccionClase.placeholderAnulacion": "Ej.: la clase no se dio por un corte de luz",
+  "ui.historial.correccionClase.guardar": "Guardar corrección",
+  "ui.historial.correccionClase.cancelar": "Cancelar",
+  "ui.historial.correccionClase.volver": "Volver",
+  "ui.historial.correccionClase.anular": "Anular registro",
+  "ui.historial.correccionClase.accionAnular": "Anular registro de clase dictada",
+  "ui.historial.correccionClase.tituloAnular": "¿Estás seguro de que querés anular el registro de clase dictada de {materia} del {fecha} a las {hora}?",
+  "ui.historial.correccionClase.detalleAnular": "La clase vuelve a “Sin registrar como dictada”, deja de aparecer en el historial académico y en los indicadores, y sus observaciones quedan ocultas. Los resultados de examen no cambian y las indicaciones se conservan sin el vínculo a esta clase. Esta acción no se puede deshacer.",
+  "ui.historial.correccionClase.tituloCorregir": "¿Estás seguro de que querés corregir la asistencia de {materia} del {fecha}?",
+  "ui.historial.correccionClase.guardada": "Asistencia corregida correctamente",
+  "ui.historial.correccionClase.anulada": "Registro de clase dictada anulado",
+  "ui.historial.correccionClase.plazo": "Pasaron más de 7 días desde la clase. Solo mesa de entrada puede corregir la asistencia o anular el registro.",
+  "ui.historial.correccionClase.obligatorio": "El motivo es obligatorio",
+  "ui.historial.correccionClase.procesando": "Procesando…",
+  "ui.historial.correccionClase.error": "No se pudo completar la acción. Intentá nuevamente.",
+  "ui.historial.correccionClase.alumno": "Alumno",
+  "ui.historial.correccionClase.asistencia": "Asistencia",
+
   // --- Asistencia individual (HU-E-09) ---
   "ui.historial.asistencia.presente": "Presente",
   "ui.historial.asistencia.ausente": "Ausente",

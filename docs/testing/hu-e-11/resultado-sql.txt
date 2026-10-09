@@ -1,0 +1,31 @@
+            idClaseDictada            | fechaTurno | horaInicioTurno | conControlAsistencia |    creadoPorUsuarioId     |        anuladaEl        |    anuladaPorUsuarioId    |            motivoAnulacion            | correcciones 
+--------------------------------------+------------+-----------------+----------------------+---------------------------+-------------------------+---------------------------+---------------------------------------+--------------
+ 02605712-f5f0-4650-8ede-4a39278182ca | 2026-09-28 | 11:00:00        | t                    | cmv17kexq0000jmhgu92crhtl |                         |                           |                                       |            0
+ b9398be1-5ef9-420d-8def-e96795d497a6 | 2026-10-02 | 11:00:00        | t                    | cmv17kexq0000jmhgu92crhtl | 2026-10-02 16:00:00     | cmv17kexq0000jmhgu92crhtl | La clase no se dio: escenario HU-E-11 |            0
+ c4c8c843-541b-478a-a9f0-7eaf8488c2cd | 2026-10-05 | 11:00:00        | t                    | cmv17kexq0000jmhgu92crhtl | 2026-10-09 17:04:21.354 | cmv17kexz0004jmhgl5yg95yo | La clase no se dio: revisión E11      |            1
+ 6c917c49-43c2-44da-abea-d0530401e3cf | 2026-10-05 | 11:00:00        | t                    | cmv17kexz0004jmhgl5yg95yo |                         |                           |                                       |            0
+ f459e475-e1ec-4321-bc48-9a6383e35aa6 | 2026-10-06 | 11:00:00        | f                    | cmv17kexq0000jmhgu92crhtl |                         |                           |                                       |            1
+ c7e362f7-81ac-4f19-9b44-3384d75012a1 | 2026-10-07 | 11:00:00        | t                    | cmv17kexq0000jmhgu92crhtl |                         |                           |                                       |            1
+(6 rows)
+
+  idCorreccionAsistencia   |            claseDictadaId            |               motivo               |   createdAtCorreccion   |    creadoPorUsuarioId     |         alumnoId          | estadoAnterior | estadoNuevo 
+---------------------------+--------------------------------------+------------------------------------+-------------------------+---------------------------+---------------------------+----------------+-------------
+ cmv17kh5d00bmjmhguq0jmozo | c7e362f7-81ac-4f19-9b44-3384d75012a1 | Corrección de presentación HU-E-11 | 2026-10-07 16:00:00     | cmv17kexq0000jmhgu92crhtl | cmv17kez1000ojmhgqlvt4578 | PRESENTE       | PRESENTE
+ cmv17kh5d00bmjmhguq0jmozo | c7e362f7-81ac-4f19-9b44-3384d75012a1 | Corrección de presentación HU-E-11 | 2026-10-07 16:00:00     | cmv17kexq0000jmhgu92crhtl | cmv17kez4000qjmhg5aq18yo0 | PRESENTE       | PRESENTE
+ cmv17kh5d00bmjmhguq0jmozo | c7e362f7-81ac-4f19-9b44-3384d75012a1 | Corrección de presentación HU-E-11 | 2026-10-07 16:00:00     | cmv17kexq0000jmhgu92crhtl | cmv17kez7000sjmhg8haij81e | AUSENTE        | PRESENTE
+ cmv17kh5d00bmjmhguq0jmozo | c7e362f7-81ac-4f19-9b44-3384d75012a1 | Corrección de presentación HU-E-11 | 2026-10-07 16:00:00     | cmv17kexq0000jmhgu92crhtl | cmv17kez9000ujmhgl2f5oj1e | PRESENTE       | PRESENTE
+ cmv17tfoe0002jmvvp9ce9ent | c4c8c843-541b-478a-a9f0-7eaf8488c2cd | Error de carga: revisión E11       | 2026-10-09 17:04:19.345 | cmv17kexz0004jmhgl5yg95yo | cmv17kez1000ojmhgqlvt4578 | PRESENTE       | AUSENTE
+ cmv17tfoe0002jmvvp9ce9ent | c4c8c843-541b-478a-a9f0-7eaf8488c2cd | Error de carga: revisión E11       | 2026-10-09 17:04:19.345 | cmv17kexz0004jmhgl5yg95yo | cmv17kez4000qjmhg5aq18yo0 | PRESENTE       | PRESENTE
+ cmv17tfoe0002jmvvp9ce9ent | c4c8c843-541b-478a-a9f0-7eaf8488c2cd | Error de carga: revisión E11       | 2026-10-09 17:04:19.345 | cmv17kexz0004jmhgl5yg95yo | cmv17kez7000sjmhg8haij81e | AUSENTE        | AUSENTE
+ cmv17tfoe0002jmvvp9ce9ent | c4c8c843-541b-478a-a9f0-7eaf8488c2cd | Error de carga: revisión E11       | 2026-10-09 17:04:19.345 | cmv17kexz0004jmhgl5yg95yo | cmv17kez9000ujmhgl2f5oj1e | PRESENTE       | PRESENTE
+ cmv17tj5p0004jmvvrjdsqljk | f459e475-e1ec-4321-bc48-9a6383e35aa6 | Primera asistencia: revisión E11   | 2026-10-09 17:04:23.86  | cmv17kexz0004jmhgl5yg95yo | cmv17kez1000ojmhgqlvt4578 |                | PRESENTE
+ cmv17tj5p0004jmvvrjdsqljk | f459e475-e1ec-4321-bc48-9a6383e35aa6 | Primera asistencia: revisión E11   | 2026-10-09 17:04:23.86  | cmv17kexz0004jmhgl5yg95yo | cmv17kez4000qjmhg5aq18yo0 |                | PRESENTE
+ cmv17tj5p0004jmvvrjdsqljk | f459e475-e1ec-4321-bc48-9a6383e35aa6 | Primera asistencia: revisión E11   | 2026-10-09 17:04:23.86  | cmv17kexz0004jmhgl5yg95yo | cmv17kez7000sjmhg8haij81e |                | PRESENTE
+ cmv17tj5p0004jmvvrjdsqljk | f459e475-e1ec-4321-bc48-9a6383e35aa6 | Primera asistencia: revisión E11   | 2026-10-09 17:04:23.86  | cmv17kexz0004jmhgl5yg95yo | cmv17kez9000ujmhgl2f5oj1e |                | PRESENTE
+(12 rows)
+
+ turnos | inscripciones | clases | snapshots | correcciones | anulaciones | pagos 
+--------+---------------+--------+-----------+--------------+-------------+-------
+     77 |           225 |     15 |       114 |            3 |           2 |    24
+(1 row)
+

@@ -372,3 +372,7 @@ sus consumidores, sin editar sus fuentes.
 - **09/10/2026:** HU-C-23 agrega el contrato transversal de textos (§9).
   Tras auditoría se ubica antes del historial, conservando contenido y
   numeración de las secciones.
+
+## Selección de asistencia (HU-E-11)
+
+`--attendance-selected: oklch(0.46 0.13 152)` deriva del verde semántico de éxito y permite Presente seleccionado con texto blanco (`text-card`) como figura 74. Es independiente de `--success` y de los tokens de sidebar. Ausente seleccionado usa `--destructive` con `text-card`.

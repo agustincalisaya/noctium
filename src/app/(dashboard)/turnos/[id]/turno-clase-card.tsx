@@ -9,6 +9,7 @@ import { fechaCorta, fechaDeInstante, fechaHoraDeInstante } from "@/lib/turno-de
 import { texto } from "@/lib/textos";
 import type { EstadoAsistencia, RegistroClaseDictada } from "@/types/historial.types";
 import type { TurnoDetalle } from "@/types/turno.types";
+import { AnularClaseDictadaDialog } from "./anular-clase-dictada-dialog";
 import { RegistrarObservacionesDialog } from "./registrar-observaciones-dialog";
 
 export function TurnoClaseCard({ turno, puedeRegistrarClase, onRegistrada, asistencias, registro, onObservacionRegistrada, onProcesandoChange }: {
@@ -42,6 +43,8 @@ export function TurnoClaseCard({ turno, puedeRegistrarClase, onRegistrada, asist
   };
   return <div className="space-y-3 border-t border-border pt-3">
     {turno.clase_dictada ? <>
+      {registro?.acciones?.anular_registro && <AnularClaseDictadaDialog turno={turno} onAnulada={onRegistrada} />}
+      {registro?.acciones?.plazo_correccion_vencido && <p className="text-sm text-muted-foreground">{texto("ui.historial.correccionClase.plazo")}</p>}
       <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.fechaRegistro", { fecha: fechaDeInstante(turno.clase_dictada.registrada_en) })}</p>
       {registro?.observacion ? <div className="space-y-2 rounded-md border border-border bg-card p-3">
         <h3 className="text-sm font-semibold">{texto("ui.historial.observaciones.temasEnClase")}</h3>

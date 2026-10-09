@@ -102,7 +102,7 @@ describe("HU-E-01 GET ampliado", () => {
     mocks.alumnos.mockResolvedValue([{ id: "alumno-1", nombre: "Ana", apellido: "Pérez" }, { id: "alumno-2", nombre: "Luis", apellido: "Acosta" }]); mocks.email.mockResolvedValue("mesa@noctium.local");
     await expect(obtenerRegistroClaseDictada("turno-1", mesa)).resolves.toEqual({ id: "clase-1", registrada_en: "2026-09-30T12:00:00.000Z", registrada_por: "mesa@noctium.local", alumnos: [
       { id: "alumno-2", nombre_completo: "Acosta, Luis", asistencia: null }, { id: "alumno-1", nombre_completo: "Pérez, Ana", asistencia: null },
-    ], con_control_asistencia: false, totales: null, observacion: null, acciones: { registrar_observaciones: true } });
+    ], con_control_asistencia: false, totales: null, observacion: null, acciones: { registrar_observaciones: true, corregir_asistencia: true, anular_registro: true, plazo_correccion_vencido: false } });
   });
   it("incluye los metadatos de observación y oculta el botón cuando ya existe", async () => {
     mocks.lectura.mockResolvedValue({ idClaseDictada: "clase-1", profesorId: "profesor-1", creadoPorUsuarioId: "mesa-1", createdAtClaseDictada: new Date("2026-09-30T12:00:00Z") });
@@ -119,4 +119,13 @@ describe("HU-E-01 GET ampliado", () => {
     mocks.lectura.mockResolvedValue({ idClaseDictada: "clase-1", profesorId: "ajeno" });
     await expect(obtenerRegistroClaseDictada("turno-1", { id: "prof", rol: "PROFESOR" })).rejects.toMatchObject({ code: "SIN_PERMISO" });
   });
+});
+
+import { conReloj } from "@/server/shared/reloj";
+it("E11 GET calcula acciones por plazo calendario, sin repetirlo en UI", async () => {
+ mocks.lectura.mockResolvedValue({ idClaseDictada: "clase-1", profesorId: "profesor-1", fechaClaseDictada: new Date("2026-10-01T00:00:00Z"), createdAtClaseDictada: new Date("2026-10-01T17:00:00Z") });
+ mocks.tx.$queryRaw.mockResolvedValue([{ alumno_id: null, asistencia: null, con_control: false }]); mocks.alumnos.mockResolvedValue([]);
+ const usuario = { id: "prof", rol: "PROFESOR" as const };
+ await conReloj(new Date("2026-10-09T02:59:59Z"), () => expect(obtenerRegistroClaseDictada("t", usuario)).resolves.toMatchObject({ acciones: { corregir_asistencia: true, anular_registro: true, plazo_correccion_vencido: false } }));
+ await conReloj(new Date("2026-10-09T03:00:00Z"), () => expect(obtenerRegistroClaseDictada("t", usuario)).resolves.toMatchObject({ acciones: { corregir_asistencia: false, anular_registro: false, plazo_correccion_vencido: true } }));
 });
