@@ -11,6 +11,24 @@
  * Los huecos se escriben `{nombre}` y se completan con `texto(clave, valores)`.
  */
 export const TEXTOS = {
+  // UI: cada módulo es dueño de ui.<modulo>.<grupo>.<nombre>.
+  // ui.comun pertenece a los componentes compartidos; no a sus consumidores.
+  "ui.comun.paginacion.nombre": "Paginación",
+  "ui.comun.paginacion.pagina": "Página {pagina} de {totalPaginas}",
+  "ui.comun.paginacion.paginaConTotal": "Página {pagina} de {totalPaginas} · {total} en total",
+  "ui.comun.paginacion.rango": "Mostrando {desde}–{hasta} de {total}",
+  "ui.comun.paginacion.anterior": "Anterior",
+  "ui.comun.paginacion.siguiente": "Siguiente",
+  "ui.comun.paginacion.paginaAnterior": "Página anterior",
+  "ui.comun.paginacion.paginaSiguiente": "Página siguiente",
+  "ui.comun.paginacion.numero": "Página {pagina}",
+  "ui.comun.paginacion.elipsis": "…",
+  // Módulo C: vocabulario para las pantallas del Sprint 3; legacy se conserva.
+  "ui.turnos.clase.nombre": "Clase",
+  "ui.turnos.estado.pendiente": "Pendiente",
+  "ui.turnos.estado.disponible": "Disponible",
+  "ui.turnos.estado.completa": "Completa",
+  "ui.turnos.estado.cancelada": "Cancelada",
   // --- Transversales (PR-0.md §2.10) ---
   "errores.transaccion.ocupada": "Otra persona está modificando estos datos. Intentá de nuevo.",
 
@@ -152,6 +170,10 @@ export type ClaveTexto = keyof typeof TEXTOS;
 
 /** Texto de `clave` con sus huecos `{nombre}` completados. Un hueco sin valor queda tal cual. */
 export function texto(clave: ClaveTexto, valores?: Record<string, unknown>): string {
+  if (!Object.prototype.hasOwnProperty.call(TEXTOS, clave)) {
+    console.warn(clave);
+    return clave;
+  }
   const plantilla: string = TEXTOS[clave];
   if (!valores) return plantilla;
   return plantilla.replace(/\{(\w+)\}/g, (hueco, nombre: string) =>
