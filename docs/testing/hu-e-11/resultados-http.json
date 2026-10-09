@@ -1,0 +1,295 @@
+{
+  "viewportDesktop": "1440x1000",
+  "viewportMobile": "390x844",
+  "reciente": "cmv17kgit00agjmhg4wegjszd",
+  "legacy": "cmv17kgsk00aujmhgi9yo8yp0",
+  "antiguo": "cmv17kgbu00a2jmhg36sh6azb",
+  "resultados": [
+    {
+      "method": "GET",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada",
+      "status": 200,
+      "body": {
+        "data": {
+          "id": "c4c8c843-541b-478a-a9f0-7eaf8488c2cd",
+          "registrada_en": "2026-10-05T12:01:00.000Z",
+          "registrada_por": "mesa.entrada@noctium.local",
+          "alumnos": [
+            {
+              "id": "cmv17kez1000ojmhgqlvt4578",
+              "nombre_completo": "Fernández, Sofía",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv17kez9000ujmhgl2f5oj1e",
+              "nombre_completo": "González, Mateo",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv17kez7000sjmhg8haij81e",
+              "nombre_completo": "López, Valentina",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "id": "cmv17kez4000qjmhg5aq18yo0",
+              "nombre_completo": "Martínez, Lucas",
+              "asistencia": "PRESENTE"
+            }
+          ],
+          "con_control_asistencia": true,
+          "totales": {
+            "presentes": 3,
+            "ausentes": 1
+          },
+          "observacion": null,
+          "acciones": {
+            "registrar_observaciones": true,
+            "corregir_asistencia": true,
+            "anular_registro": true,
+            "plazo_correccion_vencido": false
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada",
+      "status": 200,
+      "body": {
+        "data": {
+          "id": "c4c8c843-541b-478a-a9f0-7eaf8488c2cd",
+          "registrada_en": "2026-10-05T12:01:00.000Z",
+          "registrada_por": "mesa.entrada@noctium.local",
+          "alumnos": [
+            {
+              "id": "cmv17kez1000ojmhgqlvt4578",
+              "nombre_completo": "Fernández, Sofía",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "id": "cmv17kez9000ujmhgl2f5oj1e",
+              "nombre_completo": "González, Mateo",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv17kez7000sjmhg8haij81e",
+              "nombre_completo": "López, Valentina",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "id": "cmv17kez4000qjmhg5aq18yo0",
+              "nombre_completo": "Martínez, Lucas",
+              "asistencia": "PRESENTE"
+            }
+          ],
+          "con_control_asistencia": true,
+          "totales": {
+            "presentes": 2,
+            "ausentes": 2
+          },
+          "observacion": null,
+          "acciones": {
+            "registrar_observaciones": true,
+            "corregir_asistencia": true,
+            "anular_registro": true,
+            "plazo_correccion_vencido": false
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada/correccion-asistencia",
+      "status": 409,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "ASISTENCIA_SIN_CAMBIOS",
+          "message": "La asistencia es la misma que la registrada."
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada/correccion-asistencia",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "ASISTENCIA_INCOMPLETA",
+          "message": "La asistencia tiene que indicar a cada alumno de la clase una sola vez.",
+          "detalles": {
+            "faltan": [
+              "cmv17kez1000ojmhgqlvt4578",
+              "cmv17kez4000qjmhg5aq18yo0",
+              "cmv17kez7000sjmhg8haij81e",
+              "cmv17kez9000ujmhgl2f5oj1e"
+            ],
+            "sobran": [],
+            "repetidos": []
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada/anulacion",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Datos inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "motivo": [
+                "El motivo es obligatorio"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada",
+      "status": 404,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "CLASE_NO_REGISTRADA",
+          "message": "El turno todavía no tiene una clase dictada registrada"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgit00agjmhg4wegjszd/clase-dictada",
+      "status": 201,
+      "body": {
+        "data": {
+          "id": "6c917c49-43c2-44da-abea-d0530401e3cf",
+          "turno_id": "cmv17kgit00agjmhg4wegjszd",
+          "fecha": "2026-10-05",
+          "alumnos_registrados": 4,
+          "ya_existia": false,
+          "con_control_asistencia": true,
+          "presentes": 3,
+          "ausentes": 1
+        },
+        "error": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgbu00a2jmhg36sh6azb/clase-dictada/anulacion",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "PLAZO_CORRECCION_VENCIDO",
+          "message": "Pasó el plazo para que corrijas este registro. Pedile el cambio a mesa de entrada."
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/turnos/cmv17kgbu00a2jmhg36sh6azb/clase-dictada",
+      "status": 200,
+      "body": {
+        "data": {
+          "id": "02605712-f5f0-4650-8ede-4a39278182ca",
+          "registrada_en": "2026-09-28T12:01:00.000Z",
+          "registrada_por": "mesa.entrada@noctium.local",
+          "alumnos": [
+            {
+              "id": "cmv17kez1000ojmhgqlvt4578",
+              "nombre_completo": "Fernández, Sofía",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv17kez9000ujmhgl2f5oj1e",
+              "nombre_completo": "González, Mateo",
+              "asistencia": "PRESENTE"
+            },
+            {
+              "id": "cmv17kez7000sjmhg8haij81e",
+              "nombre_completo": "López, Valentina",
+              "asistencia": "AUSENTE"
+            },
+            {
+              "id": "cmv17kez4000qjmhg5aq18yo0",
+              "nombre_completo": "Martínez, Lucas",
+              "asistencia": "PRESENTE"
+            }
+          ],
+          "con_control_asistencia": true,
+          "totales": {
+            "presentes": 3,
+            "ausentes": 1
+          },
+          "observacion": null,
+          "acciones": {
+            "registrar_observaciones": true,
+            "corregir_asistencia": true,
+            "anular_registro": true,
+            "plazo_correccion_vencido": false
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgbu00a2jmhg36sh6azb/clase-dictada/anulacion",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para registrar o consultar esta clase"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgbu00a2jmhg36sh6azb/clase-dictada/anulacion",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgbu00a2jmhg36sh6azb/clase-dictada/anulacion",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/turnos/cmv17kgbu00a2jmhg36sh6azb/clase-dictada/anulacion",
+      "status": 401,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SESION_INVALIDA",
+          "message": "Tu sesión expiró. Iniciá sesión nuevamente"
+        }
+      }
+    }
+  ],
+  "errors": []
+}

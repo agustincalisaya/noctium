@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { fetchAutenticado } from "@/lib/fetch-autenticado";
+import { toast } from "sonner";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { fechaCorta } from "@/lib/turno-detalle";
+import { fetchOLanzar, fetchAutenticado } from "@/lib/fetch-autenticado";
 import { iniciales } from "@/lib/turno-detalle";
 import type { TurnoDetalle } from "@/types/turno.types";
 import { texto } from "@/lib/textos";
@@ -25,6 +28,9 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
   const [registro, setRegistro] = useState<RegistroClaseDictada | null>(null);
   const [errorAsistencia, setErrorAsistencia] = useState("");
   const [cargandoAsistencia, setCargandoAsistencia] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const [confirmarCorreccion, setConfirmarCorreccion] = useState(false);
   const registroId = turno.clase_dictada?.id;
   const cargarAsistencia = useCallback(async () => {
     if (!registroId) return;
@@ -40,8 +46,9 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
   useEffect(() => { const timer = window.setTimeout(() => void cargarAsistencia(), 0); return () => window.clearTimeout(timer); }, [cargarAsistencia]);
   // Se prepara la selección desde el inicio; el servidor y el botón exigen el fin.
   const iniciada = new Date(`${turno.fecha}T${turno.hora_inicio}:00-03:00`).getTime() <= momento;
-  const editable = puedeRegistrarClase && !registroId && iniciada && (turno.estado === "DISPONIBLE" || turno.estado === "COMPLETO");
-  const asistencias = turno.alumnos.map(({ id }) => ({ alumno_id: id, estado: seleccion[id] ?? "PRESENTE" as EstadoAsistencia }));
+  const editable = corrigiendo || puedeRegistrarClase && !registroId && iniciada && (turno.estado === "DISPONIBLE" || turno.estado === "COMPLETO");
+  const alumnosLista = corrigiendo && registro && registro.id === registroId ? registro.alumnos.map(a => ({ id: a.id, nombre: a.nombre_completo, puede_ver_historial: false })) : turno.alumnos;
+  const asistencias = alumnosLista.map(({ id }) => ({ alumno_id: id, estado: seleccion[id] ?? "PRESENTE" as EstadoAsistencia }));
   const todosAusentes = asistencias.length > 0 && asistencias.every(({ estado }) => estado === "AUSENTE");
   const asistenciaGuardada = new Map(registro?.alumnos.map(({ id, asistencia }) => [id, asistencia]));
   const registroVisible = registro && registro.id === registroId ? registro : null;
@@ -84,7 +91,8 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
         <BuscadorAlumnos id="agregar-alumno" excluir={turno.alumnos.map(({ id }) => id)} deshabilitado={cupoAlcanzado || procesando !== null} avisoDeshabilitado={cupoAlcanzado ? "El turno alcanzó su cupo máximo" : undefined} onSeleccionar={(alumno) => void agregar(alumno.id)} />
       </div>}
     </div>
-    {turno.alumnos.length === 0 ? <p className="text-sm text-muted-foreground">El turno no tiene alumnos inscriptos.</p> : <ul className="divide-y divide-border border-t border-border" aria-label="Alumnos inscriptos">{turno.alumnos.map((alumno) => {
+    <div className="flex justify-between text-xs uppercase tracking-wide text-muted-foreground"><span>{texto("ui.historial.correccionClase.alumno")}</span><span>{texto("ui.historial.correccionClase.asistencia")}</span></div>
+    {alumnosLista.length === 0 ? <p className="text-sm text-muted-foreground">El turno no tiene alumnos inscriptos.</p> : <ul className="divide-y divide-border border-t border-border" aria-label="Alumnos inscriptos">{alumnosLista.map((alumno) => {
       const conflicto = errorAlumno?.id === alumno.id ? errorAlumno.mensaje : "";
       return <li key={alumno.id} className={`space-y-1 py-2.5 ${conflicto ? "bg-destructive-soft" : ""}`}>
         <div className="flex items-center justify-between gap-3">
@@ -96,11 +104,11 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
             {(["PRESENTE", "AUSENTE"] as const).map((estado) => <button key={estado} type="button" disabled={guardandoAsistencia}
               aria-pressed={(seleccion[alumno.id] ?? "PRESENTE") === estado}
               onClick={() => setSeleccion((actual) => ({ ...actual, [alumno.id]: estado }))}
-              className={`disabled:cursor-wait disabled:opacity-60 min-h-9 rounded-md border px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${(seleccion[alumno.id] ?? "PRESENTE") === estado ? estado === "PRESENTE" ? "border-success-foreground/30 bg-success text-success-foreground" : "border-destructive-soft-foreground/30 bg-destructive-soft text-destructive-soft-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}>
+              className={`disabled:cursor-wait disabled:opacity-60 min-h-9 rounded-md border px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${(seleccion[alumno.id] ?? "PRESENTE") === estado ? estado === "PRESENTE" ? "border-attendance-selected bg-attendance-selected text-card" : "border-destructive bg-destructive text-card" : "border-border text-muted-foreground hover:bg-muted"}`}>
               {texto(estado === "PRESENTE" ? "ui.historial.asistencia.presente" : "ui.historial.asistencia.ausente")}
             </button>)}
           </div>}
-          {registroId && registro?.id === registroId && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium ${asistenciaGuardada.get(alumno.id) === "PRESENTE" ? "bg-success text-success-foreground" : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>
+          {!corrigiendo && registroId && registro?.id === registroId && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium ${asistenciaGuardada.get(alumno.id) === "PRESENTE" ? "bg-success text-success-foreground" : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>
             {asistenciaGuardada.get(alumno.id) === "PRESENTE" ? texto("ui.historial.asistencia.presente") : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? texto("ui.historial.asistencia.ausente") : "Sin control de asistencia"}
           </span>}
           {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
@@ -111,11 +119,26 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
         {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
       </li>;
     })}</ul>}
-    {editable && asistencias.length > 0 && <Button type="button" variant="outline" size="sm" disabled={guardandoAsistencia} onClick={() => setSeleccion(Object.fromEntries(turno.alumnos.map(({ id }) => [id, todosAusentes ? "PRESENTE" : "AUSENTE"])))}>{texto(todosAusentes ? "ui.historial.asistencia.marcarPresentes" : "ui.historial.asistencia.marcarAusentes")}</Button>}
+    {!corrigiendo && registroVisible?.acciones?.corregir_asistencia && <Button variant="outline" onClick={() => {
+      setSeleccion(Object.fromEntries(registroVisible.alumnos.map(a => [a.id, a.asistencia ?? "PRESENTE"])));
+      setMotivo(""); setCorrigiendo(true);
+    }}>{texto("ui.historial.correccionClase.corregir")}</Button>}
+    {editable && asistencias.length > 0 && <Button type="button" variant="outline" size="sm" disabled={guardandoAsistencia} onClick={() => setSeleccion(Object.fromEntries(alumnosLista.map(({ id }) => [id, todosAusentes ? "PRESENTE" : "AUSENTE"])))}>{texto(todosAusentes ? "ui.historial.asistencia.marcarPresentes" : "ui.historial.asistencia.marcarAusentes")}</Button>}
+    {corrigiendo && <div className="space-y-2 border-t border-border pt-3">
+      <label htmlFor="motivo-correccion-clase" className="block text-sm">{texto("ui.historial.correccionClase.motivoCorreccion")}</label>
+      <textarea id="motivo-correccion-clase" maxLength={300} disabled={guardandoAsistencia} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder={texto("ui.historial.correccionClase.placeholderCorreccion")} className="min-h-20 w-full rounded-md border border-input bg-card p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      <p className="text-right text-xs tabular-nums text-muted-foreground">{motivo.length} / 300</p>
+      <div className="flex justify-end gap-2"><Button variant="outline" disabled={guardandoAsistencia} onClick={() => setCorrigiendo(false)}>{texto("ui.historial.correccionClase.cancelar")}</Button><Button disabled={guardandoAsistencia || !motivo.trim()} onClick={() => setConfirmarCorreccion(true)}>{texto("ui.historial.correccionClase.guardar")}</Button></div>
+      <ConfirmarAccionDialog abierto={confirmarCorreccion} onCerrar={() => setConfirmarCorreccion(false)} titulo={texto("ui.historial.correccionClase.tituloCorregir", { materia: turno.materia, fecha: fechaCorta(turno.fecha) })} textoConfirmar={texto("ui.historial.correccionClase.guardar")} onConfirmar={async () => {
+        setGuardandoAsistencia(true);
+        try { await fetchOLanzar(`/api/turnos/${encodeURIComponent(turno.id)}/clase-dictada/correccion-asistencia`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asistencias, motivo: motivo.trim() }) }); }
+        finally { setGuardandoAsistencia(false); }
+      }} onExito={() => { setCorrigiendo(false); toast.success(texto("ui.historial.correccionClase.guardada")); void cargarAsistencia(); void onCambio(); }} />
+    </div>}
     {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.cargando")}</p>}
     {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>Reintentar</Button></div>}
-    {registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
-    {puedeRegistrarIndicacion && registroVisible && <div className="space-y-3 rounded-md border border-border bg-background p-3">
+    {!corrigiendo && registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
+    {!corrigiendo && puedeRegistrarIndicacion && registroVisible && <div className="space-y-3 rounded-md border border-border bg-background p-3">
       <h3 className="text-sm font-semibold">Indicaciones académicas de esta clase</h3>
       <ul className="divide-y divide-border" aria-label="Alumnos de la clase dictada para registrar indicaciones">
         {registroVisible.alumnos.map((alumnoRegistro) => <li key={alumnoRegistro.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
@@ -138,7 +161,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
         </li>)}
       </ul>
     </div>}
-    {(puedeRegistrarClase || registroId) && <TurnoClaseCard
+    {!corrigiendo && (puedeRegistrarClase || registroId) && <TurnoClaseCard
       turno={turno}
       puedeRegistrarClase={puedeRegistrarClase}
       asistencias={asistencias}

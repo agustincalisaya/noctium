@@ -114,6 +114,22 @@
 
 ---
 
+
+## Sincronización HU-E-11 — 09/10/2026
+
+Relevamiento y decisiones aprobados por el usuario antes del código. §2.11 se implementa con las dos rutas POST previstas y el servicio de clase dictada. Correcciones append-only con una fila anterior/nuevo por alumno del snapshot. La anulación aplica la excepción T3 de PR0: marca única atómica `anuladaEl`/`anuladaPorUsuarioId`/`motivoAnulacion` en la clase; no modifica contenido ni asistencias originales. Se conserva la discrepancia del criterio 5 del backlog como excepción contractual aprobada, sin tabla nueva.
+
+| Sección | Estado previo | Acción |
+|---|---|---|
+| 2.11 | Contrato pendiente | Implementar corrección y anulación, schemas estrictos, errores, auditoría y re-registro |
+| 2.6.3 | GET con observaciones | Sumar acciones corregir_asistencia/anular_registro/plazo_correccion_vencido, verificadas en servidor |
+| 3.9 | Helper para instantes | La fecha de clase `@db.Date` se interpreta como calendario del centro antes de pasar al helper; E10 conserva timestamps |
+| Presentación | Figuras 74–75 | Corrección en lista existente y modal compacto con motivo; sidebar preservado por instrucción del usuario |
+
+En la UI, los alumnos de la corrección vienen del snapshot, aunque su inscripción actual haya cambiado; se precarga asistencia vigente o todos Presente si no había control. Presente seleccionado usa el token semántico `attendance-selected`; badges de resultado siguen usando fondos suaves. No se muestra el badge de pago del prototipo al Profesor: el contrato actual de detalle para ese rol no entrega pagos y E11 no amplía su acceso financiero. Las capturas usan datos reales del fixture propio, no nombres/montos ficticios.
+
+La corrección actualiza lecturas E/H sin cambios en sus algoritmos. Anular excluye clase y observación, conserva examen e indicación y oculta el vínculo de esta última al leer. La verificación real está documentada en `docs/testing/HU-E-11-evidencia.md`.
+
 ## 1. Visión General
 
 > **Revisión 2 (Sprint 3).** Los dos registros inmutables y la vista de solo lectura siguen siendo la base. Se suman: la asistencia por alumno dentro de la clase dictada (2.6), la pestaña «Clases» del alumno (2.7), las observaciones de la clase (2.8), las indicaciones académicas (2.9), la corrección y anulación de exámenes y de clases dictadas (2.10 y 2.11) y «Mi historial» del alumno (2.12). «No hay pantalla nueva de este módulo» queda superado por el mapa del Sprint 3 (P-12, P-26, P-27, M-22 y M-23); E-01 y E-06 siguen siendo acciones. Todo es aditivo: ningún contrato de Sprint 2 cambia, salvo el alcance del Profesor que manda la convención 8 (g) del backlog (T1).

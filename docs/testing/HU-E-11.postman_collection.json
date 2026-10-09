@@ -1,0 +1,453 @@
+{
+  "info": {
+    "name": "Noctium HU-E-11",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Usar exclusivamente una base descartable con el seed. Sesiones por cookies del login; no almacenar tokens en la colección. Completar los cuatro IDs desde GET y ejecutar errores antes de anular. Las validaciones de plazo y clase ajena requieren cambiar sesión. Ejecución HTTP real documentada con Playwright; no confundir colección preparada con Postman ejecutado."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3011"
+    },
+    {
+      "key": "turnoId",
+      "value": ""
+    },
+    {
+      "key": "turnoAntiguo",
+      "value": ""
+    },
+    {
+      "key": "alumno1",
+      "value": ""
+    },
+    {
+      "key": "alumno2",
+      "value": ""
+    },
+    {
+      "key": "alumno3",
+      "value": ""
+    },
+    {
+      "key": "alumno4",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "GET registro y acciones, mesa/profesor propietario",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Corregir conjunto completo (editar antes de ejecutar)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/correccion-asistencia",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"revisión E11 API\", \"asistencias\": [{\"alumno_id\": \"{{alumno1}}\", \"estado\": \"AUSENTE\"}, {\"alumno_id\": \"{{alumno2}}\", \"estado\": \"PRESENTE\"}, {\"alumno_id\": \"{{alumno3}}\", \"estado\": \"AUSENTE\"}, {\"alumno_id\": \"{{alumno4}}\", \"estado\": \"PRESENTE\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Motivo ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Motivo 301 caracteres",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conjunto incompleto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/correccion-asistencia",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"Error\", \"asistencias\": []}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin cambios (repetir corrección válida sin variar selección)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/correccion-asistencia",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"Repetida\", \"asistencias\": [{\"alumno_id\": \"{{alumno1}}\", \"estado\": \"AUSENTE\"}, {\"alumno_id\": \"{{alumno2}}\", \"estado\": \"PRESENTE\"}, {\"alumno_id\": \"{{alumno3}}\", \"estado\": \"AUSENTE\"}, {\"alumno_id\": \"{{alumno4}}\", \"estado\": \"PRESENTE\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor fuera de siete días (sesión profesor)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoAntiguo}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"Tarde\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clase ajena (sesión profesor distinto)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"Ajena\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente o alumno (cambiar sesión)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"Sin permiso\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión (vaciar cookies)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"Sin sesión\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Anulación (usar clase descartable)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada/anulacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"No se dio: revisión E11 API\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "GET tras anulación",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Re-registro posterior como nuevo hecho",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turnoId}}/clase-dictada",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"asistencias\": [{\"alumno_id\": \"{{alumno1}}\", \"estado\": \"PRESENTE\"}, {\"alumno_id\": \"{{alumno2}}\", \"estado\": \"PRESENTE\"}, {\"alumno_id\": \"{{alumno3}}\", \"estado\": \"AUSENTE\"}, {\"alumno_id\": \"{{alumno4}}\", \"estado\": \"PRESENTE\"}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Sobre data/error\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

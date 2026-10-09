@@ -39,7 +39,7 @@ export type RegistroClaseDictada = {
   con_control_asistencia: boolean;
   totales: { presentes: number; ausentes: number } | null;
   observacion: (ObservacionHistorial & { id: string; clase_dictada_id: string }) | null;
-  acciones: { registrar_observaciones: boolean };
+  acciones: { registrar_observaciones: boolean; corregir_asistencia: boolean; anular_registro: boolean; plazo_correccion_vencido: boolean };
 };
 
 export type HistorialAcademicoData = {
