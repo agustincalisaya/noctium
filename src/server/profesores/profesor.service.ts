@@ -11,8 +11,15 @@ import {
   validarIntervaloHorario,
 } from "@/lib/horario-atencion";
 import { ServiceError } from "@/server/shared/service-error";
-import { esErrorDeDominio } from "@/server/shared/error-dominio";
-import { verificarEmailNoAsociadoAOtraCuenta as verificarEmailCuenta } from "@/server/usuarios/cuenta.service";
+import { texto } from "@/lib/textos";
+import { transaccion, type Tx } from "@/server/shared/transaccion";
+import {
+  cambiarEmailCuenta,
+  crearCuentaParaFicha,
+  obtenerResumenCuenta,
+  verificarEmailNoAsociadoAOtraCuenta as verificarEmailCuenta,
+  type ResumenCuenta,
+} from "@/server/usuarios/cuenta.service";
 import { MENSAJE_CONTACTO_REQUERIDO } from "@/server/shared/contacto.schema";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { bloquearMateriasParaAsociar } from "@/server/materias/materia.service";
@@ -88,10 +95,19 @@ const ORDEN_MATERIAS_DEL_PROFESOR = {
  * simultánea; el catch de `P2002` la cierra del todo — mismo patrón de doble
  * defensa documentado para `verificarDniDisponible()` en la task, y el mismo
  * que usa `spec_modulo_B.md` §3.4 para Alumno.
+ *
+ * Alta con cuenta de acceso (HU-A-06, spec_modulo_D.md §2.9.1 y §3.12): con
+ * `email`, en la misma `transaccion` A crea la cuenta (`crearCuentaParaFicha`:
+ * el DNI como contraseña inicial, solo su hash, la marca «Debe cambiar la
+ * contraseña» y el evento CUENTA_CREADA) y la ficha se inserta con su
+ * `usuarioId`; si falla una, no queda ninguna. El rol lo fija este servicio
+ * (`PROFESOR`). Sin `email`, el alta es la de Sprint 1 y 2 («Sin cuenta»).
+ * `ip` va solo al evento de seguridad.
  */
 export async function crearProfesor(
   input: AltaProfesorInput,
   usuarioRegistranteId: string,
+  ip?: string | null,
 ): Promise<{
   id: string;
   nombre: string;
@@ -100,9 +116,10 @@ export async function crearProfesor(
   activo: boolean;
   telefono: string | null;
   email: string | null;
+  cuenta: CuentaCreadaEnAlta;
 }> {
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await transaccion(async (tx) => {
       // Verificación de unicidad de DNI contra TODOS los profesores, activos
       // e inactivos (criterio de aceptación 3 de HU-D-01) — sin filtro por
       // activoProfesor, a diferencia de una consulta que solo mirara altas.
@@ -114,11 +131,12 @@ export async function crearProfesor(
         throw new ServiceError("DNI_DUPLICADO", "Ya existe un profesor registrado con ese DNI");
       }
 
-      // El profesor recién creado nunca tiene cuenta (HU-D-01 c5): cualquier
-      // cuenta con ese email bloquea el alta.
-      if (input.email) {
-        await verificarEmailNoAsociadoAOtraCuenta(tx, input.email, null);
-      }
+      // HU-A-06 c1 y c2: con email, la cuenta se crea acá. A verifica que el
+      // email no sea de ninguna cuenta (sin revelar de quién) y la condición
+      // atómica del INSERT resuelve dos altas simultáneas.
+      const cuentaId = input.email
+        ? (await crearCuentaParaFicha(tx, { email: input.email, dni: input.dni, rol: "PROFESOR", ip })).usuario_id
+        : null;
 
       const profesor = await tx.profesor.create({
         data: {
@@ -133,10 +151,11 @@ export async function crearProfesor(
           // alta no es una modificación: modificadoPorUsuarioId queda null.
           telefonoProfesor: input.telefono ?? null,
           emailProfesor: input.email ?? null,
-          // Criterio de aceptación 4 (ficha activa) y 5 (sin cuenta de
-          // acceso — las cuentas se administran de manera independiente).
+          // Criterio de aceptación 4 (ficha activa). Desde HU-A-06, con email
+          // la ficha queda vinculada a la cuenta recién creada; sin email,
+          // sin cuenta como en Sprint 1 y 2.
           activoProfesor: true,
-          usuarioId: null,
+          usuarioId: cuentaId,
           creadoPorUsuarioId: usuarioRegistranteId,
         },
       });
@@ -149,6 +168,8 @@ export async function crearProfesor(
         activo: profesor.activoProfesor,
         telefono: profesor.telefonoProfesor,
         email: profesor.emailProfesor,
+        // Campo extra de la respuesta 201 (spec_modulo_D.md §2.9.1): nunca la contraseña inicial.
+        cuenta: cuentaId ? { creada: true, debe_cambiar_password: true } : { creada: false },
       };
     });
   } catch (error) {
@@ -169,30 +190,37 @@ export async function crearProfesor(
   }
 }
 
+/** `cuenta` de la respuesta del alta (spec_modulo_D.md §2.9.1): sin `email`, `{ creada: false }`. */
+export type CuentaCreadaEnAlta = { creada: true; debe_cambiar_password: true } | { creada: false };
+
 /**
- * HU-D-02 criterio 4: el email de contacto no puede pertenecer a OTRA
- * cuenta. La cuenta propia del profesor (si tiene) queda excluida; sin
- * cuenta vinculada, cualquier coincidencia bloquea. Comparación
- * case-insensitive porque emailUsuario no garantiza estar guardado en
- * minúsculas. La usan el alta (`crearProfesor`), la edición del contacto
- * (`actualizarContactoProfesor`) y la modificación de la ficha
- * (`modificarProfesor`, HU-D-06), dentro de sus transacciones.
+ * Email de la ficha (HU-D-02 criterio 4 y, desde HU-A-06, criterio 6;
+ * spec_modulo_D.md §2.9.2 y §3.13), dentro de la transacción de la ficha. Se
+ * llama cuando el pedido trae el email (`nuevo` = `null` es quitarlo). La
+ * verificación es la del módulo A (Regla N.° 3, sin distinguir mayúsculas) y
+ * su rechazo, EMAIL_YA_ASOCIADO, lleva el texto de A.
+ * - Con cuenta: el email de la ficha es el de la cuenta, así que A lo cambia
+ *   también en la cuenta, con la misma unicidad y sin revocar sesiones; un
+ *   email igual al actual no se revalida (spec_modulo_D.md §2.9.2 punto 2). No
+ *   puede quedar vacío (P-D13): CONTACTO_REQUERIDO en el campo `email`. Vale
+ *   también para una ficha inactiva (P-D10).
+ * - Sin cuenta: como en Sprint 1 y 2, no puede ser el de ninguna cuenta; nunca
+ *   se crea una cuenta retroactiva (criterio 8).
  */
-async function verificarEmailNoAsociadoAOtraCuenta(
-  tx: Prisma.TransactionClient,
-  email: string,
-  usuarioIdPropio: string | null,
+async function sincronizarEmail(
+  tx: Tx,
+  ficha: { usuarioId: string | null; emailProfesor: string | null },
+  nuevo: string | null,
 ): Promise<void> {
-  // La verificación es la del módulo A (PR-0.md §2.13); la respuesta de esta
-  // ficha conserva su texto de hoy (1.1).
-  try {
-    await verificarEmailCuenta(email, { excluirUsuarioId: usuarioIdPropio }, tx);
-  } catch (error) {
-    if (esErrorDeDominio(error, "errores.cuenta.emailYaAsociado")) {
-      throw new ServiceError("EMAIL_YA_ASOCIADO", "El email pertenece a otra cuenta");
+  if (ficha.usuarioId) {
+    if (nuevo === null) {
+      throw new ServiceError("CONTACTO_REQUERIDO", texto("errores.cuenta.emailRequerido"), { campo: "email" });
     }
-    throw error;
+    if (nuevo === ficha.emailProfesor) return;
+    await cambiarEmailCuenta(tx, { usuarioId: ficha.usuarioId, email: nuevo });
+    return;
   }
+  if (nuevo !== null) await verificarEmailCuenta(nuevo, {}, tx);
 }
 
 /**
@@ -248,7 +276,9 @@ export async function obtenerFichaProfesor(profesorId: string): Promise<{
  *
  * Todo corre en una única `$transaction`: la verificación de email contra
  * cuentas existentes y el `UPDATE` se confirman juntos, sin guardado parcial
- * (criterios 5 y 6). Nunca modifica `Usuario`: las cuentas se administran
+ * (criterios 5 y 6). Hasta HU-A-06 nunca modificaba `Usuario`; ahora, si la
+ * ficha tiene cuenta, el email nuevo también cambia el de la cuenta, por A
+ * (`sincronizarEmail`). El resto de la cuenta se administra
  * de manera independiente (HU-D-01 c5).
  */
 export async function actualizarContactoProfesor(
@@ -256,17 +286,20 @@ export async function actualizarContactoProfesor(
   input: ContactoProfesorInput,
   usuarioModificadorId: string,
 ): Promise<{ id: string; telefono: string | null; email: string | null }> {
-  return prisma.$transaction(async (tx) => {
+  return transaccion(async (tx) => {
     const profesor = await tx.profesor.findUnique({
       where: { idProfesor: profesorId },
-      select: { idProfesor: true, usuarioId: true },
+      select: { idProfesor: true, usuarioId: true, emailProfesor: true },
     });
     if (!profesor) {
       throw new ServiceError("PROFESOR_NO_ENCONTRADO", "El profesor no existe");
     }
 
-    if (input.email) {
-      await verificarEmailNoAsociadoAOtraCuenta(tx, input.email, profesor.usuarioId);
+    // Esta pantalla guarda los dos campos siempre (vacío = quitarlo). Con
+    // cuenta, el email también es el de la cuenta (HU-A-06 c6); sin cuenta,
+    // se verifica como en Sprint 1 y 2.
+    if (profesor.usuarioId || input.email) {
+      await sincronizarEmail(tx, profesor, input.email ?? null);
     }
 
     const actualizado = await tx.profesor.update({
@@ -316,7 +349,8 @@ export async function actualizarContactoProfesor(
  *    una edición concurrente (otra pestaña, o un cambio de contacto por la
  *    pantalla de HU-D-02, que también incrementa `version`).
  *
- * Nunca escribe `Usuario` (el email de contacto y el de la cuenta son
+ * HU-A-06 reemplaza el paso 7 de §2.6 solo para fichas con cuenta: su email
+ * es el de la cuenta (`sincronizarEmail`). Para el resto, nunca escribe `Usuario` (el email de contacto y el de la cuenta son
  * independientes, §2.6 paso 7), materias, horarios ni el estado (criterio 5).
  */
 export async function modificarProfesor(
@@ -325,7 +359,7 @@ export async function modificarProfesor(
   usuarioModificadorId: string,
 ): Promise<{ id: string; campos_modificados: string[]; version: number }> {
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await transaccion(async (tx) => {
       const actual = await tx.profesor.findUnique({
         where: { idProfesor: profesorId },
         select: {
@@ -402,8 +436,12 @@ export async function modificarProfesor(
         }
       }
 
-      if (typeof data.emailProfesor === "string") {
-        await verificarEmailNoAsociadoAOtraCuenta(tx, data.emailProfesor, actual.usuarioId);
+      // HU-A-06 c6 (spec_modulo_D.md §2.9.2): con cuenta, un email nuevo
+      // también cambia el de la cuenta en esta misma transacción y no se puede
+      // quitar; si la versión no coincide más abajo, se deshacen los dos. La
+      // regla «al menos un medio de contacto» de arriba se evalúa antes.
+      if ("emailProfesor" in data && (actual.usuarioId || data.emailProfesor !== null)) {
+        await sincronizarEmail(tx, actual, data.emailProfesor as string | null);
       }
 
       if (data.nombreProfesor !== undefined || data.apellidoProfesor !== undefined) {
@@ -1087,4 +1125,16 @@ export async function obtenerDetalleProfesor(profesorId: string): Promise<Detall
     horarios,
     version: profesor.version,
   };
+}
+
+/**
+ * Sección «Cuenta de acceso» de la ficha (HU-A-06 criterio 5,
+ * spec_modulo_D.md §2.12): la lectura de A con el `usuarioId` de la ficha;
+ * «Sin cuenta» si no tiene (anterior a HU-A-06 o creada sin email). Nunca
+ * trae el hash. Aparte de `obtenerDetalleProfesor()` para que el detalle de
+ * Sprint 1 y 2 conserve su forma exacta.
+ */
+export async function obtenerCuentaDeProfesor(profesorId: string): Promise<ResumenCuenta> {
+  const profesor = await prisma.profesor.findUnique({ where: { idProfesor: profesorId }, select: { usuarioId: true } });
+  return obtenerResumenCuenta(profesor?.usuarioId ?? null);
 }

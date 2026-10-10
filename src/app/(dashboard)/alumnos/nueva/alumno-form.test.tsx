@@ -6,6 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // Alta de alumno con contacto opcional: crearAlumno() y, si se cargó
 // contacto, actualizarContactoAlumno() encadenada con el id creado. Las
 // Server Actions están mockeadas.
+//
+// HU-A-06 (criterios 1, 2 y 5): el email pasa a ser obligatorio en la
+// pantalla y el alta es una sola llamada atómica (ficha, cuenta y contacto),
+// confirmada con el diálogo de HU-C-25 (simulado abajo). Los casos que
+// fijaban el alta en dos pasos se ajustan, cada uno con su motivo.
 
 const { crearAlumno, actualizarContactoAlumno, setDirty, push } = vi.hoisted(() => ({
   crearAlumno: vi.fn(),
@@ -27,6 +32,28 @@ vi.mock("@/components/ui/input", async () => {
   const React = await import("react");
   return { Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => React.createElement("input", props) };
 });
+// Diálogo de HU-C-25 simulado: conserva el contrato de onConfirmar (un rechazo
+// se muestra adentro; si resuelve, se cierra).
+const errorDialogo = vi.hoisted(() => ({ actual: "" }));
+vi.mock("@/components/shared/confirmar-accion-dialog", async () => {
+  const React = await import("react");
+  return {
+    ConfirmarAccionDialog: (p: { abierto: boolean; titulo: string; detalle?: string; textoConfirmar: string; onConfirmar: () => Promise<void>; onCerrar: () => void }) =>
+      p.abierto
+        ? React.createElement(
+            "div",
+            { "data-dialogo": "" },
+            React.createElement("p", null, p.titulo),
+            React.createElement("p", null, p.detalle),
+            React.createElement(
+              "button",
+              { type: "button", "data-confirmar": "", onClick: () => p.onConfirmar().then(p.onCerrar, (e: Error) => { errorDialogo.actual = e.message; }) },
+              p.textoConfirmar,
+            ),
+          )
+        : null,
+  };
+});
 vi.mock("@/components/ui/label", async () => {
   const React = await import("react");
   return { Label: (props: React.LabelHTMLAttributes<HTMLLabelElement>) => React.createElement("label", props) };
@@ -44,6 +71,7 @@ let root: Root;
 beforeEach(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.clearAllMocks();
+  errorDialogo.actual = "";
   contenedor = document.createElement("div");
   document.body.appendChild(contenedor);
   root = createRoot(contenedor);
@@ -71,10 +99,22 @@ async function enviar() {
   });
 }
 
+/** HU-C-25: envía y confirma en el diálogo. */
+async function enviarYConfirmar() {
+  await enviar();
+  await act(async () => {
+    contenedor.querySelector<HTMLButtonElement>("[data-confirmar]")!.click();
+  });
+}
+
 describe("Nuevo alumno — sección de contacto", () => {
-  it("muestra Teléfono y Email opcionales con los mismos placeholders que la pantalla de contacto", () => {
-    expect(contenedor.querySelector("legend")?.textContent).toBe("Datos de contacto");
-    expect(contenedor.textContent).toContain("Opcional. Podés cargarlos ahora o más tarde desde la ficha.");
+  // HU-A-06 c1: el email deja de ser opcional («con él se crea la cuenta de
+  // acceso»); el teléfono sigue opcional. Los placeholders no cambian.
+  it("muestra Email obligatorio con su ayuda, Teléfono opcional y los mismos placeholders que la pantalla de contacto", () => {
+    expect(contenedor.querySelector("legend")?.textContent).toBe("Datos de contacto y cuenta de acceso");
+    expect(contenedor.textContent).toContain("Ingresá el email: con él se crea la cuenta de acceso");
+    expect(campo("email").required).toBe(true);
+    expect(contenedor.textContent).toContain("Opcional.");
     expect(campo("telefono").placeholder).toBe("Ej.: (0387) 15-412-3456");
     expect(campo("email").placeholder).toBe("Ej.: nombre@dominio.com");
   });
@@ -101,35 +141,47 @@ describe("Nuevo alumno — sección de contacto", () => {
 });
 
 describe("Nuevo alumno — alta y contacto encadenado", () => {
-  it("sin contacto: solo crea el alumno y redirige al listado", async () => {
-    crearAlumno.mockResolvedValue(CREADO);
+  // HU-A-06 c1: sin email la pantalla ya no registra (antes: alta solo de
+  // identidad). El servidor lo sigue admitiendo (spec_modulo_B.md P-B1).
+  it("sin email: no abre la confirmación ni crea el alumno; pide el email", async () => {
     completar(IDENTIDAD);
     await enviar();
 
-    expect(crearAlumno).toHaveBeenCalledWith({ ...IDENTIDAD, genero: undefined });
+    expect(contenedor.querySelector("[data-dialogo]")).toBeNull();
+    expect(crearAlumno).not.toHaveBeenCalled();
     expect(actualizarContactoAlumno).not.toHaveBeenCalled();
-    expect(setDirty).toHaveBeenLastCalledWith(false);
-    expect(push).toHaveBeenCalledWith("/alumnos?creada=1");
+    expect(campo("email").getAttribute("aria-invalid")).toBe("true");
+    expect(contenedor.textContent).toContain("Ingresá el email del alumno");
+    expect(document.activeElement).toBe(campo("email"));
   });
 
-  it("con contacto: crea el alumno y después guarda el contacto con el id creado", async () => {
-    crearAlumno.mockResolvedValue(CREADO);
-    actualizarContactoAlumno.mockResolvedValue({ data: { id: ALUMNO, telefono: "0387154123456", email: "ana@mail.com" }, error: null });
+  // HU-A-06 c2 y c5: ficha, cuenta y contacto en una sola llamada atómica
+  // (antes: alta y después contacto con el id creado), con la confirmación de
+  // HU-C-25 y el banner con el mensaje de la cuenta.
+  it("con email: confirma y crea ficha, cuenta y contacto en una sola llamada", async () => {
+    crearAlumno.mockResolvedValue({ ...CREADO, data: { ...CREADO.data, cuenta: { creada: true, debe_cambiar_password: true } } });
     completar({ ...IDENTIDAD, email: "Ana@Mail.com" });
     await enviar();
 
-    expect(crearAlumno.mock.invocationCallOrder[0]).toBeLessThan(actualizarContactoAlumno.mock.invocationCallOrder[0]);
-    const [alumnoId, formData] = actualizarContactoAlumno.mock.calls[0]! as [string, FormData];
-    expect(alumnoId).toBe(ALUMNO);
-    expect(formData.get("email")).toBe("Ana@Mail.com");
-    expect(formData.get("telefono")).toBe("");
-    expect(push).toHaveBeenCalledWith("/alumnos?creada=1");
+    expect(contenedor.textContent).toContain("¿Estás seguro de que querés registrar este alumno?");
+    expect(contenedor.textContent).toContain("ingresa con ana@mail.com y su DNI como contraseña");
+    expect(crearAlumno).not.toHaveBeenCalled();
+
+    await act(async () => {
+      contenedor.querySelector<HTMLButtonElement>("[data-confirmar]")!.click();
+    });
+    expect(crearAlumno).toHaveBeenCalledExactlyOnceWith({ ...IDENTIDAD, genero: undefined, email: "Ana@Mail.com", telefono: "" });
+    expect(actualizarContactoAlumno).not.toHaveBeenCalled();
+    expect(setDirty).toHaveBeenLastCalledWith(false);
+    expect(push).toHaveBeenCalledWith("/alumnos?creada=1&cuenta=1");
   });
 
+  // HU-A-06 c1: el email es obligatorio, así que el caso lo completa y
+  // confirma; el rechazo por DNI sigue igual, junto al campo y sin navegar.
   it("si el alta falla (DNI duplicado) no intenta guardar el contacto ni redirige", async () => {
     crearAlumno.mockResolvedValue({ data: null, error: { code: "DNI_DUPLICADO", message: "Ya existe un alumno registrado con ese DNI" } });
-    completar({ ...IDENTIDAD, telefono: "(0387) 15-412-3456" });
-    await enviar();
+    completar({ ...IDENTIDAD, telefono: "(0387) 15-412-3456", email: "ana@mail.com" });
+    await enviarYConfirmar();
 
     expect(actualizarContactoAlumno).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
@@ -137,22 +189,30 @@ describe("Nuevo alumno — alta y contacto encadenado", () => {
     expect(document.activeElement).toBe(campo("dni"));
   });
 
-  it("si el contacto falla por email de otra cuenta, no revierte el alta: redirige con aviso y motivo", async () => {
-    crearAlumno.mockResolvedValue(CREADO);
-    actualizarContactoAlumno.mockResolvedValue({ data: null, error: { code: "EMAIL_YA_ASOCIADO", message: "Ese email ya está asociado a otra cuenta" } });
+  // HU-A-06 c1 y c2: si la cuenta no se puede crear, tampoco la ficha (antes:
+  // el alta quedaba y el listado avisaba del contacto). El aviso va junto al
+  // campo Email, sin revelar de quién es la cuenta.
+  it("email de otra cuenta: no se registra nada; el aviso queda junto al campo Email", async () => {
+    crearAlumno.mockResolvedValue({ data: null, error: { code: "EMAIL_YA_ASOCIADO", message: "Ese email ya está asociado a otra cuenta" } });
     completar({ ...IDENTIDAD, email: "alumno2@noctium.local" });
-    await enviar();
+    await enviarYConfirmar();
 
-    expect(setDirty).toHaveBeenLastCalledWith(false);
-    expect(push).toHaveBeenCalledWith(`/alumnos?creada=1&sin_contacto=${ALUMNO}&motivo=email_ya_asociado`);
+    expect(push).not.toHaveBeenCalled();
+    expect(actualizarContactoAlumno).not.toHaveBeenCalled();
+    expect(campo("email").getAttribute("aria-invalid")).toBe("true");
+    expect(contenedor.textContent).toContain("Ese email ya está asociado a otra cuenta");
+    expect(document.activeElement).toBe(campo("email"));
   });
 
-  it("si el contacto falla por comunicación, redirige con aviso genérico", async () => {
-    crearAlumno.mockResolvedValue(CREADO);
-    actualizarContactoAlumno.mockRejectedValue(new Error("fetch failed"));
-    completar({ ...IDENTIDAD, telefono: "(0387) 15-412-3456" });
-    await enviar();
+  // HU-A-06 c2: el alta es atómica, así que un fallo de comunicación no deja
+  // un alumno a medias (antes: redirigía con el aviso sin_contacto). El error
+  // se muestra en el diálogo de confirmación, sin navegar.
+  it("si el alta falla por comunicación, no redirige y lo informa en la confirmación", async () => {
+    crearAlumno.mockRejectedValue(new Error("fetch failed"));
+    completar({ ...IDENTIDAD, telefono: "(0387) 15-412-3456", email: "ana@mail.com" });
+    await enviarYConfirmar();
 
-    expect(push).toHaveBeenCalledWith(`/alumnos?creada=1&sin_contacto=${ALUMNO}`);
+    expect(push).not.toHaveBeenCalled();
+    expect(errorDialogo.actual).toBe("fetch failed");
   });
 });

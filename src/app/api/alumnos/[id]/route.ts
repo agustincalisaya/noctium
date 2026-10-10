@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
 import { construirModificarAlumnoSchema } from "@/server/alumnos/alumno.schema";
-import { modificarAlumno, obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
+import { modificarAlumno, obtenerCuentaDeAlumno, obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 
@@ -10,7 +10,10 @@ export const GET = withPermission("alumnos:leer", async (_req, ctx) => {
   const { id } = (await ctx.params) as { id: string };
 
   try {
-    const data = await obtenerDetalleAlumno(id);
+    const detalle = await obtenerDetalleAlumno(id);
+    // HU-A-06 (spec_modulo_B.md §2.12): campo extra `cuenta` (estado, email y
+    // rol; nunca el hash). Los campos de Sprint 1 y 2 no cambian.
+    const data = { ...detalle, cuenta: await obtenerCuentaDeAlumno(id) };
     return NextResponse.json({ data, error: null });
   } catch (error) {
     if (error instanceof ServiceError) {
@@ -87,8 +90,20 @@ export const PATCH = withPermission("alumnos:editar", async (req, ctx) => {
           { status: 404 },
         );
       }
+      if (error.code === "EMAIL_REQUERIDO") {
+        // HU-A-06: una ficha con cuenta no puede quedarse sin email; mismo
+        // formato que un error de validación del campo.
+        return NextResponse.json(
+          {
+            data: null,
+            error: { code: "VALIDACION", message: "Datos inválidos", detalles: { formErrors: [], fieldErrors: { email: [error.message] } } },
+          },
+          { status: 400 },
+        );
+      }
       if (
         error.code === "CONFLICTO_EDICION_CONCURRENTE" ||
+        error.code === "TRANSACCION_OCUPADA" ||
         error.code === "DNI_DUPLICADO" ||
         error.code === "EMAIL_YA_ASOCIADO" ||
         error.code === "FORMA_PAGO_NO_DISPONIBLE" ||

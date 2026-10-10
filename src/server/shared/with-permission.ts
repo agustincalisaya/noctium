@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { NextAuthRequest } from "next-auth";
 import { auth, decodificarToken } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { texto } from "@/lib/textos";
 import type { RolUsuario } from "@prisma/client";
 
 // Nombre de la cookie de sesión: next-auth decide el prefijo `__Secure-`
@@ -27,10 +28,17 @@ const MENSAJES = {
   SIN_PERMISO: "No tenés permisos para acceder a esta sección",
 } as const;
 
+/**
+ * Únicas acciones que admite una cuenta con la marca «Debe cambiar la
+ * contraseña» (spec_modulo_A.md §3.6 paso 4, P-A6). Cerrar sesión no pasa
+ * por acá: `POST /api/auth/logout` no usa `withPermission`.
+ */
+const ACCIONES_ADMITIDAS_CON_MARCA: ReadonlySet<string> = new Set(["sesion:ping", "cuenta:cambiar_password"]);
+
 export class PermisoError extends Error {
   constructor(
     public readonly status: 401 | 403,
-    public readonly code: "SESION_INVALIDA" | "SIN_PERMISO",
+    public readonly code: "SESION_INVALIDA" | "SIN_PERMISO" | "DEBE_CAMBIAR_PASSWORD",
     message: string,
   ) {
     super(message);
@@ -56,9 +64,17 @@ export async function leerTokenSesion() {
   return decodificarToken({ token: raw });
 }
 
-async function leerJti(): Promise<string | undefined> {
+/**
+ * Claims de control del token vigente que usan los pasos 2 y 3: `jti`
+ * (revocación por logout) e `iat_sesion` (revocación por cuenta). Se lee la
+ * cookie una sola vez por solicitud.
+ */
+async function leerClaimsDeControl(): Promise<{ jti?: string; iatSesion?: number }> {
   const token = await leerTokenSesion();
-  return token?.jti;
+  return {
+    jti: token?.jti,
+    iatSesion: typeof token?.iat_sesion === "number" ? token.iat_sesion : undefined,
+  };
 }
 
 /**
@@ -73,6 +89,46 @@ async function verificarNoRevocado(jti: string | undefined): Promise<void> {
   const revocado = await prisma.tokenRevocado.findUnique({ where: { jti } });
   if (revocado) {
     throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
+  }
+}
+
+/**
+ * Pasos 3 y 4 de `withPermission()` (spec_modulo_A.md §3.6 y §3.7), entre la
+ * revocación por `jti` y el permiso del rol. Una sola lectura de la cuenta por
+ * clave primaria:
+ * - inexistente, inactiva, o sesión iniciada antes de `sesionesValidasDesde`
+ *   → 401 SESION_INVALIDA, el mismo código y texto que un token vencido. Con
+ *   `sesionesValidasDesde` fijado, un token sin `iat_sesion` también se
+ *   rechaza: no hay forma de saber si es anterior. La comparación es estricta
+ *   y en segundos (`revocarSesiones` guarda el instante truncado), así la
+ *   sesión reemitida en el mismo segundo del cambio sigue viva;
+ * - con la marca «Debe cambiar la contraseña» (valor de la base, nunca del
+ *   token) y una acción distinta de las admitidas → 403 DEBE_CAMBIAR_PASSWORD.
+ * Para una cuenta activa, sin revocación por cuenta y sin la marca, no cambia
+ * nada respecto de Sprint 2.
+ */
+async function verificarEstadoCuenta(
+  usuarioId: string,
+  iatSesion: number | undefined,
+  accion: string,
+): Promise<void> {
+  const cuenta = await prisma.usuario.findUnique({
+    where: { idUsuario: usuarioId },
+    select: { activoUsuario: true, sesionesValidasDesdeUsuario: true, debeCambiarPasswordUsuario: true },
+  });
+  if (!cuenta || !cuenta.activoUsuario) {
+    throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
+  }
+
+  if (cuenta.sesionesValidasDesdeUsuario) {
+    const validasDesde = Math.floor(cuenta.sesionesValidasDesdeUsuario.getTime() / 1000);
+    if (iatSesion === undefined || iatSesion < validasDesde) {
+      throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
+    }
+  }
+
+  if (cuenta.debeCambiarPasswordUsuario && !ACCIONES_ADMITIDAS_CON_MARCA.has(accion)) {
+    throw new PermisoError(403, "DEBE_CAMBIAR_PASSWORD", texto("errores.sesion.debeCambiarPassword"));
   }
 }
 
@@ -108,31 +164,39 @@ export async function verificarPermiso(
     throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
   }
 
-  const jti = await leerJti();
-  // Orden no negociable (spec_modulo_A.md §2.2 / HU-A-03 §4.4): revocación
-  // antes que permiso, para que un token cerrado nunca llegue a evaluarse
-  // por RBAC.
+  const { jti, iatSesion } = await leerClaimsDeControl();
+  // Orden no negociable (spec_modulo_A.md §2.2 / HU-A-03 §4.4 / §3.6):
+  // revocación por jti, estado de la cuenta y recién después permiso, para
+  // que un token cerrado o revocado nunca llegue a evaluarse por RBAC.
   await verificarNoRevocado(jti);
+  await verificarEstadoCuenta(session.user.id, iatSesion, accion);
   await verificarRolPermiso(session.user.rol, accion);
   return { id: session.user.id, rol: session.user.rol };
 }
 
 /**
  * Variante de `verificarPermiso()` para Server Components (páginas): en vez
- * de lanzar `PermisoError`, redirige — sin sesión válida a `/login`, sin
- * permiso a `/sin-permiso` (403, "No tenés permisos..."). Cualquier otro
- * error se propaga al `error.tsx` del segmento.
+ * de lanzar `PermisoError`, redirige — sin sesión válida a `/login`, con la
+ * marca «Debe cambiar la contraseña» a `/primer-ingreso` (spec_modulo_A.md
+ * §3.6 paso 4), sin permiso a `/sin-permiso` (403, "No tenés permisos...").
+ * Cualquier otro error se propaga al `error.tsx` del segmento.
  */
 export async function exigirPermiso(accion: string): Promise<{ id: string; rol: RolUsuario }> {
   try {
     return await verificarPermiso(accion);
   } catch (error) {
     if (error instanceof PermisoError) {
-      redirect(error.code === "SESION_INVALIDA" ? "/login" : "/sin-permiso");
+      redirect(DESTINO_POR_CODIGO[error.code]);
     }
     throw error;
   }
 }
+
+const DESTINO_POR_CODIGO: Record<PermisoError["code"], string> = {
+  SESION_INVALIDA: "/login",
+  DEBE_CAMBIAR_PASSWORD: "/primer-ingreso",
+  SIN_PERMISO: "/sin-permiso",
+};
 
 /**
  * `true` si la sesión actual tiene `accion`. Para decidir qué accesos mostrar
@@ -151,9 +215,11 @@ export async function tienePermiso(accion: string): Promise<boolean> {
 /**
  * Envuelve un Route Handler con la verificación de sesión + revocación +
  * permiso (spec_modulo_A.md §2.2, RULES.md Regla N.° 10): 401
- * SESION_INVALIDA si no hay sesión válida o el token fue revocado
- * (logout, HU-A-03), 403 SIN_PERMISO si el rol no tiene `accion` en
- * RolPermiso, y agrega `Cache-Control: no-store` a toda respuesta
+ * SESION_INVALIDA si no hay sesión válida, el token fue revocado
+ * (logout, HU-A-03) o la cuenta está inactiva o con sus sesiones revocadas
+ * (§3.6/§3.7), 403 DEBE_CAMBIAR_PASSWORD si la cuenta tiene la marca y la
+ * acción no es una de las admitidas, 403 SIN_PERMISO si el rol no tiene
+ * `accion` en RolPermiso, y agrega `Cache-Control: no-store` a toda respuesta
  * (criterio de aceptación 6 de HU-A-02).
  *
  * Usa el wrapper `auth(handler)` — no `await auth()` suelto adentro del
@@ -173,8 +239,9 @@ export function withPermission(
     }
 
     try {
-      const jti = await leerJti();
+      const { jti, iatSesion } = await leerClaimsDeControl();
       await verificarNoRevocado(jti);
+      await verificarEstadoCuenta(session.user.id, iatSesion, accion);
       await verificarRolPermiso(session.user.rol, accion);
     } catch (error) {
       if (error instanceof PermisoError) return respuestaError(error);

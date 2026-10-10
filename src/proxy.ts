@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { rolPuedeAccederRuta } from "@/server/shared/rutas-por-rol";
+import { RUTA_PRIMER_INGRESO, rolPuedeAccederRuta, rutaAdmiteMarca } from "@/server/shared/rutas-por-rol";
 
 /**
  * Envuelve `auth()` en su forma de middleware (`auth((request) => {...})`,
@@ -30,6 +30,14 @@ export const proxy = auth((request) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Marca «Debe cambiar la contraseña» (HU-A-06, spec_modulo_A.md §2.6.2):
+  // antes de cualquier otra pantalla. El proxy decide con la sesión (no
+  // consulta la base); el servidor vuelve a decidir con la base en
+  // withPermission/exigirPermiso.
+  if (session.user.debeCambiarPassword && !rutaAdmiteMarca(request.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL(RUTA_PRIMER_INGRESO, request.nextUrl.origin));
+  }
+
   if (!rolPuedeAccederRuta(session.user.rol, request.nextUrl.pathname)) {
     return NextResponse.redirect(new URL("/sin-permiso", request.nextUrl.origin));
   }
@@ -53,5 +61,10 @@ export const config = {
     "/gerente/:path*",
     "/alumno/:path*",
     "/mi-historial/:path*",
+    // HU-A-06: /home (destino del login, para que la marca no la saltee) y
+    // las dos pantallas de contraseña. /pagos y /formas-pago siguen fuera.
+    "/home/:path*",
+    "/primer-ingreso/:path*",
+    "/mi-cuenta/:path*",
   ],
 };

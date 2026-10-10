@@ -6,9 +6,15 @@ import { ServiceError } from "@/server/shared/service-error";
 // crearProfesor() transaccional y la verificación de email compartida con
 // actualizarContactoProfesor(), con `prisma` mockeado.
 
+// HU-A-06: el alta y el contacto corren en `transaccion()` (que fija sus
+// tiempos con $executeRawUnsafe) y, con email, A crea la cuenta (INSERT crudo
+// y evento) o cambia su email. Solo se suman esos métodos al `tx` simulado.
 const tx = {
   profesor: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-  usuario: { findFirst: vi.fn() },
+  usuario: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  eventoSeguridad: { create: vi.fn() },
+  $executeRawUnsafe: vi.fn(),
+  $queryRaw: vi.fn(async () => [{ idUsuario: "ckusuario0000000000000077" }]),
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -60,6 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   tx.profesor.findFirst.mockResolvedValue(null);
   tx.usuario.findFirst.mockResolvedValue(null);
+  tx.usuario.findUnique.mockResolvedValue({ emailUsuario: "cuenta.actual@noctium.local" });
   tx.profesor.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
     idProfesor: PROFESOR,
     nombreProfesor: data.nombreProfesor,

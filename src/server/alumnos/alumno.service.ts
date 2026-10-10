@@ -2,6 +2,15 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
+import { ErrorDeDominio } from "@/server/shared/error-dominio";
+import { transaccion, type Tx } from "@/server/shared/transaccion";
+import {
+  cambiarEmailCuenta,
+  crearCuentaParaFicha,
+  obtenerResumenCuenta,
+  verificarEmailNoAsociadoAOtraCuenta,
+  type ResumenCuenta,
+} from "@/server/usuarios/cuenta.service";
 import { construirFiltroBusquedaAlumno } from "@/server/alumnos/alumno.busqueda";
 import {
   listarFormasPagoActivas as listarFormasPagoActivasDeCatalogo,
@@ -13,6 +22,7 @@ import type {
   ContactoAlumnoInput,
   FormaPagoPreferidaInput,
   IdentidadAlumnoInput,
+  RegistrarAlumnoInput,
   ListarAlumnosQuery,
   ModificarAlumnoInput,
 } from "./alumno.schema";
@@ -20,13 +30,38 @@ import type {
 const MENSAJES = {
   DNI_DUPLICADO_ACTIVA: "Ya existe un alumno registrado con ese DNI",
   DNI_DUPLICADO_INACTIVA: "Ya existe un alumno registrado con ese DNI (ficha inactiva)",
-  EMAIL_YA_ASOCIADO: "Ese email ya está asociado a una cuenta existente",
   ALUMNO_NO_ENCONTRADO: "El alumno ya no existe",
   FORMA_PAGO_NO_DISPONIBLE: "La forma de pago seleccionada ya no está disponible",
   CONFLICTO_EDICION_CONCURRENTE: "La ficha fue modificada por otro usuario. Recargá para ver los datos actuales",
-  EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE:
-    "No se puede modificar el email de un alumno con cuenta vinculada. Esta función está pendiente de una actualización del sistema.",
 } as const;
+
+/** `cuenta` de la respuesta del alta (spec_modulo_B.md §2.9): sin `email`, `{ creada: false }`. */
+export type CuentaCreadaEnAlta = { creada: true; debe_cambiar_password: true } | { creada: false };
+
+/**
+ * Email de una ficha con o sin cuenta (HU-A-06 criterio 6, spec_modulo_B.md
+ * §2.2 y §2.5 con T9), dentro de la transacción de la ficha. Se llama solo
+ * cuando el pedido trae el campo `email` (`nuevo` = `null` es quitarlo).
+ * - Con cuenta: el email de la ficha es el de la cuenta. No puede quedar
+ *   vacío (400, como CONTACTO_REQUERIDO de spec D); si no cambia, no se
+ *   revalida; si cambia, A lo cambia en la cuenta con la misma unicidad, sin
+ *   revocar sesiones. Vale también para una ficha inactiva.
+ * - Sin cuenta: como en Sprint 1, el email no puede pertenecer a ninguna
+ *   cuenta; nunca se crea una cuenta retroactiva (criterio 8).
+ */
+async function sincronizarEmail(
+  tx: Tx,
+  ficha: { usuarioId: string | null; emailAlumno: string | null },
+  nuevo: string | null,
+): Promise<void> {
+  if (ficha.usuarioId) {
+    if (nuevo === null) throw new ErrorDeDominio("errores.cuenta.emailRequerido");
+    if (nuevo === ficha.emailAlumno) return;
+    await cambiarEmailCuenta(tx, { usuarioId: ficha.usuarioId, email: nuevo });
+    return;
+  }
+  if (nuevo !== null) await verificarEmailNoAsociadoAOtraCuenta(nuevo, {}, tx);
+}
 
 /**
  * Alta de identidad del alumno (spec_modulo_B.md §2.1). La verificación de
@@ -41,10 +76,24 @@ const MENSAJES = {
  * fila (`createdAtAlumno`, `creadoPorUsuarioId`) — no aplica tabla de
  * eventos separada, esto es una mutación única sobre la entidad, no un
  * evento discreto repetible.
+ *
+ * Alta con cuenta de acceso (HU-A-06 con HU-B-01, spec_modulo_B.md §2.9 y
+ * §3.11): con `email`, en la misma `transaccion` se revalida el DNI, A crea
+ * la cuenta (`crearCuentaParaFicha`: el DNI como contraseña inicial, solo su
+ * hash, con la marca «Debe cambiar la contraseña» y el evento CUENTA_CREADA)
+ * y se inserta la ficha con su `usuarioId`, email y teléfono. Si falla una,
+ * no queda ninguna de las dos. El rol lo fija este servicio (`ALUMNO`).
+ * Sin `email`, el alta es la de Sprint 1 y la ficha queda «Sin cuenta». El
+ * P2002 del DNI se captura fuera de la transacción, que ya se deshizo.
  */
-export async function crearAlumno(input: IdentidadAlumnoInput, usuarioId: string) {
+export async function crearAlumno(
+  input: IdentidadAlumnoInput | RegistrarAlumnoInput,
+  usuarioId: string,
+  ip?: string | null,
+) {
+  const { email, telefono } = input as Partial<Pick<RegistrarAlumnoInput, "email" | "telefono">>;
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await transaccion(async (tx) => {
       const existente = await tx.alumno.findFirst({
         where: { dniAlumno: input.dni },
       });
@@ -55,8 +104,14 @@ export async function crearAlumno(input: IdentidadAlumnoInput, usuarioId: string
         );
       }
 
-      return tx.alumno.create({
+      const cuentaId = email
+        ? (await crearCuentaParaFicha(tx, { email, dni: input.dni, rol: "ALUMNO", ip })).usuario_id
+        : null;
+
+      const alumno = await tx.alumno.create({
         data: {
+          // Con cuenta, el email de la ficha es el de la cuenta (HU-A-06 c6).
+          ...(cuentaId ? { usuarioId: cuentaId, emailAlumno: email, telefonoAlumno: telefono ?? null } : {}),
           nombreAlumno: input.nombre,
           apellidoAlumno: input.apellido,
           // Requeridos desde HU-B-04 (orden case/acento-insensitivo del
@@ -72,6 +127,11 @@ export async function crearAlumno(input: IdentidadAlumnoInput, usuarioId: string
           creadoPorUsuarioId: usuarioId,
         },
       });
+
+      // Campo extra de la respuesta 201 (spec_modulo_B.md §2.9): nunca la
+      // contraseña inicial ni otro dato de la cuenta.
+      const cuenta: CuentaCreadaEnAlta = cuentaId ? { creada: true, debe_cambiar_password: true } : { creada: false };
+      return { ...alumno, cuenta };
     });
   } catch (error) {
     if (error instanceof ServiceError) throw error;
@@ -100,6 +160,7 @@ export async function obtenerFichaAlumno(alumnoId: string): Promise<FichaAlumno 
       activoAlumno: true,
       telefonoAlumno: true,
       emailAlumno: true,
+      usuarioId: true,
     },
   });
   if (!alumno) return null;
@@ -112,6 +173,8 @@ export async function obtenerFichaAlumno(alumnoId: string): Promise<FichaAlumno 
     activo: alumno.activoAlumno,
     telefono: alumno.telefonoAlumno,
     email: alumno.emailAlumno,
+    // HU-A-06: la pantalla de contacto avisa que el email también es el de ingreso.
+    con_cuenta: alumno.usuarioId !== null,
   };
 }
 
@@ -195,31 +258,21 @@ export async function actualizarContactoAlumno(
   camposProvistos: { telefono: boolean; email: boolean },
   usuarioModificadorId: string,
 ): Promise<{ id: string; telefono: string | null; email: string | null }> {
-  return prisma.$transaction(async (tx) => {
+  return transaccion(async (tx) => {
     const alumno = await tx.alumno.findUnique({
       where: { idAlumno: alumnoId },
-      select: { idAlumno: true, usuarioId: true },
+      select: { idAlumno: true, usuarioId: true, emailAlumno: true },
     });
     if (!alumno) {
       throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
     }
 
-    if (input.email) {
-      // Criterio 4 de la HU: el email no puede pertenecer a OTRA cuenta. La
-      // cuenta propia del alumno (si tiene) queda excluida; sin cuenta
-      // vinculada, cualquier coincidencia bloquea. Comparación
-      // case-insensitive porque emailUsuario no garantiza estar guardado en
-      // minúsculas.
-      const otraCuenta = await tx.usuario.findFirst({
-        where: {
-          emailUsuario: { equals: input.email, mode: "insensitive" },
-          ...(alumno.usuarioId ? { NOT: { idUsuario: alumno.usuarioId } } : {}),
-        },
-        select: { idUsuario: true },
-      });
-      if (otraCuenta) {
-        throw new ServiceError("EMAIL_YA_ASOCIADO", MENSAJES.EMAIL_YA_ASOCIADO);
-      }
+    // Criterio 4 de la HU: el email no puede pertenecer a OTRA cuenta. Desde
+    // HU-A-06 la verificación es la del módulo A (Regla N.° 3, sin distinguir
+    // mayúsculas) y, si la ficha tiene cuenta, el email nuevo también cambia
+    // el de la cuenta en esta misma transacción (spec_modulo_B.md §2.2, T9).
+    if (camposProvistos.email) {
+      await sincronizarEmail(tx, alumno, input.email ?? null);
     }
 
     const actualizado = await tx.alumno.update({
@@ -442,6 +495,9 @@ export type CamposProvistosModificarAlumno = {
  *    caso especial de guardado parcial que rompería el contrato `{data,
  *    error}` mutuamente excluyente (Regla N.° 5). Decisión confirmada por
  *    Adriel — ver sección 8 de la task para el detalle completo.
+ *    Desde HU-A-06 (criterio 6) ese rechazo ya no rige: con cuenta, el
+ *    email nuevo también cambia el de la cuenta con `cambiarEmailCuenta`
+ *    del módulo A, en la misma transacción (`sincronizarEmail`).
  * 4. Forma de pago: mismo helper `verificarFormaPagoActiva()` que
  *    `actualizarFormaPagoPreferida()`.
  * 5. Concurrencia optimista (Regla N.° 7): condición y mutación en una sola
@@ -458,10 +514,10 @@ export async function modificarAlumno(
   usuarioModificadorId: string,
 ): Promise<{ id: string; campos_modificados: string[]; version: number }> {
   try {
-    return await prisma.$transaction(async (tx) => {
+    return await transaccion(async (tx) => {
       const existente = await tx.alumno.findUnique({
         where: { idAlumno: alumnoId },
-        select: { idAlumno: true, usuarioId: true },
+        select: { idAlumno: true, usuarioId: true, emailAlumno: true },
       });
       if (!existente) {
         throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
@@ -480,24 +536,12 @@ export async function modificarAlumno(
         }
       }
 
-      if (camposProvistos.email && input.email !== undefined) {
-        const otraCuenta = await tx.usuario.findFirst({
-          where: {
-            emailUsuario: { equals: input.email, mode: "insensitive" },
-            ...(existente.usuarioId ? { NOT: { idUsuario: existente.usuarioId } } : {}),
-          },
-          select: { idUsuario: true },
-        });
-        if (otraCuenta) {
-          throw new ServiceError("EMAIL_YA_ASOCIADO", MENSAJES.EMAIL_YA_ASOCIADO);
-        }
-
-        if (existente.usuarioId) {
-          throw new ServiceError(
-            "EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE",
-            MENSAJES.EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE,
-          );
-        }
+      // HU-A-06 (criterio 6) reemplaza el rechazo EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE
+      // de Sprint 1: con cuenta, el email nuevo también cambia el de la
+      // cuenta, en esta misma transacción; si la versión no coincide más
+      // abajo, se deshacen los dos.
+      if (camposProvistos.email) {
+        await sincronizarEmail(tx, existente, input.email ?? null);
       }
 
       if (camposProvistos.forma_pago_id && input.forma_pago_id !== null && input.forma_pago_id !== undefined) {
@@ -570,4 +614,16 @@ export async function modificarAlumno(
 
     throw error;
   }
+}
+
+/**
+ * Sección «Cuenta de acceso» de la ficha (HU-A-06 criterio 5,
+ * spec_modulo_B.md §2.12): la lectura de A con el `usuarioId` de la ficha.
+ * «Sin cuenta» si la ficha no tiene cuenta (anterior a HU-A-06 o creada sin
+ * email). Nunca trae el hash. Aparte de `obtenerDetalleAlumno()` para que el
+ * detalle de Sprint 1 y 2 conserve su forma exacta.
+ */
+export async function obtenerCuentaDeAlumno(alumnoId: string): Promise<ResumenCuenta> {
+  const alumno = await prisma.alumno.findUnique({ where: { idAlumno: alumnoId }, select: { usuarioId: true } });
+  return obtenerResumenCuenta(alumno?.usuarioId ?? null);
 }

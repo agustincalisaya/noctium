@@ -7,6 +7,7 @@ import { verificarCredenciales } from "@/server/sesion/autenticacion.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { calcularRenovacionSesion } from "@/server/sesion/renovacion.service";
+import { obtenerEstadoCuenta } from "@/server/usuarios/cuenta.service";
 
 /**
  * NextAuth v5 con `strategy: "jwt"` emite por default un JWE cifrado
@@ -141,9 +142,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.iat_sesion = ahora;
         token.iat = ahora;
         token.exp = ahora + inactividadMin * 60;
+        // Marca «Debe cambiar la contraseña» (spec_modulo_A.md §2.6.2, P-A5):
+        // se lee de la cuenta solo al ingresar, para que el proxy redirija sin
+        // consultar la base. El servidor decide con el valor de la base
+        // (with-permission.ts), nunca con este claim.
+        const estado = await obtenerEstadoCuenta(token.id);
+        token.debeCambiarPassword = estado?.debe_cambiar_password === true;
         return token;
       }
 
+      // Cualquier otra invocación —incluida la rama `update` que dispara
+      // `useSession().update(...)` desde el cliente— no copia nada de lo que
+      // mande el cliente: este callback ni siquiera lee su `session`. Solo
+      // puede renovar `exp`/`iat`; `iat_sesion` y la marca quedan como
+      // estaban (PR-0.md §2.7, «Reemisión segura del token»).
+      //
       // Rama de renovación deslizante (HU-A-02, spec_modulo_A.md §2.2): solo
       // se ejecuta cuando ya hay un token entrante con `exp`/`iat_sesion`
       // (nunca en la rama de sign-in). Si no corresponde renovar, el token
@@ -172,6 +185,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // interno (spec_modulo_A.md §2.2).
       session.user.id = token.id;
       session.user.rol = token.rol;
+      // Booleano sin datos personales: lo usa el proxy para redirigir a
+      // /primer-ingreso. Un token emitido sin el claim vale `false`.
+      session.user.debeCambiarPassword = token.debeCambiarPassword === true;
       // Por default, `expires` viene de `session.maxAge` (30 días fijos de
       // next-auth), no del `exp` real del token — se pisa acá para que el
       // cliente pueda calcular el aviso de expiración próxima (HU-A-02

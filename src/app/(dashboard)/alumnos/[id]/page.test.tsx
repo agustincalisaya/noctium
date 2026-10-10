@@ -8,6 +8,8 @@ vi.mock("./historial-academico", () => ({ HistorialAcademico: ({ materiaInicial 
 vi.mock("./ficha-encabezado", () => ({ FichaEncabezado: () => null }));
 vi.mock("./ficha-contacto", () => ({ FichaContacto: () => null }));
 vi.mock("./ficha-alta-pago", () => ({ FichaAltaPago: () => null }));
+// HU-A-06: la ficha suma la tarjeta «Cuenta de acceso»; se simula como las demás secciones.
+vi.mock("@/components/shared/cuenta-acceso-card", () => ({ CuentaAccesoCard: () => null }));
 import Page from "./page";
 import { redirect } from "next/navigation";
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(redirect).mockImplementation(() => { throw new Error("REDIRECT"); }); });

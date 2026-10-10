@@ -87,3 +87,11 @@ Los indicadores componen exclusivamente lecturas de las fachadas públicas de lo
 - Toda baja bloquea el conjunto activo más la forma solicitada con `bloquear` dentro de `transaccion`; solo después recuenta activas y revalida motivo obligatorio con pagos. Nunca puede quedar el catálogo sin formas activas.
 - La preferencia del alumno se conserva al desactivar; B expone su estado y el conteo por su fachada. Las opciones de pago/preferida ofrecen activas, y una preferida inactiva no se preselecciona para cobrar.
 - Baja/reactivación encolan historial con actor y motivo para después del commit, usando el mecanismo común con reintento. El listado no muestra Preferida por; el impacto solo se informa en la confirmación.
+
+## Aplicación HU-A-06 — Cuenta de acceso y sesión
+
+- La sesión se valida en el servidor en este orden: sesión válida → `jti` revocado → cuenta leída por clave primaria (inexistente, inactiva o con `iat_sesion` anterior a `sesionesValidasDesde` → 401 `SESION_INVALIDA`) → marca «Debe cambiar la contraseña» → permiso del rol. La marca se decide con el valor de la base, nunca con el del token; el token solo sirve para que el proxy redirija.
+- `withPermission`, `verificarPermiso` y `exigirPermiso` aplican los mismos pasos. Con la marca solo pasan `sesion:ping` y `cuenta:cambiar_password` (el resto, 403 `DEBE_CAMBIAR_PASSWORD`). `exigirPermiso` redirige según el `code`: `SESION_INVALIDA` → `/login`, `DEBE_CAMBIAR_PASSWORD` → `/primer-ingreso`, `SIN_PERMISO` → `/sin-permiso`. Toda pantalla nueva llama a `exigirPermiso`.
+- Alta de alumno y de profesor con cuenta: una sola `transaccion()` que revalida el DNI, crea la cuenta con `crearCuentaParaFicha` (el rol lo fija el servicio de la ficha) e inserta la ficha con su `usuarioId`. El `P2002` del DNI se captura fuera de la transacción. La contraseña inicial (el DNI) se guarda solo como hash y nunca se registra ni se devuelve.
+- Cambio de email de una ficha con cuenta: siempre con `cambiarEmailCuenta`, en la misma transacción que la ficha; un email igual al actual no se revalida y no se revocan sesiones. Una ficha con cuenta no puede quedarse sin email. Ninguna ficha crea una cuenta retroactiva.
+- Tarjeta «Cuenta de acceso»: un único componente compartido (`src/components/shared/cuenta-acceso-card.tsx`), alimentado con `obtenerResumenCuenta`; nunca muestra el hash ni el DNI.

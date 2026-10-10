@@ -1,7 +1,7 @@
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
-import { obtenerDetalleAlumno, listarFormasPagoActivas } from "@/server/alumnos/alumno.service";
+import { obtenerCuentaDeAlumno, obtenerDetalleAlumno, listarFormasPagoActivas } from "@/server/alumnos/alumno.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { EditarAlumnoForm } from "./editar-alumno-form";
@@ -41,10 +41,11 @@ export default async function EditarAlumnoPage({
     throw error;
   }
 
-  const [formasPagoActivas, dniLongitudMin, dniLongitudMax] = await Promise.all([
+  const [formasPagoActivas, dniLongitudMin, dniLongitudMax, cuenta] = await Promise.all([
     listarFormasPagoActivas(),
     getParametroNumerico("dni_longitud_min", 7),
     getParametroNumerico("dni_longitud_max", 8),
+    obtenerCuentaDeAlumno(id),
   ]);
 
   return (
@@ -66,6 +67,7 @@ export default async function EditarAlumnoPage({
         formasPagoActivas={formasPagoActivas}
         dniLongitudMin={dniLongitudMin}
         dniLongitudMax={dniLongitudMax}
+        conCuenta={cuenta.estado !== "SIN_CUENTA"}
       />
     </div>
   );

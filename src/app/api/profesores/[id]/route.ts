@@ -5,7 +5,7 @@ import { agruparHorariosPorDia } from "@/lib/horario-atencion";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { construirModificarProfesorSchema } from "@/server/profesores/profesor.schema";
-import { modificarProfesor, obtenerDetalleProfesor } from "@/server/profesores/profesor.service";
+import { modificarProfesor, obtenerCuentaDeProfesor, obtenerDetalleProfesor } from "@/server/profesores/profesor.service";
 
 // Detalle del profesor (HU-D-05, spec_modulo_D.md §2.5). Capa delgada:
 // withPermission devuelve 401 sin sesión y 403 sin `profesores:leer`; invoca
@@ -31,6 +31,9 @@ export const GET = withPermission("profesores:leer", async (_req, ctx) => {
         data: {
           ...resto,
           contacto: { telefono, email },
+          // HU-A-06 (spec_modulo_D.md §2.12): campo extra `cuenta`, en la
+          // convención camelCase de este contrato; nunca el hash.
+          cuenta: await cuentaParaRespuesta(profesor.id),
           horarios: Object.fromEntries(
             agruparHorariosPorDia(horarios).map(({ dia, intervalos }) => [
               dia,
@@ -50,12 +53,18 @@ export const GET = withPermission("profesores:leer", async (_req, ctx) => {
   }
 });
 
+async function cuentaParaRespuesta(profesorId: string) {
+  const { estado, email, rol, debe_cambiar_password: debeCambiarPassword } = await obtenerCuentaDeProfesor(profesorId);
+  return { estado, email, rol, debeCambiarPassword };
+}
+
 // spec_modulo_D.md §2.6 (HU-D-06).
 const STATUS_POR_CODIGO: Record<string, number> = {
   PROFESOR_NO_ENCONTRADO: 404,
   DNI_DUPLICADO: 409,
   EMAIL_YA_ASOCIADO: 409,
   CONFLICTO_EDICION_CONCURRENTE: 409,
+  TRANSACCION_OCUPADA: 409,
 };
 
 const MENSAJE_EMAIL_YA_ASOCIADO = "Ese email ya está asociado a otra cuenta";
@@ -104,7 +113,8 @@ export const PATCH = withPermission("profesores:editar", async (req, ctx) => {
             error: {
               code: "VALIDACION",
               message: "Datos inválidos",
-              detalles: { formErrors: [], fieldErrors: { telefono: [error.message] } },
+              // HU-A-06 (P-D13): quitar el email de una ficha con cuenta va en `email`.
+              detalles: { formErrors: [], fieldErrors: { [error.detalles?.campo === "email" ? "email" : "telefono"]: [error.message] } },
             },
           },
           { status: 400 },

@@ -7,6 +7,8 @@ import { NextRequest } from "next/server";
 const { prisma, sesion } = vi.hoisted(() => ({
   prisma: {
     rolPermiso: { findUnique: vi.fn() },
+    // HU-A-06: paso 3 de withPermission (cuenta activa, sin marca ni revocación).
+    usuario: { findUnique: async () => ({ activoUsuario: true, sesionesValidasDesdeUsuario: null, debeCambiarPasswordUsuario: false }) },
     profesor: { findUnique: vi.fn(), findFirst: vi.fn() },
     turno: { count: vi.fn(), findMany: vi.fn() },
   },

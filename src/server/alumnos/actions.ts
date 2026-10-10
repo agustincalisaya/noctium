@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { flattenError } from "zod";
 import {
   ContactoAlumnoSchema,
   FormaPagoPreferidaSchema,
-  crearIdentidadAlumnoSchema,
   construirModificarAlumnoSchema,
+  construirRegistrarAlumnoSchema,
 } from "@/server/alumnos/alumno.schema";
 import {
   actualizarContactoAlumno as actualizarContactoAlumnoEnServicio,
@@ -14,10 +15,13 @@ import {
   crearAlumno as crearAlumnoService,
   modificarAlumno as modificarAlumnoEnServicio,
   type CamposProvistosModificarAlumno,
+  type CuentaCreadaEnAlta,
 } from "@/server/alumnos/alumno.service";
 import { verificarPermiso, PermisoError } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
+import { obtenerIp } from "@/auth";
+import { texto } from "@/lib/textos";
 import type { ResultadoContactoAlumno, ResultadoModificarAlumno } from "@/types/alumno.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
@@ -27,7 +31,9 @@ const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 // criterio que app/(dashboard)/profesores/actions.ts: no acoplar la capa de
 // negocio al copy de UI.
 const MENSAJES_POR_CODIGO: Record<string, string> = {
-  EMAIL_YA_ASOCIADO: "Ese email ya está asociado a una cuenta existente",
+  // HU-A-06: el texto de A en los flujos que toca la HU (antes: «…a una cuenta existente»).
+  EMAIL_YA_ASOCIADO: texto("errores.cuenta.emailYaAsociado"),
+  TRANSACCION_OCUPADA: texto("errores.transaccion.ocupada"),
   ALUMNO_NO_ENCONTRADO: "El alumno ya no existe",
   FORMA_PAGO_NO_DISPONIBLE: "La forma de pago seleccionada ya no está disponible",
   DNI_DUPLICADO: "Ya existe un alumno registrado con ese DNI",
@@ -42,10 +48,27 @@ type ResultadoFormaPagoPreferida =
 
 type ResultadoCrearAlumno =
   | {
-      data: { id: string; nombre: string; apellido: string; dni: string; activo: boolean };
+      data: { id: string; nombre: string; apellido: string; dni: string; activo: boolean; cuenta: CuentaCreadaEnAlta };
       error: null;
     }
   | { data: null; error: { code: string; message: string; detalles?: unknown } };
+
+/** IP de la solicitud, con el mismo criterio que el login (`obtenerIp`), para el evento CUENTA_CREADA. */
+async function ipDeLaSolicitud(): Promise<string> {
+  return obtenerIp(new Request("http://localhost", { headers: await headers() }));
+}
+
+/**
+ * Error de servicio → `{ code, message }` de la acción. Una ficha con cuenta
+ * que se queda sin email (HU-A-06) se responde como error de validación del
+ * campo `email`, igual que el resto de los errores de formato.
+ */
+function errorDeServicio(error: ServiceError): { code: string; message: string; detalles?: unknown } {
+  if (error.code === "EMAIL_REQUERIDO") {
+    return { code: "VALIDACION", message: "Datos inválidos", detalles: { formErrors: [], fieldErrors: { email: [error.message] } } };
+  }
+  return { code: error.code, message: MENSAJES_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION };
+}
 
 /**
  * Server Action equivalente a `PATCH /api/alumnos/[id]/contacto`
@@ -91,8 +114,7 @@ export async function actualizarContactoAlumno(
       return { data: null, error: { code: error.code, message: error.message } };
     }
     if (error instanceof ServiceError) {
-      const mensaje = MENSAJES_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
-      return { data: null, error: { code: error.code, message: mensaje } };
+      return { data: null, error: errorDeServicio(error) };
     }
     throw error;
   }
@@ -152,6 +174,10 @@ export async function actualizarFormaPagoPreferida(
  * contrato como objeto plano serializable (Regla N.° 5) — nunca una
  * instancia de `NextResponse`. Recibe el payload ya como objeto (no
  * `FormData`): el formulario de alta arma el objeto antes de llamarla.
+ *
+ * HU-A-06 (spec_modulo_B.md §2.9): admite `email` y `telefono` opcionales;
+ * con `email` el servicio crea la ficha y la cuenta juntas. La IP va al
+ * evento CUENTA_CREADA. La respuesta suma `cuenta` (nunca la contraseña).
  */
 export async function crearAlumno(input: unknown): Promise<ResultadoCrearAlumno> {
   const [dniLongitudMin, dniLongitudMax] = await Promise.all([
@@ -159,7 +185,7 @@ export async function crearAlumno(input: unknown): Promise<ResultadoCrearAlumno>
     getParametroNumerico("dni_longitud_max", 8),
   ]);
 
-  const parsed = crearIdentidadAlumnoSchema(dniLongitudMin, dniLongitudMax).safeParse(input);
+  const parsed = construirRegistrarAlumnoSchema(dniLongitudMin, dniLongitudMax).safeParse(input);
   if (!parsed.success) {
     return {
       data: null,
@@ -169,7 +195,7 @@ export async function crearAlumno(input: unknown): Promise<ResultadoCrearAlumno>
 
   try {
     const { id: usuarioId } = await verificarPermiso("alumnos:crear");
-    const alumno = await crearAlumnoService(parsed.data, usuarioId);
+    const alumno = await crearAlumnoService(parsed.data, usuarioId, await ipDeLaSolicitud());
     return {
       data: {
         id: alumno.idAlumno,
@@ -177,6 +203,7 @@ export async function crearAlumno(input: unknown): Promise<ResultadoCrearAlumno>
         apellido: alumno.apellidoAlumno,
         dni: alumno.dniAlumno,
         activo: alumno.activoAlumno,
+        cuenta: alumno.cuenta,
       },
       error: null,
     };
@@ -263,8 +290,7 @@ export async function modificarAlumno(
       return { data: null, error: { code: error.code, message: error.message } };
     }
     if (error instanceof ServiceError) {
-      const mensaje = MENSAJES_POR_CODIGO[error.code] ?? MENSAJE_ERROR_COMUNICACION;
-      return { data: null, error: { code: error.code, message: mensaje } };
+      return { data: null, error: errorDeServicio(error) };
     }
     throw error;
   }

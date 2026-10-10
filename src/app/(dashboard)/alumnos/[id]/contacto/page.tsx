@@ -50,6 +50,7 @@ export default async function ContactoAlumnoPage({
         alumnoId={alumno.id}
         telefonoActual={alumno.telefono}
         emailActual={alumno.email}
+        conCuenta={alumno.con_cuenta}
       />
     </div>
   );

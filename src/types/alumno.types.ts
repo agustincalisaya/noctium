@@ -9,6 +9,8 @@ export type FichaAlumno = {
   activo: boolean;
   telefono: string | null;
   email: string | null;
+  /** HU-A-06: la ficha tiene cuenta de acceso (su email es el de ingreso). */
+  con_cuenta: boolean;
 };
 
 /**

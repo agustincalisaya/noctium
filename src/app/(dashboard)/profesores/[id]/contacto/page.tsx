@@ -1,7 +1,7 @@
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
-import { obtenerFichaProfesor } from "@/server/profesores/profesor.service";
+import { obtenerCuentaDeProfesor, obtenerFichaProfesor } from "@/server/profesores/profesor.service";
 import { ContactoProfesorForm } from "./contacto-profesor-form";
 
 /**
@@ -49,6 +49,7 @@ export default async function ContactoProfesorPage({
         profesorId={profesor.id}
         telefonoActual={profesor.telefono}
         emailActual={profesor.email}
+        conCuenta={(await obtenerCuentaDeProfesor(profesor.id)).estado !== "SIN_CUENTA"}
       />
     </div>
   );

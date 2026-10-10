@@ -7,7 +7,8 @@ import { formatearApellidoNombre } from "@/lib/profesor-listado";
 import { exigirPermiso, tienePermiso } from "@/server/shared/with-permission";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { fechaUTCHaceAnios } from "@/server/shared/fecha";
-import { obtenerDetalleProfesor } from "@/server/profesores/profesor.service";
+import { obtenerCuentaDeProfesor, obtenerDetalleProfesor } from "@/server/profesores/profesor.service";
+import { CuentaAccesoCard } from "@/components/shared/cuenta-acceso-card";
 import { listarMateriasActivas } from "@/server/materias/materia.service";
 import type { OpcionMateria } from "./materias/asociar-materias-form";
 import { FichaEncabezado } from "./ficha-encabezado";
@@ -56,6 +57,8 @@ export default async function ProfesorDetallePage({
   if (!profesor) {
     notFound();
   }
+  // Sección «Cuenta de acceso» (HU-A-06 c5) y aviso del email en la edición (c6).
+  const cuenta = await obtenerCuentaDeProfesor(profesor.id);
 
   const paginaListado = Number(query.pagina);
   const pagina = Number.isSafeInteger(paginaListado) && paginaListado > 1 ? paginaListado : null;
@@ -111,6 +114,7 @@ export default async function ProfesorDetallePage({
           rutaTrasGuardar={conPagina(rutaTrasGuardar(rutaFicha))}
           rutaTrasGuardarMaterias={conPagina(`${rutaFicha}?actualizada=${ACTUALIZADA_SOLO_MATERIAS}`)}
           opcionesMaterias={opcionesMaterias}
+          conCuenta={cuenta.estado !== "SIN_CUENTA"}
         />
       </div>
     );
@@ -179,6 +183,8 @@ export default async function ProfesorDetallePage({
         horarios={profesor.horarios}
         puedeEditar={puedeEditar}
       />
+      {/* HU-A-06 criterio 5: una ficha anterior muestra «Sin cuenta». */}
+      <CuentaAccesoCard cuenta={cuenta} />
     </div>
   );
 }

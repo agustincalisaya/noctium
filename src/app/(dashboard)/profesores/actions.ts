@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { flattenError } from "zod";
 import { prisma } from "@/lib/prisma";
+import { texto } from "@/lib/textos";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
@@ -24,9 +26,28 @@ import type { EstadoContactoProfesor, EstadoNuevoProfesor } from "./profesor.typ
 const MENSAJES_POR_CODIGO: Record<string, string> = {
   DNI_DUPLICADO: "Ya existe un profesor registrado con ese DNI",
   // Genérico a propósito: nunca revela a quién pertenece la otra cuenta.
-  EMAIL_YA_ASOCIADO: "Ese email ya está asociado a otra cuenta",
+  // Es el texto de A, el mismo de siempre (HU-A-06).
+  EMAIL_YA_ASOCIADO: texto("errores.cuenta.emailYaAsociado"),
   PROFESOR_NO_ENCONTRADO: "El profesor ya no existe",
+  TRANSACCION_OCUPADA: texto("errores.transaccion.ocupada"),
 };
+
+/**
+ * IP de la solicitud para el evento CUENTA_CREADA del alta (HU-A-06), con el
+ * mismo criterio que `obtenerIp` de `@/auth` (primer valor de
+ * `x-forwarded-for`, si no `x-real-ip`). No se importa `@/auth` para no cargar
+ * NextAuth en este módulo. Es un dato auxiliar del evento: si no se puede
+ * leer, el evento la guarda como desconocida.
+ */
+async function ipDeLaSolicitud(): Promise<string | null> {
+  try {
+    const encabezados = await headers();
+    const reenviada = encabezados.get("x-forwarded-for");
+    return reenviada ? reenviada.split(",")[0]!.trim() : encabezados.get("x-real-ip");
+  } catch {
+    return null;
+  }
+}
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
@@ -81,7 +102,8 @@ export async function crearProfesor(
       return { status: "error_validacion", errores: flattenError(parsed.error).fieldErrors };
     }
 
-    const profesor = await crearProfesorEnServicio(parsed.data, usuarioRegistranteId);
+    // HU-A-06: con email, el servicio crea también la cuenta de acceso.
+    const profesor = await crearProfesorEnServicio(parsed.data, usuarioRegistranteId, await ipDeLaSolicitud());
     revalidatePath("/profesores");
 
     return {
@@ -201,6 +223,10 @@ export async function actualizarContactoProfesor(
     return { status: "exito", telefono: contacto.telefono, email: contacto.email };
   } catch (error) {
     if (error instanceof ServiceError) {
+      // HU-A-06 (P-D13): una ficha con cuenta no puede quedarse sin email.
+      if (error.code === "CONTACTO_REQUERIDO") {
+        return { status: "error_validacion", errores: { email: [error.message] } };
+      }
       // Se pinta junto al campo email, igual que un error de formato (c6).
       if (error.code === "EMAIL_YA_ASOCIADO") {
         return {

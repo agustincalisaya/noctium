@@ -8,6 +8,8 @@ import {
 } from "@/server/profesores/profesor.schema";
 import { crearProfesor, listarProfesores } from "@/server/profesores/profesor.service";
 import { ServiceError } from "@/server/shared/service-error";
+import { obtenerIp } from "@/auth";
+import { texto } from "@/lib/textos";
 
 // Listado paginado de profesores (HU-D-05, spec_modulo_D.md §2.5). Capa
 // delgada: valida `?pagina=&por_pagina=` con Zod e invoca listarProfesores(),
@@ -94,7 +96,9 @@ export const POST = withPermission("profesores:crear", async (req) => {
   }
 
   try {
-    const profesor = await crearProfesor(parsed.data, usuarioRegistranteId);
+    // HU-A-06 (spec_modulo_D.md §2.9.1): con email crea también la cuenta;
+    // la IP va al evento CUENTA_CREADA y la respuesta suma `cuenta`.
+    const profesor = await crearProfesor(parsed.data, usuarioRegistranteId, obtenerIp(req));
     return NextResponse.json({ data: profesor, error: null }, { status: 201 });
   } catch (error) {
     if (error instanceof ServiceError && error.code === "DNI_DUPLICADO") {
@@ -113,6 +117,12 @@ export const POST = withPermission("profesores:crear", async (req) => {
           data: null,
           error: { code: "EMAIL_YA_ASOCIADO", message: "Ese email ya está asociado a otra cuenta" },
         },
+        { status: 409 },
+      );
+    }
+    if (error instanceof ServiceError && error.code === "TRANSACCION_OCUPADA") {
+      return NextResponse.json(
+        { data: null, error: { code: "TRANSACCION_OCUPADA", message: texto("errores.transaccion.ocupada") } },
         { status: 409 },
       );
     }

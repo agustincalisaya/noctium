@@ -238,7 +238,12 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Registrar resultado de examen (HU-E-06) | `Dialog` | Toast |
 | Registrar observaciones de clase (HU-E-07) | `Dialog` con campos y confirmación `AlertDialog` de C-25 | Toast «Observaciones registradas correctamente» |
 | Ver turnos que impiden quitar una materia (HU-D-07) | `Dialog` informativo (6.3) | Ninguno — no modifica datos |
-| Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
+| Alta/edición de Alumno, Materia, Aula y edición de Profesor (Sprint 1, sin cambios) | Página completa | Banner inline |
+| Alta de profesor, paso 1 del wizard (HU-D-01; desde HU-A-06 crea la cuenta) | Página completa (wizard) + `ConfirmarAccionDialog` («Registrar profesor») | Toast «Profesor registrado correctamente. Se creó su cuenta: ingresa con su email y su DNI como contraseña, y la cambia en el primer ingreso.» y navegación al paso 2 (patrón existente del wizard) |
+| Alta de alumno con cuenta (HU-B-01 con HU-A-06, `/alumnos/nueva`) | Página completa + `ConfirmarAccionDialog` («Registrar alumno») | Navegación al listado con banner inline «Alumno registrado correctamente. Se creó su cuenta: ingresa con su email y su DNI como contraseña, y la cambia en el primer ingreso.» |
+| Edición de contacto o de datos con cambio de email en una ficha con cuenta (HU-A-06, criterio 6) | Página completa + `ConfirmarAccionDialog` con el aviso de que cambia el usuario de ingreso | Banner inline existente de cada pantalla |
+| Primer ingreso: definir la contraseña nueva (HU-A-06, `/primer-ingreso`) | Página completa sin menú + `ConfirmarAccionDialog` («Cambiar contraseña») | Navegación a `/home?contrasena=actualizada` con banner inline «Tu contraseña se actualizó. Ya podés usar el sistema.» |
+| Cambiar la contraseña desde «Mi cuenta» (HU-A-06, `/mi-cuenta`) | Página completa + `ConfirmarAccionDialog` («Cambiar contraseña») | Banner inline «Tu contraseña se actualizó.», con la sesión abierta |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
@@ -417,6 +422,13 @@ sus consumidores, sin editar sus fuentes.
 - **09/10/2026:** HU-I-10 agrega su fila en 6.4, la aclaración de 6.3
   sobre el `AlertDialog` en flujos de página completa y 6.6 (etiquetas de
   estado de pago de la inscripción).
+- HU-A-06 agrega en 6.4 las filas de primer ingreso, «Mi cuenta», alta de
+  alumno con cuenta, alta de profesor y edición con cambio de email en una
+  ficha con cuenta. Corrige la fila de Sprint 1: el alta de profesor (paso 1
+  del wizard) informa el éxito con toast y navegación al paso 2, no con
+  banner; se conserva ese patrón con el texto nuevo. Si la reemisión de la
+  sesión falla después de cambiar la contraseña, se cierra la sesión y la
+  pantalla de acceso muestra el aviso de éxito con `?contrasena=actualizada`.
 
 ## Selección de asistencia (HU-E-11)
 

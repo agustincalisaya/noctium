@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma, type RolUsuario, type TipoEventoSeguridad } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
@@ -68,18 +69,25 @@ export async function crearCuentaParaFicha(
   const parseado = CrearCuentaParaFichaSchema.safeParse(datos);
   if (!parseado.success) datosInvalidos(parseado.error);
   const { email, dni, rol } = parseado.data;
+  // Ayuda previa: detecta también una cuenta guardada con otras mayúsculas.
   await verificarEmailNoAsociadoAOtraCuenta(email, {}, tx);
   const passwordHash = await hashPassword(dni);
-  let usuario;
-  try {
-    usuario = await tx.usuario.create({
-      data: { emailUsuario: email, passwordHashUsuario: passwordHash, rolUsuario: rol, activoUsuario: true, debeCambiarPasswordUsuario: true },
-      select: { idUsuario: true },
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ErrorDeDominio("errores.cuenta.emailYaAsociado");
-    throw error;
-  }
+  // Condición atómica (spec_modulo_A.md §2.6.1 paso 3 y §3.12, Regla N.° 7):
+  // con dos altas simultáneas del mismo email, la segunda no inserta nada y
+  // el RETURNING vacío es el conflicto. Nunca se captura un P2002 dentro de
+  // la transacción del llamador. El id lo genera la aplicación (Prisma no
+  // interviene en un INSERT crudo), igual que las otras escrituras crudas.
+  const ahoraUtc = ahora().toISOString();
+  const insertadas = await tx.$queryRaw<{ idUsuario: string }[]>(Prisma.sql`
+    INSERT INTO "usuarios" (
+      "idUsuario", "emailUsuario", "passwordHashUsuario", "rolUsuario", "activoUsuario", "debeCambiarPasswordUsuario", "updatedAtUsuario"
+    ) VALUES (
+      ${randomUUID()}, ${email}, ${passwordHash}, ${rol}::"RolUsuario", true, true, ${ahoraUtc}::timestamptz AT TIME ZONE 'UTC'
+    )
+    ON CONFLICT ("emailUsuario") DO NOTHING
+    RETURNING "idUsuario"`);
+  const usuario = insertadas[0];
+  if (!usuario) throw new ErrorDeDominio("errores.cuenta.emailYaAsociado");
   await eventoSeguridad(tx, "CUENTA_CREADA", usuario.idUsuario, email, datos.ip);
   return { usuario_id: usuario.idUsuario };
 }
