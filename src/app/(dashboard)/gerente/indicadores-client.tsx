@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { GraficoIngresos, GraficoOcupacion } from "@/components/indicadores/graficos-indicadores";
+import { CancelacionesIndicadores } from "@/components/indicadores/cancelaciones-indicadores";
 import { ClasesIndicadores } from "@/components/indicadores/clases-indicadores";
 import { PanelPresentismo } from "@/components/indicadores/presentismo-panel";
 import { FiltroPeriodo } from "@/components/indicadores/filtro-periodo";
@@ -23,6 +24,7 @@ export function IndicadoresClient() {
     {PESTANAS.map(nombre=><section key={nombre} id={`panel-${nombre}`} role="tabpanel" aria-labelledby={`tab-${nombre}`} hidden={pestana!==nombre} tabIndex={0} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {nombre==="actividad" && pestana===nombre && <div className="grid grid-cols-1 gap-4 lg:grid-cols-2"><GraficoIngresos rango={rango}/><GraficoOcupacion rango={rango}/><ClasesIndicadores rango={rango}/></div>}
       {nombre==="presentismo" && pestana===nombre && <PanelPresentismo rango={rango}/>}
+      {nombre==="cancelaciones" && pestana===nombre && <CancelacionesIndicadores rango={rango}/>}
     </section>)}
   </div>;
 }

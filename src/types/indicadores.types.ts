@@ -23,3 +23,11 @@ export type ClasesMateria = { materia_id: string; nombre: string; codigo: string
 export type ClasesMateriasData = { total: number; items: ClasesMateria[] };
 export type ClasesProfesor = { profesor_id: string; nombre: string; activo: boolean; clases: number; horas: number };
 export type ClasesProfesoresData = { total: { clases: number; horas: number }; items: ClasesProfesor[] };
+
+export type SeriesCancelaciones = { clases_canceladas_centro: number; inscripciones_canceladas_alumno: number; reservas_vencidas: number; bajas: number };
+export type CancelacionesMesData = {
+  meses: ({ mes: string } & SeriesCancelaciones)[];
+  totales: SeriesCancelaciones;
+  tasas: { clases: { canceladas: number; totales: number; tasa: number | null }; inscripciones: { canceladas_alumno: number; totales: number; tasa: number | null } };
+};
+export type CancelacionesMateriaData = { items: { materia_id: string; nombre: string; codigo: string | null; activa: boolean; clases_canceladas_centro: number; inscripciones_canceladas_alumno: number }[] };

@@ -1,0 +1,587 @@
+{
+  "role": "GERENTE",
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "base": "d22806d",
+  "errors": [],
+  "results": [
+    {
+      "endpoint": "cancelaciones-por-mes",
+      "query": "",
+      "status": 200,
+      "body": {
+        "data": {
+          "meses": [
+            {
+              "mes": "2026-05",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-06",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-07",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 1,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-08",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-09",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-10",
+              "clases_canceladas_centro": 3,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 1,
+              "bajas": 1
+            }
+          ],
+          "totales": {
+            "clases_canceladas_centro": 13,
+            "inscripciones_canceladas_alumno": 13,
+            "reservas_vencidas": 11,
+            "bajas": 6
+          },
+          "tasas": {
+            "clases": {
+              "canceladas": 13,
+              "totales": 85,
+              "tasa": 15.3
+            },
+            "inscripciones": {
+              "canceladas_alumno": 13,
+              "totales": 189,
+              "tasa": 6.9
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-mes",
+      "query": "?desde=2026-05&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "meses": [
+            {
+              "mes": "2026-05",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-06",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-07",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 1,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-08",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-09",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-10",
+              "clases_canceladas_centro": 3,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 1,
+              "bajas": 1
+            }
+          ],
+          "totales": {
+            "clases_canceladas_centro": 13,
+            "inscripciones_canceladas_alumno": 13,
+            "reservas_vencidas": 11,
+            "bajas": 6
+          },
+          "tasas": {
+            "clases": {
+              "canceladas": 13,
+              "totales": 85,
+              "tasa": 15.3
+            },
+            "inscripciones": {
+              "canceladas_alumno": 13,
+              "totales": 189,
+              "tasa": 6.9
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-mes",
+      "query": "?desde=2024-11&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "meses": [
+            {
+              "mes": "2024-11",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2024-12",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-01",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-02",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-03",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-04",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-05",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-06",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-07",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-08",
+              "clases_canceladas_centro": 0,
+              "inscripciones_canceladas_alumno": 0,
+              "reservas_vencidas": 0,
+              "bajas": 0
+            },
+            {
+              "mes": "2025-09",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2025-10",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 1,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2025-11",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2025-12",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-01",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 1,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-02",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-03",
+              "clases_canceladas_centro": 1,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-04",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 1,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-05",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-06",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-07",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 1,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-08",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 3,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-09",
+              "clases_canceladas_centro": 2,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 2,
+              "bajas": 1
+            },
+            {
+              "mes": "2026-10",
+              "clases_canceladas_centro": 3,
+              "inscripciones_canceladas_alumno": 2,
+              "reservas_vencidas": 1,
+              "bajas": 1
+            }
+          ],
+          "totales": {
+            "clases_canceladas_centro": 22,
+            "inscripciones_canceladas_alumno": 28,
+            "reservas_vencidas": 27,
+            "bajas": 14
+          },
+          "tasas": {
+            "clases": {
+              "canceladas": 22,
+              "totales": 125,
+              "tasa": 17.6
+            },
+            "inscripciones": {
+              "canceladas_alumno": 28,
+              "totales": 335,
+              "tasa": 8.4
+            }
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-mes",
+      "query": "?desde=2024-10&hasta=2026-10",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "hasta": [
+                "El rango máximo es de 24 meses"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-mes",
+      "query": "?desde=2026-13",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "Formato de mes inválido (AAAA-MM)"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-mes",
+      "query": "?desde=2026-10&hasta=2026-09",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "El mes desde no puede ser posterior al mes hasta"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-materia",
+      "query": "",
+      "status": 200,
+      "body": {
+        "data": {
+          "items": [
+            {
+              "materia_id": "cmv1cten7004kjmvb8yirkf4x",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "clases_canceladas_centro": 7,
+              "inscripciones_canceladas_alumno": 5
+            },
+            {
+              "materia_id": "cmv1cten1004jjmvb6vpf6tmo",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "clases_canceladas_centro": 6,
+              "inscripciones_canceladas_alumno": 8
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-materia",
+      "query": "?desde=2026-05&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "items": [
+            {
+              "materia_id": "cmv1cten7004kjmvb8yirkf4x",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "clases_canceladas_centro": 7,
+              "inscripciones_canceladas_alumno": 5
+            },
+            {
+              "materia_id": "cmv1cten1004jjmvb6vpf6tmo",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "clases_canceladas_centro": 6,
+              "inscripciones_canceladas_alumno": 8
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-materia",
+      "query": "?desde=2024-11&hasta=2026-10",
+      "status": 200,
+      "body": {
+        "data": {
+          "items": [
+            {
+              "materia_id": "cmv1cten7004kjmvb8yirkf4x",
+              "nombre": "Física",
+              "codigo": "FIS101",
+              "activa": true,
+              "clases_canceladas_centro": 12,
+              "inscripciones_canceladas_alumno": 12
+            },
+            {
+              "materia_id": "cmv1cten1004jjmvb6vpf6tmo",
+              "nombre": "Matemática",
+              "codigo": "MAT101",
+              "activa": true,
+              "clases_canceladas_centro": 10,
+              "inscripciones_canceladas_alumno": 16
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-materia",
+      "query": "?desde=2024-10&hasta=2026-10",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "hasta": [
+                "El rango máximo es de 24 meses"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-materia",
+      "query": "?desde=2026-13",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "Formato de mes inválido (AAAA-MM)"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "cancelaciones-por-materia",
+      "query": "?desde=2026-10&hasta=2026-09",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDATION_ERROR",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "desde": [
+                "El mes desde no puede ser posterior al mes hasta"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "email": "mesa.entrada@noctium.local",
+      "endpoint": "cancelaciones-por-mes",
+      "status": 403
+    },
+    {
+      "email": "mesa.entrada@noctium.local",
+      "endpoint": "cancelaciones-por-materia",
+      "status": 403
+    },
+    {
+      "email": "profesor1@noctium.local",
+      "endpoint": "cancelaciones-por-mes",
+      "status": 403
+    },
+    {
+      "email": "profesor1@noctium.local",
+      "endpoint": "cancelaciones-por-materia",
+      "status": 403
+    },
+    {
+      "email": "alumno01@noctium.local",
+      "endpoint": "cancelaciones-por-mes",
+      "status": 403
+    },
+    {
+      "email": "alumno01@noctium.local",
+      "endpoint": "cancelaciones-por-materia",
+      "status": 403
+    }
+  ]
+}

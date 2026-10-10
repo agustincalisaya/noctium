@@ -1,0 +1,60 @@
+   mes   | estadoTurno | clases
+---------+-------------+--------
+ 2026-05 | DISPONIBLE  |      7
+ 2026-05 | CANCELADO   |      2
+ 2026-06 | DISPONIBLE  |      5
+ 2026-06 | CANCELADO   |      2
+ 2026-07 | DISPONIBLE  |      4
+ 2026-07 | CANCELADO   |      2
+ 2026-08 | DISPONIBLE  |      3
+ 2026-08 | CANCELADO   |      2
+ 2026-09 | DISPONIBLE  |     10
+ 2026-09 | COMPLETO    |      1
+ 2026-09 | CANCELADO   |      2
+ 2026-10 | DISPONIBLE  |     42
+ 2026-10 | CANCELADO   |      3
+(13 rows)
+
+   mes   |     vigencia     | inscripciones
+---------+------------------+---------------
+ 2026-05 | BAJA_ALUMNO      |             1
+ 2026-05 | CANCELADA_ALUMNO |             3
+ 2026-05 | RESERVA_VENCIDA  |             2
+ 2026-05 | VIGENTE          |            59
+ 2026-06 | BAJA_ALUMNO      |             1
+ 2026-06 | CANCELADA_ALUMNO |             2
+ 2026-06 | RESERVA_VENCIDA  |             2
+ 2026-06 | VIGENTE          |            40
+ 2026-07 | BAJA_ALUMNO      |             1
+ 2026-07 | CANCELADA_ALUMNO |             1
+ 2026-07 | RESERVA_VENCIDA  |             2
+ 2026-07 | VIGENTE          |            14
+ 2026-08 | BAJA_ALUMNO      |             1
+ 2026-08 | CANCELADA_ALUMNO |             3
+ 2026-08 | RESERVA_VENCIDA  |             2
+ 2026-08 | VIGENTE          |             8
+ 2026-09 | BAJA_ALUMNO      |             1
+ 2026-09 | CANCELADA_ALUMNO |             2
+ 2026-09 | RESERVA_VENCIDA  |             2
+ 2026-09 | VIGENTE          |            26
+ 2026-10 | BAJA_ALUMNO      |             1
+ 2026-10 | CANCELADA_ALUMNO |             2
+ 2026-10 | RESERVA_VENCIDA  |             1
+ 2026-10 | VIGENTE          |            18
+(24 rows)
+
+ total | canceladas | tasa_clases
+-------+------------+-------------
+    85 |         13 |        15.3
+(1 row)
+
+ total | canceladas | tasa_inscripciones
+-------+------------+--------------------
+   189 |         13 |                6.9
+(1 row)
+
+ nombreMateria | activaMateria | clases_centro | inscripciones_alumno
+---------------+---------------+---------------+----------------------
+ Física        | t             |             7 |                    5
+ Matemática    | t             |             6 |                    8
+(2 rows)
