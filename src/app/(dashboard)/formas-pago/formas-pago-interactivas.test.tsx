@@ -88,29 +88,32 @@ describe("listado", () => {
 
     expect(contenedor.querySelector("h1")?.textContent).toBe("Formas de pago");
     expect(contenedor.textContent).toContain(
-      "Catálogo que Mesa de Entradas usa al asociar la forma de pago y registrar pagos de un turno. Es solo un nombre: no conecta con ninguna pasarela de pago.",
+      "Catálogo que mesa de entrada usa al registrar pagos y al asociar la forma de pago preferida del alumno. Es solo un nombre: no conecta con ninguna pasarela de pago.",
     );
-    expect([...contenedor.querySelectorAll("th")].map((th) => th.textContent)).toEqual(["Nombre", "Estado"]);
+    expect([...contenedor.querySelectorAll("th")].map((th) => th.textContent)).toEqual(["Nombre", "Estado", "Acciones"]);
     const filas = [...contenedor.querySelectorAll("tbody tr")].map((fila) =>
       [...fila.querySelectorAll("td")].map((celda) => celda.textContent),
     );
     expect(filas).toEqual([
-      ["Efectivo", "Activa"],
-      ["Cheque", "Inactiva"],
+      ["Efectivo", "Activa", "EditarDesactivar"],
+      ["Cheque", "Inactiva", "EditarReactivar"],
     ]);
   });
 
-  it("no ofrece acciones por fila (solo el botón principal de la pantalla)", async () => {
+  it("ofrece editar y la acción de estado correspondiente sin Preferida por", async () => {
     await montar();
 
-    expect(contenedor.querySelectorAll("tbody button, tbody a")).toHaveLength(0);
-    expect(contenedor.querySelectorAll("button")).toHaveLength(1);
+    expect(contenedor.querySelectorAll("tbody button")).toHaveLength(4);
+    expect(boton("Editar")).toBeTruthy();
+    expect(boton("Desactivar")).toBeTruthy();
+    expect(boton("Reactivar")).toBeTruthy();
+    expect(contenedor.textContent).not.toContain("Preferida por");
   });
 
   it("sin formas de pago muestra la tabla solo con encabezados y sin texto de estado vacío", async () => {
     await montar(VACIO);
 
-    expect(contenedor.querySelectorAll("th")).toHaveLength(2);
+    expect(contenedor.querySelectorAll("th")).toHaveLength(3);
     expect(contenedor.querySelectorAll("tbody tr")).toHaveLength(0);
     expect(contenedor.textContent).not.toContain("No hay formas de pago registradas");
   });
@@ -292,5 +295,71 @@ describe("modal Nueva forma de pago", () => {
       resolver(respuesta(201, { data: { id: "fp3", nombre: "Efectivo", is_active: true }, error: null }));
     });
     expect(exito).toHaveBeenCalledOnce();
+  });
+});
+
+const accionFila = (label: string) => document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+async function cambiarCampo(selector: string, valor: string, area = false) {
+  await act(async () => {
+    const campo = document.querySelector(selector)!;
+    const prototipo = area ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(prototipo, "value")!.set!.call(campo, valor);
+    campo.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+async function click(nombre: string) { await act(async () => { boton(nombre)!.click(); }); }
+describe("I-07 edición y estados", () => {
+  it("nombre precargado, guardar sin cambios deshabilitado y cancelar descarta", async () => {
+    await montar(); await act(async () => accionFila("Editar Efectivo").click());
+    expect(document.querySelector<HTMLInputElement>("#nombre-fp1")?.value).toBe("Efectivo");
+    expect(boton("Guardar")?.disabled).toBe(true);
+    await cambiarCampo("#nombre-fp1", "Efectivo nuevo"); expect(boton("Guardar")?.disabled).toBe(false);
+    await click("Cancelar"); expect(fetchAutenticado).not.toHaveBeenCalled();
+    await act(async () => accionFila("Editar Efectivo").click());
+    expect(document.querySelector<HTMLInputElement>("#nombre-fp1")?.value).toBe("Efectivo");
+  });
+  it("confirmación de editar mantiene error y nombre; Volver conserva formulario y éxito refresca", async () => {
+    await montar(); await act(async () => accionFila("Editar Efectivo").click());
+    await cambiarCampo("#nombre-fp1", "Nuevo nombre"); await click("Guardar");
+    expect(document.body.textContent).toContain("¿Estás seguro de que querés modificar la forma de pago Efectivo?");
+    await click("Volver"); expect(document.querySelector<HTMLInputElement>("#nombre-fp1")?.value).toBe("Nuevo nombre");
+    await click("Guardar");
+    fetchAutenticado.mockResolvedValueOnce(respuesta(409, { error: { message: MENSAJE_DUPLICADO } }));
+    await click("Guardar"); expect(alerta()?.textContent).toContain(MENSAJE_DUPLICADO);
+    fetchAutenticado.mockResolvedValueOnce(respuesta(200, { data: { id: "fp1", nombre: "Nuevo nombre", is_active: true }, error: null }));
+    await click("Guardar");
+    expect(fetchAutenticado).toHaveBeenLastCalledWith("/api/formas-pago/fp1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ nombre: "Nuevo nombre" }) }));
+    expect(exito).toHaveBeenCalledWith("Forma de pago actualizada correctamente"); expect(refresh).toHaveBeenCalledOnce();
+  });
+  it("desactivar incluye impacto/motivo obligatorio, contador, rojo reversible y éxito", async () => {
+    fetchAutenticado.mockResolvedValueOnce(respuesta(200, { alumnos_con_preferida: 6, tiene_pagos: true, es_ultima_activa: false }));
+    await montar(); await act(async () => accionFila("Desactivar Efectivo").click());
+    expect(document.body.textContent).toContain("6 alumnos la tienen como forma de pago preferida");
+    expect(document.body.textContent).not.toContain("Esta acción no se puede deshacer");
+    const confirmar = document.querySelector<HTMLButtonElement>('[role="alertdialog"] button:last-child')!;
+    expect(confirmar.disabled).toBe(true); expect(confirmar.className).toContain("bg-destructive");
+    expect(document.querySelector<HTMLTextAreaElement>("#motivo-fp1")?.required).toBe(true);
+    await cambiarCampo("#motivo-fp1", "No se acepta", true); expect(confirmar.disabled).toBe(false);
+    expect(document.body.textContent).toContain("12 / 300");
+    fetchAutenticado.mockResolvedValueOnce(respuesta(200, { id: "fp1", nombre: "Efectivo", is_active: false }));
+    await act(async () => confirmar.click());
+    expect(fetchAutenticado).toHaveBeenLastCalledWith("/api/formas-pago/fp1/desactivacion", expect.objectContaining({ method: "POST", body: JSON.stringify({ motivo: "No se acepta" }) }));
+    expect(exito).toHaveBeenCalledWith("Forma de pago desactivada");
+  });
+  it("impacto fallido permite reintentar; última activa bloquea la baja", async () => {
+    fetchAutenticado.mockRejectedValueOnce(new Error("Sin conexión"));
+    await montar(); await act(async () => accionFila("Desactivar Efectivo").click());
+    expect(alerta()?.textContent).toContain("No se pudo conectar. Intentá nuevamente");
+    fetchAutenticado.mockResolvedValueOnce(respuesta(200, { alumnos_con_preferida: 0, tiene_pagos: false, es_ultima_activa: true }));
+    await click("Reintentar"); expect(document.body.textContent).toContain("Debe quedar al menos una forma de pago activa");
+    expect(document.querySelector<HTMLButtonElement>('[role="alertdialog"] button:last-child')?.disabled).toBe(true);
+  });
+  it("reactivar solicita confirmación, no envía body y usa éxito literal", async () => {
+    await montar(); await act(async () => accionFila("Reactivar Cheque").click());
+    fetchAutenticado.mockResolvedValueOnce(respuesta(200, { id: "fp2", nombre: "Cheque", is_active: true }));
+    const confirmar = document.querySelector<HTMLButtonElement>('[role="alertdialog"] button:last-child')!;
+    await act(async () => confirmar.click());
+    expect(fetchAutenticado).toHaveBeenCalledWith("/api/formas-pago/fp2/reactivacion", { method: "POST" });
+    expect(exito).toHaveBeenCalledWith("Forma de pago reactivada");
   });
 });

@@ -100,3 +100,8 @@ export async function verificarAlumnoActivo(
   if (!alumno) throw new ServiceError("ALUMNO_NO_ENCONTRADO", MENSAJES.ALUMNO_NO_ENCONTRADO);
   if (!alumno.activoAlumno) throw new ServiceError("ALUMNO_INACTIVO", MENSAJES.ALUMNO_INACTIVO);
 }
+
+/** HU-I-07: todas las fichas, activas e inactivas (spec B, P-B10). */
+export async function contarAlumnosConFormaPagoPreferida(formaPagoId: string, db: Prisma.TransactionClient = prisma): Promise<number> {
+  return db.alumno.count({ where: { formaPagoPreferidaId: formaPagoId } });
+}

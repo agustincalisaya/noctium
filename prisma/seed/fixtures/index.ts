@@ -11,6 +11,7 @@
 // inscripciones, pagos, comprobantes ni cajas), busca sus datos por id o
 // clave estable antes de crearlos (correr el seed dos veces no cambia nada) y
 // anota en su PR qué agrega.
+import { fixtureHuI07 } from "./hu-i-07";
 import { fixtureHuE09 } from "./hu-e-09";
 import { fixtureHuE07 } from "./hu-e-07";
 import { fixtureHuE04 } from "./hu-e-04";
@@ -30,7 +31,7 @@ export type ContextoFixtures = { prisma: PrismaClient };
 type Fixture = { nombre: string; correr: (contexto: ContextoFixtures) => Promise<void> };
 
 /** Fixtures en orden de ejecución: una línea por HU. */
-const FIXTURES: Fixture[] = [{ nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "HU-E-04", correr: fixtureHuE04 }, { nombre: "HU-E-10", correr: fixtureHuE10 }, { nombre: "HU-E-11", correr: fixtureHuE11 }, { nombre: "HU-E-08", correr: fixtureHuE08 }, { nombre: "HU-E-02", correr: fixtureHuE02 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }, { nombre: "HU-H-03", correr: fixtureHuH03 }, { nombre: "HU-H-10", correr: fixtureHuH10 }];
+const FIXTURES: Fixture[] = [{ nombre: "HU-I-07", correr: fixtureHuI07 }, { nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "HU-E-04", correr: fixtureHuE04 }, { nombre: "HU-E-10", correr: fixtureHuE10 }, { nombre: "HU-E-11", correr: fixtureHuE11 }, { nombre: "HU-E-08", correr: fixtureHuE08 }, { nombre: "HU-E-02", correr: fixtureHuE02 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }, { nombre: "HU-H-03", correr: fixtureHuH03 }, { nombre: "HU-H-10", correr: fixtureHuH10 }];
 
 export async function correrFixtures(contexto: ContextoFixtures): Promise<void> {
   for (const fixture of FIXTURES) {

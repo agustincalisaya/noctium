@@ -1,5 +1,8 @@
 "use client";
 
+import { texto } from "@/lib/textos";
+import { Badge } from "@/components/ui/badge";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +24,7 @@ type FormaPagoFormProps = {
   formasPagoActivas: FormaPagoActiva[];
   /** Id de la forma de pago preferida actual (`null` = "Sin preferencia"). */
   formaPagoIdActual: string | null;
+  nombrePreferidaActual?: string | null;
 };
 
 /**
@@ -30,7 +34,9 @@ type FormaPagoFormProps = {
  * controlado, `DirtyStateContext`/`ConfirmarDescarteDialog` para "Cancelar"
  * con cambios sin guardar.
  */
-export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }: FormaPagoFormProps) {
+export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual, nombrePreferidaActual }: FormaPagoFormProps) {
+  const preferidaInactiva = Boolean(formaPagoIdActual && !formasPagoActivas.some((forma) => forma.id === formaPagoIdActual));
+  const [seleccionModificada, setSeleccionModificada] = useState(false);
   const [exito, setExito] = useState<{ nombre: string | null } | null>(null);
   const [pendiente, setPendiente] = useState(false);
   const [errorGeneral, setErrorGeneral] = useState<string | undefined>();
@@ -47,6 +53,7 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (preferidaInactiva && !seleccionModificada) return;
     if (pendiente) return; // evita envíos duplicados (doble clic / Enter repetido)
 
     setErrorGeneral(undefined);
@@ -106,17 +113,20 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
         </p>
       )}
 
+      {preferidaInactiva && <p className="text-sm text-muted-foreground">{texto("ui.formasPago.preferidaInactiva", { nombre: nombrePreferidaActual ?? "" })} <Badge variant="muted">{texto("ui.formasPago.inactiva")}</Badge></p>}
       <div className="space-y-1.5">
         <Label htmlFor="forma_pago_id">Forma de pago preferida</Label>
         <select
           ref={selectRef}
           id="forma_pago_id"
           name="forma_pago_id"
-          defaultValue={formaPagoIdActual ?? ""}
+          defaultValue={preferidaInactiva ? "__elegir__" : formaPagoIdActual ?? ""}
+          onChange={() => setSeleccionModificada(true)}
           className={cn(
             "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
           )}
         >
+          {preferidaInactiva && <option value="__elegir__" disabled>{texto("ui.formasPago.sinCambiosPreferida")}</option>}
           <option value="">Sin preferencia</option>
           {formasPagoActivas.map((fp) => (
             <option key={fp.id} value={fp.id}>
@@ -133,7 +143,7 @@ export function FormaPagoForm({ alumnoId, formasPagoActivas, formaPagoIdActual }
       )}
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={pendiente}>
+        <Button type="submit" disabled={pendiente || (preferidaInactiva && !seleccionModificada)}>
           {pendiente && <Loader2 className="size-4 animate-spin" aria-hidden />}
           Guardar
         </Button>

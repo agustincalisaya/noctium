@@ -18,7 +18,7 @@ import type { Tx } from "@/server/shared/transaccion";
  */
 export type SolicitudBloqueo = {
   /** Todas las formas de pago activas. No se combina con nada más. */
-  formasPago?: boolean;
+  formasPago?: boolean | { activas?: boolean; ids: readonly string[] };
   recursos?: {
     aulas?: readonly string[];
     materias?: readonly string[];
@@ -89,7 +89,12 @@ function idsPorNivel(solicitud: SolicitudBloqueo): Map<number, string[]> {
   const porNivel = new Map<number, string[]>();
   NIVELES.forEach(({ tipo }, nivel) => {
     if (tipo === "formasPago") {
-      if (solicitud.formasPago) porNivel.set(nivel, [CONJUNTO_FORMAS_PAGO]);
+      if (solicitud.formasPago) {
+        const pedido = solicitud.formasPago;
+        const ids = typeof pedido === "boolean" ? [CONJUNTO_FORMAS_PAGO]
+          : [...(pedido.activas ? [CONJUNTO_FORMAS_PAGO] : []), ...pedido.ids];
+        if (ids.length) porNivel.set(nivel, [...new Set(ids)].sort(comparar));
+      }
       return;
     }
     const ids = pedidos[tipo];
@@ -111,7 +116,7 @@ export async function bloquear(tx: Tx, solicitud: SolicitudBloqueo): Promise<Res
   }
 
   const estado = estadoDe(tx);
-  if (estado.tomados.has(`0:${CONJUNTO_FORMAS_PAGO}`) && [...porNivel.keys()].some((nivel) => nivel > 0)) {
+  if ([...estado.tomados].some((id) => id.startsWith("0:")) && [...porNivel.keys()].some((nivel) => nivel > 0)) {
     throw new ErrorDeBloqueo("Una transacción que bloqueó las formas de pago no toma otros bloqueos");
   }
   const resultado: ResultadoBloqueo = {};
@@ -127,9 +132,16 @@ export async function bloquear(tx: Tx, solicitud: SolicitudBloqueo): Promise<Res
       console.error(`[bloquear] ${mensaje}`);
     }
 
-    const filas = tipo === "formasPago"
+    const conjunto = tipo === "formasPago" && nuevos.includes(CONJUNTO_FORMAS_PAGO);
+    const idsIndividuales = nuevos.filter((id) => id !== CONJUNTO_FORMAS_PAGO);
+    const filas = conjunto && idsIndividuales.length === 0
       ? await tx.$queryRawUnsafe<{ id: string }[]>(
         `SELECT "${columna}" AS id FROM "${tabla}" WHERE "activaFormaPago" ORDER BY "${columna}" COLLATE "C" FOR UPDATE`,
+      )
+      : conjunto
+      ? await tx.$queryRawUnsafe<{ id: string }[]>(
+        `SELECT "${columna}" AS id FROM "${tabla}" WHERE "activaFormaPago" OR "${columna}" = ANY($1::text[]) ORDER BY "${columna}" COLLATE "C" FOR UPDATE`,
+        idsIndividuales,
       )
       : await tx.$queryRawUnsafe<{ id: string }[]>(
         `SELECT "${columna}" AS id FROM "${tabla}" WHERE "${columna}" = ANY($1::text[]) ORDER BY "${columna}" COLLATE "C" FOR UPDATE`,

@@ -937,3 +937,7 @@ Conforme a `docs/RULES.md` Regla N.° 2: todo evento (opción b) se escribe desp
 >
 > Qué cambia en lo existente: `alumno:creado` (2.9) sigue emitiéndose igual y, cuando se crea la cuenta, A registra aparte su evento de seguridad `CUENTA_CREADA` (`spec_modulo_A.md` 4); B no lo emite. La finalización de cada inscripción deja su propia transición en el historial de la inscripción que mantiene C (`spec_modulo_C.md` 2.16.1). La ficha conserva las columnas de la opción (a) (`updatedAtAlumno`, `modificadoPorUsuarioId`, `version`). La lectura del historial (`listarHistorialEstados`) y las consultas de 2.10.1 y 2.12 son de solo lectura y **no emiten eventos**.
 ```
+
+### Nota aditiva de sincronización HU-I-07 (10/10/2026)
+
+`alumno.publico.ts` implementa `contarAlumnosConFormaPagoPreferida(id, db?)`, pendiente en develop; cuenta activos e inactivos (P-B10). `obtenerDetalleAlumno` agrega `forma_pago_preferida_activa` sin cambiar campos anteriores. La ficha muestra Inactiva junto al nombre y la edición conserva el valor persistido hasta que el usuario elige explícitamente otra opción; las opciones siguen siendo solo activas. No cambia el contrato de escritura de B-03.

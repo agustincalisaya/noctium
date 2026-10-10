@@ -79,3 +79,11 @@ Registrar una clase dictada toma primero el bloqueo canónico de la clase con `b
 ### Lecturas y datos de presentación del Sprint 3
 
 Los indicadores componen exclusivamente lecturas de las fachadas públicas de los módulos dueños del dato (Regla N.° 3). Los fixtures de presentación se registran en `prisma/seed/fixtures/index.ts`, usan servicios de dominio para las mutaciones y comprueban una clave estable antes de crear: repetir el seed no duplica ni modifica hechos existentes.
+
+## Aplicación HU-I-07 — Formas de pago (10/10/2026)
+
+- Solo `formas_pago:editar` y `formas_pago:desactivar` (Gerente) permiten modificar estados/nombres. Todas las rutas verifican sesión y permiso en servidor; `desactivar` incluye reactivar.
+- Nombre único normalizado entre activas e inactivas, excluyendo la propia; no se edita `esEfectivo` ni se modifica ningún pago/comprobante emitido.
+- Toda baja bloquea el conjunto activo más la forma solicitada con `bloquear` dentro de `transaccion`; solo después recuenta activas y revalida motivo obligatorio con pagos. Nunca puede quedar el catálogo sin formas activas.
+- La preferencia del alumno se conserva al desactivar; B expone su estado y el conteo por su fachada. Las opciones de pago/preferida ofrecen activas, y una preferida inactiva no se preselecciona para cobrar.
+- Baja/reactivación encolan historial con actor y motivo para después del commit, usando el mecanismo común con reintento. El listado no muestra Preferida por; el impacto solo se informa en la confirmación.

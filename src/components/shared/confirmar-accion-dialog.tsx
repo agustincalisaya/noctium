@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { CircleAlert } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const TEXTO_VOLVER = "Volver";
@@ -31,6 +32,11 @@ type ConfirmarAccionDialogProps = {
    * y pone el foco inicial en "Volver".
    */
   irreversible?: boolean;
+  /** Una baja reversible puede requerir el botón rojo sin leyenda irreversible. */
+  destructiva?: boolean;
+  confirmarDeshabilitado?: boolean;
+  contenido?: ReactNode;
+  className?: string;
   /**
    * Se llama al tocar el botón de confirmar. Si el servidor rechaza, debe
    * lanzar un error con `.message` ya resuelto (ver `fetchOLanzar`) — el
@@ -60,6 +66,10 @@ export function ConfirmarAccionDialog({
   detalle,
   textoConfirmar,
   irreversible = false,
+  destructiva = false,
+  confirmarDeshabilitado = false,
+  contenido,
+  className = "",
   onConfirmar,
   onExito,
   onCerrar,
@@ -76,7 +86,7 @@ export function ConfirmarAccionDialog({
   }
 
   const confirmar = async () => {
-    if (enviando) return;
+    if (enviando || confirmarDeshabilitado) return;
     setEnviando(true);
     setError(null);
     try {
@@ -97,7 +107,7 @@ export function ConfirmarAccionDialog({
         <AlertDialog.Backdrop className="fixed inset-0 z-50 bg-black/50" />
         <AlertDialog.Popup
           initialFocus={irreversible ? volverRef : undefined}
-          className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg outline-none"
+          className={cn("fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg outline-none", className)}
         >
           <AlertDialog.Title className="text-lg font-semibold">{titulo}</AlertDialog.Title>
           {(detalle !== undefined || irreversible) && (
@@ -106,6 +116,7 @@ export function ConfirmarAccionDialog({
               {irreversible && <p className={detalle !== undefined ? "mt-3" : undefined}>{LEYENDA_IRREVERSIBLE}</p>}
             </AlertDialog.Description>
           )}
+          {contenido}
           {error && (
             <p role="alert" className="mt-3 flex items-start gap-2 rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive-soft-foreground">
               <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -118,9 +129,9 @@ export function ConfirmarAccionDialog({
             </Button>
             <Button
               type="button"
-              disabled={enviando}
+              disabled={enviando || confirmarDeshabilitado}
               onClick={() => void confirmar()}
-              className={irreversible ? "bg-destructive text-card hover:bg-destructive/90" : undefined}
+              className={irreversible || destructiva ? "bg-destructive text-card hover:bg-destructive/90" : undefined}
             >
               {enviando ? TEXTO_PROCESANDO : textoConfirmar}
             </Button>

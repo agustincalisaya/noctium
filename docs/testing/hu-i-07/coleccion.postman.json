@@ -1,0 +1,283 @@
+{
+  "info": {
+    "name": "Noctium HU-I-07",
+    "description": "Contrato I §2.16. Usar una forma propia con pagos (para motivo requerido), distinta de Efectivo y con otra activa. sessionCookie se completa localmente; no exportar credenciales. Colección preparada; ejecución HTTP real documentada por separado.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3016"
+    },
+    {
+      "key": "formaPagoId",
+      "value": "formapago-transferencia"
+    },
+    {
+      "key": "sessionCookie",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Editar nombre",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\": \"Transferencia bancaria\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Impacto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}/impacto"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Baja sin motivo con pagos",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}/desactivacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}/desactivacion",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"motivo\": \"El centro ya no la acepta\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactivar",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}/reactivacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Nombre duplicado",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\": \"Efectivo\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Body estricto",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{sessionCookie}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\": \"Transferencia\", \"esEfectivo\": true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"No-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/formas-pago/{{formaPagoId}}/impacto"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Sesión inválida\", () => pm.expect(pm.response.json().error.code).to.eql(\"SESION_INVALIDA\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

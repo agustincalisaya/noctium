@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { motivoSchema } from "./pago.schema";
 
 /**
  * Alta de forma de pago (spec_modulo_I.md §2.1, HU-I-03). Primero se recorta
@@ -7,20 +8,19 @@ import { z } from "zod";
  * almacena ningún dato financiero (criterio 1). Con el campo vacío se
  * muestra un solo mensaje (`abort` corta la cadena en el primer fallo).
  */
-export const CrearFormaPagoSchema = z
-  .object({
-    nombre: z
-      .string()
-      .transform((valor) => valor.trim().replace(/\s+/g, " "))
-      .pipe(
-        z
-          .string()
-          .min(1, { error: "Ingresá el nombre de la forma de pago.", abort: true })
-          .min(2, "El nombre debe tener al menos 2 caracteres")
-          .max(40, "El nombre no puede superar los 40 caracteres"),
-      ),
-  })
-  .strict();
+export const NombreFormaPagoSchema = z.string()
+  .transform((valor) => valor.trim().replace(/\s+/g, " "))
+  .pipe(z.string()
+    .min(1, { error: "Ingresá el nombre de la forma de pago.", abort: true })
+    .min(2, "El nombre debe tener al menos 2 caracteres")
+    .max(40, "El nombre no puede superar los 40 caracteres"));
+
+export const CrearFormaPagoSchema = z.object({ nombre: NombreFormaPagoSchema }).strict();
+export const ModificarFormaPagoSchema = CrearFormaPagoSchema;
+export const DesactivarFormaPagoSchema = z.object({
+  motivo: z.preprocess((valor) => typeof valor === "string" && !valor.trim() ? undefined : valor, motivoSchema.optional()),
+}).strict();
+export type DesactivarFormaPagoInput = z.infer<typeof DesactivarFormaPagoSchema>;
 export type CrearFormaPagoInput = z.infer<typeof CrearFormaPagoSchema>;
 
 export const ListarFormasPagoQuerySchema = z.object({

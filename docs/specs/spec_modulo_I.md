@@ -1303,6 +1303,9 @@ La caja cerrada **no se modifica** (Regla N.° 8). Cuando el pago a cambiar est�
 
 ### 2.16. Modificar, desactivar y reactivar una forma de pago (HU-I-07) — NUEVA en Revisión 3
 
+> **Sincronización de implementación I-07 (10/10/2026).** `modificarFormaPago(tx, id, input)`, `desactivarFormaPago(tx, id, input, actor)` y `reactivarFormaPago(tx, id, actor)` reciben la transacción del llamador como en PR-0 §2.13. `obtenerImpactoFormaPago(id, db?)` responde con objeto directo de §2.16.2; reactivación devuelve objeto directo `{ id, nombre, is_active: true }`. PATCH conserva su envelope, baja su objeto directo. `bloquear` mantiene `formasPago: true` y añade `{ activas?: boolean, ids: string[] }` para incluir solicitada inactiva/bloquear solo propia. Motivo vacío/espacios equivale a omitido, y solo se exige con pagos; se incluyen formas usadas en correcciones de operación. Sin migración. La fachada B de conteo faltaba en develop y la agrega esta HU; cuenta fichas activas e inactivas según P-B10. Las pantallas I-06/I-11 completas no están en esta base, aunque sus servicios sí: sus diferidos visuales se verifican al integrar esas HUs.
+
+
 Las altas y los listados (2.1 y 2.2) no cambian. La columna «Preferida por» **no existe** (criterio 1): cuántos alumnos la tienen como preferida solo se informa al desactivar (2.16.2).
 
 #### 2.16.1. Modificar el nombre

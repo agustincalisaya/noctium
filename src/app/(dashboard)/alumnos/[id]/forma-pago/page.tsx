@@ -57,6 +57,7 @@ export default async function FormaPagoAlumnoPage({
         alumnoId={alumno.id}
         formasPagoActivas={formasPagoActivas}
         formaPagoIdActual={alumno.forma_pago_preferida_id}
+        nombrePreferidaActual={alumno.forma_pago_preferida}
       />
     </div>
   );

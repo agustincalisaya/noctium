@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CrearFormaPagoSchema, ListarFormasPagoQuerySchema } from "./forma-pago.schema";
+import { CrearFormaPagoSchema, ListarFormasPagoQuerySchema, ModificarFormaPagoSchema, DesactivarFormaPagoSchema } from "./forma-pago.schema";
 
 const mensajes = (valor: unknown) => {
   const resultado = CrearFormaPagoSchema.safeParse(valor);
@@ -61,5 +61,21 @@ describe("ListarFormasPagoQuerySchema", () => {
     expect(ListarFormasPagoQuerySchema.safeParse({ por_pagina: "21" }).success).toBe(false);
     expect(ListarFormasPagoQuerySchema.safeParse({ pagina: "0" }).success).toBe(false);
     expect(ListarFormasPagoQuerySchema.safeParse({ pagina: "1.5" }).success).toBe(false);
+  });
+});
+
+describe("I-07 schemas estrictos", () => {
+  it("edición reutiliza el alta y rechaza esEfectivo", () => {
+    expect(ModificarFormaPagoSchema).toBe(CrearFormaPagoSchema);
+    expect(ModificarFormaPagoSchema.safeParse({ nombre: "Débito", esEfectivo: true }).success).toBe(false);
+  });
+  it("baja permite omitir motivo o espacios; valida límite después de trim y rechaza campos extra", () => {
+    expect(DesactivarFormaPagoSchema.parse({})).toEqual({});
+    expect(DesactivarFormaPagoSchema.parse({ motivo: "  " })).toEqual({ motivo: undefined });
+    expect(DesactivarFormaPagoSchema.parse({ motivo: " x " })).toEqual({ motivo: "x" });
+    expect(DesactivarFormaPagoSchema.safeParse({ motivo: "x".repeat(300) }).success).toBe(true);
+    expect(DesactivarFormaPagoSchema.safeParse({ motivo: "x".repeat(301) }).success).toBe(false);
+    expect(DesactivarFormaPagoSchema.safeParse({ motivo: 1 }).success).toBe(false);
+    expect(DesactivarFormaPagoSchema.safeParse({ activa: false }).success).toBe(false);
   });
 });

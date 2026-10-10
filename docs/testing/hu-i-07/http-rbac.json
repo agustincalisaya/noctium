@@ -1,0 +1,121 @@
+[
+  {
+    "rol": "SIN_SESION",
+    "method": "PATCH",
+    "ruta": "PATCH",
+    "status": 401,
+    "code": "SESION_INVALIDA"
+  },
+  {
+    "rol": "SIN_SESION",
+    "method": "GET",
+    "ruta": "/impacto",
+    "status": 401,
+    "code": "SESION_INVALIDA"
+  },
+  {
+    "rol": "SIN_SESION",
+    "method": "POST",
+    "ruta": "/desactivacion",
+    "status": 401,
+    "code": "SESION_INVALIDA"
+  },
+  {
+    "rol": "SIN_SESION",
+    "method": "POST",
+    "ruta": "/reactivacion",
+    "status": 401,
+    "code": "SESION_INVALIDA"
+  },
+  {
+    "rol": "MESA_ENTRADA",
+    "method": "PATCH",
+    "ruta": "PATCH",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "MESA_ENTRADA",
+    "method": "GET",
+    "ruta": "/impacto",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "MESA_ENTRADA",
+    "method": "POST",
+    "ruta": "/desactivacion",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "MESA_ENTRADA",
+    "method": "POST",
+    "ruta": "/reactivacion",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "PROFESOR",
+    "method": "PATCH",
+    "ruta": "PATCH",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "PROFESOR",
+    "method": "GET",
+    "ruta": "/impacto",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "PROFESOR",
+    "method": "POST",
+    "ruta": "/desactivacion",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "PROFESOR",
+    "method": "POST",
+    "ruta": "/reactivacion",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "ALUMNO",
+    "method": "PATCH",
+    "ruta": "PATCH",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "ALUMNO",
+    "method": "GET",
+    "ruta": "/impacto",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "ALUMNO",
+    "method": "POST",
+    "ruta": "/desactivacion",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "ALUMNO",
+    "method": "POST",
+    "ruta": "/reactivacion",
+    "status": 403,
+    "code": "SIN_PERMISO"
+  },
+  {
+    "rol": "GERENTE",
+    "method": "POST",
+    "ruta": "/desactivacion",
+    "status": 400,
+    "code": "MOTIVO_REQUERIDO"
+  }
+]

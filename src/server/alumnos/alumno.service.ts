@@ -328,6 +328,7 @@ export async function obtenerDetalleAlumno(alumnoId: string): Promise<DetalleAlu
     telefono: alumno.telefonoAlumno,
     email: alumno.emailAlumno,
     forma_pago_preferida: formaPagoPreferida?.nombre ?? null,
+    forma_pago_preferida_activa: formaPagoPreferida?.is_active ?? false,
     // HU-B-03: id crudo, para precargar el <select> por id (el nombre no
     // sirve para eso — y una preferencia que quedó inactiva desde que se
     // guardó de todas formas necesita su id real, no solo el texto).

@@ -1,3 +1,5 @@
+import { Badge } from "@/components/ui/badge";
+import { texto } from "@/lib/textos";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { FichaDatos, FichaSeccion } from "./ficha-seccion";
@@ -21,11 +23,13 @@ export function FichaAltaPago({
   alumnoId,
   fechaAlta,
   formaPagoPreferida,
+  formaPagoPreferidaActiva = true,
   puedeEditar,
 }: {
   alumnoId: string;
   fechaAlta: string;
   formaPagoPreferida: string | null;
+  formaPagoPreferidaActiva?: boolean;
   puedeEditar: boolean;
 }) {
   return (
@@ -45,7 +49,7 @@ export function FichaAltaPago({
       <FichaDatos
         datos={[
           ["Fecha de alta", formatearFecha(fechaAlta)],
-          ["Forma de pago preferida", formaPagoPreferida ?? "Sin preferencia"],
+          ["Forma de pago preferida", formaPagoPreferida ? <span className="inline-flex items-center gap-2">{formaPagoPreferida}{!formaPagoPreferidaActiva && <Badge variant="muted">{texto("ui.formasPago.inactiva")}</Badge>}</span> : "Sin preferencia"],
         ]}
       />
     </FichaSeccion>
