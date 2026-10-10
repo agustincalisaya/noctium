@@ -52,5 +52,6 @@ export const config = {
     "/profesor/:path*",
     "/gerente/:path*",
     "/alumno/:path*",
+    "/mi-historial/:path*",
   ],
 };

@@ -4,11 +4,14 @@ import Link from "next/link";
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useCallback, useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
+import { fechaCorta } from "@/lib/turno-detalle";
+import { texto } from "@/lib/textos";
 import { BuscadorAlumnos, etiquetaAlumno } from "../../buscador-alumnos";
 import { EstadoTurnoBadge } from "../../estado-turno-badge";
-import type { Turno } from "@/types/turno.types";
+import type { InscripcionConfirmadaCentro, Turno } from "@/types/turno.types";
 
 type Profesor = { id: string; nombre: string; apellido: string };
 /** Mismo formato que `Turno.alumnos`: `nombre` ya es "Apellido, Nombre". */
@@ -23,11 +26,12 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
   const [alumnos, setAlumnos] = useState<AlumnoAgregado[]>([]);
   const [profesorId, setProfesorId] = useState("");
   const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [errorAlumno, setErrorAlumno] = useState<{ id: string; mensaje: string } | null>(null);
   const [sinProfesoresMateria, setSinProfesoresMateria] = useState(false);
   const [confirmado, setConfirmado] = useState<Turno["estado"] | null>(null);
+  const [inscripcionesConfirmadas, setInscripcionesConfirmadas] = useState<InscripcionConfirmadaCentro[]>([]);
+  const [confirmando, setConfirmando] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true); setError("");
@@ -65,32 +69,54 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
   const agregar = (alumno: AlumnoAgregado) => { if (!cupoAlcanzado) { setAlumnos((anteriores) => [...anteriores, alumno]); limpiarErrores(); } };
   const quitar = (alumnoId: string) => { setAlumnos((anteriores) => anteriores.filter(({ id: otro }) => otro !== alumnoId)); limpiarErrores(); };
 
-  const guardar = async (event: React.FormEvent<HTMLFormElement>) => {
+  const pedirConfirmacion = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!turno || alumnos.length === 0 || !profesorId || guardando) return;
-    setGuardando(true); limpiarErrores();
+    if (!turno || alumnos.length === 0 || !profesorId || confirmando) return;
+    limpiarErrores();
+    setConfirmando(true);
+  };
+
+  /**
+   * Confirmación de HU-C-25 (C §2.18.3): asignar alumnos desde el centro es
+   * una operación modificada en este sprint. `ConfirmarAccionDialog` llama a
+   * esta función al confirmar; un rechazo del servidor se muestra dentro del
+   * mismo diálogo (criterio 6) sin perder la selección.
+   */
+  const guardar = async () => {
+    if (!turno) return;
+    setErrorAlumno(null);
+    let respuesta: Response;
     try {
-      const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(id)}/participantes`, {
+      respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(id)}/participantes`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ alumno_ids: alumnos.map(({ id: alumnoId }) => alumnoId), ...(!turno.profesor_id ? { profesor_id: profesorId } : {}) }), cache: "no-store",
       });
-      const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok) {
-        const mensaje = valor?.error?.message ?? "No se pudieron asignar los participantes";
-        const alumnoId = valor?.error?.detalles?.alumno_id;
-        if (typeof alumnoId === "string" && alumnos.some(({ id: otro }) => otro === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
-        else setError(mensaje);
-        return;
-      }
-      setConfirmado(valor.data.estado);
-    } catch { setError("No se pudieron asignar los participantes. Intentá nuevamente."); }
-    finally { setGuardando(false); }
+    } catch { throw new Error("No se pudieron asignar los participantes. Intentá nuevamente."); }
+    const valor = await respuesta.json().catch(() => null);
+    if (!respuesta.ok) {
+      const mensaje = valor?.error?.message ?? "No se pudieron asignar los participantes";
+      const alumnoId = valor?.error?.detalles?.alumno_id;
+      if (typeof alumnoId === "string" && alumnos.some(({ id: otro }) => otro === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
+      throw new Error(mensaje);
+    }
+    setConfirmado(valor.data.estado);
+    setInscripcionesConfirmadas(Array.isArray(valor.data.inscripciones) ? valor.data.inscripciones : []);
   };
 
   return <main className="mx-auto w-full min-w-0 max-w-2xl space-y-5 p-6">
     <LinkProtegido className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</LinkProtegido>
     <h1 className="text-2xl font-semibold">Asignar profesor y alumnos</h1>
-    {cargando ? <p role="status">Cargando turno</p> : confirmado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">Profesor y alumnos asignados correctamente</p><p className="flex flex-wrap items-center gap-2">Turno confirmado <EstadoTurnoBadge estado={confirmado} /></p><div className="flex flex-wrap gap-4"><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Ver detalle</Link><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</Link></div></div> : !turno ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de participantes. Los alumnos se agregan o quitan desde el detalle del turno.</p> : !turno.aula_id ? <div role="status" className="space-y-3 rounded-md border border-border bg-card p-5"><p>Asigná un aula antes de confirmar el turno.</p><Link className="text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Asignar aula</Link></div> : <form onSubmit={(event) => void guardar(event)} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
+    {cargando ? <p role="status">Cargando turno</p> : confirmado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">Profesor y alumnos asignados correctamente</p><p className="flex flex-wrap items-center gap-2">Turno confirmado <EstadoTurnoBadge estado={confirmado} /></p>
+      {inscripcionesConfirmadas.length > 0 && <ul aria-label="Alumnos a cobrar" className="space-y-2">{inscripcionesConfirmadas.map((inscripcion) => {
+        const alumno = alumnos.find(({ id: alumnoId }) => alumnoId === inscripcion.alumno_id);
+        return <li key={inscripcion.alumno_id} className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-card/40 px-3 py-2 text-sm text-foreground">
+          <span>{alumno?.nombre ?? inscripcion.alumno_id}</span>
+          <Link className="inline-flex rounded-md border border-border px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            href={`/pagos/registrar?alumno=${encodeURIComponent(inscripcion.alumno_id)}&clase=${encodeURIComponent(id)}`} prefetch={false}
+            aria-label={texto("ui.turnos.reserva.registrarPagoDe", { alumno: alumno?.nombre ?? "" })}>{texto("ui.turnos.reserva.registrarPago")}</Link>
+        </li>;
+      })}</ul>}
+      <div className="flex flex-wrap gap-4"><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Ver detalle</Link><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</Link></div></div> : !turno ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de participantes. Los alumnos se agregan o quitan desde el detalle del turno.</p> : !turno.aula_id ? <div role="status" className="space-y-3 rounded-md border border-border bg-card p-5"><p>Asigná un aula antes de confirmar el turno.</p><Link className="text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Asignar aula</Link></div> : <form onSubmit={pedirConfirmacion} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
       <div className="space-y-1"><p className="font-medium">{turno.fecha} · {turno.hora_inicio}–{turno.hora_fin} · {turno.materia}</p><p className="text-sm text-muted-foreground">Aula: {turno.aula} · Cupo máximo: {turno.cupo_maximo}</p><EstadoTurnoBadge estado={turno.estado} /></div>
       {turno.profesor_id ? <p className="text-sm">Profesor ya asignado al turno.</p> : <div className="space-y-2"><label htmlFor="profesor" className="text-sm font-medium">Profesor *</label>
         {sinProfesoresMateria ? <p role="status">No hay profesores activos asociados a esta materia</p> : profesores.length === 0 ? <p role="status">No hay profesores disponibles para este horario</p> : <select id="profesor" value={profesorId} onChange={(event) => { setProfesorId(event.target.value); limpiarErrores(); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná un profesor</option>{profesores.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>}
@@ -107,7 +133,13 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
         <BuscadorAlumnos id="alumno-busqueda" excluir={alumnos.map(({ id: alumnoId }) => alumnoId)} deshabilitado={cupoAlcanzado} avisoDeshabilitado="El turno alcanzó su cupo máximo" onSeleccionar={(alumno) => agregar({ id: alumno.id, nombre: etiquetaAlumno(alumno), dni: alumno.dni })} />
       </fieldset>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={alumnos.length === 0 || !profesorId || guardando}>{guardando ? "Guardando…" : "Confirmar turno"}</Button><Link className={buttonVariants({ variant: "outline" })} href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Cancelar</Link></div>
+      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={alumnos.length === 0 || !profesorId}>Confirmar turno</Button><Link className={buttonVariants({ variant: "outline" })} href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Cancelar</Link></div>
+      <ConfirmarAccionDialog abierto={confirmando} onCerrar={() => setConfirmando(false)}
+        titulo={texto("confirmaciones.inscripcion.centro", {
+          // "Apellido, Nombre" → "Nombre Apellido": con varios alumnos, unidos por coma, el formato original sería ambiguo.
+          alumno: alumnos.map(({ nombre }) => nombre.replace(/^([^,]+),\s*(.+)$/, "$2 $1")).join(", "), materia: turno.materia, fecha: fechaCorta(turno.fecha), hora: turno.hora_inicio,
+        })}
+        textoConfirmar={texto("ui.turnos.reserva.inscribir")} onConfirmar={guardar} onExito={() => setConfirmando(false)} />
     </form>}
   </main>;
 }

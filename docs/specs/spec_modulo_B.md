@@ -141,6 +141,12 @@ HU-B-01 a HU-B-06 y HU-B-08 (Sprint 1) y HU-B-05 (Sprint 2) **conservan sus cont
 
 ---
 
+### Sincronización HU-E-02 — 09/10/2026
+
+E02 implementa `/alumnos/[id]/clases` y `GET /api/alumnos/[id]/clases` exclusivamente para Mesa/Gerente, con nueve resultados, filtros combinados inclusivos, resumen filtrado y paginación de diez. La migración nueva `20261009180000_hu_e02_alcance_profesor` retira solo `PROFESOR alumnos:leer`; seed mantiene esa revocación. El historial del Profesor se renderiza en `/turnos/[id]/alumnos/[alumnoId]/historial`, verificando clase propia y materia, sin ficha general ni datos de contacto. Permisos se leen por solicitud y afectan sesiones existentes.
+
+Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desactivar ni Pagos, historias aún fuera del alcance. Sidebar conservado por instrucción del usuario; su enlace general de Profesor queda rechazado por ruta y API. Fixtures usan fachadas PR0 para estados C14/C24/B07 sin declarar completadas esas historias. Changelog aditivo: integración E02 y revocación de compatibilidad de Sprint 2.
+
 ## 1. Visión General
 
 > **Revisión 3 (Sprint 3).** El módulo suma tres capacidades, todas aditivas: (1) el alta de un alumno puede crear **junto con la ficha su cuenta de acceso** —email como usuario, DNI como contraseña inicial, cambio obligatorio en el primer ingreso—, siempre vía los servicios de A (2.9); (2) Mesa de Entrada puede **desactivar y reactivar** al alumno, lo que libera sus inscripciones futuras, desactiva su cuenta y cierra sus sesiones, sin borrar nada (2.10 y 2.11); (3) el **Gerente** consulta la sección Alumnos en modo lectura (2.12). Las dos entidades siguen separadas: una ficha puede no tener cuenta (las anteriores al Sprint 3 y las creadas sin email) y baja y cuenta se mueven juntas solo cuando existe la cuenta. La separación de módulos se mantiene: B nunca escribe en `usuarios` ni lee clases, pagos o historial; usa las fachadas de A, C, I y E (2.13).

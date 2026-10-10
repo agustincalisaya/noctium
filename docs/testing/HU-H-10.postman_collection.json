@@ -1,0 +1,467 @@
+{
+  "info": {
+    "name": "HU-H-10 — Cancelaciones",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Lecturas H10. Preparada; no ejecutada en Postman. No incluye credenciales ni escrituras."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cookie_gerente",
+      "value": ""
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "cookie_profesor",
+      "value": ""
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "cancelaciones-por-mes — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Series y tasas separadas\", () => { const d = pm.response.json().data; pm.expect(d).to.have.keys(\"meses\", \"totales\", \"tasas\"); pm.expect(d.totales).to.have.keys(\"clases_canceladas_centro\", \"inscripciones_canceladas_alumno\", \"reservas_vencidas\", \"bajas\"); for (const t of Object.values(d.tasas)) { pm.expect(t.tasa === null || Number.isFinite(t.tasa)).to.be.true; if (t.totales === 0) pm.expect(t.tasa).to.equal(null); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Series y tasas separadas\", () => { const d = pm.response.json().data; pm.expect(d).to.have.keys(\"meses\", \"totales\", \"tasas\"); pm.expect(d.totales).to.have.keys(\"clases_canceladas_centro\", \"inscripciones_canceladas_alumno\", \"reservas_vencidas\", \"bajas\"); for (const t of Object.values(d.tasas)) { pm.expect(t.tasa === null || Number.isFinite(t.tasa)).to.be.true; if (t.totales === 0) pm.expect(t.tasa).to.equal(null); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-mes — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-mes"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Materia conserva solo centro y alumno\", () => { const d = pm.response.json().data; pm.expect(d).to.have.keys(\"items\"); for (const m of d.items) pm.expect(m).to.have.keys(\"materia_id\", \"nombre\", \"codigo\", \"activa\", \"clases_canceladas_centro\", \"inscripciones_canceladas_alumno\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });",
+              "pm.test(\"Materia conserva solo centro y alumno\", () => { const d = pm.response.json().data; pm.expect(d).to.have.keys(\"items\"); for (const m of d.items) pm.expect(m).to.have.keys(\"materia_id\", \"nombre\", \"codigo\", \"activa\", \"clases_canceladas_centro\", \"inscripciones_canceladas_alumno\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "cancelaciones-por-materia — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/cancelaciones-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

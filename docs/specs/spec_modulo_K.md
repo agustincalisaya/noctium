@@ -25,6 +25,7 @@
 **Changelog de esta revisión (trazabilidad Backlog → Spec):**
 | HU | Estado previo | Acción |
 |---|---|---|
+| HU-C-20 (09/10/2026) | Sin lectura pública del nombre del aula asignada | §2.3 agrega `obtenerNombreAula(id, db?)`, aditiva, sin permisos ni rutas nuevas en K |
 | HU-K-03 | Gap — «Modificación de un aula ya registrada» figuraba como fuera de alcance | Añadida sección 2.4 (aditiva, no renumera) y reglas 3.4 y 3.5 |
 | HU-K-02 | Contractualizada (Sprint 1) | El detalle `GET /api/aulas/[id]` (§2.2) devuelve `version`, que consume 2.4. Sin otro cambio de contrato |
 | HU-K-01 | Contractualizada (Sprint 1) | Sin cambio de contrato; estructura alineada al template (Servicio, Errores esperados, §4) |
@@ -176,6 +177,7 @@ Funciones declaradas en `src/server/aulas/aula.publico.ts` (Regla N.° 3 y 11: l
 
 | Función | Devuelve | Consumidores |
 |---|---|---|
+| `obtenerNombreAula(id, db?)` | `{ id, nombre } \| null`: nombre del aula existente, activa o inactiva; `null` solo si no existe. `db` acepta `Prisma.TransactionClient` y por defecto usa `prisma`. Solo lectura, sin bloqueo, escritura ni validación de disponibilidad | HU-C-20, `spec_modulo_C.md` §2.17.1: nombre del aula ya asignada; la ruta de C autoriza `turnos:solicitar_propio` |
 | `verificarAulaActiva(id, db?)` | `{ idAula, capacidadAula }` si el aula existe y está activa; `null` en cualquier otro caso | `spec_modulo_C.md` §2.3 (HU-C-15): aula elegida al asignar |
 | `listarAulasActivasParaTurno(capacidadMinima)` | `{ id, nombre, capacidad }[]` de las aulas activas con `capacidad >= capacidadMinima`, en el orden natural de la columna (§3.2). C le pasa `max(1, alumnos.length)` (`spec_modulo_C.md` §2.3) | `spec_modulo_C.md` §2.3 (HU-C-15): opciones de aula (`GET /api/turnos/aula/opciones`) |
 | `hayAulasActivas(db?)` | `boolean`: si existe al menos un aula activa | `spec_modulo_C.md` §2.3 (HU-C-15): distinguir "No hay aulas activas registradas" |

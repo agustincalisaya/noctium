@@ -188,15 +188,30 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
     expect(alumnoCheckbox(alumnos[1]).disabled).toBe(false);
   });
 
-  it("confirma con alumno_ids sin profesor_id y muestra DISPONIBLE sin repetir PATCH", async () => {
+  it("HU-C-25: «Crear turno» pide confirmación con los datos concretos antes de guardar; «Volver» no inscribe", async () => {
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    await pulsar(boton("Crear turno"));
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
+    expect(dialogoConfirmacion()?.textContent).toContain("¿Estás seguro de que querés inscribir a Juan López en Física del 01/10/2026 a las 10:00?");
+    await pulsar(botonDialogo("Volver"));
+    expect(dialogoConfirmacion()).toBeNull();
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
+    expect(container.textContent).toContain("López, Juan");
+  });
+
+  it("confirma con alumno_ids sin profesor_id, muestra DISPONIBLE y ofrece «Registrar pago» por cada alumno (C §2.18.3)", async () => {
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
     expect(boton("Ver listado de turnos")).toBeUndefined();
     expect(container.textContent).not.toContain("Turno creado correctamente.");
-    await pulsar(boton("Crear turno"));
+    await confirmarCreacion();
     expect(JSON.parse(String(llamadas("PATCH", "/participantes")[0]![1].body))).toEqual({ alumno_ids: ["alumno-1"] });
     expect(container.textContent).toContain("Turno confirmado");
     expect(container.textContent).toContain("Turno creado correctamente.");
     expect(container.textContent).toContain("Disponible");
+    const accesos = [...container.querySelectorAll('a[aria-label^="Registrar pago de"]')];
+    expect(accesos.map((a) => [a.getAttribute("aria-label"), a.textContent, a.getAttribute("href")])).toEqual([
+      ["Registrar pago de Juan López", "Registrar pago", "/pagos/registrar?alumno=alumno-1&clase=turno-1"],
+    ]);
     expect(boton("Crear turno")).toBeUndefined();
     expect(boton("Ver listado de turnos")).toBeDefined();
     expect(push).not.toHaveBeenCalled();
@@ -209,33 +224,23 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
 
   it("usa el estado COMPLETO devuelto por backend", async () => {
     rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
-      ? respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "COMPLETO" }) : undefined;
+      ? respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "COMPLETO", inscripciones: [] }) : undefined;
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
-    await pulsar(boton("Crear turno"));
+    await confirmarCreacion();
     expect(container.textContent).toContain("Completo");
   });
 
-  it.each(["ALUMNO_NO_DISPONIBLE", "TURNO_SIN_AULA"])("error %s conserva selección y PENDIENTE", async (codigo) => {
+  it.each(["ALUMNO_NO_DISPONIBLE", "TURNO_SIN_AULA"])("rechazo del servidor (%s) se muestra en el diálogo y conserva selección y PENDIENTE", async (codigo) => {
     rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
       ? respuesta(null, false, { code: codigo, message: codigo === "TURNO_SIN_AULA" ? "Asigná un aula antes de confirmar el turno" : "El alumno ya tiene otro turno", detalles: codigo === "ALUMNO_NO_DISPONIBLE" ? { alumno_id: "alumno-1" } : undefined }) : undefined;
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
     await pulsar(boton("Crear turno"));
+    await pulsar(botonDialogo("Inscribir"));
+    expect(dialogoConfirmacion()?.querySelector('[role="alert"]')?.textContent).toContain(codigo === "TURNO_SIN_AULA" ? "Asigná un aula" : "El alumno ya tiene otro turno");
+    await pulsar(botonDialogo("Volver"));
     expect(container.querySelector("h2#titulo-paso-alumnos")).not.toBeNull();
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(codigo === "TURNO_SIN_AULA" ? "Asigná un aula" : "El alumno ya tiene otro turno");
     expect(container.textContent).toContain("López, Juan");
     expect(llamadas("POST", "/api/turnos")).toHaveLength(1);
-  });
-
-  it("doble click envía un solo PATCH de participantes", async () => {
-    let resolver: (valor: Respuesta) => void = () => {};
-    rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
-      ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
-    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
-    act(() => { boton("Crear turno").click(); boton("Crear turno").click(); });
-    expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
-    expect(alumnoCheckbox(alumnos[0]).disabled).toBe(true);
-    await act(async () => { resolver(respuesta({ id: "turno-1", estado: "DISPONIBLE" })); });
-    expect(container.textContent).toContain("Turno confirmado");
   });
 
   it("Atrás y cambio de Aula conservan alumnos locales sin confirmar", async () => {
@@ -306,6 +311,10 @@ const buscarAlumno = async (texto: string) => {
 };
 const alumnoCheckbox = (alumno = alumnos[0]) => [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].find((input) => input.closest("label")?.textContent?.includes(`${alumno.apellido}, ${alumno.nombre}`))!;
 const agregarAlumno = async (alumno = alumnos[0]) => pulsar(alumnoCheckbox(alumno));
+/** HU-C-25: «Crear turno» abre la confirmación antes de guardar (C §2.18.3); el diálogo se porta fuera de `container`. */
+const dialogoConfirmacion = () => document.querySelector('[role="alertdialog"]');
+const botonDialogo = (texto: string) => [...dialogoConfirmacion()!.querySelectorAll("button")].find((elemento) => elemento.textContent?.trim() === texto) as HTMLButtonElement;
+const confirmarCreacion = async () => { await pulsar(boton("Crear turno")); await pulsar(botonDialogo("Inscribir")); };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -325,7 +334,8 @@ beforeEach(() => {
     if (url === "/api/turnos/aula/opciones?turno_id=turno-1") return respuesta(aulas);
     if (url === "/api/turnos/turno-1/aula" && init?.method === "PATCH") return respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 20, estado: "PENDIENTE" });
     if (url === "/api/turnos/participantes/alumnos/opciones?turno_id=turno-1") return respuesta({ turno_id: "turno-1", alumnos });
-    if (url === "/api/turnos/turno-1/participantes" && init?.method === "PATCH") return respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "DISPONIBLE" });
+    if (url === "/api/turnos/turno-1/participantes" && init?.method === "PATCH") return respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "DISPONIBLE",
+      inscripciones: [{ alumno_id: "alumno-1", inscripcion_id: "inscripcion-1", estado_pago: "RESERVADA", vence_el: "2026-10-02T10:00:00-03:00", precio: 24000 }] });
     return respuesta(null, false, { message: `Ruta inesperada: ${url}` });
   });
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);

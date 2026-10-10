@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
-import type { EstadoTurno, Prisma, PrioridadTurno, RolUsuario } from "@prisma/client";
+import type { EstadoTurno, Prisma, PrioridadTurno, RolUsuario, TurnoAlumno } from "@prisma/client";
+import type { InscripcionPropia } from "@/types/turno.types";
+import { inicioDeTurno, isoCentro } from "@/server/shared/fechas-centro";
 import { ServiceError } from "@/server/shared/service-error";
 import { listarMateriasActivas, verificarMateriaActiva } from "@/server/materias/materia.service";
 import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria, estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.publico";
@@ -26,7 +28,7 @@ import {
   inscripcionVigenteDelPar,
   marcarVencidas,
 } from "./inscripcion.service";
-import { estadoSegunOcupacion, filtroVigenteEn, inscripcionesVigentes } from "./inscripcion.vigencia";
+import { esVigenteEn, estadoSegunOcupacion, filtroVigenteEn, inscripcionesVigentes } from "./inscripcion.vigencia";
 
 const turnoInclude = {
   materia: { select: { idMateria: true, nombreMateria: true, codigoMateria: true } },
@@ -80,14 +82,14 @@ export async function listarTurnosPropios(
   query: MisTurnosQuery,
   usuarioId: string,
   db: Prisma.TransactionClient = prisma,
-  ahora = new Date(),
+  ahora = relojAhora(),
 ) {
   const alumno = await obtenerAlumnoDeUsuario(usuarioId, db);
   if (!alumno) throw new ServiceError("SIN_PERMISO", "Tu cuenta no tiene una ficha de alumno vinculada");
 
   const { fecha: fechaCorte, hora: horaCorte } = corteLocal(ahora);
-  const vigente = filtroVigenteEn(relojAhora());
-  const propietario = { alumnos: { some: { alumnoId: alumno.id, ...vigente } } };
+  const vigente = filtroVigenteEn(ahora);
+  const propietario = { estadoTurno: { not: "PENDIENTE" as const }, alumnos: { some: { alumnoId: alumno.id } } };
   const filtroProximos = { ...propietario, ...filtroVistaPropia("proximos", fechaCorte, horaCorte) };
   const filtroAnteriores = { ...propietario, ...filtroVistaPropia("anteriores", fechaCorte, horaCorte) };
   const filtroSolicitado = query.vista === "proximos" ? filtroProximos : filtroAnteriores;
@@ -107,6 +109,7 @@ export async function listarTurnosPropios(
         profesor: { select: { apellidoProfesor: true, nombreProfesor: true } },
         aula: { select: { nombreAula: true } },
         _count: { select: { alumnos: { where: vigente } } },
+        alumnos: { where: { alumnoId: alumno.id }, orderBy: [{ reservadaEl: "desc" }, { idInscripcion: "desc" }] },
       },
       orderBy: query.vista === "proximos"
         ? [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { idTurno: "asc" }]
@@ -128,6 +131,10 @@ export async function listarTurnosPropios(
       aula: turno.aula?.nombreAula ?? "Sin asignar",
       estado: estadoSegunOcupacion(turno.estadoTurno, turno._count.alumnos, turno.cupoMaximoTurno),
       clase_dictada: claseDictada !== null,
+      inscripcion: presentarInscripcionPropia(
+        turno.alumnos.find((fila) => esVigenteEn({ ...fila, estadoClase: turno.estadoTurno }, ahora)) ?? turno.alumnos[0]!,
+        turno, ahora,
+      ),
     };
   }));
 
@@ -141,6 +148,32 @@ export async function listarTurnosPropios(
     },
     totales: { proximos, anteriores },
   };
+}
+
+function presentarInscripcionPropia(
+  fila: TurnoAlumno,
+  turno: { estadoTurno: EstadoTurno; fechaTurno: Date; horaInicioTurno: Date },
+  momento: Date,
+): InscripcionPropia {
+  let situacion: InscripcionPropia["situacion"];
+  if (fila.vigencia !== "VIGENTE") situacion = fila.vigencia;
+  else if (!esVigenteEn({ ...fila, estadoClase: turno.estadoTurno }, momento)) situacion = "RESERVA_VENCIDA";
+  else if (fila.estadoPago === "PAGADA") situacion = "PAGADA";
+  else if (!["DISPONIBLE", "COMPLETO"].includes(turno.estadoTurno) || inicioDeTurno(turno).getTime() <= momento.getTime()) situacion = "PAGO_SIN_REGISTRAR";
+  else situacion = fila.estadoPago === "RESERVADA" ? "RESERVADA" : "PAGO_PENDIENTE";
+  return { id: fila.idInscripcion, situacion, vence_el: fila.venceEl ? isoCentro(fila.venceEl) : null, precio: fila.precio };
+}
+
+/** Confirmación actual independiente de la página del listado; identidad de sesión. */
+export async function obtenerConfirmacionReservaPropia(
+  inscripcionId: string, usuarioId: string, db: Prisma.TransactionClient = prisma, momento = relojAhora(),
+): Promise<InscripcionPropia | null> {
+  const alumno = await obtenerAlumnoDeUsuario(usuarioId, db);
+  if (!alumno) return null;
+  const fila = await db.turnoAlumno.findFirst({
+    where: { idInscripcion: inscripcionId, alumnoId: alumno.id }, include: { turno: true },
+  });
+  return fila ? presentarInscripcionPropia(fila, fila.turno, momento) : null;
 }
 
 export async function emitirEventoTurno(tipoEvento: string, turnoId: string, usuarioId: string, payloadEvento: Record<string, unknown>) {
@@ -341,20 +374,25 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
 
       // Reemplazo del conjunto (PR-0.md §2.0): la inscripción no se borra. Las
       // vigentes que no siguen pasan a QUITADA_CENTRO y los alumnos nuevos se
-      // inscriben con crearInscripcion (sin plazo de pago, 2.15), que proyecta
-      // su reserva y pasa la clase a COMPLETO al llenar el cupo.
+      // inscriben con crearInscripcion como reserva con plazo (HU-C-24, 2.18.3),
+      // que proyecta su reserva y pasa la clase a COMPLETO al llenar el cupo.
       const actor = actorUsuario(usuarioId);
       const elegidos = new Set(input.alumno_ids);
       for (const vigente of await inscripcionesVigentes(tx, turnoId, momento)) {
         if (elegidos.has(vigente.alumnoId)) elegidos.delete(vigente.alumnoId);
         else await finalizarInscripcion(tx, { inscripcionId: vigente.id, vigencia: "QUITADA_CENTRO", actor, fecha: momento });
       }
+      const inscripciones = [];
       for (const alumnoId of input.alumno_ids.filter((id) => elegidos.has(id))) {
-        await crearInscripcion(tx, { turnoId, alumnoId, origen: "CENTRO", conReserva: false, actor, bloqueosTomados: true, momento });
+        const { inscripcion } = await crearInscripcion(tx, { turnoId, alumnoId, origen: "CENTRO", conReserva: true, actor, bloqueosTomados: true, momento });
+        inscripciones.push({
+          alumno_id: alumnoId, inscripcion_id: inscripcion.id, estado_pago: inscripcion.estadoPago,
+          vence_el: inscripcion.venceEl ? isoCentro(inscripcion.venceEl) : null, precio: inscripcion.precio,
+        });
       }
       const estado = input.alumno_ids.length >= cupo ? "COMPLETO" as const : "DISPONIBLE" as const;
       return {
-        respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: profesorId, cupo_maximo: cupo, estado },
+        respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: profesorId, cupo_maximo: cupo, estado, inscripciones },
         evento: { fecha: fecha(turno.fechaTurno), hora_inicio: horaDeMinutos(intervalo.inicio), hora_fin: horaDeMinutos(intervalo.fin), aula_id: aulaId, materia_id: turno.materiaId },
       };
     }, { tiempos: { timeoutMs: 15_000 } });
@@ -401,7 +439,7 @@ async function bloquearTurno(tx: Prisma.TransactionClient, turnoId: string) {
 /**
  * Núcleo común para HU-C-04 §2.5 y HU-C-12 §2.14.2; el caller emite eventos
  * después del commit. Inscribe con `crearInscripcion` (PR-0.md §2.13 y
- * §2.15: sin plazo de pago, queda PAGO_SIN_REGISTRAR), que bloquea al alumno
+ * §2.15: C-22 reserva en autoservicio y C-24 en el centro), que bloquea al alumno
  * y la clase, vence perezosamente las reservas, revalida estado, cupo,
  * repetido y superposición con los mismos códigos y textos de hoy, y
  * recalcula el estado guardado de la clase. `tx` lo abre `transaccion()`.
@@ -413,10 +451,10 @@ export async function inscribirAlumnoEnTurno(
   tx: Prisma.TransactionClient,
 ) {
   const creada = await crearInscripcion(tx, {
-    turnoId, alumnoId, origen: origen === "AUTOSERVICIO" ? "ALUMNO" : "CENTRO", conReserva: false,
+    turnoId, alumnoId, origen: origen === "AUTOSERVICIO" ? "ALUMNO" : "CENTRO", conReserva: true,
     actor: actorUsuario(usuarioId), alumnoActivo,
   });
-  return { completado: creada.completado, alumnoIds: creada.completado ? creada.alumnoIds : [], cupo: creada.cupo, inscriptos: creada.inscriptos };
+  return { completado: creada.completado, alumnoIds: creada.completado ? creada.alumnoIds : [], cupo: creada.cupo, inscriptos: creada.inscriptos, inscripcion: creada.inscripcion };
 }
 
 async function emitirEventosInscripcion(turnoId: string, alumnoId: string, usuarioId: string, origen: OrigenInscripcion, resultado: Awaited<ReturnType<typeof inscribirAlumnoEnTurno>>) {
@@ -436,7 +474,11 @@ export async function agregarAlumnoTurno(turnoId: string, input: AgregarAlumnoTu
     throw error;
   }
   await emitirEventosInscripcion(turnoId, input.alumno_id, usuarioId, "MESA_ENTRADA", resultado);
-  return { id: turnoId, alumno_id: input.alumno_id, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const };
+  return {
+    id: turnoId, alumno_id: input.alumno_id, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const,
+    inscripcion: { id: resultado.inscripcion.id, estado_pago: resultado.inscripcion.estadoPago, vence_el: resultado.inscripcion.venceEl ? isoCentro(resultado.inscripcion.venceEl) : null, precio: resultado.inscripcion.precio },
+    ofrecer_pago: true as const,
+  };
 }
 
 /** HU-C-12 §2.14.2: identidad exclusivamente derivada de la sesión. */
@@ -457,7 +499,9 @@ export async function solicitarTurnoPropio(turnoId: string, usuarioId: string) {
     throw error;
   }
   await emitirEventosInscripcion(turnoId, alumno.id, usuarioId, "AUTOSERVICIO", resultado);
-  return { id: turnoId, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const };
+  return { id: turnoId, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const,
+    inscripcion: { id: resultado.inscripcion.id, estado_pago: resultado.inscripcion.estadoPago, vence_el: resultado.inscripcion.venceEl ? isoCentro(resultado.inscripcion.venceEl) : null, precio: resultado.inscripcion.precio },
+  };
 }
 
 /** HU-C-12 §2.14.2: solo ofrece turnos que este alumno puede elegir ahora. */

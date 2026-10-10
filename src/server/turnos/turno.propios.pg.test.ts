@@ -106,7 +106,7 @@ describe.skipIf(!habilitada)("listarTurnosPropios: PostgreSQL aislado", () => {
         });
 
         const anteriores = await listarTurnosPropios({ vista: "anteriores", pagina: 1, por_pagina: 10 }, idUsuario, tx, ahora);
-        expect(anteriores.totales).toEqual({ proximos: 1, anteriores: 3 });
+        expect(anteriores.totales).toEqual({ proximos: 1, anteriores: 2 });
         expect(anteriores.items).toEqual([
           expect.objectContaining({
             turno_id: idTurnoPasado, estado: "CANCELADO", clase_dictada: true,
@@ -114,7 +114,6 @@ describe.skipIf(!habilitada)("listarTurnosPropios: PostgreSQL aislado", () => {
             materia: `${prefijo} Matemática`, profesor: "Ríos, Martín", aula: `${prefijo} Aula`,
           }),
           expect.objectContaining({ turno_id: idTurnoCompleto, estado: "COMPLETO", clase_dictada: false }),
-          expect.objectContaining({ turno_id: idTurnoPendiente, estado: "PENDIENTE", clase_dictada: false }),
         ]);
 
         const proximos = await listarTurnosPropios({ vista: "proximos", pagina: 1, por_pagina: 10 }, idUsuario, tx, ahora);

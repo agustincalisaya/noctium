@@ -10,7 +10,7 @@ import {
   crearTurnoDePrueba,
   crearUsuarioDePrueba,
 } from "@/server/testing/fabricas";
-import { ahora } from "@/server/shared/reloj";
+import { ahora, conReloj } from "@/server/shared/reloj";
 import { agregarAlumnoTurno, quitarAlumnoTurno, solicitarTurnoPropio } from "@/server/turnos/turno.service";
 import { registrarPago } from "@/server/pagos/pago.service";
 
@@ -37,17 +37,20 @@ describe.skipIf(!basePgHabilitada)("inscripción y cobro de Sprint 2 sobre los s
   afterAll(async () => { await db?.$disconnect(); });
 
   describe("HU-C-04 §2.5 agregar alumno", () => {
-    it("inscribe sin plazo de pago (PAGO_SIN_REGISTRAR, 2.15), con precio congelado; al llenar el cupo pasa a COMPLETO y rechaza CUPO_INSUFICIENTE", async () => {
+    it("inscribe como reserva con plazo (RESERVADA, HU-C-24), con precio congelado y «Registrar pago» ofrecido; al llenar el cupo pasa a COMPLETO y rechaza CUPO_INSUFICIENTE", async () => {
       const turno = await crearTurnoDePrueba(db, { cupo: 2 });
       const [a, b, c] = await Promise.all([0, 1, 2].map(() => crearAlumnoDePrueba(db)));
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: a!.idAlumno }, usuarioId))
-        .resolves.toEqual({ id: turno.idTurno, alumno_id: a!.idAlumno, alumnos_inscriptos: "1/2", estado: "DISPONIBLE" });
+        .resolves.toEqual({
+          id: turno.idTurno, alumno_id: a!.idAlumno, alumnos_inscriptos: "1/2", estado: "DISPONIBLE",
+          inscripcion: { id: expect.any(String), estado_pago: "RESERVADA", vence_el: expect.stringMatching(/-03:00$/), precio: 12000 }, ofrecer_pago: true,
+        });
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: b!.idAlumno }, usuarioId))
         .resolves.toMatchObject({ alumnos_inscriptos: "2/2", estado: "COMPLETO" });
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: c!.idAlumno }, usuarioId))
         .rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "El turno alcanzó su cupo máximo" });
       expect((await filas(turno.idTurno)).map((f) => [f.alumnoId, f.vigencia, f.estadoPago, f.precio > 0, f.creadoPorUsuarioId]))
-        .toEqual([[a!.idAlumno, "VIGENTE", "PAGO_SIN_REGISTRAR", true, usuarioId], [b!.idAlumno, "VIGENTE", "PAGO_SIN_REGISTRAR", true, usuarioId]]);
+        .toEqual([[a!.idAlumno, "VIGENTE", "RESERVADA", true, usuarioId], [b!.idAlumno, "VIGENTE", "RESERVADA", true, usuarioId]]);
       expect((await db.turno.findUniqueOrThrow({ where: { idTurno: turno.idTurno } })).estadoTurno).toBe("COMPLETO");
       expect(await eventos(turno.idTurno)).toEqual(["turno:alumno_agregado", "turno:alumno_agregado", "turno:completado"]);
       expect(await reservasDeAlumnos(turno.idTurno)).toBe(2n);
@@ -126,18 +129,35 @@ describe.skipIf(!basePgHabilitada)("inscripción y cobro de Sprint 2 sobre los s
   });
 
   describe("HU-C-12 §2.14.2 solicitar turno propio", () => {
-    it("inscribe a la ficha de la sesión sin plazo y responde con los textos del alumno", async () => {
+    it("reserva para la ficha de la sesión con plazo y precio guardados; conserva respuesta y rechazos del alumno", () => conReloj(new Date("2026-10-05T12:00:00.000Z"), async () => {
       const cuenta = await crearUsuarioDePrueba(db, { rol: "ALUMNO" });
       const alumno = await crearAlumnoDePrueba(db, { usuarioId: cuenta.idUsuario });
       const turno = await crearTurnoDePrueba(db, { enDias: 7, hora: "15:00", cupo: 3 });
-      await expect(solicitarTurnoPropio(turno.idTurno, cuenta.idUsuario)).resolves.toEqual({ id: turno.idTurno, alumnos_inscriptos: "1/3", estado: "DISPONIBLE" });
-      expect((await filas(turno.idTurno))[0]).toMatchObject({ alumnoId: alumno.idAlumno, estadoPago: "PAGO_SIN_REGISTRAR", venceEl: null });
+      const respuesta = await solicitarTurnoPropio(turno.idTurno, cuenta.idUsuario);
+      const inscripciones = await filas(turno.idTurno);
+      expect(inscripciones).toHaveLength(1);
+      const [inscripcion] = inscripciones;
+      expect(respuesta).toEqual({
+        id: turno.idTurno, alumnos_inscriptos: "1/3", estado: "DISPONIBLE",
+        inscripcion: {
+          id: inscripcion!.idInscripcion, estado_pago: "RESERVADA",
+          vence_el: "2026-10-06T09:00:00-03:00", precio: 12000,
+        },
+      });
+      expect(inscripcion).toMatchObject({
+        alumnoId: alumno.idAlumno, vigencia: "VIGENTE", estadoPago: "RESERVADA",
+        reservadaEl: new Date("2026-10-05T12:00:00.000Z"),
+        inicioPlazo: new Date("2026-10-05T12:00:00.000Z"),
+        venceBaseEl: new Date("2026-10-06T12:00:00.000Z"),
+        venceEl: new Date("2026-10-06T12:00:00.000Z"),
+        precio: 12000, creadoPorUsuarioId: cuenta.idUsuario,
+      });
       await expect(solicitarTurnoPropio(turno.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en este turno" });
       const superpuesto = await crearTurnoDePrueba(db, { enDias: 7, hora: "15:30" });
       await expect(solicitarTurnoPropio(superpuesto.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otro turno en ese horario" });
       const pendiente = await crearTurnoDePrueba(db, { estado: "PENDIENTE" });
       await expect(solicitarTurnoPropio(pendiente.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "TURNO_NO_DISPONIBLE", message: "El turno ya no está disponible" });
-    });
+    }));
   });
 
   describe("HU-I-01 POST /api/pagos (2.15): contrato de Sprint 2 sobre registrarOperacion en modo compatibilidad", () => {

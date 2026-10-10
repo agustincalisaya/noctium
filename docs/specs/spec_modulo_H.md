@@ -851,3 +851,12 @@ Este módulo no usa ni la opción (a) (columnas de auditoría) ni la opción (b)
 >
 > Los puntos nuevos de la Revisión 3 (P-H1 a P-H12) los resolvió el Scrum Master el 08/10/2026; están en el encabezado de la Revisión 3, con a quién se informa cada uno.
 ```
+
+## Nota aditiva — fidelidad visual, 09/10/2026
+
+Instrucción explícita del usuario y relevamiento aprobado: figuras 52–57 gobiernan presentación. En §2.3/2.4, ocupación usa barras turquesa sin línea de meta; reemplaza únicamente la prescripción visual previa de línea/meta. Endpoints, promedio simple por clase, exclusiones, rangos, permisos y precisión no cambian. H07 usa línea ámbar con eje secundario y barras agrupadas; estadísticas por materia al final de las barras, tabla exacta independiente.
+
+| HU | Estado previo | Cambio |
+|---|---|---|
+| H06 | Línea ocupación, leyenda inferior y encabezados grandes | Barras y geometría compacta según figuras 52–54 |
+| H07 | Línea azul y estadísticas en categorías | Línea ámbar y etiquetas de detalle según figura 55 |

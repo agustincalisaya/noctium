@@ -1,0 +1,44 @@
+         idMateria         | nombreMateria  | activaMateria | clases 
+---------------------------+----------------+---------------+--------
+ cmv1c7xgp004jjmz0zigrrz58 | Matemática     | t             |     40
+ cmv1c7xgt004kjmz0rezj0h3d | Física         | t             |     21
+ cmv1c7xgy004ljmz009het24b | Programación I | t             |      6
+ cmv1c7xh2004mjmz07gpp2ko5 | Bases de Datos | t             |      4
+ cmv1c7xh9004ojmz0nt0mwqoi | Inglés Técnico | t             |      2
+ cmv1c7xh5004njmz0he8tmh8i | Química        | t             |      2
+(6 rows)
+
+        idProfesor         |          apellidoProfesor          | nombreProfesor | activoProfesor | clases | horas 
+---------------------------+------------------------------------+----------------+----------------+--------+-------
+ cmv1c7xdd0038jmz0s6majau5 | Giménez                            | Laura          | t              |     57 | 64.00
+ cmv1c7xdi003ajmz01opwh35y | Rossi                              | Martín         | t              |      7 | 12.00
+ cmv1c7xdr003ejmz09256mlk0 | Acuña                              | Sergio         | t              |      5 | 10.00
+ cmv1c7xdm003cjmz08szidmr9 | Vega                               | Carolina       | t              |      3 |  7.00
+ cmv1c7xei003qjmz0d2xe8zh9 | Castro                             | Julián         | t              |      2 |  2.00
+ cmv1c7xgk004ijmz09nqq43m0 | Zárate                             | Valeria        | t              |      1 |  2.00
+ cmv1c7xea003mjmz0zmkoq3d9 | Avila                              | Pedro          | t              |      0 |  0.00
+ cmv1c7xfp0046jmz05xcbr645 | Fernández de la Torre y Villanueva | María José     | t              |      0 |  0.00
+ cmv1c7xge004gjmz0gu3cebfj | Herrera                            | Mariana        | t              |      0 |  0.00
+ cmv1c7xf3003yjmz0fbe5kf5m | Ibarra                             | Rocío          | t              |      0 |  0.00
+ cmv1c7xfu0048jmz09v5sesji | Luna                               | Esteban        | t              |      0 |  0.00
+ cmv1c7xfe0042jmz0ao7xermn | Núñez                              | Andrea         | t              |      0 |  0.00
+ cmv1c7xg1004ajmz0aarxkk6o | OLMEDO                             | Gabriela       | t              |      0 |  0.00
+ cmv1c7xer003ujmz0akmgtlk6 | Pérez                              | Juan           | t              |      0 |  0.00
+ cmv1c7xew003wjmz0wwdohgi3 | Pérez                              | Juan           | t              |      0 |  0.00
+ cmv1c7xf80040jmz008g8pptu | Quiroga                            | Emilia         | t              |      0 |  0.00
+ cmv1c7xg6004cjmz0f52tayrx | Toledo                             | Hernán         | t              |      0 |  0.00
+ cmv1c7xga004ejmz0ew27apr2 | Ybáñez                             | Paula          | t              |      0 |  0.00
+ cmv1c7xee003ojmz0mbwt3n5f | benítez                            | Diego          | t              |      0 |  0.00
+ cmv1c7xen003sjmz0uajvfukn | de la Fuente                       | Tomás          | t              |      0 |  0.00
+ cmv1c7xe1003ijmz041vyqogu | Álvarez                            | Lucía          | t              |      0 |  0.00
+ cmv1c7xe6003kjmz0iy928cgb | Ávila                              | Pedro          | t              |      0 |  0.00
+(22 rows)
+
+ estadoTurno | count | sum  
+-------------+-------+------
+ PENDIENTE   |     9 |  660
+ DISPONIBLE  |    66 | 5760
+ COMPLETO    |     1 |   60
+ CANCELADO   |     8 |  840
+(4 rows)
+

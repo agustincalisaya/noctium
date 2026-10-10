@@ -1,6 +1,34 @@
 /** Estado de un turno (spec_modulo_C.md §2, Revisión 5). */
 export type EstadoTurno = "PENDIENTE" | "DISPONIBLE" | "COMPLETO" | "CANCELADO";
 
+/** Presentación de la inscripción propia (C §2.17.4). */
+export type SituacionInscripcionPropia = "RESERVADA" | "PAGADA" | "PAGO_PENDIENTE" | "PAGO_SIN_REGISTRAR" | "RESERVA_VENCIDA" | "CANCELADA_ALUMNO" | "QUITADA_CENTRO" | "BAJA_ALUMNO";
+export type InscripcionPropia = {
+  id: string;
+  situacion: SituacionInscripcionPropia;
+  vence_el: string | null;
+  precio: number;
+};
+
+/** Resumen informativo previo al POST (C §2.17.1); no reserva ni fija tarifa. */
+export type ResumenInscripcion = {
+  turno_id: string;
+  materia: { id: string; nombre: string };
+  profesor: { id: string; nombre_para_mostrar: string };
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  duracion_min: number;
+  aula: { id: string; nombre: string };
+  cupo: number;
+  lugares_disponibles: number;
+  precio: number;
+  plazo_pago_horas: number | null;
+  vence_pago_el: string | null;
+  limite_cancelacion_en_linea: string;
+  limite_cancelacion_pasado: boolean;
+};
+
 /** Prioridad del turno (`Turno.prioridadTurno`, spec_modulo_C.md §2.12). */
 export type PrioridadTurno = "NORMAL" | "ALTA" | "URGENTE";
 
@@ -43,14 +71,40 @@ export type PagoRegistradoTurno = {
 /**
  * Detalle de `GET /api/turnos/[id]` (HU-C-09). `creado_por` es el email de la
  * cuenta creadora o `null` (la UI muestra «Sin registrar»). `pagos` solo viene
- * con `pagos:leer`: sin permiso la propiedad no existe.
+ * con `pagos:leer`: sin permiso la propiedad no existe. Lo mismo vale para
+ * `inscripcion` y `puede_registrar_pago` de cada alumno (HU-C-24, C §2.18.4).
  */
+export type InscripcionDeAlumnoEnDetalle = {
+  id: string;
+  estado_pago: "RESERVADA" | "PAGADA" | "PAGO_SIN_REGISTRAR";
+  /** Solo si está RESERVADA. */
+  vence_el?: string;
+  precio: number;
+};
+
 export type TurnoDetalle = Omit<Turno, "alumnos"> & {
   creado_por: string | null;
-  alumnos: (Turno["alumnos"][number] & { puede_ver_historial: boolean })[];
+  alumnos: (Turno["alumnos"][number] & {
+    puede_ver_historial: boolean;
+    inscripcion?: InscripcionDeAlumnoEnDetalle;
+    puede_registrar_pago?: boolean;
+  })[];
   pagos?: PagoRegistradoTurno[];
   clase_dictada: { id: string; registrada_en: string } | null;
   acciones_habilitadas: AccionTurno[];
 };
 
 export type TurnosData = { items: Turno[]; paginacion: { total: number; pagina_actual: number; total_paginas: number; por_pagina: number } };
+
+/**
+ * Alta de inscripción al confirmar participantes desde el centro (HU-C-24,
+ * C §2.18.3): una por alumno recién inscripto en `PATCH .../participantes`.
+ * Habilita el acceso a «Registrar pago» junto a cada uno.
+ */
+export type InscripcionConfirmadaCentro = {
+  alumno_id: string;
+  inscripcion_id: string;
+  estado_pago: "RESERVADA" | "PAGADA" | "PAGO_SIN_REGISTRAR";
+  vence_el: string | null;
+  precio: number;
+};

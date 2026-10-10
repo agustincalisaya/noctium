@@ -125,6 +125,12 @@ HU-A-05 va inmediatamente después de HU-A-06, que crea las cuentas y la marca q
 
 ---
 
+### Sincronización HU-E-02 — 09/10/2026
+
+E02 implementa `/alumnos/[id]/clases` y `GET /api/alumnos/[id]/clases` exclusivamente para Mesa/Gerente, con nueve resultados, filtros combinados inclusivos, resumen filtrado y paginación de diez. La migración nueva `20261009180000_hu_e02_alcance_profesor` retira solo `PROFESOR alumnos:leer`; seed mantiene esa revocación. El historial del Profesor se renderiza en `/turnos/[id]/alumnos/[alumnoId]/historial`, verificando clase propia y materia, sin ficha general ni datos de contacto. Permisos se leen por solicitud y afectan sesiones existentes.
+
+Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desactivar ni Pagos, historias aún fuera del alcance. Sidebar conservado por instrucción del usuario; su enlace general de Profesor queda rechazado por ruta y API. Fixtures usan fachadas PR0 para estados C14/C24/B07 sin declarar completadas esas historias. Changelog aditivo: integración E02 y revocación de compatibilidad de Sprint 2.
+
 ## 1. Visión General
 
 > **Revisión 3 (Sprint 3).** A, además de autenticar, pasa a ser el dueño de la **cuenta de acceso**: la crea cuando otro módulo registra una ficha (con el DNI como contraseña inicial y la marca «Debe cambiar la contraseña»), la mantiene sincronizada con la ficha (email y estado), deja que la persona cambie su contraseña (primer ingreso y «Mi cuenta») y le permite recuperarla por email. Para eso se suman dos columnas a `Usuario`, dos tablas operativas y valores de `TipoEventoSeguridad`, todo **aditivo** (2.6.5 y 2.7.5). Nada del login, del JWT ni del cierre de sesión cambia de contrato. El único cambio de comportamiento sobre lo ya hecho lo manda el backlog: `withPermission` verifica en cada solicitud que la cuenta siga activa y que la sesión no haya sido revocada por cuenta (3.6 y 3.7). Para las cuentas y las sesiones de Sprint 1 y 2 el resultado es el mismo de hoy.

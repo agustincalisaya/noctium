@@ -1,0 +1,613 @@
+{
+  "viewport": {
+    "desktop": "1440x1000",
+    "mobile": "390x844"
+  },
+  "errors": [],
+  "results": [
+    {
+      "name": "Historial propio",
+      "status": 200,
+      "body": {
+        "data": {
+          "materias_disponibles": [
+            {
+              "id": "cmv19751s004kjmlamzghbygy",
+              "nombre": "Física"
+            },
+            {
+              "id": "cmv19751n004jjmla93jvqlo6",
+              "nombre": "Matemática"
+            }
+          ],
+          "asistencia_por_materia": [
+            {
+              "materia_id": "cmv19751n004jjmla93jvqlo6",
+              "presentes": 6,
+              "ausentes": 3,
+              "sin_control": 2,
+              "porcentaje": 67
+            },
+            {
+              "materia_id": "cmv19751s004kjmlamzghbygy",
+              "presentes": 3,
+              "ausentes": 0,
+              "sin_control": 2,
+              "porcentaje": 100
+            }
+          ],
+          "paginacion": {
+            "total": 31,
+            "pagina_actual": 1,
+            "total_paginas": 4,
+            "por_pagina": 10
+          },
+          "items": [
+            {
+              "id": "cmv1975vx009wjmla4v2nyz8i",
+              "fecha": "2026-10-09",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "INDICACION",
+              "indicacion": "Reforzar fracciones y proporciones antes de la próxima evaluación."
+            },
+            {
+              "id": "75d88982-79b2-4f67-a34c-b35ec92592af",
+              "fecha": "2026-10-07",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": "PRESENTE",
+              "temas_vistos": null
+            },
+            {
+              "id": "26065a88-f4cc-421a-be5a-0109040cfc3a",
+              "fecha": "2026-10-06",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": null,
+              "temas_vistos": null
+            },
+            {
+              "id": "3f72bb5b-7bd2-4e83-8656-3b9efb9a6492",
+              "fecha": "2026-10-05",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": "PRESENTE",
+              "temas_vistos": null
+            },
+            {
+              "id": "18904b10-59cc-4e1c-8ae9-6cefb1a99547",
+              "fecha": "2026-09-28",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": "PRESENTE",
+              "temas_vistos": null
+            },
+            {
+              "id": "cmv1975wj00a0jmlafibilx8u",
+              "fecha": "2026-09-26",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "EXAMEN",
+              "nota": "7.5"
+            },
+            {
+              "id": "cmv1975wb009yjmlasgdzxyga",
+              "fecha": "2026-09-25",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "EXAMEN",
+              "nota": "8"
+            },
+            {
+              "id": "cmv1976n000dcjmlawsxlq38x",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "6"
+            },
+            {
+              "id": "cmv1976mu00dajmla9iz9gita",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "7"
+            },
+            {
+              "id": "cmv1976mn00d8jmlah8g5qm0s",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "8"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Página 2",
+      "status": 200,
+      "body": {
+        "data": {
+          "materias_disponibles": [
+            {
+              "id": "cmv19751s004kjmlamzghbygy",
+              "nombre": "Física"
+            },
+            {
+              "id": "cmv19751n004jjmla93jvqlo6",
+              "nombre": "Matemática"
+            }
+          ],
+          "asistencia_por_materia": [
+            {
+              "materia_id": "cmv19751n004jjmla93jvqlo6",
+              "presentes": 6,
+              "ausentes": 3,
+              "sin_control": 2,
+              "porcentaje": 67
+            },
+            {
+              "materia_id": "cmv19751s004kjmlamzghbygy",
+              "presentes": 3,
+              "ausentes": 0,
+              "sin_control": 2,
+              "porcentaje": 100
+            }
+          ],
+          "paginacion": {
+            "total": 31,
+            "pagina_actual": 2,
+            "total_paginas": 4,
+            "por_pagina": 10
+          },
+          "items": [
+            {
+              "id": "cmv1976mf00d6jmlacgdzjaqf",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "INDICACION",
+              "indicacion": "Repasar los ejercicios 4 a 9 de la guía antes de la próxima clase."
+            },
+            {
+              "id": "86c9f0bc-fe71-42cb-bd1c-5629a570f53b",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": null,
+              "temas_vistos": "Funciones y ejercicios de práctica"
+            },
+            {
+              "id": "cmv1976jl00cwjmlarnhq23zy",
+              "fecha": "2026-09-02",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "EXAMEN",
+              "nota": "6"
+            },
+            {
+              "id": "cmv1976je00cujmla5axts31g",
+              "fecha": "2026-09-02",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "EXAMEN",
+              "nota": "7"
+            },
+            {
+              "id": "cmv1976j700csjmlajf5sjroc",
+              "fecha": "2026-09-02",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "EXAMEN",
+              "nota": "8"
+            },
+            {
+              "id": "cmv1976iy00cqjmlakak5m4wi",
+              "fecha": "2026-09-02",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "INDICACION",
+              "indicacion": "Repasar los ejercicios 4 a 9 de la guía antes de la próxima clase."
+            },
+            {
+              "id": "004ead01-690a-4027-9d2e-ad09f628a232",
+              "fecha": "2026-09-02",
+              "materia": {
+                "id": "cmv19751n004jjmla93jvqlo6",
+                "nombre": "Matemática"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": "AUSENTE",
+              "temas_vistos": "Funciones y ejercicios de práctica"
+            },
+            {
+              "id": "cmv1976gf00cgjmlaldo0a1lb",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "6"
+            },
+            {
+              "id": "cmv1976g700cejmlaskjyn9nf",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "7"
+            },
+            {
+              "id": "cmv1976g000ccjmla2sgdk2yq",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "8"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "Filtro materia",
+      "status": 200,
+      "body": {
+        "data": {
+          "materias_disponibles": [
+            {
+              "id": "cmv19751s004kjmlamzghbygy",
+              "nombre": "Física"
+            },
+            {
+              "id": "cmv19751n004jjmla93jvqlo6",
+              "nombre": "Matemática"
+            }
+          ],
+          "asistencia_por_materia": [
+            {
+              "materia_id": "cmv19751n004jjmla93jvqlo6",
+              "presentes": 6,
+              "ausentes": 3,
+              "sin_control": 2,
+              "porcentaje": 67
+            },
+            {
+              "materia_id": "cmv19751s004kjmlamzghbygy",
+              "presentes": 3,
+              "ausentes": 0,
+              "sin_control": 2,
+              "porcentaje": 100
+            }
+          ],
+          "paginacion": {
+            "total": 13,
+            "pagina_actual": 1,
+            "total_paginas": 2,
+            "por_pagina": 10
+          },
+          "items": [
+            {
+              "id": "cmv1976n000dcjmlawsxlq38x",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "6"
+            },
+            {
+              "id": "cmv1976mu00dajmla9iz9gita",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "7"
+            },
+            {
+              "id": "cmv1976mn00d8jmlah8g5qm0s",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "8"
+            },
+            {
+              "id": "cmv1976mf00d6jmlacgdzjaqf",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "INDICACION",
+              "indicacion": "Repasar los ejercicios 4 a 9 de la guía antes de la próxima clase."
+            },
+            {
+              "id": "86c9f0bc-fe71-42cb-bd1c-5629a570f53b",
+              "fecha": "2026-09-03",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": null,
+              "temas_vistos": "Funciones y ejercicios de práctica"
+            },
+            {
+              "id": "cmv1976gf00cgjmlaldo0a1lb",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "6"
+            },
+            {
+              "id": "cmv1976g700cejmlaskjyn9nf",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "7"
+            },
+            {
+              "id": "cmv1976g000ccjmla2sgdk2yq",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "EXAMEN",
+              "nota": "8"
+            },
+            {
+              "id": "cmv1976fo00cajmlaqcnbjpql",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "INDICACION",
+              "indicacion": "Repasar los ejercicios 4 a 9 de la guía antes de la próxima clase."
+            },
+            {
+              "id": "48ffdfd9-d170-4b75-b9e6-d49436d5a5ce",
+              "fecha": "2026-09-01",
+              "materia": {
+                "id": "cmv19751s004kjmlamzghbygy",
+                "nombre": "Física"
+              },
+              "tipo": "CLASE_DICTADA",
+              "profesor": "Giménez, Laura",
+              "asistencia": "PRESENTE",
+              "temas_vistos": "Funciones y ejercicios de práctica"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "ID ajeno antes de validar",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para consultar otro historial"
+        }
+      }
+    },
+    {
+      "name": "Alias ajeno",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para consultar otro historial"
+        }
+      }
+    },
+    {
+      "name": "Ruta interna ajena",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Query inválida pagina=0",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "pagina": [
+                "Too small: expected number to be >0"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida por_pagina=11",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "por_pagina": [
+                "Too big: expected number to be <=10"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida otro=x",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [
+              "Unrecognized key: \"otro\""
+            ],
+            "fieldErrors": {}
+          }
+        }
+      }
+    },
+    {
+      "name": "Query inválida materia_id=",
+      "status": 400,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "VALIDACION",
+          "message": "Parámetros inválidos",
+          "detalles": {
+            "formErrors": [],
+            "fieldErrors": {
+              "materia_id": [
+                "Too small: expected string to have >=1 characters"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Error UI y reintento",
+      "status": "PASS"
+    },
+    {
+      "name": "Vacío UI con respuesta simulada y sesión real; dueño vacío validado en PostgreSQL",
+      "status": "PASS"
+    },
+    {
+      "name": "Rol mesa.entrada@noctium.local",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Rol gerente@noctium.local",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Rol profesor1@noctium.local",
+      "status": 403,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SIN_PERMISO",
+          "message": "No tenés permisos para acceder a esta sección"
+        }
+      }
+    },
+    {
+      "name": "Anónimo",
+      "status": 401,
+      "body": {
+        "data": null,
+        "error": {
+          "code": "SESION_INVALIDA",
+          "message": "Tu sesión expiró. Iniciá sesión nuevamente"
+        }
+      }
+    }
+  ]
+}

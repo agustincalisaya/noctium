@@ -239,6 +239,24 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
+| Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
+
+**Excepción específica HU-C-20 (09/10/2026):** el resumen confirma la
+inscripción de la página completa C-12 y, tras el POST exitoso, navega a
+Mis clases con su banner existente. No agrega toast: la navegación ya
+lleva a la pantalla que informa el resultado. Un rechazo se muestra dentro
+del diálogo y conserva la selección; Volver cierra el resumen sin perderla.
+
+**Extensión HU-C-22 (09/10/2026):** la navegación conserva el banner de
+Mis clases y transporta el id de la inscripción del POST. El banner consulta
+esa inscripción por id y alumno de sesión, independiente de la página del
+listado. Informa el vencimiento definitivo únicamente si sigue Reservada
+en una clase futura Disponible/Completa. Al recargar, una reserva vencida,
+pagada o de clase iniciada/cancelada muestra su situación actual y no la
+invitación anterior a pagar. No se muestran datos de un id ajeno/inexistente;
+un fallo de consulta muestra error sin presentar una confirmación obsoleta.
+Las tarjetas incorporan situación de pago y precio guardado de la inscripción
+vigente efectiva; usan tokens y textos centrales, con estados en femenino.
 
 Si una HU nueva no está en esta tabla, se define su feedback con el mismo
 criterio (¿la acción vive en modal o en página completa?) y se agrega acá
@@ -390,6 +408,10 @@ sus consumidores, sin editar sus fuentes.
 - **09/10/2026:** HU-C-23 agrega el contrato transversal de textos (§9).
   Tras auditoría se ubica antes del historial, conservando contenido y
   numeración de las secciones.
+- **09/10/2026:** HU-C-20 agrega en §6.4 la excepción de navegación/banner
+  tras confirmar el resumen, reutilizando `ConfirmarAccionDialog`.
+- **09/10/2026:** HU-C-22 amplía §6.4 con banner de inscripción propia
+  actual, vencimiento definitivo y situaciones/precio en Mis clases.
 - **09/10/2026:** HU-I-10 agrega su fila en 6.4, la aclaración de 6.3
   sobre el `AlertDialog` en flujos de página completa y 6.6 (etiquetas de
   estado de pago de la inscripción).
@@ -397,3 +419,7 @@ sus consumidores, sin editar sus fuentes.
 ## Selección de asistencia (HU-E-11)
 
 `--attendance-selected: oklch(0.46 0.13 152)` deriva del verde semántico de éxito y permite Presente seleccionado con texto blanco (`text-card`) como figura 74. Es independiente de `--success` y de los tokens de sidebar. Ausente seleccionado usa `--destructive` con `text-card`.
+
+## Series de indicadores — fidelidad del prototipo (09/10/2026)
+
+`--chart-attendance-index` y `--chart-expired`: oklch(0.65 0.13 70), ámbar para línea de presentismo y reservas vencidas. `--chart-withdrawal`: oklch(0.65 0.018 243), gris para bajas. Se acompañan de valores en Grafito y leyendas; el color no identifica por sí solo. Ocupación/presentes/profesores usan --brand-accent; centro usa --destructive; inscriptos/ingresos/materias usan --chart-1.

@@ -1,0 +1,462 @@
+{
+  "info": {
+    "name": "HU-H-03 — Clases por materia y profesor",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cookie_gerente",
+      "value": ""
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "cookie_profesor",
+      "value": ""
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "clases-por-materia — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-materia — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/clases-por-materia"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — Rango por defecto",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — Período fixture",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor?desde=2026-05&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — Formato inválido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor?desde=2026-13"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — Rango invertido",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor?desde=2026-10&hasta=2026-05"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — Más de 24 meses",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor?desde=2024-09&hasta=2026-10"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Sobre estándar\", () => { const r = pm.response.json(); pm.expect(r).to.have.keys(\"data\", \"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — mesa",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — profesor",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — alumno",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "clases-por-profesor — sin_sesion",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/indicadores/clases-por-profesor"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 401\", () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
