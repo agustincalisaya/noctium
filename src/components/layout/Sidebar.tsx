@@ -67,6 +67,8 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: CalendarClock,
       items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
     },
+    // HU-I-10: registrar pago buscando al alumno (pagos:crear, solo Mesa de Entrada).
+    { label: "Registrar pago", href: "/pagos/registrar", prefijoActivo: "/pagos", icon: Wallet },
         {
       label: "Calendario",
       icon: CalendarDays,
