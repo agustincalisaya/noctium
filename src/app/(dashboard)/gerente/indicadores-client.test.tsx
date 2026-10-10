@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { IndicadoresClient } from "./indicadores-client";
+vi.mock("@/components/indicadores/cancelaciones-indicadores",()=>({CancelacionesIndicadores:()=>null}));
 vi.mock("@/components/indicadores/clases-indicadores",()=>({ClasesIndicadores:()=>null}));
 vi.mock("@/components/indicadores/presentismo-panel",()=>({PanelPresentismo:()=>null}));
 let container:HTMLDivElement;let root:Root;let fetchMock:ReturnType<typeof vi.fn>;
