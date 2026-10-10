@@ -203,7 +203,10 @@ de confirmación lleva el verbo de la acción, nunca "Aceptar"/"OK" genérico
 (ej. "Cancelar turno", no "Confirmar").
 
 **Después de confirmar en un `AlertDialog`, el resultado se informa con
-toast (6.1), no con otro modal.**
+toast (6.1), no con otro modal.** En un flujo de página completa (6.2),
+como «Registrar pago» de HU-I-10, el `AlertDialog` de C-25 se resuelve con
+el banner inline de 6.2, no con un toast: es el mismo criterio de 6.2
+(¿la acción vive en modal o en página completa?), no una excepción.
 
 **Única excepción — `Dialog` informativo de una acción rechazada
 (28/09/2026):** cuando una acción se rechaza y la explicación necesita una
@@ -235,6 +238,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Ver turnos que impiden quitar una materia (HU-D-07) | `Dialog` informativo (6.3) | Ninguno — no modifica datos |
 | Alta/edición de Alumno, Profesor, Materia, Aula (Sprint 1, sin cambios) | Página completa | Banner inline |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
+| Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
 
 Si una HU nueva no está en esta tabla, se define su feedback con el mismo
 criterio (¿la acción vive en modal o en página completa?) y se agrega acá
@@ -267,6 +271,20 @@ el profesor tiene N turnos futuros de esta materia"): una línea con ícono,
 fondo `--destructive-soft`, texto `--destructive-soft-foreground`. Si tiene
 un link (como "Ver turnos"), el link va subrayado en el mismo color de
 texto.
+
+### 6.6 Etiquetas de estado de pago de la inscripción (HU-I-10, 09/10/2026)
+
+Las del paso 2 de «Registrar pago». Usan las variantes que ya tiene
+`Badge`, sin colores nuevos:
+
+| Estado | Variante de `Badge` | Tokens |
+|---|---|---|
+| Reservada · pagar antes del … | `warning` (vence) | fondo `--warning`, texto `--warning-foreground` |
+| Pago sin registrar | `outline` (neutro, no alerta) | borde `--border`, texto `--foreground` |
+| Se inscribe al confirmar el pago | `accent` (no es una reserva existente) | fondo `--brand-accent`, texto `--foreground` (regla de contraste de 4) |
+
+Los tokens `--sidebar-*` quedan solo para el sidebar, aunque compartan
+valor con `--brand-accent`.
 
 ---
 
@@ -372,6 +390,9 @@ sus consumidores, sin editar sus fuentes.
 - **09/10/2026:** HU-C-23 agrega el contrato transversal de textos (§9).
   Tras auditoría se ubica antes del historial, conservando contenido y
   numeración de las secciones.
+- **09/10/2026:** HU-I-10 agrega su fila en 6.4, la aclaración de 6.3
+  sobre el `AlertDialog` en flujos de página completa y 6.6 (etiquetas de
+  estado de pago de la inscripción).
 
 ## Selección de asistencia (HU-E-11)
 

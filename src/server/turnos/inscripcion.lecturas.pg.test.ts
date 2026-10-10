@@ -11,6 +11,7 @@ import {
   existeInscripcionVigenteConProfesor,
   finalizarInscripcion,
   listarInscripcionesDeAlumno,
+  listarInscripcionesPendientesDePagoDeAlumno,
   listarReservasPendientes,
   listarReservasVencidas,
   resumenReservas,
@@ -59,6 +60,32 @@ describe.skipIf(!basePgHabilitada)("lecturas públicas de la inscripción con Po
     expect(vencida).toMatchObject({ vigencia: "VIGENTE", vigente_ahora: false });
     const filtrada = await listarInscripcionesDeAlumno(alumno.idAlumno, { desde: conReserva.fechaTurno.toISOString().slice(0, 10), hasta: conReserva.fechaTurno.toISOString().slice(0, 10) }, db);
     expect(filtrada.map((i) => i.turno_id)).toEqual([conReserva.idTurno]);
+  });
+
+  it("listarInscripcionesPendientesDePagoDeAlumno: vigentes, de clase confirmada sin empezar y sin pago, por fecha ascendente (HU-I-10)", async () => {
+    const alumno = await crearAlumnoDePrueba(db);
+    const sinRegistrar = await crearTurnoDePrueba(db, { enDias: 6, hora: "09:00" });
+    const reservada = await crearTurnoDePrueba(db, { enDias: 5, hora: "09:00", estado: "COMPLETO" });
+    const pagada = await crearTurnoDePrueba(db, { enDias: 7, hora: "09:00" });
+    const pasada = await crearTurnoDePrueba(db, { enDias: -1, hora: "09:00" });
+    const pendiente = await crearTurnoDePrueba(db, { enDias: 8, hora: "09:00", estado: "PENDIENTE" });
+    const cancelada = await crearTurnoDePrueba(db, { enDias: 9, hora: "09:00", estado: "CANCELADO" });
+    const finalizada = await crearTurnoDePrueba(db, { enDias: 10, hora: "09:00" });
+    await crearInscripcionDePrueba(db, { turnoId: sinRegistrar.idTurno, alumnoId: alumno.idAlumno, precio: 11000 });
+    const reserva = await crearInscripcionDePrueba(db, { turnoId: reservada.idTurno, alumnoId: alumno.idAlumno, estadoPago: "RESERVADA" });
+    await crearInscripcionDePrueba(db, { turnoId: pagada.idTurno, alumnoId: alumno.idAlumno, estadoPago: "PAGADA" });
+    for (const turno of [pasada, pendiente, cancelada]) await crearInscripcionDePrueba(db, { turnoId: turno.idTurno, alumnoId: alumno.idAlumno });
+    await finalizar((await inscribir(finalizada.idTurno, alumno.idAlumno)).inscripcion.id, "CANCELADA_ALUMNO");
+
+    const lista = await listarInscripcionesPendientesDePagoDeAlumno(alumno.idAlumno, db);
+    expect(lista.map((i) => [i.turno_id, i.estado_pago])).toEqual([[reservada.idTurno, "RESERVADA"], [sinRegistrar.idTurno, "PAGO_SIN_REGISTRAR"]]);
+    expect(lista[0]).toMatchObject({ vence_el: expect.stringMatching(/-03:00$/), hora_inicio: "09:00", hora_fin: "10:00", profesor: { id: expect.any(String), nombre_completo: expect.stringContaining(",") } });
+    expect(lista[1]).toMatchObject({ vence_el: null, precio: 11000 });
+
+    // Una reserva vencida sin marcar ya no se lista.
+    const despues = new Date(reserva.venceEl!.getTime() + 1000);
+    const luego = await conReloj(despues, () => listarInscripcionesPendientesDePagoDeAlumno(alumno.idAlumno, db));
+    expect(luego.map((i) => i.turno_id)).toEqual([sinRegistrar.idTurno]);
   });
 
   it("contarInscripcionesPorMes y contarClasesPorMes: clasificación en ahora() y sin PENDIENTE ni QUITADA_CENTRO", async () => {

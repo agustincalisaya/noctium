@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 import ts from "typescript";
 import { verificarClavesTextos } from "../../scripts/verificar-claves-textos";
 
+// El análisis recorre todo el proyecto con el compilador de TypeScript y cada
+// HU suma claves y archivos: con 30 s ya rozaba el límite (~31 s en local).
+const LIMITE_MS = 60_000;
+
 /** Las reproducciones de auditoría deben ser código tipado válido. */
 function comprobarTiposFixture(ruta: string, contenido: string) {
   const absoluta = resolve(ruta);
@@ -20,7 +24,7 @@ function comprobarTiposFixture(ruta: string, contenido: string) {
 describe("claves del proyecto (misma comprobación que CLI/PR)", () => {
   it("todas las referencias reales tienen texto, incluidos errores y wrappers", () => {
     expect(verificarClavesTextos()).toEqual([]);
-  }, 30000);
+  }, LIMITE_MS);
   it("detecta los negativos sin confiar en casts ni símbolos homónimos", () => {
     const fuentes = {
       "src/__claves_fixture.ts": `
@@ -60,14 +64,14 @@ ajena();
     expect(resultado.some((d) => d.linea === lineaTipo)).toBe(false);
     expect(resultado.every((d) => d.archivo && d.linea > 0)).toBe(true);
     expect(resultado.some((d) => d.mensaje.includes("homonimo"))).toBe(false);
-  }, 30000);
+  }, LIMITE_MS);
   it("eliminar una clave usada rompe la misma comprobación", () => {
     const catalogo = readFileSync(resolve("src/lib/textos.ts"), "utf8");
     const sinClave = catalogo.replace(/^  "ui\.comun\.paginacion\.nombre":.*\r?\n/m, "");
     expect(sinClave).not.toBe(catalogo);
     const resultado = verificarClavesTextos({ fuentes: { "src/lib/textos.ts": sinClave } });
     expect(resultado).toContainEqual(expect.objectContaining({ archivo: "src/components/shared/pagination.tsx", mensaje: "Clave de texto ausente: ui.comun.paginacion.nombre" }));
-  }, 30000);
+  }, LIMITE_MS);
   describe("escrituras sobre conjuntos finitos", () => {
     const ruta = "src/__claves_escrituras.ts";
     const casos = {
@@ -99,7 +103,7 @@ t(valida);
     beforeAll(() => {
       comprobarTiposFixture(ruta, contenido);
       resultado = verificarClavesTextos({ fuentes: { [ruta]: contenido } });
-    }, 30000);
+    }, LIMITE_MS);
     it.each(Object.keys(casos).map((caso, i) => [caso, i + 4] as const))("diagnostica %s", (caso, linea) => {
       expect(resultado.some((d) => d.archivo === ruta && d.linea === linea && d.mensaje.includes("indeterminada")), caso).toBe(true);
     });
@@ -141,7 +145,7 @@ function errorTipado(): ED { const error = new ED("errores.turno.noEncontrado");
     beforeAll(() => {
       comprobarTiposFixture(ruta, contenido);
       resultado = verificarClavesTextos({ fuentes: { [ruta]: contenido } });
-    }, 30000);
+    }, LIMITE_MS);
     it.each(casos.map((caso, i) => [caso, i + 5] as const))("diagnostica %s", (caso, linea) => {
       expect(resultado.some((d) => d.archivo === ruta && d.linea === linea && d.mensaje.includes("indeterminada")), caso).toBe(true);
     });

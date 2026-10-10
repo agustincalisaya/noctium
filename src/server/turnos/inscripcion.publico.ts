@@ -42,12 +42,14 @@ export {
 } from "@/server/turnos/inscripcion.vigencia";
 export {
   listarInscripcionesDeAlumno,
+  listarInscripcionesPendientesDePagoDeAlumno,
   existeInscripcionVigenteConProfesor,
   contarInscripcionesPorMes,
   listarReservasPendientes,
   listarReservasVencidas,
   resumenReservas,
   type InscripcionDeAlumno,
+  type InscripcionPendienteDePago,
   type VigenciaContable,
   type ReservaPendiente,
   type ReservaVencida,
