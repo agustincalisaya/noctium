@@ -39,7 +39,8 @@ const USUARIO = "ckusuario0000000000000001";
 const horario = { fechaTurno: new Date("2026-10-01T00:00:00.000Z"), horaInicioTurno: new Date("1970-01-01T10:00:00.000Z"), duracionMinutosTurno: 60 };
 const bloqueado = (estadoTurno: string, cupoMaximoTurno = 3) => tx.$queryRaw.mockResolvedValueOnce([{ idTurno: TURNO, cupoMaximoTurno, estadoTurno }]);
 /** Lo que devuelve crearInscripcion (PR-0.md §2.13) con `inscriptos` vigentes después del alta. */
-const creada = (inscriptos: number, completado = false, alumnoIds: string[] = []) => ({ completado, inscriptos, cupo: 3, alumnoIds, estadoTurno: completado ? "COMPLETO" : "DISPONIBLE" });
+const RESERVA = { id: "reserva-1", estadoPago: "RESERVADA", venceEl: new Date("2026-10-01T12:00:00.000Z"), precio: 12000 };
+const creada = (inscriptos: number, completado = false, alumnoIds: string[] = []) => ({ completado, inscriptos, cupo: 3, alumnoIds, estadoTurno: completado ? "COMPLETO" : "DISPONIBLE", inscripcion: RESERVA });
 const rechaza = (codigo: ConstructorParameters<typeof ErrorDeDominio>[0], datos?: Record<string, unknown>) => inscripcion.crear.mockRejectedValueOnce(new ErrorDeDominio(codigo, datos));
 const tipos = () => evento.mock.calls.map(([{ data }]) => data.tipoEvento);
 const agregar = () => agregarAlumnoTurno(TURNO, { alumno_id: A }, USUARIO);
@@ -66,10 +67,13 @@ describe("HU-C-04 §2.5 agregar alumno", () => {
     expect(AgregarAlumnoTurnoSchema.safeParse({ alumno_id: A }).success).toBe(true);
     expect(AgregarAlumnoTurnoSchema.safeParse({ alumno_id: "1" }).success).toBe(false);
   });
-  it("inscribe con crearInscripcion (centro, sin plazo de pago) dentro de la transacción y emite el evento después", async () => {
-    await expect(agregar()).resolves.toEqual({ id: TURNO, alumno_id: A, alumnos_inscriptos: "2/3", estado: "DISPONIBLE" });
+  it("inscribe con crearInscripcion (centro, como reserva con plazo) dentro de la transacción, ofrece el pago y emite el evento después", async () => {
+    await expect(agregar()).resolves.toEqual({
+      id: TURNO, alumno_id: A, alumnos_inscriptos: "2/3", estado: "DISPONIBLE",
+      inscripcion: { id: "reserva-1", estado_pago: "RESERVADA", vence_el: "2026-10-01T09:00:00-03:00", precio: 12000 }, ofrecer_pago: true,
+    });
     expect(inscripcion.crear).toHaveBeenCalledWith(expect.objectContaining({ $queryRaw: tx.$queryRaw }), {
-      turnoId: TURNO, alumnoId: A, origen: "CENTRO", conReserva: false, actor: { tipo: "USUARIO", usuarioId: USUARIO }, alumnoActivo: undefined,
+      turnoId: TURNO, alumnoId: A, origen: "CENTRO", conReserva: true, actor: { tipo: "USUARIO", usuarioId: USUARIO }, alumnoActivo: undefined,
     });
     // La transacción abre con los tiempos de PR-0.md §2.10 antes de inscribir.
     expect(tx.$executeRawUnsafe.mock.invocationCallOrder[0]).toBeLessThan(inscripcion.crear.mock.invocationCallOrder[0]);

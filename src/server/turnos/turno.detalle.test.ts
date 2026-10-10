@@ -1,8 +1,9 @@
 import type { RolUsuario } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { turno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno, obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion, existeInscripcionVigente } = vi.hoisted(() => ({
+const { turno, turnoAlumno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno, obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion, existeInscripcionVigente } = vi.hoisted(() => ({
   turno: { findFirst: vi.fn() },
+  turnoAlumno: { findMany: vi.fn() },
   obtenerOpcionProfesorDeUsuario: vi.fn(),
   obtenerEmailDeUsuario: vi.fn(),
   listarPagosDeTurno: vi.fn(),
@@ -10,7 +11,7 @@ const { turno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPago
   profesorPuedeRegistrarIndicacion: vi.fn(),
   existeInscripcionVigente: vi.fn(),
 }));
-vi.mock("@/lib/prisma", () => ({ prisma: { turno } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { turno, turnoAlumno } }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorDeUsuario }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario }));
 vi.mock("@/server/pagos/pago.publico", () => ({ listarPagosDeTurno }));
@@ -58,6 +59,7 @@ const ok = async (usuario: Usuario = MESA, capacidades = CAPACIDADES_MESA) => {
 beforeEach(() => {
   vi.clearAllMocks();
   turno.findFirst.mockResolvedValue(registro());
+  turnoAlumno.findMany.mockResolvedValue([]);
   obtenerEmailDeUsuario.mockResolvedValue("mesa@centro.com");
   obtenerOpcionProfesorDeUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Méndez, Laura" });
   listarPagosDeTurno.mockResolvedValue([PAGO]);
@@ -207,6 +209,62 @@ describe("HU-C-09 pagos (AC1, Q6d)", () => {
     const resultado = await ok(PROFESOR, { ...CAPACIDADES_PROFESOR, verPagos: true });
     expect(resultado).not.toHaveProperty("pagos");
     expect(listarPagosDeTurno).not.toHaveBeenCalled();
+  });
+});
+
+describe("HU-C-24 reservas pendientes (C §2.18.4)", () => {
+  const RESERVADA = { alumnoId: "alumno-0", idInscripcion: "insc-0", estadoPago: "RESERVADA", venceEl: new Date("2026-10-06T15:00:00.000-03:00"), precio: 24000 };
+  const PAGADA = { alumnoId: "alumno-1", idInscripcion: "insc-1", estadoPago: "PAGADA", venceEl: null, precio: 24000 };
+  const SIN_REGISTRAR = { alumnoId: "alumno-1", idInscripcion: "insc-1", estadoPago: "PAGO_SIN_REGISTRAR", venceEl: null, precio: 24000 };
+
+  it("Mesa ve la reserva con su vencimiento y el acceso a «Registrar pago»", async () => {
+    turnoAlumno.findMany.mockResolvedValue([RESERVADA, PAGADA]);
+    const { alumnos } = await ok();
+    expect(alumnos[0]).toMatchObject({
+      inscripcion: { id: "insc-0", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: true,
+    });
+    // Una inscripción pagada informa su estado y no ofrece cobro; sin vencimiento.
+    expect(alumnos[1]).toMatchObject({ inscripcion: { id: "insc-1", estado_pago: "PAGADA", precio: 24000 }, puede_registrar_pago: false });
+    expect(alumnos[1]!.inscripcion).not.toHaveProperty("vence_el");
+  });
+
+  it("ofrece el cobro también para «Pago sin registrar» en una clase que no empezó", async () => {
+    turnoAlumno.findMany.mockResolvedValue([SIN_REGISTRAR]);
+    expect((await ok()).alumnos[1]).toMatchObject({ inscripcion: { estado_pago: "PAGO_SIN_REGISTRAR" }, puede_registrar_pago: true });
+  });
+
+  it("consulta solo las inscripciones vigentes a ahora (una reserva vencida sin marcar no figura)", async () => {
+    await ok();
+    const { where } = turnoAlumno.findMany.mock.calls[0]![0];
+    expect(where.turnoId).toBe("turno-1");
+    expect(where.OR).toBeDefined();
+  });
+
+  it("en una clase que ya empezó informa la reserva pero no ofrece cobro", async () => {
+    turnoAlumno.findMany.mockResolvedValue([RESERVADA]);
+    const empezada = await obtenerDetalleTurno("turno-1", MESA, { capacidades: CAPACIDADES_MESA, ahora: new Date("2026-10-06T16:30:00.000-03:00") });
+    expect(empezada.resultado === "ok" && empezada.turno.alumnos[0]).toMatchObject({ inscripcion: { estado_pago: "RESERVADA" }, puede_registrar_pago: false });
+  });
+
+  it("en una clase cancelada no ofrece cobro", async () => {
+    turno.findFirst.mockResolvedValue(registro({ estado: "CANCELADO" }));
+    turnoAlumno.findMany.mockResolvedValue([RESERVADA]);
+    expect((await ok()).alumnos[0]).toMatchObject({ puede_registrar_pago: false });
+  });
+
+  it("el Gerente ve la reserva en modo consulta: sin permiso de cobro no hay acceso a «Registrar pago»", async () => {
+    turnoAlumno.findMany.mockResolvedValue([RESERVADA]);
+    expect((await ok(GERENTE, CAPACIDADES_GERENTE)).alumnos[0]).toMatchObject({ inscripcion: { estado_pago: "RESERVADA" }, puede_registrar_pago: false });
+  });
+
+  it("sin pagos:leer, y para el Profesor, se omiten ambos campos y ni siquiera se consultan las inscripciones", async () => {
+    turnoAlumno.findMany.mockResolvedValue([RESERVADA]);
+    for (const [usuario, capacidades] of [[MESA, { ...CAPACIDADES_MESA, verPagos: false }], [PROFESOR, { ...CAPACIDADES_PROFESOR, verPagos: true }]] as const) {
+      const { alumnos } = await ok(usuario, capacidades);
+      expect(alumnos[0]).not.toHaveProperty("inscripcion");
+      expect(alumnos[0]).not.toHaveProperty("puede_registrar_pago");
+    }
+    expect(turnoAlumno.findMany).not.toHaveBeenCalled();
   });
 });
 

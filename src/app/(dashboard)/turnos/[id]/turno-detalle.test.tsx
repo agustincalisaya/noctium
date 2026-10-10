@@ -145,6 +145,99 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect([...tarjeta.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["JPPérez, Juan", "LGGómez, Lucía"]);
   });
 
+  it("HU-C-24: cada reserva muestra cuándo vence y el acceso a «Registrar pago» con el alumno y la clase elegidos", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({
+      alumnos: [
+        { id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: true },
+        { id: "alumno-2", nombre: "Gómez, Lucía", dni: "30999888", inscripcion: { id: "i-2", estado_pago: "PAGADA", precio: 24000 }, puede_registrar_pago: false },
+      ],
+    })));
+    await montar({ puedeGestionarAlumnos: true });
+    const filas = [...container.querySelectorAll('section[aria-labelledby="inscripciones-titulo"] li')];
+    expect(filas[0]!.textContent).toContain("Reservada · vence 06/10/2026, 15:00");
+    expect(filas[1]!.textContent).toContain("Pagada");
+    const accesos = [...container.querySelectorAll('a[aria-label^="Registrar pago de"]')];
+    expect(accesos.map((a) => [a.getAttribute("aria-label"), a.textContent, a.getAttribute("href")])).toEqual([
+      ["Registrar pago de Pérez, Juan", "Registrar pago", "/pagos/registrar?alumno=alumno-1&clase=turno-1"],
+    ]);
+    // «Quitar» no cambia: sigue en cada fila.
+    expect(container.querySelectorAll('button[aria-label^="Quitar a"]')).toHaveLength(2);
+  });
+
+  it("HU-C-24: «Pago sin registrar» se informa y, sin puede_registrar_pago, no hay acceso a cobro", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({
+      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "PAGO_SIN_REGISTRAR", precio: 24000 }, puede_registrar_pago: false }],
+    })));
+    await montar();
+    expect(texto()).toContain("Pago sin registrar");
+    expect(container.querySelector('a[aria-label^="Registrar pago de"]')).toBeNull();
+  });
+
+  describe("HU-C-24 / HU-C-25: «Agregar alumno» pide confirmación antes de inscribir", () => {
+    const NUEVO = { id: "alumno-9", nombre: "Lucía", apellido: "Ramos", dni: "40111222" };
+    let altas: { url: string; body: unknown }[];
+    let respuestaAlta: ReturnType<typeof respuesta>;
+    const dialogo = () => document.querySelector('[role="alertdialog"]');
+    const boton = (nombre: string) => [...document.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent === nombre) as HTMLButtonElement | undefined;
+    const clic = (el: Element | undefined) => act(async () => { el!.dispatchEvent(new MouseEvent("click", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    /** Elige a Lucía Ramos en el buscador (espera la búsqueda con demora de 250 ms). */
+    const elegirAlumno = async () => {
+      await montar({ puedeGestionarAlumnos: true });
+      const campo = container.querySelector("#agregar-alumno") as HTMLInputElement;
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(campo, "Ramos");
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
+      await clic([...container.querySelectorAll('ul[aria-label="Resultados de alumnos"] button')][0]);
+    };
+
+    beforeEach(() => {
+      altas = [];
+      respuestaAlta = respuesta({ id: "turno-1", alumno_id: NUEVO.id, estado: "DISPONIBLE", ofrecer_pago: true });
+      fetch.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.startsWith("/api/turnos/participantes/alumnos?q=")) return respuesta([NUEVO]);
+        if (url === "/api/turnos/turno-1/alumnos" && init?.method === "POST") { altas.push({ url, body: JSON.parse(String(init.body)) }); return respuestaAlta; }
+        return respuesta(detalle());
+      });
+    });
+
+    it("al elegir un alumno abre la confirmación con el patrón del Excel, sin inscribir todavía", async () => {
+      await elegirAlumno();
+      expect(dialogo()!.textContent).toContain("¿Estás seguro de que querés inscribir a Lucía Ramos en Matemática del 06/10/2026 a las 16:00?");
+      expect([...dialogo()!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Volver", "Inscribir"]);
+      expect(dialogo()!.textContent).not.toContain("Esta acción no se puede deshacer.");
+      expect(altas).toHaveLength(0);
+    });
+
+    it("«Volver» cierra el mensaje y no inscribe", async () => {
+      await elegirAlumno();
+      await clic(boton("Volver"));
+      expect(dialogo()).toBeNull();
+      expect(altas).toHaveLength(0);
+      expect(texto()).not.toContain("Alumno agregado");
+    });
+
+    it("«Inscribir» envía el alta con el alumno elegido, cierra el mensaje, avisa y recarga el detalle", async () => {
+      await elegirAlumno();
+      const cargasAntes = fetch.mock.calls.filter(([url]) => url === "/api/turnos/turno-1").length;
+      await clic(boton("Inscribir"));
+      expect(altas).toEqual([{ url: "/api/turnos/turno-1/alumnos", body: { alumno_id: "alumno-9" } }]);
+      expect(dialogo()).toBeNull();
+      expect(texto()).toContain("Alumno agregado al turno");
+      expect(fetch.mock.calls.filter(([url]) => url === "/api/turnos/turno-1").length).toBe(cargasAntes + 1);
+    });
+
+    it("si el servidor rechaza, el motivo se muestra en el mismo mensaje y no se agrega nada", async () => {
+      respuestaAlta = respuesta(null, false, { code: "INSCRIPCION_REQUIERE_PAGO", message: "El alumno ya tuvo una reserva sin pagar en esta clase: se inscribe recién al confirmar el pago." });
+      await elegirAlumno();
+      await clic(boton("Inscribir"));
+      expect(dialogo()).not.toBeNull();
+      expect(dialogo()!.textContent).toContain("se inscribe recién al confirmar el pago");
+      expect(texto()).not.toContain("Alumno agregado");
+    });
+  });
+
   it("sin permiso de gestión, la lista es de solo lectura", async () => {
     await montar();
     expect(container.querySelector('button[aria-label^="Quitar"]')).toBeNull();

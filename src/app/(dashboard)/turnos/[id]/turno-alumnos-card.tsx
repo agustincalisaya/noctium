@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
-import { fechaCorta } from "@/lib/turno-detalle";
+import { fechaCorta, fechaHoraDeInstante } from "@/lib/turno-detalle";
 import { fetchOLanzar, fetchAutenticado } from "@/lib/fetch-autenticado";
 import { iniciales } from "@/lib/turno-detalle";
 import type { TurnoDetalle } from "@/types/turno.types";
 import { texto } from "@/lib/textos";
 import { TurnoClaseCard } from "./turno-clase-card";
 import type { EstadoAsistencia, RegistroClaseDictada } from "@/types/historial.types";
-import { BuscadorAlumnos } from "../buscador-alumnos";
+import { BuscadorAlumnos, type AlumnoBuscado } from "../buscador-alumnos";
 import { RegistrarIndicacionDialog } from "../../alumnos/[id]/registrar-indicacion-dialog";
 
 /**
@@ -18,7 +18,8 @@ import { RegistrarIndicacionDialog } from "../../alumnos/[id]/registrar-indicaci
  * no solo la ocupación. Con `gestionable` (HU-C-04 §2.5: permiso y turno
  * DISPONIBLE o COMPLETO) conserva el alta y la baja individual: «Agregar
  * alumno» en el encabezado y «Quitar» por fila. Cada acción se aplica en el
- * momento; el estado Disponible ⇄ Completo lo resuelve el servidor.
+ * momento; el estado Disponible ⇄ Completo lo resuelve el servidor. «Agregar
+ * alumno» pide antes la confirmación de HU-C-25 (C §2.18.3).
  */
 export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = false, puedeRegistrarIndicacion = false, esProfesor = false, onCambio }: { turno: TurnoDetalle; gestionable: boolean; puedeRegistrarClase?: boolean; puedeRegistrarIndicacion?: boolean; esProfesor?: boolean; onCambio: () => Promise<void> }) {
   const [momento, setMomento] = useState(() => Date.now());
@@ -56,6 +57,8 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
   const [aviso, setAviso] = useState("");
   const [error, setError] = useState("");
   const [errorAlumno, setErrorAlumno] = useState<{ id: string; mensaje: string } | null>(null);
+  const [porInscribir, setPorInscribir] = useState<AlumnoBuscado | null>(null);
+  const estadoAlta = useRef("");
   // Solo se gestiona en turnos DISPONIBLE/COMPLETO, que siempre tienen aula y cupo.
   const cupoAlcanzado = turno.cupo_maximo !== null && turno.alumnos.length >= turno.cupo_maximo;
   const ocupacion = turno.cupo_maximo === null ? "Sin asignar" : `${turno.alumnos.length} de ${turno.cupo_maximo}`;
@@ -78,9 +81,18 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
     finally { setProcesando(null); }
   };
 
-  const agregar = (alumnoId: string) => ejecutar("agregar", `/api/turnos/${encodeURIComponent(turno.id)}/alumnos`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alumno_id: alumnoId }),
-  }, (estado) => estado === "COMPLETO" ? "Alumno agregado. El turno alcanzó su cupo máximo y pasó a Completo." : "Alumno agregado al turno");
+  const confirmarInscripcion = async () => {
+    if (!porInscribir) return;
+    const alta = await fetchOLanzar(`/api/turnos/${encodeURIComponent(turno.id)}/alumnos`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alumno_id: porInscribir.id }),
+    }) as { estado?: string } | null;
+    estadoAlta.current = alta?.estado ?? "";
+  };
+  const inscripcionConfirmada = () => {
+    setError(""); setErrorAlumno(null);
+    setAviso(estadoAlta.current === "COMPLETO" ? "Alumno agregado. El turno alcanzó su cupo máximo y pasó a Completo." : "Alumno agregado al turno");
+    void onCambio();
+  };
   const quitar = (alumnoId: string) => ejecutar(alumnoId, `/api/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumnoId)}`, { method: "DELETE" },
     (estado) => turno.estado === "COMPLETO" && estado === "DISPONIBLE" ? "Alumno quitado. El turno volvió a Disponible." : "Alumno quitado del turno");
 
@@ -88,12 +100,14 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
     <div className="flex flex-wrap items-start justify-between gap-3">
       <h2 id="inscripciones-titulo" className="text-sm font-semibold">Alumnos inscriptos <span className="font-normal text-muted-foreground">· {ocupacion}</span></h2>
       {gestionable && <div className="w-full max-w-xs space-y-1"><label htmlFor="agregar-alumno" className="text-xs">Agregar alumno</label>
-        <BuscadorAlumnos id="agregar-alumno" excluir={turno.alumnos.map(({ id }) => id)} deshabilitado={cupoAlcanzado || procesando !== null} avisoDeshabilitado={cupoAlcanzado ? "El turno alcanzó su cupo máximo" : undefined} onSeleccionar={(alumno) => void agregar(alumno.id)} />
+        <BuscadorAlumnos id="agregar-alumno" excluir={turno.alumnos.map(({ id }) => id)} deshabilitado={cupoAlcanzado || procesando !== null} avisoDeshabilitado={cupoAlcanzado ? "El turno alcanzó su cupo máximo" : undefined} onSeleccionar={setPorInscribir} />
       </div>}
     </div>
     <div className="flex justify-between text-xs uppercase tracking-wide text-muted-foreground"><span>{texto("ui.historial.correccionClase.alumno")}</span><span>{texto("ui.historial.correccionClase.asistencia")}</span></div>
     {alumnosLista.length === 0 ? <p className="text-sm text-muted-foreground">El turno no tiene alumnos inscriptos.</p> : <ul className="divide-y divide-border border-t border-border" aria-label="Alumnos inscriptos">{alumnosLista.map((alumno) => {
       const conflicto = errorAlumno?.id === alumno.id ? errorAlumno.mensaje : "";
+      const reserva = turno.alumnos.find(({ id }) => id === alumno.id);
+      const inscripcion = reserva?.inscripcion;
       return <li key={alumno.id} className={`space-y-1 py-2.5 ${conflicto ? "bg-destructive-soft" : ""}`}>
         <div className="flex items-center justify-between gap-3">
           <span className="flex min-w-0 items-center gap-3">
@@ -113,6 +127,14 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
           </span>}
           {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
         </div>
+        {inscripcion && <div className="ml-10 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span>{inscripcion.estado_pago === "RESERVADA" && inscripcion.vence_el
+            ? texto("ui.turnos.reserva.venceEl", { vencimiento: fechaHoraDeInstante(inscripcion.vence_el) })
+            : texto(inscripcion.estado_pago === "PAGADA" ? "ui.turnos.reserva.pagada" : "ui.turnos.reserva.sinRegistrar")}</span>
+          {reserva?.puede_registrar_pago && <Link className="inline-flex rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            href={`/pagos/registrar?alumno=${encodeURIComponent(alumno.id)}&clase=${encodeURIComponent(turno.id)}`} prefetch={false}
+            aria-label={texto("ui.turnos.reserva.registrarPagoDe", { alumno: alumno.nombre })}>{texto("ui.turnos.reserva.registrarPago")}</Link>}
+        </div>}
         {alumno.puede_ver_historial && <Link className="ml-10 inline-flex text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={esProfesor
           ? `/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumno.id)}/historial`
           : `/alumnos/${encodeURIComponent(alumno.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
@@ -170,7 +192,11 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
       onRegistrada={onCambio}
       onObservacionRegistrada={() => { void cargarAsistencia(); }}
     />}
-    {procesando === "agregar" && <p role="status" className="text-sm text-muted-foreground">Agregando alumno…</p>}
+    <ConfirmarAccionDialog abierto={porInscribir !== null} onCerrar={() => setPorInscribir(null)}
+      titulo={porInscribir ? texto("confirmaciones.inscripcion.centro", {
+        alumno: `${porInscribir.nombre} ${porInscribir.apellido}`, materia: turno.materia, fecha: fechaCorta(turno.fecha), hora: turno.hora_inicio,
+      }) : ""}
+      textoConfirmar={texto("ui.turnos.reserva.inscribir")} onConfirmar={confirmarInscripcion} onExito={inscripcionConfirmada} />
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {aviso && <p role="status" className="rounded-md bg-success p-3 text-sm text-success-foreground">{aviso}</p>}
   </section>;

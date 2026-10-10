@@ -57,7 +57,10 @@ beforeEach(() => {
   tx.turno.findMany.mockReset().mockResolvedValue([]);
   tx.turno.updateMany.mockResolvedValue({ count: 1 });
   tx.$executeRawUnsafe.mockResolvedValue(0); tx.$queryRawUnsafe.mockResolvedValue([]);
-  inscripcion.crear.mockResolvedValue({}); inscripcion.finalizar.mockResolvedValue({});
+  inscripcion.crear.mockImplementation(async (_tx, datos) => ({
+    inscripcion: { id: `reserva-${datos.alumnoId}`, estadoPago: "RESERVADA", venceEl: new Date("2026-10-01T12:00:00.000Z"), precio: 12000 },
+  }));
+  inscripcion.finalizar.mockResolvedValue({});
   inscripcion.vigentes.mockResolvedValue([]); inscripcion.vencidasDelAlumno.mockResolvedValue([]);
   evento.mockResolvedValue({}); vigente.mockReturnValue(true); activo.mockResolvedValue(true);
   profesores.mockResolvedValue([{ id: P, nombre: "Ana", apellido: "Pérez" }]); opcion.mockResolvedValue({ id: P }); dicta.mockResolvedValue(true); horario.mockResolvedValue(true);
@@ -123,12 +126,18 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("asigna profesor y alumnos hasta el cupo, reemplaza vínculos y confirma COMPLETO", async () => {
-    await expect(ejecutar()).resolves.toEqual({ id: TURNO, alumno_ids: [A, B, C], profesor_id: P, cupo_maximo: 3, estado: "COMPLETO" });
+    await expect(ejecutar()).resolves.toEqual({
+      id: TURNO, alumno_ids: [A, B, C], profesor_id: P, cupo_maximo: 3, estado: "COMPLETO",
+      // Cada alumno queda como reserva con plazo (HU-C-24, C §2.18.3) y la interfaz ofrece «Registrar pago» junto a cada uno.
+      inscripciones: [A, B, C].map((alumno_id) => ({
+        alumno_id, inscripcion_id: `reserva-${alumno_id}`, estado_pago: "RESERVADA", vence_el: "2026-10-01T09:00:00-03:00", precio: 12000,
+      })),
+    });
     expect(tx.turno.updateMany).toHaveBeenNthCalledWith(1, { where: { idTurno: TURNO, estadoTurno: "PENDIENTE", updatedAtTurno: turno.updatedAtTurno }, data: { profesorId: P, modificadoPorUsuarioId: USUARIO } });
     // La clase se confirma y las inscripciones la pasan a COMPLETO al llenar el cupo (crearInscripcion recalcula el estado, PR-0.md §2.2).
     expect(tx.turno.updateMany).toHaveBeenNthCalledWith(2, { where: { idTurno: TURNO, estadoTurno: "PENDIENTE" }, data: { estadoTurno: "DISPONIBLE" } });
     expect(inscripcion.crear.mock.calls.map(([, datos]) => datos)).toEqual([A, B, C].map((alumnoId) => ({
-      turnoId: TURNO, alumnoId, origen: "CENTRO", conReserva: false, actor: { tipo: "USUARIO", usuarioId: USUARIO }, bloqueosTomados: true, momento: expect.any(Date),
+      turnoId: TURNO, alumnoId, origen: "CENTRO", conReserva: true, actor: { tipo: "USUARIO", usuarioId: USUARIO }, bloqueosTomados: true, momento: expect.any(Date),
     })));
     expect(inscripcion.finalizar).not.toHaveBeenCalled();
     // El trigger de reservas proyecta cada inscripción vigente: las altas van después de confirmar la clase.
@@ -136,6 +145,12 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     expect(evento).toHaveBeenCalledWith({ data: expect.objectContaining({ tipoEvento: "turno:participantes_asignados", payloadEvento: { turno_id: TURNO, alumno_ids: [A, B, C], profesor_id: P, usuario_id: USUARIO } }) });
     expect(tipos()).toEqual(["turno:participantes_asignados", "turno:completado"]);
     expect(evento.mock.calls[1]![0].data.payloadEvento).toEqual({ turno_id: TURNO, alumno_ids: [A, B, C], cupo_maximo: 3, usuario_id: USUARIO });
+  });
+  it("un alumno alcanzado por la regla de re-reserva devuelve 409 INSCRIPCION_REQUIERE_PAGO y no emite eventos (C §2.18.3)", async () => {
+    const { ErrorDeDominio } = await import("@/server/shared/error-dominio");
+    inscripcion.crear.mockRejectedValueOnce(new ErrorDeDominio("errores.inscripcion.requierePago", { alumno_id: A }));
+    await expect(ejecutar([A, B])).rejects.toMatchObject({ code: "INSCRIPCION_REQUIERE_PAGO", status: 409, detalles: { alumno_id: A } });
+    expect(evento).not.toHaveBeenCalled();
   });
   it("confirma DISPONIBLE por debajo del cupo y emite turno:disponibilizado con el payload de §4", async () => {
     await expect(ejecutar([A, B])).resolves.toMatchObject({ estado: "DISPONIBLE", cupo_maximo: 3 });
