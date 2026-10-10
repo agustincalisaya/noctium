@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Bar, CartesianGrid, ComposedChart, LabelList, Line, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -11,7 +11,7 @@ export type DatoIndicador = Record<string, string | number | null>;
 export type SerieIndicador = { clave: string; etiqueta: string; unidad: string; tipo: "barra" | "linea"; color: string; ejePorcentaje?: boolean };
 export type ColumnaIndicador = { clave: string; etiqueta: string; formatear?: (valor: string | number | null) => string };
 export type GraficoIndicadorProps = {
-  id: string; titulo: string; total: string; leyendaFecha: string; datos: DatoIndicador[]; series: SerieIndicador[];
+  id: string; titulo: string; total: ReactNode; leyendaFecha: string; datos: DatoIndicador[]; series: SerieIndicador[];
   claveCategoria?: string; anchoCategoria?: number; orientacion?: "vertical" | "horizontal";
   formatearValor?: (valor: number, clave: string) => string;
   formatearCategoria?: (valor: string, indice: number) => string;
@@ -37,7 +37,7 @@ export function GraficoIndicador({ id, titulo, total, leyendaFecha, datos, serie
   const largo = mensual && datos.length > 12;
   const barras = series.filter(s => s.tipo === "barra");
   const porcentaje = series.every(s => s.unidad === "%");
-  const anchoMinimo = mensual ? datos.length * (barras.length > 2 ? barras.length * 14 + 28 : barras.length > 1 ? 60 : 44) + 64 : 0;
+  const anchoMinimo = mensual ? datos.length * (barras.length > 2 ? largo ? barras.length * 14 + 28 : barras.length * 10 + 16 : barras.length > 1 ? 60 : 44) + 64 : 0;
   const config = Object.fromEntries(series.map(s => [s.clave, { label: s.etiqueta, color: s.color }])) as ChartConfig;
   useEffect(() => {
     const elemento = scroll.current;
