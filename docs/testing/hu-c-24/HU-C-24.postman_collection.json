@@ -1,0 +1,314 @@
+{
+  "info": {
+    "name": "HU-C-24 — Vencer las reservas y gestionarlas desde mesa de entrada",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "EJECUTADA (11/11 requests, 33/33 tests) con un ejecutor propio (los scripts \"test\" de la colección con chai; no la app de Postman ni newman), en una base NUEVA descartable (migraciones del PR 0 y fábricas existentes), con sesiones reales de NextAuth (mesa, gerente y profesor); no usar datos habituales. Pendiente: correrla también en la app de Postman o con newman. Login real y Cookie Jar fuera de la colección; no exportar cookies, tokens ni el valor de CRON_SECRET (variable cron_secret vacía). El proceso (01-04) no usa sesión. I-10, I-06, C-14, E-02, H-10 y N-01 diferidos: no se invocan APIs de esas HU. La pantalla /pagos/registrar es de I-10."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "turno_id",
+      "value": ""
+    },
+    {
+      "key": "alumno_id",
+      "value": ""
+    },
+    {
+      "key": "cron_secret",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Proceso — sin cabecera Authorization (401)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": "{{base_url}}/api/procesos/vencer-reservas",
+        "description": "Sin sesión de usuario: la autenticación es el secreto del programador. No ejecuta nada ni revela el motivo."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"Cuerpo neutro\", () => pm.expect(pm.response.json()).to.eql({ data: null, error: { code: \"NO_AUTORIZADO\", message: \"No autorizado\" } }));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Proceso — secreto incorrecto (401)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer secreto-incorrecto"
+          }
+        ],
+        "url": "{{base_url}}/api/procesos/vencer-reservas",
+        "description": "Mismo cuerpo que el caso 01: no distingue entre cabecera ausente y secreto distinto."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"Cuerpo neutro\", () => pm.expect(pm.response.json().error.code).to.eql(\"NO_AUTORIZADO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Proceso — secreto correcto (200)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{cron_secret}}"
+          }
+        ],
+        "url": "{{base_url}}/api/procesos/vencer-reservas",
+        "description": "Usar la variable de entorno CRON_SECRET del servidor en la variable cron_secret de Postman (no se versiona). Con reservas vencidas preparadas en una base descartable, los totales son mayores que cero."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "const b = pm.response.json();",
+              "pm.test(\"Sin error\", () => pm.expect(b.error).to.eql(null));",
+              "pm.test(\"Contrato\", () => { pm.expect(b.data).to.have.keys(\"reservas_vencidas\", \"clases_afectadas\", \"ejecutado_el\"); pm.expect(Number.isInteger(b.data.reservas_vencidas)).to.eql(true); pm.expect(Number.isInteger(b.data.clases_afectadas)).to.eql(true); pm.expect(b.data.ejecutado_el).to.match(/-03:00$/); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Proceso — segunda corrida seguida (idempotente)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{cron_secret}}"
+          }
+        ],
+        "url": "{{base_url}}/api/procesos/vencer-reservas",
+        "description": "Enviar justo después del caso 03: no vuelve a procesar lo ya vencido. Comparar HU-C-24.sql antes y después: sin filas nuevas en historial_inscripciones."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"Nada más que vencer\", () => pm.expect(pm.response.json().data).to.include({ reservas_vencidas: 0, clases_afectadas: 0 }));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Agregar alumno — MESA_ENTRADA (reserva con plazo)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/alumnos",
+        "description": "Cuenta de mesa de entrada (Cookie Jar). Clase Disponible futura con cupo y tarifa.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alumno_id\": \"{{alumno_id}}\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "const d = pm.response.json().data;",
+              "pm.test(\"Reserva con plazo\", () => { pm.expect(d.inscripcion.estado_pago).to.eql(\"RESERVADA\"); pm.expect(d.inscripcion.vence_el).to.match(/-03:00$/); pm.expect(d.inscripcion.precio).to.be.a(\"number\").above(0); });",
+              "pm.test(\"Se ofrece Registrar pago\", () => pm.expect(d.ofrecer_pago).to.eql(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Agregar alumno — reserva vencida previa (409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/alumnos",
+        "description": "Alumno con una reserva vencida (o cancelada sin pago) en la clase. No queda inscripto.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alumno_id\": \"{{alumno_id}}\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"Código y alumno\", () => { const e = pm.response.json().error; pm.expect(e.code).to.eql(\"INSCRIPCION_REQUIERE_PAGO\"); pm.expect(e.detalles.alumno_id).to.eql(pm.collectionVariables.get(\"alumno_id\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Detalle de la clase — MESA_ENTRADA",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}",
+        "description": "Clase Disponible que no empezó, con una reserva pendiente."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "const a = pm.response.json().data.alumnos;",
+              "pm.test(\"Reserva y acceso a cobro\", () => { const r = a.find((x) => x.inscripcion && x.inscripcion.estado_pago === \"RESERVADA\"); pm.expect(r).to.not.eql(undefined); pm.expect(r.inscripcion.vence_el).to.match(/-03:00$/); pm.expect(r.puede_registrar_pago).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Detalle de la clase — GERENTE (consulta)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}",
+        "description": "El Gerente ve la reserva pero no cobra."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"Sin cobro\", () => { const r = pm.response.json().data.alumnos.find((x) => x.inscripcion); pm.expect(r.inscripcion.estado_pago).to.eql(\"RESERVADA\"); pm.expect(r.puede_registrar_pago).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Detalle de la clase — PROFESOR (sin precios)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}",
+        "description": "Clase propia del profesor. No recibe inscripcion ni puede_registrar_pago."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"Sin campos de pago\", () => pm.response.json().data.alumnos.forEach((x) => { pm.expect(x).to.not.have.property(\"inscripcion\"); pm.expect(x).to.not.have.property(\"puede_registrar_pago\"); }));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Sin sesión — POST agregar alumno (401)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}/alumnos",
+        "description": "Sin Cookie Jar.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"alumno_id\": \"{{alumno_id}}\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Sin sesión — GET detalle (401)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/{{turno_id}}",
+        "description": "Sin Cookie Jar."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Envelope\", () => pm.expect(pm.response.json()).to.have.keys(\"data\", \"error\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

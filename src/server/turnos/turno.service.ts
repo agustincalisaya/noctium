@@ -374,20 +374,25 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
 
       // Reemplazo del conjunto (PR-0.md §2.0): la inscripción no se borra. Las
       // vigentes que no siguen pasan a QUITADA_CENTRO y los alumnos nuevos se
-      // inscriben con crearInscripcion (sin plazo de pago, 2.15), que proyecta
-      // su reserva y pasa la clase a COMPLETO al llenar el cupo.
+      // inscriben con crearInscripcion como reserva con plazo (HU-C-24, 2.18.3),
+      // que proyecta su reserva y pasa la clase a COMPLETO al llenar el cupo.
       const actor = actorUsuario(usuarioId);
       const elegidos = new Set(input.alumno_ids);
       for (const vigente of await inscripcionesVigentes(tx, turnoId, momento)) {
         if (elegidos.has(vigente.alumnoId)) elegidos.delete(vigente.alumnoId);
         else await finalizarInscripcion(tx, { inscripcionId: vigente.id, vigencia: "QUITADA_CENTRO", actor, fecha: momento });
       }
+      const inscripciones = [];
       for (const alumnoId of input.alumno_ids.filter((id) => elegidos.has(id))) {
-        await crearInscripcion(tx, { turnoId, alumnoId, origen: "CENTRO", conReserva: false, actor, bloqueosTomados: true, momento });
+        const { inscripcion } = await crearInscripcion(tx, { turnoId, alumnoId, origen: "CENTRO", conReserva: true, actor, bloqueosTomados: true, momento });
+        inscripciones.push({
+          alumno_id: alumnoId, inscripcion_id: inscripcion.id, estado_pago: inscripcion.estadoPago,
+          vence_el: inscripcion.venceEl ? isoCentro(inscripcion.venceEl) : null, precio: inscripcion.precio,
+        });
       }
       const estado = input.alumno_ids.length >= cupo ? "COMPLETO" as const : "DISPONIBLE" as const;
       return {
-        respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: profesorId, cupo_maximo: cupo, estado },
+        respuesta: { id: turnoId, alumno_ids: input.alumno_ids, profesor_id: profesorId, cupo_maximo: cupo, estado, inscripciones },
         evento: { fecha: fecha(turno.fechaTurno), hora_inicio: horaDeMinutos(intervalo.inicio), hora_fin: horaDeMinutos(intervalo.fin), aula_id: aulaId, materia_id: turno.materiaId },
       };
     }, { tiempos: { timeoutMs: 15_000 } });
@@ -434,7 +439,7 @@ async function bloquearTurno(tx: Prisma.TransactionClient, turnoId: string) {
 /**
  * Núcleo común para HU-C-04 §2.5 y HU-C-12 §2.14.2; el caller emite eventos
  * después del commit. Inscribe con `crearInscripcion` (PR-0.md §2.13 y
- * §2.15: el centro sigue sin plazo; C-22 reserva en autoservicio), que bloquea al alumno
+ * §2.15: C-22 reserva en autoservicio y C-24 en el centro), que bloquea al alumno
  * y la clase, vence perezosamente las reservas, revalida estado, cupo,
  * repetido y superposición con los mismos códigos y textos de hoy, y
  * recalcula el estado guardado de la clase. `tx` lo abre `transaccion()`.
@@ -446,7 +451,7 @@ export async function inscribirAlumnoEnTurno(
   tx: Prisma.TransactionClient,
 ) {
   const creada = await crearInscripcion(tx, {
-    turnoId, alumnoId, origen: origen === "AUTOSERVICIO" ? "ALUMNO" : "CENTRO", conReserva: origen === "AUTOSERVICIO",
+    turnoId, alumnoId, origen: origen === "AUTOSERVICIO" ? "ALUMNO" : "CENTRO", conReserva: true,
     actor: actorUsuario(usuarioId), alumnoActivo,
   });
   return { completado: creada.completado, alumnoIds: creada.completado ? creada.alumnoIds : [], cupo: creada.cupo, inscriptos: creada.inscriptos, inscripcion: creada.inscripcion };
@@ -469,7 +474,11 @@ export async function agregarAlumnoTurno(turnoId: string, input: AgregarAlumnoTu
     throw error;
   }
   await emitirEventosInscripcion(turnoId, input.alumno_id, usuarioId, "MESA_ENTRADA", resultado);
-  return { id: turnoId, alumno_id: input.alumno_id, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const };
+  return {
+    id: turnoId, alumno_id: input.alumno_id, alumnos_inscriptos: `${resultado.inscriptos}/${resultado.cupo}`, estado: resultado.completado ? "COMPLETO" as const : "DISPONIBLE" as const,
+    inscripcion: { id: resultado.inscripcion.id, estado_pago: resultado.inscripcion.estadoPago, vence_el: resultado.inscripcion.venceEl ? isoCentro(resultado.inscripcion.venceEl) : null, precio: resultado.inscripcion.precio },
+    ofrecer_pago: true as const,
+  };
 }
 
 /** HU-C-12 §2.14.2: identidad exclusivamente derivada de la sesión. */

@@ -279,8 +279,8 @@ function errorDeAlumno(origen: OrigenInscripcion, alumnoId: string, codigo: stri
  *
  * - ALUMNO: autoservicio. Con `conReserva` aplica la regla de re-reserva
  *   (RESERVA_PREVIA_SIN_PAGO).
- * - CENTRO: mesa de entrada. No aplica la regla (la usa HU-C-24 con
- *   `exigeInscripcionConPago`).
+ * - CENTRO: mesa de entrada. Con `conReserva` (HU-C-24) aplica la misma regla
+ *   y responde INSCRIPCION_REQUIERE_PAGO.
  * - PAGO: «Se inscribe al confirmar el pago» (HU-I-10); nace PAGADA, en la
  *   misma transacción del cobro.
  *
@@ -335,9 +335,12 @@ export async function crearInscripcion(tx: Tx, datos: DatosCrearInscripcion): Pr
   const [tarifa] = await obtenerTarifasPorIds([turno.materiaId], tx);
   const precio = precioClase({ tarifaHora: tarifa?.tarifaHora ?? null }, turno.duracionMinutosTurno, { paraAlumno: propio });
 
-  // 5. Re-reserva (HU-C-22 criterio 4): solo la reserva del alumno.
-  if (origen === "ALUMNO" && datos.conReserva && (await exigeInscripcionConPago(tx, { turnoId, alumnoId, momento })).exige) {
-    throw new ErrorDeDominio("errores.reserva.previaSinPago");
+  // 5. Re-reserva (HU-C-22 criterio 4; HU-C-24 criterio 3 para el centro): con
+  // reserva previa sin pago la inscripción se crea recién al confirmar el pago.
+  if (datos.conReserva && origen !== "PAGO" && (await exigeInscripcionConPago(tx, { turnoId, alumnoId, momento })).exige) {
+    throw origen === "ALUMNO"
+      ? new ErrorDeDominio("errores.reserva.previaSinPago")
+      : new ErrorDeDominio("errores.inscripcion.requierePago", { alumno_id: alumnoId });
   }
 
   // 6. Alta. Los campos que los CHECK unen van juntos en la misma sentencia.

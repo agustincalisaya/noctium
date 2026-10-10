@@ -2,11 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { horaAMinutos, minutosAHora } from "@/lib/horario-atencion";
+import { fechaCorta } from "@/lib/turno-detalle";
+import { texto } from "@/lib/textos";
+import type { InscripcionConfirmadaCentro } from "@/types/turno.types";
 import { PasoMateriaTurno, type MateriaOpcionTurno } from "../paso-materia-turno";
 import { PasoProfesorTurno, type ProfesorOpcionTurno } from "../paso-profesor-turno";
 import { PasoFechaHorarioTurno, fechaLegible } from "../paso-fecha-horario-turno";
@@ -79,7 +84,9 @@ export function TurnoWizard() {
   const [aulaGuardada, setAulaGuardada] = useState<AulaOpcion | null>(null);
   const [cupoMaximo, setCupoMaximo] = useState<number | null>(null);
   const [resultadoFinal, setResultadoFinal] = useState<"DISPONIBLE" | "COMPLETO" | null>(null);
+  const [inscripcionesConfirmadas, setInscripcionesConfirmadas] = useState<InscripcionConfirmadaCentro[]>([]);
   const [errorAlumno, setErrorAlumno] = useState<{ id: string; mensaje: string } | null>(null);
+  const [confirmandoParticipantes, setConfirmandoParticipantes] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const guardandoRef = useRef(false);
   const [errorGuardado, setErrorGuardado] = useState("");
@@ -319,26 +326,31 @@ export function TurnoWizard() {
     finally { guardandoRef.current = false; setGuardando(false); }
   };
 
-  const confirmarParticipantes = async () => {
-    if (guardandoRef.current || resultadoFinal || !puedeContinuar || !turnoId) return;
-    guardandoRef.current = true;
-    setGuardando(true); setErrorGuardado(""); setErrorAlumno(null);
+  /**
+   * Confirmación de HU-C-25 (C §2.18.3): inscribir desde el centro es una
+   * operación modificada en este sprint, así que antes de guardar se pide
+   * confirmación con los datos concretos. `ConfirmarAccionDialog` llama a
+   * esta función al confirmar; un rechazo del servidor se muestra dentro
+   * del mismo diálogo (criterio 6) sin perder la selección de alumnos.
+   */
+  const enviarParticipantes = async () => {
+    setErrorAlumno(null);
+    let respuesta: Response;
     try {
-      const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(turnoId)}/participantes`, {
+      respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(turnoId)}/participantes`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ alumno_ids: seleccion.alumnos.map(({ id }) => id) }), cache: "no-store",
       });
-      const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok || !["DISPONIBLE", "COMPLETO"].includes(valor?.data?.estado)) {
-        const mensaje = valor?.error?.message ?? "No se pudo confirmar el turno";
-        const alumnoId = valor?.error?.detalles?.alumno_id;
-        if (typeof alumnoId === "string" && seleccion.alumnos.some(({ id }) => id === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
-        else setErrorGuardado(mensaje);
-        return;
-      }
-      setResultadoFinal(valor.data.estado);
-    } catch { setErrorGuardado("No se pudo confirmar el turno. Intentá nuevamente."); }
-    finally { guardandoRef.current = false; setGuardando(false); }
+    } catch { throw new Error("No se pudo confirmar el turno. Intentá nuevamente."); }
+    const valor = await respuesta.json().catch(() => null);
+    if (!respuesta.ok || !["DISPONIBLE", "COMPLETO"].includes(valor?.data?.estado)) {
+      const mensaje = valor?.error?.message ?? "No se pudo confirmar el turno";
+      const alumnoId = valor?.error?.detalles?.alumno_id;
+      if (typeof alumnoId === "string" && seleccion.alumnos.some(({ id }) => id === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
+      throw new Error(mensaje);
+    }
+    setResultadoFinal(valor.data.estado);
+    setInscripcionesConfirmadas(Array.isArray(valor.data.inscripciones) ? valor.data.inscripciones : []);
   };
 
   return <main className="mx-auto w-full max-w-7xl space-y-6 p-4 sm:p-6">
@@ -363,7 +375,17 @@ export function TurnoWizard() {
     <ProgresoTurno paso={paso} pasoMaximoHabilitado={pasoMaximoHabilitado} onPasoSeleccionado={seleccionarPaso} />
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
       <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
-        {resultadoFinal ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turno confirmado</h2><p>Turno creado correctamente.</p><p className="flex items-center gap-2">Estado: <EstadoTurnoBadge estado={resultadoFinal} /></p><p>Profesor, aula y {seleccion.alumnos.length} {seleccion.alumnos.length === 1 ? "alumno" : "alumnos"} confirmados.</p><Button type="button" onClick={() => router.push("/turnos")}>Ver listado de turnos</Button></div> :
+        {resultadoFinal ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><h2 className="text-xl font-semibold">Turno confirmado</h2><p>Turno creado correctamente.</p><p className="flex items-center gap-2">Estado: <EstadoTurnoBadge estado={resultadoFinal} /></p><p>Profesor, aula y {seleccion.alumnos.length} {seleccion.alumnos.length === 1 ? "alumno" : "alumnos"} confirmados.</p>
+          {inscripcionesConfirmadas.length > 0 && <ul aria-label="Alumnos a cobrar" className="space-y-2 text-success-foreground">{inscripcionesConfirmadas.map((inscripcion) => {
+            const alumno = seleccion.alumnos.find(({ id }) => id === inscripcion.alumno_id);
+            return <li key={inscripcion.alumno_id} className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-card/40 px-3 py-2 text-sm text-foreground">
+              <span>{alumno?.nombre ?? inscripcion.alumno_id}</span>
+              <Link className="inline-flex rounded-md border border-border px-2 py-1 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                href={`/pagos/registrar?alumno=${encodeURIComponent(inscripcion.alumno_id)}&clase=${encodeURIComponent(turnoId)}`} prefetch={false}
+                aria-label={texto("ui.turnos.reserva.registrarPagoDe", { alumno: alumno?.nombre ?? "" })}>{texto("ui.turnos.reserva.registrarPago")}</Link>
+            </li>;
+          })}</ul>}
+          <Button type="button" onClick={() => router.push("/turnos")}>Ver listado de turnos</Button></div> :
           cargando ? <p role="status">Cargando materias</p> : errorCarga ? <div role="alert" className="space-y-3"><p>{errorCarga}</p><Button type="button" variant="outline" onClick={reintentarMaterias}>Reintentar</Button></div> :
           paso === 1 ? <PasoMateriaTurno materias={materias} materiaId={seleccion.materiaId} onSeleccionar={cambiarMateria}
             profesoresPorMateria={consultaConteos?.cantidades ?? {}} cargandoConteos={!consultaConteos}
@@ -400,12 +422,17 @@ export function TurnoWizard() {
                   </div>}
         {!resultadoFinal && paso !== 3 && <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
           <Button type="button" variant="outline" onClick={retroceder} disabled={paso === 1 || guardando}>Atrás</Button>
-          <Button type="button" onClick={() => { if (!puedeContinuar) return; if (paso === 5) void confirmarParticipantes(); else if (paso === 4) void confirmarAula(); else {
+          <Button type="button" onClick={() => { if (!puedeContinuar) return; if (paso === 5) setConfirmandoParticipantes(true); else if (paso === 4) void confirmarAula(); else {
             if (paso === 2) setSeleccion((actual) => ({ ...actual, duracionMin: actual.duracionMin ?? duracionesPermitidas[0] ?? null }));
             setPasoMaximoHabilitado((actual) => Math.max(actual, paso + 1) as PasoTurno);
             setPaso((paso + 1) as PasoTurno);
           } }} disabled={cargando || Boolean(errorCarga) || guardando || !puedeContinuar}>{paso === 5 ? "Crear turno" : paso === 4 ? "Continuar a alumnos" : paso === 2 ? "Continuar a fecha y horario" : "Continuar a profesor"}</Button>
         </div>}
+        <ConfirmarAccionDialog abierto={confirmandoParticipantes} onCerrar={() => setConfirmandoParticipantes(false)}
+          titulo={texto("confirmaciones.inscripcion.centro", {
+            alumno: seleccion.alumnos.map(({ nombre }) => nombre).join(", "), materia: materia?.nombre ?? "", fecha: seleccion.fecha ? fechaCorta(seleccion.fecha) : "", hora: seleccion.horaInicio,
+          })}
+          textoConfirmar={texto("ui.turnos.reserva.inscribir")} onConfirmar={enviarParticipantes} onExito={() => setConfirmandoParticipantes(false)} />
       </div>
       <ResumenTurno valores={{ materia: materia?.nombre ?? null, profesor: profesor ? `${profesor.nombre} ${profesor.apellido}` : null, fechaHorario,
         aula: (paso === 4 ? aulaElegida?.nombre : null) ?? aulaGuardada?.nombre ?? null, alumnos: cantidadAlumnos ? seleccion.alumnos.map(({ nombre }) => nombre.replace(/^([^,]+),\s*(.+)$/, "$2 $1")).join(", ") : null, estadoInicial }} />

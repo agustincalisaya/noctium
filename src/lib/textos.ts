@@ -178,6 +178,8 @@ export const TEXTOS = {
   "ui.historial.examen.sinCambios": "Modificá la fecha o la nota para guardar una corrección.",
   "ui.historial.examen.notaInvalida": "Ingresá una nota válida con hasta un decimal.",
   "ui.historial.examen.errorOperacion": "No se pudo completar la operación. Intentá nuevamente.",
+  // HU-C-25 criterio 2 / HU-C-24: inscribir a un alumno desde el centro (C §2.18.3).
+  "confirmaciones.inscripcion.centro": "¿Estás seguro de que querés inscribir a {alumno} en {materia} del {fecha} a las {hora}?",
   "confirmaciones.examen.corregir": "¿Corregir el resultado de {materia}?",
   "confirmaciones.examen.anular": "¿Anular el resultado de {materia} del {fecha}?",
   "ui.indicadores.panel.ausentes": "Ausentes",
@@ -309,6 +311,11 @@ export const TEXTOS = {
   "ui.turnos.reserva.pendiente": "Pago pendiente · se abona en el centro",
   "ui.turnos.reserva.sinRegistrar": "Pago sin registrar",
   "ui.turnos.reserva.vencida": "Reserva vencida",
+  // HU-C-24: reservas pendientes en el detalle de la clase (mesa de entrada).
+  "ui.turnos.reserva.venceEl": "Reservada · vence {vencimiento}",
+  "ui.turnos.reserva.registrarPago": "Registrar pago",
+  "ui.turnos.reserva.registrarPagoDe": "Registrar pago de {alumno}",
+  "ui.turnos.reserva.inscribir": "Inscribir",
   "ui.turnos.reserva.canceladaAlumno": "Cancelaste tu inscripción",
   "ui.turnos.reserva.quitadaCentro": "Inscripción quitada por el centro",
   "ui.turnos.reserva.bajaAlumno": "Inscripción dada de baja por el centro",

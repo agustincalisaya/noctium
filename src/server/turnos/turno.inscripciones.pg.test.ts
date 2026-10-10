@@ -37,17 +37,20 @@ describe.skipIf(!basePgHabilitada)("inscripción y cobro de Sprint 2 sobre los s
   afterAll(async () => { await db?.$disconnect(); });
 
   describe("HU-C-04 §2.5 agregar alumno", () => {
-    it("inscribe sin plazo de pago (PAGO_SIN_REGISTRAR, 2.15), con precio congelado; al llenar el cupo pasa a COMPLETO y rechaza CUPO_INSUFICIENTE", async () => {
+    it("inscribe como reserva con plazo (RESERVADA, HU-C-24), con precio congelado y «Registrar pago» ofrecido; al llenar el cupo pasa a COMPLETO y rechaza CUPO_INSUFICIENTE", async () => {
       const turno = await crearTurnoDePrueba(db, { cupo: 2 });
       const [a, b, c] = await Promise.all([0, 1, 2].map(() => crearAlumnoDePrueba(db)));
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: a!.idAlumno }, usuarioId))
-        .resolves.toEqual({ id: turno.idTurno, alumno_id: a!.idAlumno, alumnos_inscriptos: "1/2", estado: "DISPONIBLE" });
+        .resolves.toEqual({
+          id: turno.idTurno, alumno_id: a!.idAlumno, alumnos_inscriptos: "1/2", estado: "DISPONIBLE",
+          inscripcion: { id: expect.any(String), estado_pago: "RESERVADA", vence_el: expect.stringMatching(/-03:00$/), precio: 12000 }, ofrecer_pago: true,
+        });
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: b!.idAlumno }, usuarioId))
         .resolves.toMatchObject({ alumnos_inscriptos: "2/2", estado: "COMPLETO" });
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: c!.idAlumno }, usuarioId))
         .rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "El turno alcanzó su cupo máximo" });
       expect((await filas(turno.idTurno)).map((f) => [f.alumnoId, f.vigencia, f.estadoPago, f.precio > 0, f.creadoPorUsuarioId]))
-        .toEqual([[a!.idAlumno, "VIGENTE", "PAGO_SIN_REGISTRAR", true, usuarioId], [b!.idAlumno, "VIGENTE", "PAGO_SIN_REGISTRAR", true, usuarioId]]);
+        .toEqual([[a!.idAlumno, "VIGENTE", "RESERVADA", true, usuarioId], [b!.idAlumno, "VIGENTE", "RESERVADA", true, usuarioId]]);
       expect((await db.turno.findUniqueOrThrow({ where: { idTurno: turno.idTurno } })).estadoTurno).toBe("COMPLETO");
       expect(await eventos(turno.idTurno)).toEqual(["turno:alumno_agregado", "turno:alumno_agregado", "turno:completado"]);
       expect(await reservasDeAlumnos(turno.idTurno)).toBe(2n);
