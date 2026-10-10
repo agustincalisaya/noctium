@@ -232,6 +232,8 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Asignar prioridad (HU-C-10) | `Dialog` | Toast |
 | Registrar pago (HU-I-01) | `Dialog` | Toast |
 | Nueva forma de pago (HU-I-03) | `Dialog` | Toast |
+| Editar forma de pago (HU-I-07) | `Dialog` y confirmación C-25 | Toast «Forma de pago actualizada correctamente» |
+| Desactivar/reactivar forma de pago (HU-I-07) | `ConfirmarAccionDialog` reversible | Toast «Forma de pago desactivada» / «Forma de pago reactivada» |
 | Registrar clase dictada (HU-E-01) | `AlertDialog` (confirmación simple) | Toast |
 | Registrar resultado de examen (HU-E-06) | `Dialog` | Toast |
 | Registrar observaciones de clase (HU-E-07) | `Dialog` con campos y confirmación `AlertDialog` de C-25 | Toast «Observaciones registradas correctamente» |
@@ -423,3 +425,7 @@ sus consumidores, sin editar sus fuentes.
 ## Series de indicadores — fidelidad del prototipo (09/10/2026)
 
 `--chart-attendance-index` y `--chart-expired`: oklch(0.65 0.13 70), ámbar para línea de presentismo y reservas vencidas. `--chart-withdrawal`: oklch(0.65 0.018 243), gris para bajas. Se acompañan de valores en Grafito y leyendas; el color no identifica por sí solo. Ocupación/presentes/profesores usan --brand-accent; centro usa --destructive; inscriptos/ingresos/materias usan --chart-1.
+
+### HU-I-07 — Figuras 83 y 84 (10/10/2026)
+
+El listado mantiene Nombre y Estado, y agrega Editar y Desactivar/Reactivar, sin Preferida por. La baja usa botón destructivo rojo aunque sea reversible: C-25 separa `destructiva` de `irreversible`, sin leyenda de irreversibilidad. El motivo vive en `contenido` del diálogo, fuera de la descripción accesible; confirmación deshabilitada sin impacto, para última activa y cuando falta motivo requerido. Popup de baja de 25rem máximo, responsive y con scroll si no cabe en altura; conserva Volver y los errores inline. La ficha y la edición de preferida en B conservan y etiquetan la inactiva.

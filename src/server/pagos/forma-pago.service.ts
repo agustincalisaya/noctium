@@ -1,3 +1,10 @@
+import { bloquear } from "@/server/shared/bloquear";
+import { ErrorDeDominio } from "@/server/shared/error-dominio";
+import { registrarCambioEstado } from "@/server/shared/historial-estados";
+import type { ActorDominio } from "@/server/shared/historial";
+import type { Tx } from "@/server/shared/transaccion";
+import { contarAlumnosConFormaPagoPreferida } from "@/server/alumnos/alumno.publico";
+import type { DesactivarFormaPagoInput } from "./forma-pago.schema";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
@@ -84,4 +91,69 @@ export async function listarFormasPago(query: ListarFormasPagoQuery): Promise<Li
       por_pagina: porPagina,
     },
   };
+}
+
+
+/** Dominio I-07: el llamador abre transaccion() y el servicio toma sus bloqueos. */
+const seleccionForma = { idFormaPago: true, nombreFormaPago: true, activaFormaPago: true } as const;
+const presentarForma = (forma: { idFormaPago: string; nombreFormaPago: string; activaFormaPago: boolean }) =>
+  ({ id: forma.idFormaPago, nombre: forma.nombreFormaPago, is_active: forma.activaFormaPago });
+
+async function exigirForma(db: Tx, id: string) {
+  const forma = await db.formaPago.findUnique({ where: { idFormaPago: id }, select: seleccionForma });
+  if (!forma) throw new ErrorDeDominio("errores.formaPago.noEncontrada");
+  return forma;
+}
+
+export async function modificarFormaPago(tx: Tx, id: string, input: CrearFormaPagoInput) {
+  await bloquear(tx, { formasPago: { ids: [id] } });
+  const forma = await exigirForma(tx, id);
+  const nombreNormalizado = normalizarTexto(input.nombre);
+  if (forma.nombreFormaPago === input.nombre) return presentarForma(forma);
+  const duplicada = await tx.formaPago.findFirst({
+    where: { nombreNormalizadaFormaPago: nombreNormalizado, idFormaPago: { not: id } }, select: { idFormaPago: true },
+  });
+  if (duplicada) throw new ErrorDeDominio("errores.formaPago.nombreDuplicado");
+  try {
+    return presentarForma(await tx.formaPago.update({ where: { idFormaPago: id }, data: {
+      nombreFormaPago: input.nombre, nombreNormalizadaFormaPago: nombreNormalizado,
+    }, select: seleccionForma }));
+  } catch (error) {
+    if (traducirViolacionUnicidad(error)) throw new ErrorDeDominio("errores.formaPago.nombreDuplicado");
+    throw error;
+  }
+}
+
+export async function obtenerImpactoFormaPago(id: string, db: Tx = prisma) {
+  const forma = await exigirForma(db, id);
+  const alumnos = await contarAlumnosConFormaPagoPreferida(id, db);
+  const pagos = await db.pago.count({ where: { formaPagoId: id } });
+  // Incluye operaciones corregidas hacia esta forma: también representan pagos registrados.
+  const correcciones = await db.correccionOperacion.count({ where: { formaPagoNuevaId: id } });
+  const activas = await db.formaPago.count({ where: { activaFormaPago: true } });
+  return { alumnos_con_preferida: alumnos, tiene_pagos: pagos + correcciones > 0,
+    es_ultima_activa: forma.activaFormaPago && activas === 1 };
+}
+
+export async function desactivarFormaPago(tx: Tx, id: string, input: DesactivarFormaPagoInput, actor: ActorDominio) {
+  await bloquear(tx, { formasPago: { activas: true, ids: [id] } });
+  const forma = await exigirForma(tx, id);
+  if (!forma.activaFormaPago) throw new ErrorDeDominio("errores.formaPago.yaInactiva");
+  if (await tx.formaPago.count({ where: { activaFormaPago: true } }) <= 1)
+    throw new ErrorDeDominio("errores.formaPago.ultimaActiva");
+  const tienePagos = await tx.pago.count({ where: { formaPagoId: id } }) > 0
+    || await tx.correccionOperacion.count({ where: { formaPagoNuevaId: id } }) > 0;
+  if (tienePagos && !input.motivo?.trim()) throw new ErrorDeDominio("errores.formaPago.motivoRequerido");
+  const actualizada = await tx.formaPago.update({ where: { idFormaPago: id }, data: { activaFormaPago: false }, select: seleccionForma });
+  registrarCambioEstado(tx, { entidad: "FORMA_PAGO", id, accion: "DESACTIVAR", motivo: input.motivo, actor });
+  return presentarForma(actualizada);
+}
+
+export async function reactivarFormaPago(tx: Tx, id: string, actor: ActorDominio) {
+  await bloquear(tx, { formasPago: { ids: [id] } });
+  const forma = await exigirForma(tx, id);
+  if (forma.activaFormaPago) throw new ErrorDeDominio("errores.formaPago.yaActiva");
+  const actualizada = await tx.formaPago.update({ where: { idFormaPago: id }, data: { activaFormaPago: true }, select: seleccionForma });
+  registrarCambioEstado(tx, { entidad: "FORMA_PAGO", id, accion: "REACTIVAR", actor });
+  return presentarForma(actualizada);
 }

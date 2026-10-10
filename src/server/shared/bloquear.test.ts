@@ -125,3 +125,15 @@ describe("bloquear() — orden canónico (PR-0.md §2.10 y §2.16)", () => {
     expect($queryRawUnsafe).not.toHaveBeenCalled();
   });
 });
+
+it("I-07 bloquea conjunto activo más solicitada con ids parametrizados; reactivar solo propia", async () => {
+  const { tx, $queryRawUnsafe } = txFalso();
+  await bloquear(tx, { formasPago: { activas: true, ids: ["inactiva"] } });
+  expect($queryRawUnsafe).toHaveBeenCalledWith(
+    'SELECT "idFormaPago" AS id FROM "formas_pago" WHERE "activaFormaPago" OR "idFormaPago" = ANY($1::text[]) ORDER BY "idFormaPago" COLLATE "C" FOR UPDATE', ["inactiva"]);
+  const otra = txFalso();
+  await bloquear(otra.tx, { formasPago: { ids: ["inactiva"] } });
+  expect(otra.$queryRawUnsafe).toHaveBeenCalledWith(
+    'SELECT "idFormaPago" AS id FROM "formas_pago" WHERE "idFormaPago" = ANY($1::text[]) ORDER BY "idFormaPago" COLLATE "C" FOR UPDATE', ["inactiva"]);
+  await expect(bloquear(otra.tx, { cajas: ["caja"] })).rejects.toThrow(/formas de pago/);
+});

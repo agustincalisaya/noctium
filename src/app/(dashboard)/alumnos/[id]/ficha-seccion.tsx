@@ -34,7 +34,7 @@ export function FichaSeccion({
 }
 
 /** Lista etiqueta/valor de una sección; un valor ausente se muestra como "—". */
-export function FichaDatos({ datos }: { datos: [etiqueta: string, valor: string | null][] }) {
+export function FichaDatos({ datos }: { datos: [etiqueta: string, valor: ReactNode][] }) {
   return (
     <dl className="grid gap-3 sm:grid-cols-2">
       {datos.map(([etiqueta, valor]) => (

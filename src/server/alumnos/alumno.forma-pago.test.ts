@@ -91,6 +91,7 @@ describe("obtenerDetalleAlumno (forma de pago preferida)", () => {
 
     expect(catalogo.obtenerFormaPago).toHaveBeenCalledExactlyOnceWith("fp-inactiva");
     expect(detalle.forma_pago_preferida).toBe("Cheque");
+    expect(detalle.forma_pago_preferida_activa).toBe(false);
     expect(detalle.forma_pago_preferida_id).toBe("fp-inactiva");
   });
 
@@ -128,6 +129,7 @@ describe("obtenerDetalleAlumno (forma de pago preferida)", () => {
       telefono: null,
       email: null,
       forma_pago_preferida: "Efectivo",
+      forma_pago_preferida_activa: true,
       forma_pago_preferida_id: "fp1",
       created_at: "2026-01-01T12:00:00.000Z",
       version: 3,
