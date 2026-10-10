@@ -11,7 +11,7 @@ const { registrar, opciones, permiso, cookie, sesion } = vi.hoisted(() => ({
 }));
 vi.mock("@/server/pagos/pago.service", () => ({ registrarPago: registrar, obtenerOpcionesPago: opciones }));
 vi.mock("@/lib/prisma", () => ({
-  prisma: { rolPermiso: { findUnique: permiso }, tokenRevocado: { findUnique: vi.fn() } },
+  prisma: { rolPermiso: { findUnique: permiso }, usuario: { findUnique: async () => ({ activoUsuario: true, sesionesValidasDesdeUsuario: null, debeCambiarPasswordUsuario: false }) }, tokenRevocado: { findUnique: vi.fn() } },
 }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: cookie }) }));
 vi.mock("@/auth", () => ({

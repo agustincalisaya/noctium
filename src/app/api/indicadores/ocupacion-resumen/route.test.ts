@@ -8,7 +8,7 @@ const { obtener, permiso, cookie, sesion } = vi.hoisted(() => ({
   sesion: { actual: { user: { id: "gerente-1", rol: "GERENTE" } } as { user: { id: string; rol: string } } | null },
 }));
 vi.mock("@/server/indicadores/indicadores.service", () => ({ obtenerResumenOcupacion: obtener }));
-vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: permiso } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: permiso }, usuario: { findUnique: async () => ({ activoUsuario: true, sesionesValidasDesdeUsuario: null, debeCambiarPasswordUsuario: false }) } } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: cookie }) }));
 vi.mock("@/auth", () => ({
   auth: (handler: (req: NextRequest) => Promise<Response>) => (req: NextRequest) =>

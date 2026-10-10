@@ -54,6 +54,14 @@ export const ERRORES_DE_DOMINIO = {
   // Módulo A (spec_modulo_A.md §2.6.1).
   "errores.cuenta.emailYaAsociado": { code: "EMAIL_YA_ASOCIADO", status: 409 },
   "errores.cuenta.datosInvalidos": { code: "VALIDATION_ERROR", status: 400 },
+  // HU-A-06, cambio de la propia contraseña (spec_modulo_A.md §2.6.3). El
+  // límite de intentos usa el code del login de Sprint 1.
+  "errores.cuenta.passwordActualIncorrecta": { code: "PASSWORD_ACTUAL_INCORRECTA", status: 422 },
+  "errores.cuenta.passwordIgualActual": { code: "PASSWORD_IGUAL_A_ACTUAL", status: 422 },
+  // HU-A-06 c6: una ficha con cuenta no puede quedarse sin email. Las rutas lo
+  // responden como error de validación del campo, igual que CONTACTO_REQUERIDO.
+  "errores.cuenta.emailRequerido": { code: "EMAIL_REQUERIDO", status: 400 },
+  "errores.sesion.rateLimitExcedido": { code: "RATE_LIMIT_EXCEDIDO", status: 429 },
 
   // Módulo E (spec_modulo_E.md §2.6 a §2.12).
   "errores.asistencia.incompleta": { code: "ASISTENCIA_INCOMPLETA", status: 400 },
@@ -115,7 +123,7 @@ export const ERRORES_DE_DOMINIO = {
   "errores.formaPago.yaActiva": { code: "FORMA_PAGO_YA_ACTIVA", status: 409 },
   "errores.formaPago.yaInactiva": { code: "FORMA_PAGO_YA_INACTIVA", status: 409 },
   "errores.formaPago.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
-} as const satisfies Partial<Record<ClaveTexto, { code: string; status: 400 | 403 | 404 | 409 | 422 }>>;
+} as const satisfies Partial<Record<ClaveTexto, { code: string; status: 400 | 403 | 404 | 409 | 422 | 429 }>>;
 
 export type CodigoErrorDominio = keyof typeof ERRORES_DE_DOMINIO;
 

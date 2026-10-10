@@ -3,13 +3,14 @@ import { texto } from "@/lib/textos";
 import { HistorialClases } from "./historial-clases";
 import { notFound, redirect } from "next/navigation";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
-import { obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
+import { obtenerCuentaDeAlumno, obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { parametrosListadoAlumnos } from "@/lib/alumno-listado";
 import { HistorialAcademico } from "./historial-academico";
 import { FichaEncabezado } from "./ficha-encabezado";
 import { FichaContacto } from "./ficha-contacto";
 import { FichaAltaPago } from "./ficha-alta-pago";
+import { CuentaAccesoCard } from "@/components/shared/cuenta-acceso-card";
 
 async function permisoOpcional(accion: string) {
   try {
@@ -135,6 +136,8 @@ export default async function AlumnoDetallePage({
             formaPagoPreferidaActiva={alumno.forma_pago_preferida_activa}
             puedeEditar={!gerente && usuarioEditar !== null}
           />
+          {/* HU-A-06 criterio 5: estado de la cuenta; una ficha anterior muestra «Sin cuenta». */}
+          <CuentaAccesoCard cuenta={await obtenerCuentaDeAlumno(alumno.id)} />
         </>
       )}
     </div>

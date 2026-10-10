@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect, type FormEvent } from "react";
-import { useRouter, unstable_rethrow } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { flattenError } from "zod";
 import { Button } from "@/components/ui/button";
@@ -9,21 +9,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
-import { ContactoAlumnoSchema, crearIdentidadAlumnoSchema } from "@/server/alumnos/alumno.schema";
-import { actualizarContactoAlumno, crearAlumno } from "@/server/alumnos/actions";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { texto } from "@/lib/textos";
+import { construirRegistrarAlumnoSchema } from "@/server/alumnos/alumno.schema";
+import { crearAlumno } from "@/server/alumnos/actions";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
 /**
- * Destino tras el alta. Si se cargó contacto y no se pudo guardar, el alta
- * ya existe y no se revierte: el listado avisa y enlaza al formulario de
- * contacto de ese alumno (`alumnos/page.tsx`, `sin_contacto`/`motivo`).
+ * Destino tras el alta con cuenta (HU-A-06): el listado muestra el banner
+ * inline con el mensaje de la cuenta (`alumnos/page.tsx`, `cuenta=1`). El
+ * aviso `sin_contacto` del listado se conserva para compatibilidad, pero
+ * este formulario ya no lo produce: ficha, cuenta y contacto se guardan
+ * juntos o no se guarda nada.
  */
-function rutaTrasAlta(alumnoId: string, contacto: "sin_cargar" | "guardado" | { error: string }) {
-  if (contacto === "sin_cargar" || contacto === "guardado") return "/alumnos?creada=1";
-  const motivo = contacto.error === "EMAIL_YA_ASOCIADO" ? "&motivo=email_ya_asociado" : "";
-  return `/alumnos?creada=1&sin_contacto=${encodeURIComponent(alumnoId)}${motivo}`;
-}
+const RUTA_TRAS_ALTA = "/alumnos?creada=1&cuenta=1";
 
 const GENEROS = [
   { value: "MASCULINO", label: "Masculino" },
@@ -56,6 +56,8 @@ export function AlumnoForm({
   const [errores, setErrores] = useState<CamposError>({});
   const [errorGeneral, setErrorGeneral] = useState<string | undefined>();
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  // Alta ya validada, a la espera de la confirmación de HU-C-25.
+  const [pendienteDeConfirmar, setPendienteDeConfirmar] = useState<Record<string, unknown> | null>(null);
 
   const nombreRef = useRef<HTMLInputElement>(null);
   const apellidoRef = useRef<HTMLInputElement>(null);
@@ -65,11 +67,11 @@ export function AlumnoForm({
   const telefonoRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  // Mismos schemas que vuelven a aplicar crearAlumno() y
-  // actualizarContactoAlumno() en el servidor: se valida todo antes del alta
-  // para no crear el alumno con un contacto que después sería rechazado.
-  const identidadSchema = useMemo(
-    () => crearIdentidadAlumnoSchema(dniLongitudMin, dniLongitudMax),
+  // Mismo schema que vuelve a aplicar crearAlumno() en el servidor
+  // (HU-A-06, spec_modulo_B.md §2.9). El email es obligatorio en la pantalla
+  // aunque el servidor admita el alta sin él (P-B1).
+  const registroSchema = useMemo(
+    () => construirRegistrarAlumnoSchema(dniLongitudMin, dniLongitudMax),
     [dniLongitudMin, dniLongitudMax],
   );
 
@@ -97,41 +99,39 @@ export function AlumnoForm({
     if (camposConError.email) return emailRef.current?.focus();
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function erroresDeCampos(campos: Record<string, string[] | undefined>): CamposError {
+    return {
+      nombre: campos.nombre?.[0],
+      apellido: campos.apellido?.[0],
+      dni: campos.dni?.[0],
+      fecha_nacimiento: campos.fecha_nacimiento?.[0],
+      genero: campos.genero?.[0],
+      telefono: campos.telefono?.[0],
+      email: campos.email?.[0],
+    };
+  }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pendiente) return;
 
     const formData = new FormData(e.currentTarget);
     const generoIngresado = String(formData.get("genero") ?? "");
-    const identidad = {
+    const datos = {
       nombre: formData.get("nombre"),
       apellido: formData.get("apellido"),
       dni: formData.get("dni"),
       fecha_nacimiento: formData.get("fecha_nacimiento"),
       genero: generoIngresado === "" ? undefined : generoIngresado,
+      telefono: String(formData.get("telefono") ?? ""),
+      email: String(formData.get("email") ?? ""),
     };
-    const telefono = String(formData.get("telefono") ?? "");
-    const email = String(formData.get("email") ?? "");
-    // Contacto opcional: sin ninguno de los dos no se valida ni se envía
-    // (ContactoAlumnoSchema exige "al menos uno", regla de la pantalla de contacto).
-    const conContacto = telefono.trim() !== "" || email.trim() !== "";
 
-    const identidadParseada = identidadSchema.safeParse(identidad);
-    const contactoParseado = conContacto ? ContactoAlumnoSchema.safeParse({ telefono, email }) : null;
-    if (!identidadParseada.success || (contactoParseado && !contactoParseado.success)) {
-      const campos: Record<string, string[] | undefined> = {
-        ...(identidadParseada.success ? {} : flattenError(identidadParseada.error).fieldErrors),
-        ...(contactoParseado && !contactoParseado.success ? flattenError(contactoParseado.error).fieldErrors : {}),
-      };
-      const camposConError: CamposError = {
-        nombre: campos.nombre?.[0],
-        apellido: campos.apellido?.[0],
-        dni: campos.dni?.[0],
-        fecha_nacimiento: campos.fecha_nacimiento?.[0],
-        genero: campos.genero?.[0],
-        telefono: campos.telefono?.[0],
-        email: campos.email?.[0],
-      };
+    const parseado = registroSchema.safeParse(datos);
+    const camposConError: CamposError = parseado.success ? {} : erroresDeCampos(flattenError(parseado.error).fieldErrors);
+    // HU-A-06 criterio 1: en la pantalla el email es obligatorio.
+    if (datos.email.trim() === "") camposConError.email = texto("ui.alumnos.alta.emailRequerido");
+    if (Object.values(camposConError).some(Boolean)) {
       setErrores(camposConError);
       setErrorGeneral(undefined);
       enfocarPrimerCampoInvalido(camposConError);
@@ -140,57 +140,42 @@ export function AlumnoForm({
 
     setErrores({});
     setErrorGeneral(undefined);
+    setPendienteDeConfirmar(datos);
+  }
+
+  /**
+   * Confirmación de HU-C-25: una sola llamada crea la ficha y la cuenta
+   * (spec_modulo_B.md §2.9). Un rechazo de un campo cierra el diálogo y se
+   * muestra junto al campo (EMAIL_YA_ASOCIADO, sin revelar de quién es); el
+   * resto se muestra dentro del diálogo.
+   */
+  async function confirmarAlta() {
     setPendiente(true);
-
     try {
-      const resultado = await crearAlumno(identidad);
-
+      const resultado = await crearAlumno(pendienteDeConfirmar);
       if (!resultado.error) {
-        // Alta confirmada. El contacto se guarda con su propia action
-        // (HU-B-02); si falla, el alumno ya existe y no se revierte.
-        let contacto: Parameters<typeof rutaTrasAlta>[1] = "sin_cargar";
-        if (conContacto) {
-          const datosContacto = new FormData();
-          datosContacto.set("telefono", telefono);
-          datosContacto.set("email", email);
-          try {
-            const guardado = await actualizarContactoAlumno(resultado.data.id, datosContacto);
-            contacto = guardado.error ? { error: guardado.error.code } : "guardado";
-          } catch (error) {
-            unstable_rethrow(error);
-            contacto = { error: "ERROR_COMUNICACION" };
-          }
-        }
         setDirty(false);
-        router.push(rutaTrasAlta(resultado.data.id, contacto));
+        router.push(RUTA_TRAS_ALTA);
         return;
       }
-
       if (resultado.error.code === "VALIDACION") {
-        const detalles = resultado.error.detalles as
-          | { fieldErrors?: Record<string, string[] | undefined> }
-          | undefined;
-        const campos = detalles?.fieldErrors ?? {};
-        const camposConError: CamposError = {
-          nombre: campos.nombre?.[0],
-          apellido: campos.apellido?.[0],
-          dni: campos.dni?.[0],
-          fecha_nacimiento: campos.fecha_nacimiento?.[0],
-          genero: campos.genero?.[0],
-        };
+        const detalles = resultado.error.detalles as { fieldErrors?: Record<string, string[] | undefined> } | undefined;
+        const camposConError = erroresDeCampos(detalles?.fieldErrors ?? {});
         setErrores(camposConError);
         enfocarPrimerCampoInvalido(camposConError);
-      } else if (resultado.error.code === "DNI_DUPLICADO") {
-        setErrores({ dni: resultado.error.message });
-        dniRef.current?.focus();
-      } else {
-        // SESION_INVALIDA / SIN_PERMISO / cualquier otro código: mensaje
-        // genérico, ya viene sin detalle técnico desde el servicio.
-        setErrorGeneral(resultado.error.message);
+        return;
       }
+      if (resultado.error.code === "DNI_DUPLICADO" || resultado.error.code === "EMAIL_YA_ASOCIADO") {
+        const campo = resultado.error.code === "DNI_DUPLICADO" ? "dni" : "email";
+        setErrores({ [campo]: resultado.error.message });
+        (campo === "dni" ? dniRef : emailRef).current?.focus();
+        return;
+      }
+      // SESION_INVALIDA / SIN_PERMISO / TRANSACCION_OCUPADA / otro código:
+      // se muestra en el diálogo, ya sin detalle técnico.
+      throw new Error(resultado.error.message);
     } catch (error) {
-      unstable_rethrow(error);
-      setErrorGeneral(MENSAJE_ERROR_COMUNICACION);
+      throw error instanceof Error && error.message ? error : new Error(MENSAJE_ERROR_COMUNICACION);
     } finally {
       setPendiente(false);
     }
@@ -329,17 +314,15 @@ export function AlumnoForm({
           )}
         </div>
 
-        {/* Contacto opcional (HU-B-02 dentro del alta, mismo patrón visual que
-            nuevo-profesor-form.tsx): vacío = alta solo de identidad; si se
-            completa, mismas reglas que la pantalla de contacto. */}
+        {/* Contacto y cuenta de acceso (HU-A-06 criterio 1): el email es
+            obligatorio y con él se crea la cuenta; el teléfono, opcional. Mismas
+            reglas de formato que la pantalla de contacto (HU-B-02). */}
         <fieldset className="space-y-4 pt-2">
-          <legend className="text-lg font-semibold">Datos de contacto</legend>
-          <p className="text-sm text-muted-foreground">
-            Opcional. Podés cargarlos ahora o más tarde desde la ficha.
-          </p>
+          <legend className="text-lg font-semibold">{texto("ui.alumnos.alta.contactoTitulo")}</legend>
+          <p className="text-sm text-muted-foreground">{texto("ui.alumnos.alta.contactoDescripcion")}</p>
 
           <div className="space-y-1.5">
-            <Label htmlFor="telefono">Teléfono</Label>
+            <Label htmlFor="telefono">{texto("ui.alumnos.alta.telefono")}</Label>
             <Input
               ref={telefonoRef}
               id="telefono"
@@ -350,8 +333,11 @@ export function AlumnoForm({
               onChange={handleChange}
               placeholder="Ej.: (0387) 15-412-3456"
               aria-invalid={!!errores.telefono}
-              aria-describedby={errores.telefono ? "telefono-error" : undefined}
+              aria-describedby={errores.telefono ? "telefono-ayuda telefono-error" : "telefono-ayuda"}
             />
+            <p id="telefono-ayuda" className="text-xs text-muted-foreground">
+              {texto("ui.alumnos.alta.telefonoAyuda")}
+            </p>
             {errores.telefono && (
               <p id="telefono-error" className="text-sm text-destructive" role="alert">
                 {errores.telefono}
@@ -360,7 +346,9 @@ export function AlumnoForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">
+              {texto("ui.alumnos.alta.email")} <span aria-hidden="true">*</span>
+            </Label>
             <Input
               ref={emailRef}
               id="email"
@@ -370,8 +358,12 @@ export function AlumnoForm({
               onChange={handleChange}
               placeholder="Ej.: nombre@dominio.com"
               aria-invalid={!!errores.email}
-              aria-describedby={errores.email ? "email-error" : undefined}
+              required
+              aria-describedby={errores.email ? "email-ayuda email-error" : "email-ayuda"}
             />
+            <p id="email-ayuda" className="text-xs text-muted-foreground">
+              {texto("ui.alumnos.alta.emailAyuda")}
+            </p>
             {errores.email && (
               <p id="email-error" className="text-sm text-destructive" role="alert">
                 {errores.email}
@@ -395,6 +387,15 @@ export function AlumnoForm({
           </Button>
         </div>
       </form>
+
+      <ConfirmarAccionDialog
+        abierto={pendienteDeConfirmar !== null}
+        titulo={texto("ui.alumnos.alta.confirmacionTitulo")}
+        detalle={texto("ui.alumnos.alta.confirmacionDetalle", { email: String(pendienteDeConfirmar?.email ?? "").trim().toLowerCase() })}
+        textoConfirmar={texto("ui.alumnos.alta.confirmar")}
+        onConfirmar={confirmarAlta}
+        onCerrar={() => setPendienteDeConfirmar(null)}
+      />
 
       <AlertDialog.Root open={confirmandoCancelar} onOpenChange={setConfirmandoCancelar}>
         <AlertDialog.Portal>

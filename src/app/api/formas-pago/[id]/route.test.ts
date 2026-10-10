@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 const m = vi.hoisted(() => ({ servicio: vi.fn(), permiso: vi.fn(), sesion: { actual: null as { user: { id: string; rol: string } } | null } }));
 vi.mock("@/server/pagos/forma-pago.service", () => ({ modificarFormaPago: m.servicio }));
 vi.mock("@/server/shared/transaccion", () => ({ transaccion: (fn: (tx: unknown) => unknown) => fn({ prueba: true }) }));
-vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: m.permiso }, tokenRevocado: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: m.permiso }, usuario: { findUnique: async () => ({ activoUsuario: true, sesionesValidasDesdeUsuario: null, debeCambiarPasswordUsuario: false }) }, tokenRevocado: { findUnique: vi.fn() } } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: vi.fn() }) }));
 vi.mock("@/auth", () => ({
   auth: (handler: (req: NextRequest, ctx: unknown) => Promise<Response>) => (req: NextRequest, ctx: unknown) => handler(Object.assign(req, { auth: m.sesion.actual }), ctx),

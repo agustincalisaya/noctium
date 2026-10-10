@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { texto } from "@/lib/textos";
 import { ContactoProfesorSchema } from "@/server/profesores/profesor.schema";
 import { actualizarContactoProfesor } from "../../actions";
 import {
@@ -26,6 +28,8 @@ type ContactoProfesorFormProps = {
   /** Contacto actual, para precargar el formulario (null = sin cargar). */
   telefonoActual: string | null;
   emailActual: string | null;
+  /** HU-A-06: la ficha tiene cuenta de acceso; su email es el usuario de ingreso. */
+  conCuenta?: boolean;
 };
 
 /**
@@ -38,11 +42,14 @@ export function ContactoProfesorForm({
   profesorId,
   telefonoActual,
   emailActual,
+  conCuenta = false,
 }: ContactoProfesorFormProps) {
   const [estado, setEstado] = useState<EstadoContactoProfesor>(ESTADO_INICIAL_CONTACTO_PROFESOR);
   const [pendiente, setPendiente] = useState(false);
   const [erroresCliente, setErroresCliente] = useState<Record<string, string | undefined>>({});
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  // HU-A-06 c6: cambio de email de una ficha con cuenta, a la espera de la confirmación.
+  const [cambioDeEmail, setCambioDeEmail] = useState<{ datos: FormData; form: HTMLFormElement; email: string } | null>(null);
   const telefonoRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { dirty, setDirty } = useDirtyState();
@@ -75,6 +82,19 @@ export function ContactoProfesorForm({
       return; // sin guardado parcial: no se envía nada al servidor
     }
     setErroresCliente({});
+
+    // Con cuenta, cambiar el email cambia el usuario de ingreso: aviso y
+    // confirmación de HU-C-25 antes de guardar (spec_modulo_D.md §2.9.2
+    // punto 7). Sin cuenta o sin cambio de email, se guarda como en Sprint 1.
+    const emailNuevo = parsed.data.email ?? null;
+    if (conCuenta && emailNuevo !== null && emailNuevo !== emailActual) {
+      setCambioDeEmail({ datos: formData, form, email: emailNuevo });
+      return;
+    }
+    await guardar(formData, form);
+  }
+
+  async function guardar(formData: FormData, form: HTMLFormElement) {
     setPendiente(true);
 
     try {
@@ -168,6 +188,7 @@ export function ContactoProfesorForm({
           aria-invalid={!!errorEmail}
           aria-describedby={errorEmail ? "email-error" : undefined}
         />
+        {conCuenta && <p className="text-xs text-muted-foreground">{texto("ui.profesores.edicion.avisoEmail")}</p>}
         {errorEmail && (
           <p id="email-error" className="text-sm text-destructive" role="alert">
             {errorEmail}
@@ -190,6 +211,17 @@ export function ContactoProfesorForm({
           Cancelar
         </Button>
       </div>
+
+      <ConfirmarAccionDialog
+        abierto={cambioDeEmail !== null}
+        titulo={texto("ui.profesores.edicion.confirmacionEmail", { email: cambioDeEmail?.email ?? "" })}
+        detalle={texto("ui.profesores.edicion.avisoEmail")}
+        textoConfirmar={texto("ui.profesores.edicion.confirmarEmail")}
+        onConfirmar={async () => {
+          if (cambioDeEmail) await guardar(cambioDeEmail.datos, cambioDeEmail.form);
+        }}
+        onCerrar={() => setCambioDeEmail(null)}
+      />
 
       <ConfirmarDescarteDialog
         abierto={confirmandoCancelar}

@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { texto } from "@/lib/textos";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ motivo?: string; email?: string }>;
+  searchParams: Promise<{ motivo?: string; email?: string; contrasena?: string }>;
 }) {
   // Criterio 7: sesión ya válida -> redirect directo, sin mostrar el formulario.
   const session = await auth();
@@ -18,13 +19,17 @@ export default async function LoginPage({
   // HU-B-08 criterio 5/6: el autorregistro redirige acá con ?email= para
   // precargar el campo tras crear la cuenta — acotado a leer el query param
   // y pasarlo como valor inicial, sin ningún otro cambio en este archivo.
-  const { motivo, email } = await searchParams;
+  // HU-A-06: si la contraseña cambió pero la sesión no se pudo reemitir, el
+  // formulario cierra la sesión y llega acá con ?contrasena=actualizada.
+  const { motivo, email, contrasena } = await searchParams;
   const mensaje =
     motivo === "expirada"
       ? { texto: "Tu sesión expiró. Iniciá sesión nuevamente", variante: "aviso" as const }
       : motivo === "cerrada"
         ? { texto: "Sesión cerrada correctamente", variante: "exito" as const }
-        : null;
+        : contrasena === "actualizada"
+          ? { texto: texto("ui.sesion.formPassword.exitoReingreso"), variante: "exito" as const }
+          : null;
 
   return (
     <main className="grid min-h-screen w-full lg:grid-cols-2">

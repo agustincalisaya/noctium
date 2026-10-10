@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { ServiceError } from "@/server/shared/service-error";
 
 const { permiso, cookie, calcular, generar } = vi.hoisted(() => ({ permiso: vi.fn(), cookie: vi.fn(), calcular: vi.fn(), generar: vi.fn() }));
-vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: permiso } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: permiso }, usuario: { findUnique: async () => ({ activoUsuario: true, sesionesValidasDesdeUsuario: null, debeCambiarPasswordUsuario: false }) } } }));
 vi.mock("@/server/turnos/turno.generacion.service", () => ({ vistaPreviaGeneracion: calcular, confirmarGeneracion: generar }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: cookie }) }));
 vi.mock("@/auth", () => ({

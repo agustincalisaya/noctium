@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { texto } from "@/lib/textos";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { cn } from "@/lib/utils";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
@@ -83,6 +85,8 @@ type EditarProfesorFormProps = {
   rutaTrasGuardarMaterias: string;
   /** Selector de materias (HU-D-07): activas del catálogo + asociadas inactivas. */
   opcionesMaterias: OpcionMateria[];
+  /** HU-A-06: la ficha tiene cuenta de acceso; su email es el usuario de ingreso. */
+  conCuenta?: boolean;
 };
 
 function mismosElementos(a: Set<string>, b: Set<string>): boolean {
@@ -109,6 +113,7 @@ export function EditarProfesorForm({
   rutaTrasGuardar,
   rutaTrasGuardarMaterias,
   opcionesMaterias,
+  conCuenta = false,
 }: EditarProfesorFormProps) {
   const router = useRouter();
   const { setDirty } = useDirtyState();
@@ -133,6 +138,8 @@ export function EditarProfesorForm({
   const [conflicto, setConflicto] = useState(false);
   const [pendiente, setPendiente] = useState(false);
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  // HU-A-06 c6: cambio de email de una ficha con cuenta, a la espera de la confirmación.
+  const [cambioDeEmail, setCambioDeEmail] = useState<{ datos: FormData; email: string } | null>(null);
 
   // HU-D-07: conjunto deseado vs. último guardado. `materiasGuardadas` se
   // mueve si las materias se guardaron pero los datos fallaron.
@@ -256,6 +263,16 @@ export function EditarProfesorForm({
       return;
     }
 
+    // HU-A-06 c6 (spec_modulo_D.md §2.9.2 punto 7): con cuenta, un email nuevo
+    // es también el usuario de ingreso: aviso y confirmación de HU-C-25.
+    if (conCuenta && hayCambiosDatos && cambios.email && contacto.email) {
+      setCambioDeEmail({ datos: formData, email: contacto.email });
+      return;
+    }
+    await enviar(formData);
+  }
+
+  async function enviar(formData: FormData) {
     setErrores({});
     setErrorGeneral(undefined);
     setAvisoParcial(undefined);
@@ -511,6 +528,7 @@ export function EditarProfesorForm({
                 onChange={(e) => setEmail(e.target.value)}
                 aria-invalid={!!errores.email}
               />
+              {conCuenta && <p className="text-xs text-muted-foreground">{texto("ui.profesores.edicion.avisoEmail")}</p>}
               {campoError("email")}
             </div>
           </section>
@@ -541,6 +559,17 @@ export function EditarProfesorForm({
           onCerrar={() => setVerTurnos(null)}
         />
       )}
+
+      <ConfirmarAccionDialog
+        abierto={cambioDeEmail !== null}
+        titulo={texto("ui.profesores.edicion.confirmacionEmail", { email: cambioDeEmail?.email ?? "" })}
+        detalle={texto("ui.profesores.edicion.avisoEmail")}
+        textoConfirmar={texto("ui.profesores.edicion.confirmarEmail")}
+        onConfirmar={async () => {
+          if (cambioDeEmail) await enviar(cambioDeEmail.datos);
+        }}
+        onCerrar={() => setCambioDeEmail(null)}
+      />
 
       <ConfirmarDescarteDialog
         abierto={confirmandoCancelar}

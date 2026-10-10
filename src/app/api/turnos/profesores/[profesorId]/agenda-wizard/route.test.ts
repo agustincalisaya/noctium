@@ -4,7 +4,7 @@ import { ServiceError } from "@/server/shared/service-error";
 
 const { calcular, permiso, cookie } = vi.hoisted(() => ({ calcular: vi.fn(), permiso: vi.fn(), cookie: vi.fn() }));
 vi.mock("@/server/turnos/turno.profesor.service", () => ({ calcularAgendaProfesorWizard: calcular }));
-vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: permiso } } }));
+vi.mock("@/lib/prisma", () => ({ prisma: { rolPermiso: { findUnique: permiso }, usuario: { findUnique: async () => ({ activoUsuario: true, sesionesValidasDesdeUsuario: null, debeCambiarPasswordUsuario: false }) } } }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: cookie }) }));
 vi.mock("@/auth", () => ({
   auth: (handler: (req: NextRequest, ctx: unknown) => Promise<Response>) => (req: NextRequest, ctx: unknown) =>

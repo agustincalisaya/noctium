@@ -16,6 +16,9 @@ import {
 
 import { auth } from "@/auth";
 import { obtenerNombreVisible } from "@/server/usuarios/usuario.service";
+import { obtenerEstadoCuenta } from "@/server/usuarios/cuenta.service";
+import { RUTA_PRIMER_INGRESO } from "@/server/shared/rutas-por-rol";
+import { texto } from "@/lib/textos";
 import { ROL_LEGIBLE } from "@/components/layout/Navbar";
 
 type Acceso = {
@@ -208,12 +211,28 @@ function ahoraEnArgentina() {
   };
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ contrasena?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user) {
     redirect("/login");
   }
+
+  // HU-A-06 (spec_modulo_A.md §2.6.2): /home es el destino del login, así que
+  // con la marca «Debe cambiar la contraseña» —leída de la base, no del
+  // token— corresponde el primer ingreso. `exigirPermiso` no alcanza acá:
+  // la marca admite `sesion:ping`.
+  const cuenta = await obtenerEstadoCuenta(session.user.id);
+  if (cuenta?.debe_cambiar_password) {
+    redirect(RUTA_PRIMER_INGRESO);
+  }
+
+  // Éxito del primer ingreso (DESIGN.md §6.4): banner inline.
+  const contrasenaActualizada = (await searchParams).contrasena === "actualizada";
 
   const rol = session.user.rol as Rol;
   const rolLegible = ROL_LEGIBLE[rol] || "Usuario";
@@ -254,6 +273,11 @@ export default async function HomePage() {
           ENCABEZADO — compacto, con fecha y hora reales
       ========================================================= */}
       <header className="relative shrink-0">
+        {contrasenaActualizada && (
+          <p role="status" className="mb-4 rounded-md bg-success px-3 py-2 text-sm text-success-foreground">
+            {texto("ui.sesion.primerIngreso.exito")}
+          </p>
+        )}
         <p
           className={`${ROTULO} flex items-center gap-2 text-muted-foreground`}
         >

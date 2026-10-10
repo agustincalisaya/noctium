@@ -53,6 +53,23 @@ export function crearIdentidadAlumnoSchema(dniLongitudMin: number, dniLongitudMa
 export type IdentidadAlumnoInput = z.infer<ReturnType<typeof crearIdentidadAlumnoSchema>>;
 
 /**
+ * Alta del alumno con cuenta de acceso (HU-A-06 con HU-B-01,
+ * spec_modulo_B.md §2.9). Es la identidad de siempre más dos campos
+ * opcionales: con `email`, la ficha y la cuenta se crean juntas; sin `email`,
+ * el alta es la de Sprint 1 (P-B1: la pantalla lo exige, el servidor no).
+ * Fábrica por el mismo motivo que `crearIdentidadAlumnoSchema` (rango de DNI
+ * configurable); `IdentidadAlumnoSchema` no cambia. Email y teléfono usan las
+ * reglas compartidas de contacto (HU-B-02): vacío = no provisto.
+ */
+export function construirRegistrarAlumnoSchema(dniLongitudMin: number, dniLongitudMax: number) {
+  return crearIdentidadAlumnoSchema(dniLongitudMin, dniLongitudMax).extend({
+    email: campoOpcional(emailContactoSchema),
+    telefono: campoOpcional(telefonoContactoSchema),
+  });
+}
+export type RegistrarAlumnoInput = z.infer<ReturnType<typeof construirRegistrarAlumnoSchema>>;
+
+/**
  * Contacto del alumno (HU-B-02): mismas reglas que el contacto de Profesor
  * (HU-D-02), así que se reutiliza el schema compartido en vez de
  * duplicarlo — utilidad de validación transversal, no acoplamiento de

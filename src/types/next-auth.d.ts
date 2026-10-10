@@ -10,6 +10,8 @@ declare module "next-auth" {
     user: {
       id: string;
       rol: RolUsuario;
+      /** Marca «Debe cambiar la contraseña», copiada del token (HU-A-06). Sin el claim vale `false`. */
+      debeCambiarPassword?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -22,5 +24,10 @@ declare module "@auth/core/jwt" {
     jti: string;
     /** Timestamp (segundos) de inicio de sesión — inmutable durante la renovación. */
     iat_sesion: number;
+    /**
+     * Marca «Debe cambiar la contraseña» (HU-A-06), copiada solo al ingresar.
+     * Opcional: un token emitido antes de existir el claim vale `false`.
+     */
+    debeCambiarPassword?: boolean;
   }
 }

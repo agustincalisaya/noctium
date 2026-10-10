@@ -64,7 +64,18 @@ export const PATCH = withPermission("alumnos:editar", async (req, ctx) => {
           { status: 404 },
         );
       }
-      if (error.code === "EMAIL_YA_ASOCIADO") {
+      if (error.code === "EMAIL_REQUERIDO") {
+        // HU-A-06: una ficha con cuenta no puede quedarse sin email; mismo
+        // formato que un error de validación del campo.
+        return NextResponse.json(
+          {
+            data: null,
+            error: { code: "VALIDACION", message: "Datos inválidos", detalles: { formErrors: [], fieldErrors: { email: [error.message] } } },
+          },
+          { status: 400 },
+        );
+      }
+      if (error.code === "EMAIL_YA_ASOCIADO" || error.code === "TRANSACCION_OCUPADA") {
         return NextResponse.json(
           { data: null, error: { code: error.code, message: error.message } },
           { status: 409 },

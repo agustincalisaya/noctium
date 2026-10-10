@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
-import { crearIdentidadAlumnoSchema, ListarAlumnosQuerySchema } from "@/server/alumnos/alumno.schema";
+import { construirRegistrarAlumnoSchema, ListarAlumnosQuerySchema } from "@/server/alumnos/alumno.schema";
 import { crearAlumno, listarAlumnos } from "@/server/alumnos/alumno.service";
 import { ServiceError } from "@/server/shared/service-error";
+import { ErrorDeDominio } from "@/server/shared/error-dominio";
+import { obtenerIp } from "@/auth";
 import { getParametroNumerico } from "@/server/shared/parametros";
 
 // Listado de alumnos (HU-B-04, spec_modulo_B.md §2.4).
@@ -22,6 +24,9 @@ export const GET = withPermission("alumnos:leer", async (req) => {
   return NextResponse.json({ data, error: null });
 });
 
+// Alta (HU-B-01, spec_modulo_B.md §2.1) y, con `email`, alta con cuenta de
+// acceso (HU-A-06, §2.9): sin `email` el contrato es el de Sprint 1; la
+// respuesta suma `cuenta`. La IP va al evento CUENTA_CREADA.
 export const POST = withPermission("alumnos:crear", async (req) => {
   const body = await req.json().catch(() => null);
 
@@ -30,7 +35,7 @@ export const POST = withPermission("alumnos:crear", async (req) => {
     getParametroNumerico("dni_longitud_max", 8),
   ]);
 
-  const parsed = crearIdentidadAlumnoSchema(dniLongitudMin, dniLongitudMax).safeParse(body);
+  const parsed = construirRegistrarAlumnoSchema(dniLongitudMin, dniLongitudMax).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -43,7 +48,7 @@ export const POST = withPermission("alumnos:crear", async (req) => {
 
   try {
     // withPermission() ya garantizó que req.auth.user existe.
-    const alumno = await crearAlumno(parsed.data, req.auth!.user.id);
+    const alumno = await crearAlumno(parsed.data, req.auth!.user.id, obtenerIp(req));
     return NextResponse.json(
       {
         data: {
@@ -52,6 +57,7 @@ export const POST = withPermission("alumnos:crear", async (req) => {
           apellido: alumno.apellidoAlumno,
           dni: alumno.dniAlumno,
           activo: alumno.activoAlumno,
+          cuenta: alumno.cuenta,
         },
         error: null,
       },
@@ -61,7 +67,8 @@ export const POST = withPermission("alumnos:crear", async (req) => {
     if (error instanceof ServiceError) {
       return NextResponse.json(
         { data: null, error: { code: error.code, message: error.message } },
-        { status: 409 },
+        // DNI_DUPLICADO, EMAIL_YA_ASOCIADO y TRANSACCION_OCUPADA: 409.
+        { status: error instanceof ErrorDeDominio ? error.status : 409 },
       );
     }
     throw error;

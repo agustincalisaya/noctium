@@ -1,3 +1,4 @@
+import { texto } from "@/lib/textos";
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -10,7 +11,7 @@ import { ListadoAlumnos } from "./listado-alumnos";
 export default async function AlumnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ creada?: string; pagina?: string; q?: string; sin_contacto?: string; motivo?: string }>;
+  searchParams: Promise<{ creada?: string; cuenta?: string; pagina?: string; q?: string; sin_contacto?: string; motivo?: string }>;
 }) {
   let rol;
   try {
@@ -20,14 +21,15 @@ export default async function AlumnosPage({
     throw error;
   }
 
-  const { creada, pagina, q, sin_contacto: sinContacto, motivo } = await searchParams;
+  const { creada, cuenta, pagina, q, sin_contacto: sinContacto, motivo } = await searchParams;
   const esMesaDeEntrada = rol === "MESA_ENTRADA";
 
   return (
     <div className="space-y-4 p-6">
       {creada === "1" && (
         <p className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">
-          Alumno registrado correctamente
+          {/* HU-A-06 criterio 5: el alta con email también creó la cuenta. */}
+          {cuenta === "1" ? texto("ui.alumnos.alta.exito") : "Alumno registrado correctamente"}
         </p>
       )}
       {/* Alta con contacto cuyo guardado falló (alumno-form.tsx): el alumno

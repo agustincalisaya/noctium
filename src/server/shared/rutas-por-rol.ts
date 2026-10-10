@@ -25,7 +25,26 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   turnos: "CUALQUIERA",
   calendario: "CUALQUIERA",
   home: "CUALQUIERA",
+  // HU-A-06 (spec_modulo_A.md §2.8.2, P-A11): las dos pantallas de
+  // contraseña son de los cuatro roles, con sesión.
+  "primer-ingreso": "CUALQUIERA",
+  "mi-cuenta": "CUALQUIERA",
 };
+
+/** Única página que admite una sesión con la marca «Debe cambiar la contraseña». */
+export const RUTA_PRIMER_INGRESO = "/primer-ingreso";
+
+/**
+ * `true` si una sesión con la marca «Debe cambiar la contraseña» puede ver
+ * `pathname` sin que src/proxy.ts la mande a `/primer-ingreso`
+ * (spec_modulo_A.md §2.6.2). De las rutas que pasan por el proxy, solo
+ * `/primer-ingreso`: el cierre de sesión (`/api/auth/logout`) y las rutas
+ * públicas quedan fuera del `matcher`, así que nunca llegan acá. Compara por
+ * segmento completo, igual que `rolPuedeAccederRuta`.
+ */
+export function rutaAdmiteMarca(pathname: string): boolean {
+  return pathname.split("/").filter(Boolean)[0] === RUTA_PRIMER_INGRESO.slice(1);
+}
 
 /**
  * Compara por segmento completo, no por prefijo de string: `/aula/1` no debe

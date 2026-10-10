@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { flattenError } from "zod";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
+import { texto } from "@/lib/textos";
 import { getParametroNumerico, obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { mensajeSuperposicion, type DiaSemanaValor } from "@/lib/horario-atencion";
 import {
@@ -184,6 +185,7 @@ export async function registrarHorarioProfesor(formData: FormData): Promise<Esta
 const MENSAJES_MODIFICAR_POR_CODIGO: Record<string, string> = {
   DNI_DUPLICADO: "Ya existe un profesor registrado con ese DNI",
   EMAIL_YA_ASOCIADO: "Ese email ya está asociado a otra cuenta",
+  TRANSACCION_OCUPADA: texto("errores.transaccion.ocupada"),
   CONFLICTO_EDICION_CONCURRENTE: "La ficha fue modificada por otro usuario. Recargá para ver los datos actuales.",
   PROFESOR_NO_ENCONTRADO: "El profesor ya no existe",
 };
@@ -243,12 +245,15 @@ export async function modificarProfesor(
   } catch (error) {
     if (error instanceof ServiceError) {
       if (error.code === "CONTACTO_REQUERIDO") {
+        // HU-A-06 (P-D13): si el rechazo es por quitar el email de una ficha
+        // con cuenta, va en el campo `email`; si no, en `telefono` como antes.
+        const campo = error.detalles?.campo === "email" ? "email" : "telefono";
         return {
           data: null,
           error: {
             code: "VALIDACION",
             message: "Datos inválidos",
-            detalles: { formErrors: [], fieldErrors: { telefono: [error.message] } },
+            detalles: { formErrors: [], fieldErrors: { [campo]: [error.message] } },
           },
         };
       }

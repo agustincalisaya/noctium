@@ -12,13 +12,14 @@ import { cn } from "@/lib/utils";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { texto } from "@/lib/textos";
 import { construirAltaProfesorSchema } from "@/server/profesores/profesor.schema";
 import { crearProfesor, verificarDniDisponible } from "../actions";
 import { ESTADO_INICIAL_NUEVO_PROFESOR, type EstadoNuevoProfesor } from "../profesor.types";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 const MENSAJE_DNI_DUPLICADO = "Ya existe un profesor registrado con ese DNI";
-const MENSAJE_EXITO = "Profesor registrado correctamente";
 
 // Sin acoplamiento a @prisma/client como valor (ver nota de deuda técnica
 // en docs/tasks/Sprint 1/HU-D-01.md, junto a §4.5) — mismos 4 valores de
@@ -65,6 +66,8 @@ export function NuevoProfesorForm({
   const [erroresCliente, setErroresCliente] = useState<Record<string, string | undefined>>({});
   const [dniNoDisponible, setDniNoDisponible] = useState(false);
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  // HU-A-06: alta ya validada, a la espera de la confirmación de HU-C-25.
+  const [pendienteDeConfirmar, setPendienteDeConfirmar] = useState<{ datos: FormData; form: HTMLFormElement; email: string } | null>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { dirty, setDirty } = useDirtyState();
@@ -102,51 +105,73 @@ export function NuevoProfesorForm({
     };
   }
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pendiente) return; // evita envíos duplicados (doble clic / Enter repetido)
 
     const form = e.currentTarget;
     const formData = new FormData(form);
     const parsed = schema.safeParse(leerValores(formData));
-
-    if (!parsed.success) {
-      const campos = flattenError(parsed.error).fieldErrors;
-      const errores = {
-        nombre: campos.nombre?.[0],
-        apellido: campos.apellido?.[0],
-        dni: campos.dni?.[0],
-        fechaNacimiento: campos.fechaNacimiento?.[0],
-        genero: campos.genero?.[0],
-        telefono: campos.telefono?.[0],
-        email: campos.email?.[0],
-      };
+    const campos = parsed.success ? {} : flattenError(parsed.error).fieldErrors;
+    const errores: Record<string, string | undefined> = {
+      nombre: campos.nombre?.[0],
+      apellido: campos.apellido?.[0],
+      dni: campos.dni?.[0],
+      fechaNacimiento: campos.fechaNacimiento?.[0],
+      genero: campos.genero?.[0],
+      telefono: campos.telefono?.[0],
+      email: campos.email?.[0],
+    };
+    // HU-A-06 c1: en la pantalla el email es obligatorio (con él se crea la
+    // cuenta); el servidor sigue admitiendo el alta sin email (P-D1).
+    const emailVacio = String(formData.get("email") ?? "").trim() === "";
+    if (emailVacio) errores.email = texto("ui.profesores.alta.emailRequerido");
+    if (!parsed.success || !parsed.data.email) {
       setErroresCliente(errores);
+      setEstado(ESTADO_INICIAL_NUEVO_PROFESOR);
       enfocarPrimerCampoInvalido(form, errores);
       return; // sin alta parcial: no se envía nada al servidor
     }
     setErroresCliente({});
+    setPendienteDeConfirmar({ datos: formData, form, email: parsed.data.email });
+  }
+
+  /**
+   * Confirmación de HU-C-25 (paso 1 del wizard, donde se registra la ficha):
+   * una sola llamada crea la ficha y la cuenta. Un rechazo de campo cierra el
+   * diálogo y se muestra junto al campo (EMAIL_YA_ASOCIADO, sin revelar de
+   * quién es); el resto se muestra dentro del diálogo.
+   */
+  async function confirmarAlta() {
+    if (!pendienteDeConfirmar) return;
+    const { datos, form } = pendienteDeConfirmar;
     setPendiente(true);
 
     // Éxito (HU-D-01 c4, wizard de alta): toast y paso 2 (materias) sin
     // pantalla intermedia. `pendiente` queda en true hasta que la navegación
-    // desmonte el formulario, así no se puede reenviar mientras tanto.
+    // desmonte el formulario, así no se puede reenviar mientras tanto. Desde
+    // HU-A-06 el toast informa también la cuenta creada (spec_modulo_D.md §2.9.1).
+    let resultado: EstadoNuevoProfesor;
     try {
-      const resultado = await crearProfesor(estado, formData);
-      setEstado(resultado);
-      if (resultado.status === "exito") {
-        setDirty(false);
-        notificarExito(MENSAJE_EXITO);
-        router.push(`/profesores/${resultado.profesorId}/materias?alta=1`);
-        return;
-      }
-      if (resultado.status === "error_validacion") {
-        enfocarPrimerCampoInvalido(form, resultado.errores);
-      }
+      resultado = await crearProfesor(estado, datos);
     } catch {
-      setEstado({ status: "error_comunicacion" });
+      setPendiente(false);
+      throw new Error(MENSAJE_ERROR_COMUNICACION);
+    }
+    if (resultado.status === "exito") {
+      setEstado(resultado);
+      setDirty(false);
+      notificarExito(texto("ui.profesores.alta.exito"));
+      router.push(`/profesores/${resultado.profesorId}/materias?alta=1`);
+      return;
     }
     setPendiente(false);
+    if (resultado.status === "error_validacion") {
+      setEstado(resultado);
+      enfocarPrimerCampoInvalido(form, resultado.errores);
+      return;
+    }
+    throw new Error(resultado.status === "error" ? resultado.mensaje : MENSAJE_ERROR_COMUNICACION);
   }
 
   async function handleDniBlur(e: FocusEvent<HTMLInputElement>) {
@@ -287,16 +312,15 @@ export function NuevoProfesorForm({
         )}
       </div>
 
-      {/* Contacto opcional (ajuste HU-D-01/HU-D-02): vacío = alta solo de
-          identidad; si se completa, mismas reglas que la pantalla de contacto. */}
+      {/* Contacto y cuenta de acceso (HU-A-06 criterio 1, prototipo fig. 85):
+          el email es obligatorio y con él se crea la cuenta; el teléfono,
+          opcional. Mismas reglas de formato que la pantalla de contacto. */}
       <fieldset className="space-y-4 pt-2">
-        <legend className="text-lg font-semibold">Datos de contacto</legend>
-        <p className="text-sm text-muted-foreground">
-          Opcional. Podés cargarlos ahora o más tarde desde la ficha.
-        </p>
+        <legend className="text-lg font-semibold">{texto("ui.profesores.alta.contactoTitulo")}</legend>
+        <p className="text-sm text-muted-foreground">{texto("ui.profesores.alta.contactoDescripcion")}</p>
 
         <div className="space-y-1.5">
-          <Label htmlFor="telefono">Teléfono</Label>
+          <Label htmlFor="telefono">{texto("ui.profesores.alta.telefono")}</Label>
           <Input
             id="telefono"
             name="telefono"
@@ -304,7 +328,11 @@ export function NuevoProfesorForm({
             autoComplete="off"
             placeholder="Ej.: (0387) 15-412-3456"
             aria-invalid={!!errorTelefono}
+            aria-describedby="telefono-ayuda"
           />
+          <p id="telefono-ayuda" className="text-xs text-muted-foreground">
+            {texto("ui.profesores.alta.telefonoAyuda")}
+          </p>
           {errorTelefono && (
             <p className="text-sm text-destructive" role="alert">
               {errorTelefono}
@@ -313,8 +341,21 @@ export function NuevoProfesorForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="off" aria-invalid={!!errorEmail} />
+          <Label htmlFor="email">
+            {texto("ui.profesores.alta.email")} <span aria-hidden="true" className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="off"
+            required
+            aria-invalid={!!errorEmail}
+            aria-describedby="email-ayuda"
+          />
+          <p id="email-ayuda" className="text-xs text-muted-foreground">
+            {texto("ui.profesores.alta.emailAyuda")}
+          </p>
           {errorEmail && (
             <p className="text-sm text-destructive" role="alert">
               {errorEmail}
@@ -338,6 +379,15 @@ export function NuevoProfesorForm({
           Cancelar
         </Button>
       </div>
+
+      <ConfirmarAccionDialog
+        abierto={pendienteDeConfirmar !== null}
+        titulo={texto("ui.profesores.alta.confirmacionTitulo")}
+        detalle={texto("ui.profesores.alta.confirmacionDetalle", { email: pendienteDeConfirmar?.email ?? "" })}
+        textoConfirmar={texto("ui.profesores.alta.confirmar")}
+        onConfirmar={confirmarAlta}
+        onCerrar={() => setPendienteDeConfirmar(null)}
+      />
 
       <ConfirmarDescarteDialog
         abierto={confirmandoCancelar}

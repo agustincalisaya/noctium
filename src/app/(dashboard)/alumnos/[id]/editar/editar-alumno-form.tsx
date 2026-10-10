@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { enfocarPrimerCampoInvalido } from "@/lib/enfocar-primer-invalido";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { ConfirmarDescarteDialog } from "@/components/shared/confirmar-descarte-dialog";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { texto } from "@/lib/textos";
 import { construirModificarAlumnoSchema } from "@/server/alumnos/alumno.schema";
 import { modificarAlumno } from "@/server/alumnos/actions";
 import type { DetalleAlumno } from "@/types/alumno.types";
@@ -46,6 +48,8 @@ type EditarAlumnoFormProps = {
   formasPagoActivas: FormaPagoActiva[];
   dniLongitudMin: number;
   dniLongitudMax: number;
+  /** HU-A-06: la ficha tiene cuenta de acceso; su email es el usuario de ingreso. */
+  conCuenta?: boolean;
 };
 
 /**
@@ -75,6 +79,7 @@ export function EditarAlumnoForm({
   formasPagoActivas,
   dniLongitudMin,
   dniLongitudMax,
+  conCuenta = false,
 }: EditarAlumnoFormProps) {
   const router = useRouter();
   const { dirty, setDirty } = useDirtyState();
@@ -97,6 +102,8 @@ export function EditarAlumnoForm({
   const [errores, setErrores] = useState<CamposError>({});
   const [errorGeneral, setErrorGeneral] = useState<string | undefined>();
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  // HU-A-06 c6: cambio de email de una ficha con cuenta, a la espera de la confirmación.
+  const [cambioDeEmail, setCambioDeEmail] = useState<{ datos: FormData; form: HTMLFormElement; email: string } | null>(null);
 
   const nombreRef = useRef<HTMLInputElement>(null);
   const apellidoRef = useRef<HTMLInputElement>(null);
@@ -178,7 +185,6 @@ export function EditarAlumnoForm({
     }
     setErrores({});
     setErrorGeneral(undefined);
-    setPendiente(true);
 
     // Solo se manda lo que efectivamente cambió respecto al snapshot cargado
     // (mismo diff de arriba) — camposProvistos en la Server Action se arma
@@ -188,6 +194,19 @@ export function EditarAlumnoForm({
     for (const clave of cambiados) {
       datosModificados.append(clave, actual[clave]);
     }
+
+    // HU-A-06 c6: con cuenta, un email nuevo es también el usuario de ingreso:
+    // aviso y confirmación de HU-C-25 antes de guardar (DEC-15).
+    const emailNuevo = parsed.data.email;
+    if (conCuenta && cambiados.includes("email") && emailNuevo) {
+      setCambioDeEmail({ datos: datosModificados, form, email: emailNuevo });
+      return;
+    }
+    await enviar(datosModificados, form);
+  }
+
+  async function enviar(datosModificados: FormData, form: HTMLFormElement) {
+    setPendiente(true);
 
     try {
       const resultado = await modificarAlumno(alumno.id, datosModificados);
@@ -221,6 +240,7 @@ export function EditarAlumnoForm({
         dniRef.current?.focus();
       } else if (
         resultado.error.code === "EMAIL_YA_ASOCIADO" ||
+        // Ya no se produce desde HU-A-06; se deja por compatibilidad.
         resultado.error.code === "EMAIL_CUENTA_VINCULADA_NO_MODIFICABLE"
       ) {
         setErrores({ email: resultado.error.message });
@@ -436,6 +456,7 @@ export function EditarAlumnoForm({
             placeholder="Ej.: nombre@dominio.com"
             aria-invalid={!!errores.email}
           />
+          {conCuenta && <p className="text-xs text-muted-foreground">{texto("ui.alumnos.edicion.avisoEmail")}</p>}
           {errores.email && (
             <p className="text-sm text-destructive" role="alert">
               {errores.email}
@@ -498,6 +519,17 @@ export function EditarAlumnoForm({
           Cancelar
         </Button>
       </div>
+
+      <ConfirmarAccionDialog
+        abierto={cambioDeEmail !== null}
+        titulo={texto("ui.alumnos.edicion.confirmacionEmail", { email: cambioDeEmail?.email ?? "" })}
+        detalle={texto("ui.alumnos.edicion.avisoEmail")}
+        textoConfirmar={texto("ui.alumnos.edicion.confirmarEmail")}
+        onConfirmar={async () => {
+          if (cambioDeEmail) await enviar(cambioDeEmail.datos, cambioDeEmail.form);
+        }}
+        onCerrar={() => setCambioDeEmail(null)}
+      />
 
       <ConfirmarDescarteDialog
         abierto={confirmandoCancelar}

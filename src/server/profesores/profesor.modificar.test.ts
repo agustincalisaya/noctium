@@ -7,9 +7,13 @@ import { ServiceError } from "@/server/shared/service-error";
 // versión provocado por un cambio de contacto hecho desde la pantalla de
 // HU-D-02 (D-06-5).
 
+// HU-A-06: modificar y el contacto corren en `transaccion()` (que fija sus
+// tiempos con $executeRawUnsafe) y, con cuenta, A lee la cuenta para cambiar
+// su email. Solo se suman esos métodos al `tx` simulado.
 const tx = {
+  $executeRawUnsafe: vi.fn(),
   profesor: { findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
-  usuario: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+  usuario: { findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   profesorMateria: { findMany: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn() },
   horarioProfesor: { findMany: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
 };
@@ -74,6 +78,7 @@ beforeEach(() => {
   tx.profesor.findFirst.mockResolvedValue(null);
   tx.profesor.updateMany.mockResolvedValue({ count: 1 });
   tx.usuario.findFirst.mockResolvedValue(null);
+  tx.usuario.findUnique.mockResolvedValue({ emailUsuario: ROSSI.emailProfesor });
 });
 
 describe("construirModificarProfesorSchema (criterio 1: mismas validaciones que el alta)", () => {
@@ -297,11 +302,23 @@ describe("modificarProfesor (spec_modulo_D.md §2.6)", () => {
     expect(tx.usuario.findFirst.mock.calls[0]![0].where).not.toHaveProperty("NOT");
   });
 
-  it("cambiar el email de contacto no toca la cuenta (spec §2.6 paso 7)", async () => {
+  // HU-A-06 criterio 6 (spec_modulo_D.md §2.9.2 punto 5): en una ficha con
+  // cuenta, el email de la ficha es el de la cuenta, así que cambiarlo cambia
+  // también el de la cuenta (antes: §2.6 paso 7, independientes). Rossi tiene
+  // cuenta. Materias y horarios siguen sin tocarse.
+  it("ficha con cuenta: cambiar el email cambia también el de la cuenta, y nada más", async () => {
     const r = await modificarProfesor(ID, { email: "martin.rossi@example.com", version: 3 }, USUARIO);
 
     expect(r.campos_modificados).toEqual(["email"]);
-    sinEscrituraAjena();
+    expect(tx.usuario.update).toHaveBeenCalledWith({
+      where: { idUsuario: CUENTA_PROPIA },
+      data: { emailUsuario: "martin.rossi@example.com" },
+    });
+    expect(tx.usuario.updateMany).not.toHaveBeenCalled();
+    expect(tx.profesorMateria.createMany).not.toHaveBeenCalled();
+    expect(tx.profesorMateria.deleteMany).not.toHaveBeenCalled();
+    expect(tx.horarioProfesor.create).not.toHaveBeenCalled();
+    expect(tx.horarioProfesor.deleteMany).not.toHaveBeenCalled();
   });
 
   it("genero null vuelve a sin especificar", async () => {
@@ -365,7 +382,10 @@ describe("concurrencia con el cambio de contacto de HU-D-02 (D-06-5)", () => {
   it("actualizarContactoProfesor incrementa version en el mismo UPDATE", async () => {
     filaEnMemoria();
 
-    await actualizarContactoProfesor(ID, { telefono: "0387154123456", email: undefined }, USUARIO);
+    // HU-A-06 (P-D13): Rossi tiene cuenta y su ficha ya no puede quedarse sin
+    // email (antes el caso lo vaciaba); se conserva el suyo para seguir
+    // probando lo mismo, el incremento de version.
+    await actualizarContactoProfesor(ID, { telefono: "0387154123456", email: ROSSI.emailProfesor }, USUARIO);
 
     expect(tx.profesor.update.mock.calls[0]![0].data).toMatchObject({ version: { increment: 1 } });
   });

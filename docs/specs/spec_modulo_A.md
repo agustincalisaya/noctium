@@ -60,6 +60,7 @@ HU-A-05 va inmediatamente después de HU-A-06, que crea las cuentas y la marca q
 | 2.8 | — | **Nueva:** matriz de permisos del Sprint 3 |
 | 2.9 | — | **Nueva:** servicios públicos nuevos del módulo |
 | 3.6 a 3.13 | — | **Nuevas** reglas (estado de la cuenta, revocación por cuenta, contraseña inicial y política, enlace de recuperación, respuestas uniformes, datos sensibles, concurrencia y pruebas) |
+| Nota de implementación HU-A-06 (antes de §1) | — | **Aditiva:** quién implementó la sesión del servidor, `cambiarEmailCuenta` en lugar de `actualizarEmailCuenta`, `INSERT … ON CONFLICT` en `crearCuentaParaFicha` y la contraseña nueva igual al DNI. No cambia ningún contrato |
 
 **Puntos resueltos por el Scrum Master el 08/10/2026** (el backlog no los definía o el PR 0 los dejaba al implementador):
 | # | Punto | Decisión | Informar |
@@ -130,6 +131,15 @@ HU-A-05 va inmediatamente después de HU-A-06, que crea las cuentas y la marca q
 E02 implementa `/alumnos/[id]/clases` y `GET /api/alumnos/[id]/clases` exclusivamente para Mesa/Gerente, con nueve resultados, filtros combinados inclusivos, resumen filtrado y paginación de diez. La migración nueva `20261009180000_hu_e02_alcance_profesor` retira solo `PROFESOR alumnos:leer`; seed mantiene esa revocación. El historial del Profesor se renderiza en `/turnos/[id]/alumnos/[alumnoId]/historial`, verificando clase propia y materia, sin ficha general ni datos de contacto. Permisos se leen por solicitud y afectan sesiones existentes.
 
 Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desactivar ni Pagos, historias aún fuera del alcance. Sidebar conservado por instrucción del usuario; su enlace general de Profesor queda rechazado por ruta y API. Fixtures usan fachadas PR0 para estados C14/C24/B07 sin declarar completadas esas historias. Changelog aditivo: integración E02 y revocación de compatibilidad de Sprint 2.
+
+### Nota de implementación HU-A-06
+
+Aditiva: no cambia ningún contrato de esta spec.
+
+1. **Quién lo hizo.** Los cambios de sesión de 2.6.2 y 3.6 (`withPermission`, `verificarPermiso` y `exigirPermiso` con la cuenta leída por clave primaria y la marca; el código `DEBE_CAMBIAR_PASSWORD`; la marca en el token y en la sesión; la redirección del proxy a `/primer-ingreso`) y la reemisión de la sesión de 2.6.3 los implementó HU-A-06, no el PR 0. El PR 0 reducido dejó solo los servicios de cuentas de 2.9 (`PR-0.md`, «Lo que cae a cada HU»).
+2. **`actualizarEmailCuenta` nunca existió en el código.** La tabla de 2.5 y la T2 la daban por existente. El email de una ficha con cuenta se cambia con `cambiarEmailCuenta(tx, { usuarioId, email })` (2.9), que llaman directamente alumno (HU-B-02 y B-06) y profesor (HU-D-02 y D-06), en la misma transacción que la ficha.
+3. **`crearCuentaParaFicha` usa `INSERT … ON CONFLICT ("emailUsuario") DO NOTHING RETURNING`** (2.6.1 paso 3 y 3.12): un `RETURNING` vacío es `409 EMAIL_YA_ASOCIADO`, sin capturar `P2002` dentro de la transacción del llamador. `cambiarEmailCuenta` conserva la captura de `P2002` del PR 0, con el índice único como respaldo.
+4. **Contraseña nueva igual al DNI.** La rechaza la política de contraseña (`400 VALIDATION_ERROR`) antes de llegar a `422 PASSWORD_IGUAL_A_ACTUAL`: un DNI no tiene mayúscula ni minúscula. La comparación contra el hash vigente de 2.6.3 paso 5 sigue rigiendo para el caso «igual a la actual».
 
 ## 1. Visión General
 

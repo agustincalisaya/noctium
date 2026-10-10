@@ -1,7 +1,9 @@
-import { UserCircle2, Bell } from "lucide-react";
+import { UserCircle2, Bell, KeyRound } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
 import { Badge } from "@/components/ui/badge";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
+import { texto } from "@/lib/textos";
 import { obtenerNombreVisible } from "@/server/usuarios/usuario.service";
 import { LogoutButton } from "./LogoutButton";
 
@@ -43,6 +45,16 @@ export async function Navbar() {
         <UserCircle2 className="size-6 shrink-0 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium">{nombre}</span>
         <Badge variant="accent">{ROL_LEGIBLE[session.user.rol]}</Badge>
+        {/* HU-A-06 (spec_modulo_A.md §2.6.6): «Mi cuenta» en el bloque del usuario, los cuatro roles. */}
+        <LinkProtegido
+          href="/mi-cuenta"
+          className="rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <KeyRound className="size-4" aria-hidden />
+            {texto("ui.sesion.menu.miCuenta")}
+          </span>
+        </LinkProtegido>
         <LogoutButton />
       </div>
     </header>
