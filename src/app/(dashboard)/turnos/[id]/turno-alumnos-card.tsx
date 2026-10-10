@@ -128,7 +128,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
           {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
         </div>
         {inscripcion && <div className="ml-10 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span>{inscripcion.estado_pago === "RESERVADA" && inscripcion.vence_el
+          <span>{inscripcion.estado_pago === "RESERVADA" && inscripcion.vence_el && turno.estado !== "CANCELADO"
             ? texto("ui.turnos.reserva.venceEl", { vencimiento: fechaHoraDeInstante(inscripcion.vence_el) })
             : texto(inscripcion.estado_pago === "PAGADA" ? "ui.turnos.reserva.pagada" : "ui.turnos.reserva.sinRegistrar")}</span>
           {reserva?.puede_registrar_pago && <Link className="inline-flex rounded-md border border-border px-2 py-1 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

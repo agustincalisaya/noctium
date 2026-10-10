@@ -95,3 +95,16 @@ export type TurnoDetalle = Omit<Turno, "alumnos"> & {
 };
 
 export type TurnosData = { items: Turno[]; paginacion: { total: number; pagina_actual: number; total_paginas: number; por_pagina: number } };
+
+/**
+ * Alta de inscripción al confirmar participantes desde el centro (HU-C-24,
+ * C §2.18.3): una por alumno recién inscripto en `PATCH .../participantes`.
+ * Habilita el acceso a «Registrar pago» junto a cada uno.
+ */
+export type InscripcionConfirmadaCentro = {
+  alumno_id: string;
+  inscripcion_id: string;
+  estado_pago: "RESERVADA" | "PAGADA" | "PAGO_SIN_REGISTRAR";
+  vence_el: string | null;
+  precio: number;
+};

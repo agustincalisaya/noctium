@@ -35,7 +35,11 @@ let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
 const montar = async () => { await act(async () => { root.render(<ParticipantesTurno id="turno-1" retorno="/turnos" />); }); await esperar(); };
 const patch = () => fetch.mock.calls.find(([url, init]) => url.endsWith("/participantes") && init?.method === "PATCH");
-const enviar = () => act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+/** HU-C-25: «Confirmar turno» abre la confirmación antes de guardar (C §2.18.3); el diálogo se porta fuera de `container`. */
+const dialogoConfirmacion = () => document.querySelector('[role="alertdialog"]');
+const botonDialogo = (texto: string) => [...dialogoConfirmacion()!.querySelectorAll("button")].find((elemento) => elemento.textContent?.trim() === texto) as HTMLButtonElement;
+const pedirConfirmacion = () => act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+const enviar = async () => { await pedirConfirmacion(); await act(async () => { botonDialogo("Inscribir").click(); }); };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,8 +97,20 @@ describe("HU-C-04 formulario", () => {
     expect(container.textContent).toContain("(0/2)");
     expect((container.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
   });
-  it("confirma el turno con los IDs seleccionados y muestra el mensaje exacto de éxito y el estado", async () => {
-    fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH" ? respuesta({ estado: "DISPONIBLE" }) : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
+  it("HU-C-25: «Confirmar turno» pide confirmación con los datos concretos antes de guardar; «Volver» no inscribe", async () => {
+    await montar();
+    await pedirConfirmacion();
+    expect(patch()).toBeUndefined();
+    expect(dialogoConfirmacion()?.textContent).toContain("¿Estás seguro de que querés inscribir a Juan López en Física del 01/10/2026 a las 10:00?");
+    await act(async () => { botonDialogo("Volver").click(); });
+    expect(dialogoConfirmacion()).toBeNull();
+    expect(patch()).toBeUndefined();
+    expect(container.textContent).toContain("López, Juan · DNI 30123456");
+  });
+  it("confirma el turno con los IDs seleccionados, muestra el mensaje exacto de éxito y ofrece «Registrar pago» por cada alumno (C §2.18.3)", async () => {
+    fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH"
+      ? respuesta({ estado: "DISPONIBLE", inscripciones: [{ alumno_id: "alumno-1", inscripcion_id: "inscripcion-1", estado_pago: "RESERVADA", vence_el: "2026-09-30T10:00:00-03:00", precio: 24000 }] })
+      : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
     await montar();
     expect(container.querySelector('button[type="submit"]')?.textContent).toBe("Confirmar turno");
     await enviar();
@@ -103,6 +119,8 @@ describe("HU-C-04 formulario", () => {
     expect(container.textContent).toContain("Turno confirmado");
     expect(container.textContent).toContain("Disponible");
     expect(container.querySelector('a[href*="/aula"]')).toBeNull();
+    const acceso = container.querySelector('a[aria-label^="Registrar pago de"]');
+    expect(acceso?.getAttribute("href")).toBe("/pagos/registrar?alumno=alumno-1&clase=turno-1");
     expect(container.querySelector('a[href="/turnos/turno-1?volver=%2Fturnos"]')?.textContent).toBe("Ver detalle");
   });
   it("PENDIENTE antiguo sin profesor conserva el selector y envía profesor_id explícito", async () => {
@@ -116,12 +134,15 @@ describe("HU-C-04 formulario", () => {
     await enviar();
     expect(JSON.parse(patch()?.[1].body)).toEqual({ alumno_ids: ["alumno-1"], profesor_id: "profesor-1" });
   });
-  it("marca el alumno en conflicto con el mensaje del servidor", async () => {
+  it("rechazo del servidor: se muestra en el diálogo y marca el alumno en conflicto", async () => {
     fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH"
       ? respuesta(null, false, { code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: "alumno-1" } })
       : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
     await montar();
-    await enviar();
+    await pedirConfirmacion();
+    await act(async () => { botonDialogo("Inscribir").click(); });
+    expect(dialogoConfirmacion()?.querySelector('[role="alert"]')?.textContent).toContain("El alumno ya tiene un turno agendado en ese horario");
+    await act(async () => { botonDialogo("Volver").click(); });
     const chip = container.querySelector('ul[aria-label="Alumnos agregados"] li')!;
     expect(chip.textContent).toContain("El alumno ya tiene un turno agendado en ese horario");
     expect(container.textContent).toContain("López, Juan · DNI 30123456");

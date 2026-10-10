@@ -18,6 +18,7 @@ Archivos existentes a modificar:
 - `src/types/turno.types.ts`: tipos de los campos nuevos.
 - `src/lib/textos.ts`: textos nuevos del detalle de la clase y de la confirmación al inscribir.
 - `src/app/(dashboard)/turnos/[id]/turno-alumnos-card.tsx`: reserva, vencimiento y acceso a «Registrar pago».
+- `src/app/(dashboard)/turnos/nuevo/turno-wizard.tsx` y `src/app/(dashboard)/turnos/[id]/participantes/participantes-turno.tsx`: confirmación de HU-C-25 antes de inscribir en 2.2 y acceso a «Registrar pago» por alumno en la pantalla de éxito (agregado después de la primera entrega; faltaba en la primera entrega de esta HU, ver sección 5).
 - Tests de 2.5 y 2.2 que fijaban la inscripción del centro «sin plazo»: se adaptan solo esas aserciones.
 
 Archivos nuevos:
@@ -129,7 +130,7 @@ No aplica: el proceso y el detalle se exponen por Route Handlers.
 
 ### 4.5. Trazabilidad / Auditoría (Regla N.° 2)
 
-Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`, `finalizadaPorActorTipo = PROCESO_AUTOMATICO` en la inscripción y una fila en `HistorialInscripcion` escrita después del commit. No se escribe `eventos_turno`: es la única excepción a la Regla N.° 10 y a su trazabilidad por usuario, porque el proceso no es un usuario.
+Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`, `finalizadaPorActorTipo = PROCESO_AUTOMATICO` en la inscripción y una fila en `HistorialInscripcion` escrita después del commit. No se escribe `eventos_turno`: es la opción (b) de la Regla N.° 2 (tabla de eventos por dominio), que esta HU no necesita porque el patrón (a) + historial ya cubre qué, cuándo y quién; elegir (a) sobre (b) no es una excepción (Regla N.° 2 no la exige). La única excepción documentada de esta HU es la del endpoint a la Regla N.° 10 (§4.3): no usa sesión porque el proceso no es un usuario, y se autentica con `CRON_SECRET`.
 
 ---
 
@@ -137,7 +138,7 @@ Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`,
 
 - `turno-alumnos-card.tsx`: cada alumno con `inscripcion` muestra su situación («Reservada · vence <fecha y hora>», «Pagada», «Pago sin registrar») y, si `puede_registrar_pago`, la acción «Registrar pago» hacia `/pagos/registrar?alumno=<id>&clase=<id>`. Esa pantalla es de HU-I-10: hasta que se mergee, el enlace queda sin destino (pendiente explícito). «Quitar» no cambia.
 - «Agregar alumno» pide antes la confirmación de HU-C-25 con `ConfirmarAccionDialog` (sin modificar el componente): «¿Estás seguro de que querés inscribir a <Nombre Apellido> en <Materia> del <dd/mm/aaaa> a las <hh:mm>?», botones «Volver» e «Inscribir», y el motivo del rechazo del servidor dentro del mismo mensaje. Texto en `confirmaciones.inscripcion.centro`; el patrón y los datos salen del Excel (HU-C-25, criterios 1, 2 y 6) y de la spec §2.18.3.
-- Tras 2.5 agregar y 2.2 confirmar, la respuesta trae `ofrecer_pago` / `inscripciones` para que la interfaz ofrezca la acción junto a cada alumno.
+- **2.2 confirmar** (`turno-wizard.tsx`, paso 5 «Crear turno», y `participantes-turno.tsx`, «Confirmar turno»): antes de `PATCH .../participantes` se pide la misma confirmación de HU-C-25, reusando `confirmaciones.inscripcion.centro` con los alumnos de la operación unidos por coma («Nombre Apellido, Nombre Apellido»), la materia, la fecha y la hora. Con el turno confirmado, la respuesta trae `inscripciones[]` (C §2.18.3) y la pantalla de éxito ofrece «Registrar pago» junto a cada alumno recién inscripto, hacia `/pagos/registrar?alumno=<id>&clase=<id>` (destino de HU-I-10, pendiente explícito igual que en el detalle). El Excel no fija un texto literal para la confirmación de varios alumnos a la vez (solo para «Agregar alumno», uno a la vez); se decidió reutilizar el mismo patrón y componente en lugar de crear uno nuevo (decisión de esta corrección, no un texto literal del Excel), conforme a la convención 9 (ninguna operación modificada en el sprint guarda sin el mensaje de HU-C-25) y al criterio 7 de HU-C-25 (las confirmaciones nuevas o modificadas del sprint pasan por el componente común).
 - Textos en `src/lib/textos.ts`, «clase» y estados en femenino; tokens de DESIGN.md.
 
 **Fuera de alcance de frontend:** la pantalla `/pagos/registrar` y la oferta de «Registrar pago» ante `INSCRIPCION_REQUIERE_PAGO` (HU-I-10).
@@ -149,8 +150,10 @@ Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`,
 ### Nivel 1 — Unitarios
 - `vencerReservas`: sin clases con vencidas → ceros; varias clases → una transacción por clase y totales correctos; una clase que falla no frena a las demás; el momento recibido se usa para todas.
 - Route: sin cabecera, sin secreto configurado, secreto distinto o esquema distinto de Bearer → 401 sin invocar el servicio; secreto correcto → 200 con el contrato.
-- Componente: al elegir un alumno aparece la confirmación con alumno, materia, día y hora; «Volver» no inscribe; «Inscribir» envía el alta, avisa y recarga; un rechazo del servidor se muestra en el mismo mensaje.
-- Detalle: `inscripcion` y `puede_registrar_pago` según rol, estado de la clase, inicio y vencimiento; el Profesor no recibe los campos.
+- Componente (`turno-alumnos-card.tsx`, «Agregar alumno» 2.5): al elegir un alumno aparece la confirmación con alumno, materia, día y hora; «Volver» no inscribe; «Inscribir» envía el alta, avisa y recarga; un rechazo del servidor se muestra en el mismo mensaje.
+- Componente (`turno-wizard.test.tsx`, paso 5 «Crear turno» 2.2): la confirmación muestra los alumnos, la materia, la fecha y la hora; «Volver» no envía el PATCH y conserva la selección; al confirmar se ofrece «Registrar pago» por cada alumno en la pantalla de éxito; un rechazo del servidor (`ALUMNO_NO_DISPONIBLE`, `TURNO_SIN_AULA`) se muestra en el diálogo sin perder PENDIENTE ni la selección.
+- Componente (`participantes-turno.test.tsx`, «Confirmar turno» 2.2): mismo patrón que el wizard — confirmación antes de guardar, «Volver» sin PATCH, «Registrar pago» por alumno al confirmar, rechazo del servidor mostrado en el diálogo y en el alumno en conflicto.
+- Detalle: `inscripcion` y `puede_registrar_pago` según rol, estado de la clase, inicio y vencimiento; el Profesor no recibe los campos; una reserva `RESERVADA` de una clase `CANCELADO` se informa como «Pago sin registrar», sin acceso a cobro.
 - `crearInscripcion` del centro: reserva con plazo y precio; `INSCRIPCION_REQUIERE_PAGO` con `{ alumno_id }`.
 
 ### Nivel 2 — Postman
@@ -175,7 +178,8 @@ Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`,
 - [x] `conReserva = true` en 2.5 y 2.2, con `ofrecer_pago` y `409 INSCRIPCION_REQUIERE_PAGO`.
 - [x] Campos del detalle de la clase con sus reglas por rol.
 - [x] Frontend del detalle: reserva, vencimiento y acceso a «Registrar pago»; «Quitar» sin cambios.
-- [x] Confirmación de HU-C-25 al inscribir desde el centro (componente común, textos en el catálogo).
+- [x] Confirmación de HU-C-25 al inscribir desde el centro en 2.5 (`turno-alumnos-card.tsx`) y en 2.2 (`turno-wizard.tsx`, `participantes-turno.tsx`); componente común, textos en el catálogo (corregido: faltaba en 2.2).
+- [x] Pantalla de éxito de 2.2 ofrece «Registrar pago» por cada alumno recién inscripto, con `inscripciones[]` de la respuesta (corregido).
 - [x] Ninguna migración, seed, dependencia ni permiso nuevo.
 - [x] Textos nuevos en el archivo central; `verificar-claves-textos` aprobado.
 - [x] Tres niveles con evidencia: unitarios, PG, HTTP con sesión real (11/11), SQL manual y navegador de escritorio ejecutados; vista móvil pendiente (ver `HU-C-24-evidencia.md`).
@@ -190,7 +194,7 @@ Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`,
 
 **Qué es.** `POST /api/procesos/vencer-reservas` con `Authorization: Bearer $CRON_SECRET`. Sin sesión. Cada llamada revisa las reservas vencidas y las marca; es idempotente, así que llamarlo de más no hace daño.
 
-**Cómo se dispara.** Un programador local que llama al endpoint cada 5 minutos. No se usa Vercel Cron: en el plan Hobby los cron jobs corren como máximo una vez por día. La variable `CRON_SECRET` se define en el entorno donde corre `npm run dev` y en el del programador (el valor no se versiona; el nombre figura en `.env.example`).
+**Cómo se dispara.** Un programador local que llama al endpoint cada 5 minutos. No se usa Vercel Cron: en el plan Hobby los cron jobs corren como máximo una vez por día. La variable `CRON_SECRET` se define en el entorno donde corre `npm run dev` y en el del programador (el valor no se versiona; el nombre figura en `.env.example`). El programador corre en una terminal propia, que no hereda el `.env` de la app: ahí `CRON_SECRET` se define en esa misma terminal (`export CRON_SECRET=...` en Git Bash/Linux, `$env:CRON_SECRET = "..."` en PowerShell) antes de lanzarlo; cargarla solo en el `.env` no alcanza para esa terminal.
 
 Programador de ejemplo (Git Bash o Linux), con `CRON_SECRET` exportada:
 
@@ -215,9 +219,9 @@ while ($true) {
 Con `cron` del sistema: `*/5 * * * * curl -fsS -X POST http://localhost:3000/api/procesos/vencer-reservas -H "Authorization: Bearer $CRON_SECRET"`, con `CRON_SECRET` definida en el crontab.
 
 **Cómo se reproduce en la demostración (paso a paso).**
-1. Partir de `develop` con la base regenerada: `npx prisma migrate reset --force` (nunca `migrate dev`), indicando `DATABASE_URL` explícita.
+1. Partir de `develop` con la base regenerada: `npx prisma migrate reset --force` (nunca `migrate dev`), indicando `DATABASE_URL` explícita. **Solo sobre la base de demostración: este comando borra todos los datos.**
 2. Definir `CRON_SECRET` en el `.env` local y levantar la app con `npm run dev`.
-3. Abrir una terminal aparte y dejar corriendo el programador de arriba (la misma variable `CRON_SECRET`).
+3. Abrir una terminal aparte, definir `CRON_SECRET` en esa misma terminal (no la hereda del `.env` de la app) y dejar corriendo el programador de arriba.
 4. Como mesa de entrada, inscribir a un alumno en una clase que empiece en pocos minutos: la reserva vence al inicio de la clase (el vencimiento es el menor entre el plazo de pago y el inicio).
 5. Esperar a que pase el vencimiento y a la siguiente corrida (hasta 5 minutos): la inscripción queda «Reserva vencida», la clase vuelve a Disponible si estaba Completa y el historial registra al «Proceso automático».
 6. Alternativa para acelerar, solo en la base de demostración: adelantar `venceEl` de una reserva con SQL y lanzar el `curl` una vez a mano.

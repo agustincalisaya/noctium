@@ -2,7 +2,7 @@
   "info": {
     "name": "HU-C-24 — Vencer las reservas y gestionarlas desde mesa de entrada",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "PREPARADA, no ejecutada. Ejecutar cada caso por separado en una base NUEVA descartable (migraciones del PR 0 y fábricas existentes); no usar datos habituales. Login real y Cookie Jar fuera de la colección; no exportar cookies, tokens ni el valor de CRON_SECRET (variable cron_secret vacía). El proceso (01-04) no usa sesión. I-10, I-06, C-14, E-02, H-10 y N-01 diferidos: no se invocan APIs de esas HU. La pantalla /pagos/registrar es de I-10."
+    "description": "EJECUTADA (11/11 requests, 33/33 tests) con un ejecutor propio (los scripts \"test\" de la colección con chai; no la app de Postman ni newman), en una base NUEVA descartable (migraciones del PR 0 y fábricas existentes), con sesiones reales de NextAuth (mesa, gerente y profesor); no usar datos habituales. Pendiente: correrla también en la app de Postman o con newman. Login real y Cookie Jar fuera de la colección; no exportar cookies, tokens ni el valor de CRON_SECRET (variable cron_secret vacía). El proceso (01-04) no usa sesión. I-10, I-06, C-14, E-02, H-10 y N-01 diferidos: no se invocan APIs de esas HU. La pantalla /pagos/registrar es de I-10."
   },
   "variable": [
     {

@@ -173,6 +173,17 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(container.querySelector('a[aria-label^="Registrar pago de"]')).toBeNull();
   });
 
+  it("HU-C-24: una reserva RESERVADA de una clase cancelada se informa como «Pago sin registrar», sin acceso a cobro", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({
+      estado: "CANCELADO",
+      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: false }],
+    })));
+    await montar();
+    expect(texto()).toContain("Pago sin registrar");
+    expect(texto()).not.toContain("vence");
+    expect(container.querySelector('a[aria-label^="Registrar pago de"]')).toBeNull();
+  });
+
   describe("HU-C-24 / HU-C-25: «Agregar alumno» pide confirmación antes de inscribir", () => {
     const NUEVO = { id: "alumno-9", nombre: "Lucía", apellido: "Ramos", dni: "40111222" };
     let altas: { url: string; body: unknown }[];
