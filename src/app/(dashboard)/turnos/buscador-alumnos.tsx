@@ -13,14 +13,17 @@ export const etiquetaAlumno = (alumno: AlumnoBuscado) => `${alumno.apellido}, ${
  * con espera de 250 ms y cancelación de la búsqueda anterior. Las
  * coincidencias parciales sin mayúsculas ni acentos las resuelve
  * `buscarAlumnosActivos()` del Módulo B. Oculta los alumnos de `excluir`
- * (ya agregados al turno).
+ * (ya agregados al turno). `endpoint` y `textoSinResultados` son opcionales
+ * (HU-I-10 lo reutiliza con su propio endpoint); por defecto, los de Turnos.
  */
-export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado, onSeleccionar }: {
+export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado, onSeleccionar, endpoint = "/api/turnos/participantes/alumnos", textoSinResultados }: {
   id: string;
   excluir: string[];
   deshabilitado: boolean;
   avisoDeshabilitado?: string;
   onSeleccionar: (alumno: AlumnoBuscado) => void;
+  endpoint?: string;
+  textoSinResultados?: (query: string) => string;
 }) {
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<AlumnoBuscado[]>([]);
@@ -34,7 +37,7 @@ export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado
     const timer = window.setTimeout(async () => {
       setBuscando(true); setError("");
       try {
-        const respuesta = await fetchAutenticado(`/api/turnos/participantes/alumnos?q=${encodeURIComponent(query.trim())}`, { signal: controller.signal, cache: "no-store" });
+        const respuesta = await fetchAutenticado(`${endpoint}?q=${encodeURIComponent(query.trim())}`, { signal: controller.signal, cache: "no-store" });
         const valor = await respuesta.json().catch(() => null);
         if (!respuesta.ok) throw new Error(valor?.error?.message ?? "No se pudo buscar alumnos");
         setResultados(valor.data ?? []);
@@ -42,7 +45,7 @@ export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado
       finally { if (!controller.signal.aborted) setBuscando(false); }
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [query, activa]);
+  }, [query, activa, endpoint]);
 
   const visibles = activa ? resultados.filter((alumno) => !excluir.includes(alumno.id)) : [];
   const seleccionar = (alumno: AlumnoBuscado) => { onSeleccionar(alumno); setQuery(""); setResultados([]); };
@@ -51,7 +54,7 @@ export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado
     <Input id={id} value={query} onChange={(event) => { setQuery(event.target.value); setResultados([]); setError(""); }} disabled={deshabilitado} placeholder="Nombre, apellido o DNI (mínimo 2 caracteres)" autoComplete="off" aria-describedby={deshabilitado && avisoDeshabilitado ? `${id}-aviso` : undefined} />
     {deshabilitado && avisoDeshabilitado && <p id={`${id}-aviso`} role="status" className="text-sm text-muted-foreground">{avisoDeshabilitado}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {activa && !error && <p role="status" className="text-sm text-muted-foreground">{buscando ? "Buscando…" : visibles.length === 0 ? "No se encontraron alumnos activos para agregar" : `${visibles.length} ${visibles.length === 1 ? "resultado" : "resultados"}`}</p>}
+    {activa && !error && <p role="status" className="text-sm text-muted-foreground">{buscando ? "Buscando…" : visibles.length === 0 ? (textoSinResultados?.(query.trim()) ?? "No se encontraron alumnos activos para agregar") : `${visibles.length} ${visibles.length === 1 ? "resultado" : "resultados"}`}</p>}
     {visibles.length > 0 && <ul className="space-y-1" aria-label="Resultados de alumnos">{visibles.map((alumno) => <li key={alumno.id}><Button type="button" variant="outline" className="h-auto w-full justify-start text-left" onClick={() => seleccionar(alumno)}>{etiquetaAlumno(alumno)} · DNI {alumno.dni}</Button></li>)}</ul>}
   </div>;
 }

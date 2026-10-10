@@ -1,7 +1,7 @@
 import { Prisma, type EstadoPagoInscripcion, type EstadoTurno, type VigenciaInscripcion } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { construirFiltroBusquedaAlumno } from "@/server/alumnos/alumno.busqueda";
-import { finDelDiaCentro, inicioDelDiaCentro, isoCentro } from "@/server/shared/fechas-centro";
+import { finDelDiaCentro, inicioDeTurno, inicioDelDiaCentro, isoCentro } from "@/server/shared/fechas-centro";
 import { ahora } from "@/server/shared/reloj";
 import { esVigenteEn, sqlInstante, sqlVigenteEn } from "@/server/turnos/inscripcion.vigencia";
 
@@ -121,6 +121,68 @@ export async function listarInscripcionesDeAlumno(
       };
     })
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora_inicio.localeCompare(a.hora_inicio) || b.inscripcion_id.localeCompare(a.inscripcion_id));
+}
+
+export type InscripcionPendienteDePago = {
+  inscripcion_id: string;
+  turno_id: string;
+  fecha: string;
+  hora_inicio: string;
+  hora_fin: string;
+  materia: { id: string; nombre: string };
+  profesor: { id: string; nombre_completo: string } | null;
+  estado_pago: Exclude<EstadoPagoInscripcion, "PAGADA">;
+  /** Solo en las RESERVADA: vencimiento en la zona del centro. */
+  vence_el: string | null;
+  precio: number;
+};
+
+/**
+ * Inscripciones del alumno que se pueden cobrar (spec_modulo_I.md §2.7.2,
+ * DEC-23): vigentes a `ahora()` (una reserva vencida sin marcar no cuenta),
+ * de una clase Disponible o Completa que todavía no empezó y sin pago no
+ * anulado (`estadoPago` ≠ PAGADA). Por fecha y hora de la clase, ascendente.
+ */
+export async function listarInscripcionesPendientesDePagoDeAlumno(
+  alumnoId: string,
+  db: Db = prisma,
+): Promise<InscripcionPendienteDePago[]> {
+  const momento = ahora();
+  const filas = await db.turnoAlumno.findMany({
+    where: {
+      alumnoId, vigencia: "VIGENTE", estadoPago: { not: "PAGADA" },
+      turno: { estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } },
+    },
+    include: {
+      turno: {
+        select: {
+          idTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, estadoTurno: true,
+          materia: { select: { idMateria: true, nombreMateria: true } },
+          profesor: { select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true } },
+        },
+      },
+    },
+  });
+  return filas
+    .filter((f) => esVigenteEn({ ...f, estadoClase: f.turno.estadoTurno }, momento) && inicioDeTurno(f.turno).getTime() > momento.getTime())
+    .map((f) => {
+      const inicio = minutosDe(f.turno.horaInicioTurno);
+      return {
+        inscripcion_id: f.idInscripcion,
+        turno_id: f.turnoId,
+        fecha: f.turno.fechaTurno.toISOString().slice(0, 10),
+        hora_inicio: hhmm(inicio),
+        hora_fin: hhmm(inicio + f.turno.duracionMinutosTurno),
+        materia: { id: f.turno.materia.idMateria, nombre: f.turno.materia.nombreMateria },
+        profesor: f.turno.profesor
+          ? { id: f.turno.profesor.idProfesor, nombre_completo: `${f.turno.profesor.apellidoProfesor}, ${f.turno.profesor.nombreProfesor}` }
+          : null,
+        estado_pago: f.estadoPago as Exclude<EstadoPagoInscripcion, "PAGADA">,
+        vence_el: f.estadoPago === "RESERVADA" && f.venceEl ? isoCentro(f.venceEl) : null,
+        precio: f.precio,
+      };
+    })
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora_inicio.localeCompare(b.hora_inicio) || a.inscripcion_id.localeCompare(b.inscripcion_id));
 }
 
 /**
