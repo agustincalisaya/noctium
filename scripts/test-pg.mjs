@@ -10,6 +10,8 @@
 // 3. Corre vitest con DATABASE_URL y todas las HU_*_TEST_DATABASE_URL apuntando
 //    a esa base, sin paralelismo entre archivos y con TZ=UTC.
 // 4. Borra la base aunque las pruebas fallen.
+// Los archivos que ejecutan prisma/seed.ts reciben una base propia por archivo:
+// los datos y relojes de otras pruebas no pueden alterar sus escenarios.
 // Algunos *.pg.test.ts de los Sprints 1 y 2 solo corren en una base con un
 // nombre fijo (su guarda lo exige): esos archivos corren además en una pasada
 // propia, con una base descartable de ese nombre (ver NOMBRES_EXIGIDOS). Si
@@ -116,7 +118,15 @@ try {
     console.error("No hay archivos *.pg.test.ts en las rutas indicadas.");
     codigo = 1;
   } else {
-    codigo = Math.max(codigo, await pasada(`noctium_pruebas_${aleatorio()}`, archivos));
+    const conSeed = archivos.filter((archivo) => readFileSync(archivo, "utf8").includes("prisma/seed.ts"));
+    const compartidos = archivos.filter((archivo) => !conSeed.includes(archivo));
+    if (compartidos.length > 0) {
+      codigo = Math.max(codigo, await pasada(`noctium_pruebas_${aleatorio()}`, compartidos));
+    }
+    for (const archivo of conSeed) {
+      console.log(`Seed completo aislado: ${archivo}`);
+      codigo = Math.max(codigo, await pasada(`noctium_pruebas_${aleatorio()}`, [archivo]));
+    }
     for (const { patron, base, fija } of NOMBRES_EXIGIDOS) {
       const propios = archivos.filter((archivo) => readFileSync(archivo, "utf8").includes(patron));
       if (propios.length > 0) codigo = Math.max(codigo, await pasada(base(), propios, { fija }));

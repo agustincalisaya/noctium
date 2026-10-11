@@ -48,7 +48,7 @@ describe.skipIf(!basePgHabilitada)("inscripción y cobro de Sprint 2 sobre los s
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: b!.idAlumno }, usuarioId))
         .resolves.toMatchObject({ alumnos_inscriptos: "2/2", estado: "COMPLETO" });
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: c!.idAlumno }, usuarioId))
-        .rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "El turno alcanzó su cupo máximo" });
+        .rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "La clase alcanzó su cupo máximo" });
       expect((await filas(turno.idTurno)).map((f) => [f.alumnoId, f.vigencia, f.estadoPago, f.precio > 0, f.creadoPorUsuarioId]))
         .toEqual([[a!.idAlumno, "VIGENTE", "RESERVADA", true, usuarioId], [b!.idAlumno, "VIGENTE", "RESERVADA", true, usuarioId]]);
       expect((await db.turno.findUniqueOrThrow({ where: { idTurno: turno.idTurno } })).estadoTurno).toBe("COMPLETO");
@@ -74,10 +74,10 @@ describe.skipIf(!basePgHabilitada)("inscripción y cobro de Sprint 2 sobre los s
       const alumno = await crearAlumnoDePrueba(db);
       await agregarAlumnoTurno(turno.idTurno, { alumno_id: alumno.idAlumno }, usuarioId);
       await expect(agregarAlumnoTurno(turno.idTurno, { alumno_id: alumno.idAlumno }, usuarioId))
-        .rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "El mismo alumno no puede agregarse dos veces al mismo turno", detalles: { alumno_id: alumno.idAlumno } });
+        .rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "El mismo alumno no puede agregarse dos veces a la misma clase", detalles: { alumno_id: alumno.idAlumno } });
       const superpuesto = await crearTurnoDePrueba(db, { enDias: 4, hora: "10:30" });
       await expect(agregarAlumnoTurno(superpuesto.idTurno, { alumno_id: alumno.idAlumno }, usuarioId))
-        .rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: alumno.idAlumno } });
+        .rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene una clase agendada en ese horario", detalles: { alumno_id: alumno.idAlumno } });
       const contiguo = await crearTurnoDePrueba(db, { enDias: 4, hora: "11:00" });
       await expect(agregarAlumnoTurno(contiguo.idTurno, { alumno_id: alumno.idAlumno }, usuarioId)).resolves.toMatchObject({ estado: "DISPONIBLE" });
     });
@@ -152,11 +152,11 @@ describe.skipIf(!basePgHabilitada)("inscripción y cobro de Sprint 2 sobre los s
         venceEl: new Date("2026-10-06T12:00:00.000Z"),
         precio: 12000, creadoPorUsuarioId: cuenta.idUsuario,
       });
-      await expect(solicitarTurnoPropio(turno.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en este turno" });
+      await expect(solicitarTurnoPropio(turno.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en esta clase" });
       const superpuesto = await crearTurnoDePrueba(db, { enDias: 7, hora: "15:30" });
-      await expect(solicitarTurnoPropio(superpuesto.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otro turno en ese horario" });
+      await expect(solicitarTurnoPropio(superpuesto.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otra clase en ese horario" });
       const pendiente = await crearTurnoDePrueba(db, { estado: "PENDIENTE" });
-      await expect(solicitarTurnoPropio(pendiente.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "TURNO_NO_DISPONIBLE", message: "El turno ya no está disponible" });
+      await expect(solicitarTurnoPropio(pendiente.idTurno, cuenta.idUsuario)).rejects.toMatchObject({ code: "TURNO_NO_DISPONIBLE", message: "La clase ya no está disponible" });
     }));
   });
 
