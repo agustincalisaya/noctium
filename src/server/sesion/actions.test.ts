@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
-import { ESTADO_INICIAL, ESTADO_INICIAL_CAMBIO_PASSWORD } from "@/types/sesion.types";
+import {
+  ESTADO_INICIAL,
+  ESTADO_INICIAL_CAMBIO_PASSWORD,
+  ESTADO_INICIAL_RESTABLECER_PASSWORD,
+  ESTADO_INICIAL_SOLICITUD_RECUPERACION,
+} from "@/types/sesion.types";
 
 // HU-A-06: Server Actions de sesión (spec_modulo_A.md §2.6.2 y §2.6.3).
 // `iniciarSesion` redirige según la marca; `cambiarPasswordPropia` es capa
@@ -19,6 +24,10 @@ const m = vi.hoisted(() => {
     verificarPermiso: vi.fn(),
     servicio: vi.fn(),
     estadoCuenta: vi.fn(),
+    after: vi.fn(),
+    solicitarRecuperacion: vi.fn(),
+    procesarSolicitud: vi.fn(),
+    restablecerPassword: vi.fn(),
     redirect: vi.fn((destino: string) => {
       throw new Error(`REDIRECT:${destino}`);
     }),
@@ -36,9 +45,16 @@ vi.mock("@/auth", () => ({
 vi.mock("@/server/shared/with-permission", () => ({ verificarPermiso: m.verificarPermiso, PermisoError: m.PermisoError }));
 vi.mock("@/server/sesion/cambio-password.service", () => ({ cambiarPasswordPropia: m.servicio }));
 vi.mock("@/server/usuarios/cuenta.service", () => ({ obtenerEstadoCuenta: m.estadoCuenta }));
+// HU-A-05: el servicio de recuperación y `after()` (el callback se ejecuta a mano).
+vi.mock("next/server", async (original) => ({ ...(await original<typeof import("next/server")>()), after: m.after }));
+vi.mock("@/server/sesion/recuperacion.service", () => ({
+  solicitarRecuperacion: m.solicitarRecuperacion,
+  procesarSolicitudRecuperacion: m.procesarSolicitud,
+  restablecerPassword: m.restablecerPassword,
+}));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: async (_c: string, porDefecto: number) => porDefecto }));
 
-const { cambiarPasswordPropia, iniciarSesion } = await import("@/server/sesion/actions");
+const { cambiarPasswordPropia, iniciarSesion, restablecerPassword, solicitarRecuperacion } = await import("@/server/sesion/actions");
 
 const USUARIO = "ckusuario0000000000000001";
 const EMAIL = "ana@noctium.local";
@@ -58,6 +74,9 @@ beforeEach(() => {
   m.estadoCuenta.mockResolvedValue(cuenta(true));
   m.servicio.mockResolvedValue({ reemitir_sesion: true });
   m.signIn.mockResolvedValue(undefined);
+  m.solicitarRecuperacion.mockResolvedValue({ entro: true });
+  m.procesarSolicitud.mockResolvedValue(undefined);
+  m.restablecerPassword.mockResolvedValue({ restablecida: true });
 });
 
 describe("cambiarPasswordPropia (Server Action)", () => {
@@ -158,5 +177,102 @@ describe("iniciarSesion: destino según la marca", () => {
     m.auth.mockResolvedValue({ user: { id: USUARIO, rol: "PROFESOR", debeCambiarPassword: true } });
     await expect(login()).rejects.toThrow("REDIRECT:/primer-ingreso");
     expect(m.signIn).toHaveBeenCalledWith("credentials", { email: EMAIL, password: "3011122", redirect: false });
+  });
+});
+
+// HU-A-05 (spec_modulo_A.md §2.7.1 y §2.7.3): las dos Server Actions de la
+// recuperación, capa delgada sobre el mismo servicio que los Route Handlers.
+
+describe("solicitarRecuperacion (Server Action)", () => {
+  const pedir = (email: string) => solicitarRecuperacion(ESTADO_INICIAL_SOLICITUD_RECUPERACION, formulario({ email }));
+
+  it("entró: «enviada», con el email normalizado y la IP; el procesamiento corre después con after()", async () => {
+    await expect(pedir(" Ana@Noctium.Local ")).resolves.toEqual({ status: "enviada" });
+    expect(m.solicitarRecuperacion).toHaveBeenCalledWith(EMAIL, "10.9.8.7");
+    expect(m.procesarSolicitud).not.toHaveBeenCalled();
+    expect(m.after).toHaveBeenCalledTimes(1);
+    await (m.after.mock.calls[0]![0] as () => Promise<void>)();
+    expect(m.procesarSolicitud).toHaveBeenCalledWith(EMAIL, "10.9.8.7");
+  });
+
+  it("limitada: la misma respuesta y no programa nada", async () => {
+    m.solicitarRecuperacion.mockResolvedValue({ entro: false });
+    await expect(pedir(EMAIL)).resolves.toEqual({ status: "enviada" });
+    expect(m.after).not.toHaveBeenCalled();
+  });
+
+  it("una excepción en la tarea programada se registra y no se propaga", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    m.procesarSolicitud.mockRejectedValue(new Error(`fallo con ${EMAIL}`));
+    await pedir(EMAIL);
+    await expect((m.after.mock.calls[0]![0] as () => Promise<void>)()).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(log.mock.calls)).not.toContain(EMAIL);
+    log.mockRestore();
+  });
+
+  it("formato inválido: error del campo con el texto de la pantalla, sin servicio", async () => {
+    await expect(pedir("ana@")).resolves.toEqual({
+      status: "error_validacion",
+      errores: { email: ["Ingresá un email válido, por ejemplo nombre@dominio.com."] },
+    });
+    expect(m.solicitarRecuperacion).not.toHaveBeenCalled();
+  });
+
+  it("bloqueo agotado → el mensaje de transacción ocupada", async () => {
+    m.solicitarRecuperacion.mockRejectedValue(new ErrorDeDominio("errores.transaccion.ocupada"));
+    await expect(pedir(EMAIL)).resolves.toEqual({ status: "error", mensaje: "Otra persona está modificando estos datos. Intentá de nuevo." });
+    expect(m.after).not.toHaveBeenCalled();
+  });
+
+  it("error inesperado: sin detalles técnicos", async () => {
+    m.solicitarRecuperacion.mockRejectedValue(new Error("connection refused"));
+    await expect(pedir(EMAIL)).resolves.toEqual({ status: "error", mensaje: "No se pudo conectar. Intentá nuevamente" });
+  });
+});
+
+describe("restablecerPassword (Server Action)", () => {
+  const TOKEN = "t".repeat(43);
+  const restablecer = (extra: Record<string, string> = {}) =>
+    restablecerPassword(ESTADO_INICIAL_RESTABLECER_PASSWORD, formulario({ token: TOKEN, password_nueva: NUEVA, confirmacion: NUEVA, ...extra }));
+
+  it("éxito: llama al servicio con la IP y no reemite la sesión", async () => {
+    await expect(restablecer()).resolves.toEqual({ status: "exito" });
+    expect(m.restablecerPassword).toHaveBeenCalledWith({ token: TOKEN, password_nueva: NUEVA, confirmacion: NUEVA }, "10.9.8.7");
+    expect(m.signIn).not.toHaveBeenCalled();
+    expect(m.verificarPermiso).not.toHaveBeenCalled();
+  });
+
+  it("Zod: política y confirmación como errores de campo, sin servicio", async () => {
+    const estado = await restablecer({ password_nueva: "corta", confirmacion: "otra" });
+    expect(estado.status).toBe("error_validacion");
+    if (estado.status !== "error_validacion") return;
+    expect(estado.errores.password_nueva?.length).toBeGreaterThan(0);
+    expect(estado.errores.confirmacion).toEqual(["Las contraseñas no coinciden"]);
+    expect(m.restablecerPassword).not.toHaveBeenCalled();
+  });
+
+  it("token con largo inválido → enlace inválido, sin servicio", async () => {
+    await expect(restablecer({ token: "abc" })).resolves.toEqual({
+      status: "enlace_invalido",
+      mensaje: "El enlace ya no es válido. Pedí uno nuevo desde ¿Olvidaste tu contraseña?",
+    });
+    expect(m.restablecerPassword).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["errores.sesion.enlaceInvalido", { status: "enlace_invalido", mensaje: "El enlace ya no es válido. Pedí uno nuevo desde ¿Olvidaste tu contraseña?" }],
+    ["errores.sesion.passwordIgualAnterior", { status: "error_validacion", errores: { password_nueva: ["La contraseña nueva no puede ser igual a la anterior"] } }],
+    ["errores.transaccion.ocupada", { status: "error", mensaje: "Otra persona está modificando estos datos. Intentá de nuevo." }],
+  ] as const)("mapea %s", async (codigo, esperado) => {
+    m.restablecerPassword.mockRejectedValue(new ErrorDeDominio(codigo));
+    await expect(restablecer()).resolves.toEqual(esperado);
+  });
+
+  it("error inesperado: sin detalles técnicos ni el token", async () => {
+    m.restablecerPassword.mockRejectedValue(new Error(`fallo con ${TOKEN}`));
+    const estado = await restablecer();
+    expect(estado).toEqual({ status: "error", mensaje: "No se pudo conectar. Intentá nuevamente" });
+    expect(JSON.stringify(estado)).not.toContain(TOKEN);
   });
 });

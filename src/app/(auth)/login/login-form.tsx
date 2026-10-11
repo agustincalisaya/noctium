@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { texto } from "@/lib/textos";
 import { CredencialesLoginSchema } from "@/server/sesion/sesion.schema";
 import { iniciarSesion } from "@/server/sesion/actions";
 import { ESTADO_INICIAL, type EstadoLogin } from "@/types/sesion.types";
@@ -132,6 +133,12 @@ export function LoginForm({ emailInicial }: { emailInicial?: string } = {}) {
             {errorPassword}
           </p>
         )}
+        {/* HU-A-05 criterio 1: único cambio de este componente para esa HU. */}
+        <p className="text-right text-sm">
+          <Link href="/recuperar-contrasena" className="text-muted-foreground underline underline-offset-4">
+            {texto("ui.sesion.recuperar.olvidaste")}
+          </Link>
+        </p>
       </div>
 
       {mensajeError && (

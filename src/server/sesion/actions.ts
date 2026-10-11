@@ -6,14 +6,29 @@ import { CredentialsSignin } from "next-auth";
 import { flattenError } from "zod";
 import { auth, obtenerIp, signIn } from "@/auth";
 import { texto } from "@/lib/textos";
-import { CredencialesLoginSchema, construirCambiarPasswordSchema } from "@/server/sesion/sesion.schema";
+import {
+  CredencialesLoginSchema,
+  SolicitarRecuperacionSchema,
+  construirCambiarPasswordSchema,
+  construirRestablecerPasswordSchema,
+} from "@/server/sesion/sesion.schema";
 import { cambiarPasswordPropia as cambiarPasswordPropiaEnServicio } from "@/server/sesion/cambio-password.service";
+import {
+  restablecerPassword as restablecerPasswordEnServicio,
+  solicitarRecuperacion as solicitarRecuperacionEnServicio,
+} from "@/server/sesion/recuperacion.service";
+import { programarProcesamientoRecuperacion } from "@/server/sesion/recuperacion.tarea";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { RUTA_PRIMER_INGRESO } from "@/server/shared/rutas-por-rol";
 import { ServiceError } from "@/server/shared/service-error";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import { obtenerEstadoCuenta } from "@/server/usuarios/cuenta.service";
-import type { EstadoCambioPassword, EstadoLogin } from "@/types/sesion.types";
+import type {
+  EstadoCambioPassword,
+  EstadoLogin,
+  EstadoRestablecerPassword,
+  EstadoSolicitudRecuperacion,
+} from "@/types/sesion.types";
 
 // Traducción código de servicio -> texto exacto para el usuario (spec_modulo_A.md §2.1).
 // Vive acá, no en el servicio, para no acoplar la capa de negocio al copy de UI.
@@ -149,6 +164,80 @@ export async function cambiarPasswordPropia(
       return { status: "exito", sesion_conservada: true };
     } catch {
       return { status: "exito", sesion_conservada: false };
+    }
+  } catch {
+    // Error de comunicación o de infraestructura: nunca un detalle técnico.
+    return { status: "error", mensaje: texto("ui.sesion.formPassword.errorComunicacion") };
+  }
+}
+
+/**
+ * Pedir el enlace de recuperación (HU-A-05, spec_modulo_A.md §2.7.1). Capa
+ * delgada, equivalente a `POST /api/auth/recuperar-password`: Zod, servicio
+ * y, si la solicitud entró, la tarea de después de responder. Devuelve
+ * `enviada` exista o no la cuenta y también con la solicitud limitada
+ * (§3.10); solo el formato inválido responde distinto.
+ */
+export async function solicitarRecuperacion(
+  _estadoAnterior: EstadoSolicitudRecuperacion,
+  formData: FormData,
+): Promise<EstadoSolicitudRecuperacion> {
+  const parsed = SolicitarRecuperacionSchema.safeParse({ email: formData.get("email") ?? "" });
+  if (!parsed.success) return { status: "error_validacion", errores: flattenError(parsed.error).fieldErrors };
+
+  try {
+    const ip = await ipDeLaSolicitud();
+    const { entro } = await solicitarRecuperacionEnServicio(parsed.data.email, ip);
+    if (entro) programarProcesamientoRecuperacion(parsed.data.email, ip);
+    return { status: "enviada" };
+  } catch (error) {
+    // El bloqueo por email agotó su tiempo (409): depende solo del email.
+    if (error instanceof ServiceError && error.code === "TRANSACCION_OCUPADA") {
+      return { status: "error", mensaje: texto("errores.transaccion.ocupada") };
+    }
+    return { status: "error", mensaje: texto("ui.sesion.formPassword.errorComunicacion") };
+  }
+}
+
+/**
+ * Definir la contraseña nueva con el enlace (HU-A-05, spec_modulo_A.md
+ * §2.7.3). Capa delgada, equivalente a `POST /api/auth/restablecer-password`.
+ * No reemite la sesión ni llama a `signIn`: la interfaz vuelve al login con
+ * el aviso de éxito. Un token con largo inválido es un enlace inválido, igual
+ * que el 410 del servicio.
+ */
+export async function restablecerPassword(
+  _estadoAnterior: EstadoRestablecerPassword,
+  formData: FormData,
+): Promise<EstadoRestablecerPassword> {
+  try {
+    const longitudMinima = await getParametroNumerico("password_longitud_minima", 8);
+    const parsed = construirRestablecerPasswordSchema(longitudMinima).safeParse({
+      token: formData.get("token") ?? "",
+      password_nueva: formData.get("password_nueva") ?? "",
+      confirmacion: formData.get("confirmacion") ?? "",
+    });
+    if (!parsed.success) {
+      const { token, password_nueva, confirmacion } = flattenError(parsed.error).fieldErrors;
+      if (token) return { status: "enlace_invalido", mensaje: texto("errores.sesion.enlaceInvalido") };
+      return { status: "error_validacion", errores: { password_nueva, confirmacion } };
+    }
+
+    try {
+      await restablecerPasswordEnServicio(parsed.data, await ipDeLaSolicitud());
+      return { status: "exito" };
+    } catch (error) {
+      if (!(error instanceof ServiceError)) throw error;
+      switch (error.code) {
+        case "ENLACE_INVALIDO":
+          return { status: "enlace_invalido", mensaje: error.message };
+        case "PASSWORD_IGUAL_A_ACTUAL":
+          return { status: "error_validacion", errores: { password_nueva: [error.message] } };
+        case "TRANSACCION_OCUPADA":
+          return { status: "error", mensaje: texto("errores.transaccion.ocupada") };
+        default:
+          throw error;
+      }
     }
   } catch {
     // Error de comunicación o de infraestructura: nunca un detalle técnico.

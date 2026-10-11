@@ -62,6 +62,10 @@ export const ERRORES_DE_DOMINIO = {
   // responden como error de validación del campo, igual que CONTACTO_REQUERIDO.
   "errores.cuenta.emailRequerido": { code: "EMAIL_REQUERIDO", status: 400 },
   "errores.sesion.rateLimitExcedido": { code: "RATE_LIMIT_EXCEDIDO", status: 429 },
+  // HU-A-05, recuperación de contraseña (spec_modulo_A.md §2.7.3). Mismo
+  // code que A-06 para la contraseña repetida, con el texto de la recuperación.
+  "errores.sesion.enlaceInvalido": { code: "ENLACE_INVALIDO", status: 410 },
+  "errores.sesion.passwordIgualAnterior": { code: "PASSWORD_IGUAL_A_ACTUAL", status: 422 },
 
   // Módulo E (spec_modulo_E.md §2.6 a §2.12).
   "errores.asistencia.incompleta": { code: "ASISTENCIA_INCOMPLETA", status: 400 },
@@ -123,7 +127,7 @@ export const ERRORES_DE_DOMINIO = {
   "errores.formaPago.yaActiva": { code: "FORMA_PAGO_YA_ACTIVA", status: 409 },
   "errores.formaPago.yaInactiva": { code: "FORMA_PAGO_YA_INACTIVA", status: 409 },
   "errores.formaPago.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
-} as const satisfies Partial<Record<ClaveTexto, { code: string; status: 400 | 403 | 404 | 409 | 422 | 429 }>>;
+} as const satisfies Partial<Record<ClaveTexto, { code: string; status: 400 | 403 | 404 | 409 | 410 | 422 | 429 }>>;
 
 export type CodigoErrorDominio = keyof typeof ERRORES_DE_DOMINIO;
 
