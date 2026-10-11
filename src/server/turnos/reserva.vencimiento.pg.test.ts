@@ -188,7 +188,10 @@ describe.skipIf(!basePgHabilitada)("HU-C-24: vencimiento de reservas en PostgreS
 
       const cancelada = await crearTurnoDePrueba(db, { estado: "CANCELADO" });
       await vigente(cancelada.idTurno, await alumno());
-      expect((await detalle(cancelada.idTurno, MOMENTO)).alumnos[0]).toMatchObject({ inscripcion: { estado_pago: "RESERVADA" }, puede_registrar_pago: false });
+      // Las reservas de una clase cancelada dejan de vencer: se informan como «Pago sin registrar» y sin vencimiento (C §2.18.6, §2.17.4).
+      const [reservaDeCancelada] = (await detalle(cancelada.idTurno, MOMENTO)).alumnos;
+      expect(reservaDeCancelada).toMatchObject({ inscripcion: { estado_pago: "PAGO_SIN_REGISTRAR" }, puede_registrar_pago: false });
+      expect(reservaDeCancelada!.inscripcion).not.toHaveProperty("vence_el");
     }));
   });
 });

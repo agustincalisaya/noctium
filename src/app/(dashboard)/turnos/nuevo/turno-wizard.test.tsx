@@ -199,6 +199,21 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
     expect(container.textContent).toContain("López, Juan");
   });
 
+  it("HU-C-25: dos clics seguidos en «Inscribir» envían un solo PATCH de participantes", async () => {
+    let resolver: (valor: Respuesta) => void = () => {};
+    rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
+      ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
+    await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
+    await pulsar(boton("Crear clase"));
+    const inscribir = botonDialogo("Inscribir");
+    await act(async () => { inscribir.click(); });
+    await act(async () => { inscribir.click(); });
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
+    await act(async () => { resolver(respuesta({ id: "turno-1", estado: "DISPONIBLE" })); });
+    expect(container.textContent).toContain("Clase confirmada");
+    expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
+  });
+
   it("confirma con alumno_ids sin profesor_id, muestra DISPONIBLE y ofrece «Registrar pago» por cada alumno (C §2.18.3)", async () => {
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
     expect(boton("Ver listado de clases")).toBeUndefined();

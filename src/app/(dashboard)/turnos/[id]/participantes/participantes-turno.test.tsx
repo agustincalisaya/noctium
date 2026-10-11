@@ -107,6 +107,21 @@ describe("HU-C-04 formulario", () => {
     expect(patch()).toBeUndefined();
     expect(container.textContent).toContain("López, Juan · DNI 30123456");
   });
+  it("HU-C-25: dos clics seguidos en «Inscribir» envían un solo PATCH de participantes", async () => {
+    let resolver: (valor: ReturnType<typeof respuesta>) => void = () => {};
+    fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH"
+      ? new Promise((resolve) => { resolver = resolve; })
+      : url.includes(OPCIONES) ? respuesta([{ id: "profesor-1", nombre: "Ana", apellido: "Gómez" }]) : respuesta(turno()));
+    await montar();
+    await pedirConfirmacion();
+    const inscribir = botonDialogo("Inscribir");
+    await act(async () => { inscribir.click(); });
+    await act(async () => { inscribir.click(); });
+    expect(fetch.mock.calls.filter(([url, init]) => url.endsWith("/participantes") && init?.method === "PATCH")).toHaveLength(1);
+    await act(async () => { resolver(respuesta({ estado: "DISPONIBLE", inscripciones: [] })); });
+    expect(container.textContent).toContain("Clase confirmada");
+    expect(fetch.mock.calls.filter(([url, init]) => url.endsWith("/participantes") && init?.method === "PATCH")).toHaveLength(1);
+  });
   it("confirma el turno con los IDs seleccionados, muestra el mensaje exacto de éxito y ofrece «Registrar pago» por cada alumno (C §2.18.3)", async () => {
     fetch.mockImplementation(async (url: string, init?: RequestInit) => init?.method === "PATCH"
       ? respuesta({ estado: "DISPONIBLE", inscripciones: [{ alumno_id: "alumno-1", inscripcion_id: "inscripcion-1", estado_pago: "RESERVADA", vence_el: "2026-09-30T10:00:00-03:00", precio: 24000 }] })
