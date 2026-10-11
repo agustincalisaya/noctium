@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
@@ -13,7 +14,7 @@ export const GET = withPermission("pagos:crear", async (req) => {
     return NextResponse.json({ data: await obtenerOpcionesPago(parsed.data.turno_id), error: null });
   } catch (error) {
     if (error instanceof ServiceError && error.code === "TURNO_NO_ENCONTRADO") {
-      return NextResponse.json({ data: null, error: { code: error.code, message: "No se encontró el turno" } }, { status: 404 });
+      return NextResponse.json({ data: null, error: { code: error.code, message: textoC19("errores.turno.noEncontrado") } }, { status: 404 });
     }
     throw error;
   }

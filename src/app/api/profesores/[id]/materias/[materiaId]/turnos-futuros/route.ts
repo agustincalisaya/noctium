@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { NextResponse } from "next/server";
 import { flattenError } from "zod";
 import { withPermission } from "@/server/shared/with-permission";
@@ -49,7 +50,7 @@ export const GET = withPermission("profesores:leer", async (req, ctx) => {
       );
     }
     return NextResponse.json(
-      { data: null, error: { code: "ERROR_INTERNO", message: "No se pudieron cargar los turnos" } },
+      { data: null, error: { code: "ERROR_INTERNO", message: textoC19("ui.clases.errores.noSePudieronCargarLasClases") } },
       { status: 500 },
     );
   }

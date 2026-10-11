@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { texto } from "@/lib/textos";
 import { Badge } from "@/components/ui/badge";
 import { agruparHorariosPorDia, ETIQUETA_DIA } from "@/lib/horario-atencion";
@@ -43,7 +44,7 @@ import { EditarProfesorForm } from "./editar-profesor-form";
  * las materias; `&pendientes=N` suma el aviso de turnos pendientes afectados.
  */
 const ACTUALIZADA_SOLO_MATERIAS = "materias";
-const MENSAJE_MATERIAS_ACTUALIZADAS = "Materias del profesor actualizadas";
+const MENSAJE_MATERIAS_ACTUALIZADAS = textoC19("ui.clases.profesores.materiasDelProfesorActualizadas");
 
 export default async function ProfesorDetallePage({
   params,
@@ -162,9 +163,7 @@ export default async function ProfesorDetallePage({
       {breadcrumb}
 
       {fueActualizada(query) && (
-        <p role="status" className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">
-          Profesor actualizado correctamente
-        </p>
+        <p role="status" className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">{textoC19("ui.clases.profesores.profesorActualizadoCorrectamente")}</p>
       )}
       {soloMaterias && (
         <div role="status" className="space-y-2">
@@ -172,10 +171,7 @@ export default async function ProfesorDetallePage({
             {MENSAJE_MATERIAS_ACTUALIZADAS}
           </p>
           {pendientesAfectados > 0 && (
-            <p className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">
-              Atención: hay {pendientesAfectados} turnos pendientes de las materias quitadas que no van a
-              poder confirmarse con este profesor.
-            </p>
+            <p className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">{textoC19(pendientesAfectados === 1 ? "ui.clases.profesores.pendienteAfectada" : "ui.clases.profesores.pendientesAfectadas", { cantidad: pendientesAfectados })}</p>
           )}
         </div>
       )}
@@ -191,9 +187,7 @@ export default async function ProfesorDetallePage({
           <Link
             href={conPagina(rutaModoEdicion(rutaFicha))}
             className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Editar
-          </Link>
+          >{textoC19("ui.formasPago.editar")}</Link>
         )}
       </div>
       <FichaIdentidad profesor={profesor} />

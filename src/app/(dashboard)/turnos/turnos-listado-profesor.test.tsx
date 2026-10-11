@@ -65,8 +65,8 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
     await montar({ puedeFiltrarProfesor: true, q: "fisica" });
     await elegir(LAURA);
     expect(llamadasListado().at(-1)).toBe(`/api/turnos?pagina=1&q=fisica&profesor_id=${LAURA}`);
-    for (const estado of ["Disponible", "Cancelado", "Pendiente"]) expect(container.querySelector("tbody")?.textContent).toContain(estado);
-    expect(container.textContent).toContain("3 turnos");
+    for (const estado of ["Disponible", "Cancelada", "Pendiente"]) expect(container.querySelector("tbody")?.textContent).toContain(estado);
+    expect(container.textContent).toContain("3 clases");
     expect(container.textContent).toContain("Profesor: Laura Méndez");
     expect(window.location.search).toBe(`?q=fisica&profesor_id=${LAURA}&pagina=1&orden=fecha_hora_asc`);
     const verDetalle = [...container.querySelectorAll("a")].find((a) => a.textContent === "Ver detalle")!;
@@ -89,7 +89,7 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
   it("AC4: profesor sin turnos → «Este profesor no tiene turnos registrados», con el chip para quitar el filtro", async () => {
     fetch.mockImplementation(async (url: string) => url === "/api/turnos/filtros/profesores" ? respuesta(PROFESORES) : respuesta(datos([])));
     await montar({ puedeFiltrarProfesor: true, profesorId: MARCO });
-    expect(container.textContent).toContain("Este profesor no tiene turnos registrados");
+    expect(container.textContent).toContain("Este profesor no tiene clases registradas");
     expect(container.textContent).toContain("Profesor: Marco Rossi");
   });
 
@@ -98,7 +98,7 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
     await montar({ esProfesor: true });
     expect(selector()).toBeNull();
     expect(fetch).not.toHaveBeenCalledWith("/api/turnos/filtros/profesores", expect.anything());
-    expect(container.textContent).toContain("Este profesor no tiene turnos registrados");
+    expect(container.textContent).toContain("Este profesor no tiene clases registradas");
   });
 
   it("un 403/404 del filtro se informa con el aviso del listado", async () => {
@@ -121,7 +121,7 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
       ? respuesta(PROFESORES)
       : respuesta({ items: [item("t1", "DISPONIBLE")], paginacion: { total: 25, pagina_actual: 2, total_paginas: 3, por_pagina: 10 } }));
     await montar({ puedeFiltrarProfesor: true, profesorId: LAURA, pagina: 2 });
-    const paginador = container.querySelector('nav[aria-label="Páginas de turnos"]')!;
+    const paginador = container.querySelector("nav[aria-label=\"Páginas de clases\"]")!;
     const hrefs = [...paginador.querySelectorAll("a")].map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual([
       `/turnos?profesor_id=${LAURA}&pagina=1&orden=fecha_hora_asc`,
@@ -134,7 +134,7 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
       ? new Promise(() => {})
       : respuesta(datos([item("t1", "DISPONIBLE")])));
     await montar({ puedeFiltrarProfesor: true, profesorId: LAURA });
-    expect(container.textContent).toContain("1 turno");
+    expect(container.textContent).toContain("1 clase");
     expect(container.textContent).not.toContain("Profesor:");
     expect(container.querySelector('button[aria-label="Quitar filtro de profesor"]')).toBeNull();
     expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Limpiar")).toBe(true);

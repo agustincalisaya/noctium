@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import Link from "next/link";
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -22,7 +24,7 @@ const dias = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "S
 
 function etiquetaDuracion(minutosTotales: number) {
   const horas = minutosTotales / 60;
-  return Number.isInteger(horas) ? `${horas} ${horas === 1 ? "hora" : "horas"}` : `${minutosTotales} minutos`;
+  return Number.isInteger(horas) ? `${horas} ${horas === 1 ? "hora" : "horas"}` : textoC19("ui.clases.interfaz.minutos", { valor1: minutosTotales });
 }
 
 /** Duración elegida o, sin elegir, la mínima permitida (no bloquea la Hora). */
@@ -54,10 +56,10 @@ function fechaMaxima(hoy: string, diasMaximos: number) {
 function errorDeFecha(fecha: string, hoy: string, maximo: string, parametros: Parametros) {
   if (!fecha) return "";
   const dia = new Date(`${fecha}T00:00:00.000Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(dia.getTime()) || dia.toISOString().slice(0, 10) !== fecha) return "Ingresá una fecha válida";
-  if (fecha < hoy) return "La fecha no puede ser anterior a hoy";
-  if (fecha > maximo) return `La fecha no puede superar ${parametros.anticipacion_maxima_dias} días de anticipación`;
-  if (!parametros.dias_operativos.includes(dias[dia.getUTCDay()])) return "El centro no atiende el día seleccionado";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(dia.getTime()) || dia.toISOString().slice(0, 10) !== fecha) return textoC19("ui.clases.interfaz.ingresaUnaFechaValida");
+  if (fecha < hoy) return textoC19("ui.clases.interfaz.laFechaNoPuedeSerAnteriorAHoy");
+  if (fecha > maximo) return textoC19("ui.clases.interfaz.laFechaNoPuedeSuperarDiasDeAnticipacion", { valor1: parametros.anticipacion_maxima_dias });
+  if (!parametros.dias_operativos.includes(dias[dia.getUTCDay()])) return textoC19("ui.clases.interfaz.elCentroNoAtiendeElDiaSeleccionado");
   return "";
 }
 
@@ -77,7 +79,7 @@ async function pedirAulas(turnoId: string) {
   const respuesta = await fetchAutenticado(`/api/turnos/aula/opciones?turno_id=${encodeURIComponent(turnoId)}`, { cache: "no-store" });
   const valor = await respuesta.json().catch(() => null);
   if (valor?.error?.code === "SIN_AULAS_ACTIVAS") return { aulas: [] as AulaOpcion[], sinAulas: true };
-  if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? "No se pudieron cargar las aulas");
+  if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudieronCargarLasAulas"));
   return { aulas: valor.data as AulaOpcion[], sinAulas: false };
 }
 
@@ -124,25 +126,25 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         ...(id ? [fetchAutenticado(`/api/turnos/${encodeURIComponent(id)}`, { cache: "no-store" })] : []),
       ]);
       const valores = await Promise.all(respuestas.map((respuesta) => respuesta.json().catch(() => null)));
-      if (!respuestas[0].ok || !valores[0]?.data) throw new Error(valores[0]?.error?.message ?? "No se pudo cargar la configuración");
+      if (!respuestas[0].ok || !valores[0]?.data) throw new Error(valores[0]?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoCargarLaConfiguracion"));
       const configuracion = valores[0].data.parametros as Parametros;
       const momentoCarga = momentoDelCentro(new Date(), configuracion.zona_horaria);
-      if (id && (!respuestas[1].ok || !valores[1]?.data)) throw new Error(valores[1]?.error?.message ?? "No se pudo cargar el turno");
+      if (id && (!respuestas[1].ok || !valores[1]?.data)) throw new Error(valores[1]?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoCargarLaClase"));
       const actual = id ? valores[1].data as Turno : null;
       // En el alta todavía no hay id; en edición se consulta el intervalo persistido.
       let opciones: Awaited<ReturnType<typeof pedirAulas>> | null = null;
       let errorOpciones = "";
       if (actual?.estado === "PENDIENTE") {
         try { opciones = await pedirAulas(id!); }
-        catch (e) { errorOpciones = e instanceof Error ? e.message : "No se pudieron cargar las aulas"; }
+        catch (e) { errorOpciones = e instanceof Error ? e.message : textoC19("ui.clases.interfaz.noSePudieronCargarLasAulas"); }
       }
       let profesores: ProfesorLegacy[] = [];
       let avisoProfesores = "";
       if (actual?.estado === "PENDIENTE" && !actual.profesor_id) {
         const respuestaProfesores = await fetchAutenticado(`/api/turnos/profesores/opciones?turno_id=${encodeURIComponent(id!)}`, { cache: "no-store" });
         const valorProfesores = await respuestaProfesores.json().catch(() => null);
-        if (valorProfesores?.error?.code === "SIN_PROFESORES_PARA_MATERIA") avisoProfesores = "No hay profesores activos asociados a esta materia";
-        else if (!respuestaProfesores.ok || !Array.isArray(valorProfesores?.data)) avisoProfesores = valorProfesores?.error?.message ?? "No se pudieron cargar los profesores";
+        if (valorProfesores?.error?.code === "SIN_PROFESORES_PARA_MATERIA") avisoProfesores = textoC19("ui.clases.interfaz.noHayProfesoresActivosAsociadosAEstaMateria");
+        else if (!respuestaProfesores.ok || !Array.isArray(valorProfesores?.data)) avisoProfesores = valorProfesores?.error?.message ?? textoC19("ui.turnos.solicitar.errorProfesores");
         else profesores = valorProfesores.data;
       }
       setMaterias(valores[0].data.materias); setParametros(configuracion); setAhora(new Date());
@@ -157,12 +159,12 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         const cargados = { fecha: actual.fecha, duracion_min: String(actual.duracion_minutos), hora_inicio: actual.hora_inicio, materia_id: actual.materia_id };
         setOriginales(cargados);
         setCampos({ ...cargados, duracion_min: duracion, hora_inicio: horaVigente ? actual.hora_inicio : "" });
-        if (!duracionVigente) setErrores({ duracion_min: "La duración guardada ya no está permitida. Elegí otra." });
-        if (!horaVigente) setAvisoHora("La hora anterior ya no es válida. Elegí otra.");
+        if (!duracionVigente) setErrores({ duracion_min: textoC19("ui.clases.interfaz.laDuracionGuardadaYaNoEstaPermitidaElegiOtra") });
+        if (!horaVigente) setAvisoHora(textoC19("ui.clases.interfaz.laHoraAnteriorYaNoEsValidaElegiOtra"));
         const seleccion = actual.aula_id && opciones?.aulas.some((aula) => aula.id === actual.aula_id) ? actual.aula_id : "";
         setAulaId(seleccion); setAulaIdOriginal(actual.aula_id ?? "");
       }
-    } catch (e) { setErrorCarga(e instanceof Error ? e.message : "No se pudo cargar la configuración"); }
+    } catch (e) { setErrorCarga(e instanceof Error ? e.message : textoC19("ui.clases.interfaz.noSePudoCargarLaConfiguracion")); }
     finally { setCargando(false); }
   }, [id]);
 
@@ -182,7 +184,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
       return opciones;
     } catch (e) {
       if (version !== versionConsultaAulas.current) return null;
-      setErrorAula(e instanceof Error ? e.message : "No se pudieron cargar las aulas");
+      setErrorAula(e instanceof Error ? e.message : textoC19("ui.clases.interfaz.noSePudieronCargarLasAulas"));
       setEstadoAulas("error");
       return null;
     }
@@ -201,7 +203,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
   const maximo = parametros && momento ? fechaMaxima(momento.fecha, parametros.anticipacion_maxima_dias) : "";
   const fechaInvalida = parametros && momento ? errorDeFecha(campos.fecha, momento.fecha, maximo, parametros) : "";
   const horas = parametros && momento ? opcionesDeHora(campos.fecha, momento.fecha, momento.hora, parametros, duracionEfectiva(campos.duracion_min, parametros)) : [];
-  const horaInvalida = campos.hora_inicio && !horas.includes(campos.hora_inicio) ? "Elegí una hora de inicio válida para la fecha seleccionada" : "";
+  const horaInvalida = campos.hora_inicio && !horas.includes(campos.hora_inicio) ? textoC19("ui.clases.interfaz.elegiUnaHoraDeInicioValidaParaLaFechaSeleccionada") : "";
   const sinHorarios = Boolean(campos.fecha && !fechaInvalida && horas.length === 0);
   const configuracionValida = Boolean(parametros && momento && campos.fecha && !fechaInvalida && campos.duracion_min && campos.hora_inicio && !horaInvalida && campos.materia_id);
   const puedeGuardar = configuracionValida && !guardando && (!turnoId || configuracionCambiada || (estadoAulas === "listas" && aulaCambiada))
@@ -226,7 +228,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
     const nuevasHoras = parametros && momento ? opcionesDeHora(fecha, momento.fecha, momento.hora, parametros, duracionEfectiva(campos.duracion_min, parametros)) : [];
     if (campos.hora_inicio && !nuevasHoras.includes(campos.hora_inicio)) {
       setCampos((anterior) => ({ ...anterior, fecha, hora_inicio: "" }));
-      setAvisoHora("La hora anterior ya no es válida para esta fecha. Elegí otra.");
+      setAvisoHora(textoC19("ui.clases.interfaz.laHoraAnteriorYaNoEsValidaParaEstaFechaElegiOtra"));
       setErrores((anterior) => ({ ...anterior, fecha: undefined, hora_inicio: undefined }));
       setError(""); setAviso("");
       return;
@@ -241,7 +243,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
     const nuevasHoras = parametros && momento ? opcionesDeHora(campos.fecha, momento.fecha, momento.hora, parametros, duracionEfectiva(duracion, parametros)) : [];
     if (campos.hora_inicio && !nuevasHoras.includes(campos.hora_inicio)) {
       setCampos((anterior) => ({ ...anterior, duracion_min: duracion, hora_inicio: "" }));
-      setAvisoHora("La hora anterior ya no es válida para esta duración. Elegí otra.");
+      setAvisoHora(textoC19("ui.clases.interfaz.laHoraAnteriorYaNoEsValidaParaEstaDuracionElegiOtra"));
       setErrores((anterior) => ({ ...anterior, duracion_min: undefined, hora_inicio: undefined }));
       setError(""); setAviso("");
       return;
@@ -275,7 +277,7 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
           const detalles = valor?.error?.detalles?.fieldErrors as Partial<Record<keyof Campos, string[]>> | undefined;
           if (detalles) setErrores(Object.fromEntries(Object.entries(detalles).map(([clave, mensajes]) => [clave, mensajes?.[0]])));
           else if (codigo && campoError[codigo]) setErrores({ [campoError[codigo]]: valor.error.message });
-          else setError(valor?.error?.message ?? "No se pudo guardar el turno");
+          else setError(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoGuardarLaClase"));
           return;
         }
         profesorDesasignado = Boolean(valor.data.profesor_desasignado);
@@ -311,56 +313,56 @@ export function TurnoConfiguracion({ id, retorno }: { id?: string; retorno: stri
         });
         const valor = await respuesta.json().catch(() => null);
         if (!respuesta.ok || !valor?.data) {
-          setErrorAula(valor?.error?.message ?? "No se pudo asignar el aula");
-          setAviso("El turno ya quedó guardado como Pendiente, sin aula. Podés elegir otra aula ahora o asignarla más tarde.");
+          setErrorAula(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoAsignarElAula"));
+          setAviso(textoC19("ui.clases.interfaz.laClaseYaQuedoGuardadaComoPendienteSinAulaPodesElegirOtra"));
           return;
         }
         aula = { nombre: aulas.find(({ id: otra }) => otra === aulaId)?.nombre ?? "", cupo: valor.data.cupo_maximo };
         setAulaIdOriginal(aulaId);
       }
       setResultado({ id: idGuardado, fecha: campos.fecha, hora_inicio: campos.hora_inicio, hora_fin: fin, aula: aula?.nombre ?? null, cupo_maximo: aula?.cupo ?? null, profesor_desasignado: profesorDesasignado });
-    } catch { setError("No se pudo guardar el turno. Intentá nuevamente."); }
+    } catch { setError(textoC19("ui.clases.interfaz.noSePudoGuardarLaClaseIntentaNuevamente")); }
     finally { guardandoRef.current = false; setGuardando(false); }
   };
 
   const enlace = "underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const aulaGuardadaNoDisponible = Boolean(turno?.aula_id && !aulas.some((aula) => aula.id === turno.aula_id));
   return <main className="mx-auto w-full min-w-0 max-w-2xl space-y-5 p-6">
-    <LinkProtegido href={retorno} prefetch={false} className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Volver al listado</LinkProtegido>
-    <h1 className="text-2xl font-semibold">{id ? "Modificar configuración del turno" : "Configurar turno"}</h1>
-    {cargando ? <p role="status">Cargando configuración</p> : errorCarga ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{errorCarga}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : resultado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground">
-      <p className="font-semibold">{id ? "Configuración actualizada" : "Turno configurado"}</p>
-      <p>{resultado.fecha} · {resultado.hora_inicio}–{resultado.hora_fin} · {resultado.aula ? `${resultado.aula} · Cupo máximo: ${resultado.cupo_maximo}` : "Sin aula asignada"} · Pendiente</p>
-      {resultado.profesor_desasignado && <p>El profesor dejó de corresponder a la materia y fue desasignado. Debe reasignarse.</p>}
-      {!resultado.aula && <p>Asigná un aula para poder continuar con profesor y alumnos.</p>}
+    <LinkProtegido href={retorno} prefetch={false} className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{textoC19("ui.clases.interfaz.volverAlListado")}</LinkProtegido>
+    <h1 className="text-2xl font-semibold">{id ? textoC19("ui.clases.interfaz.modificarConfiguracionDeLaClase") : textoC19("ui.clases.interfaz.configurarClase")}</h1>
+    {cargando ? <p role="status">{textoC19("ui.clases.interfaz.cargandoConfiguracion")}</p> : errorCarga ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{errorCarga}</p><Button variant="outline" onClick={() => void cargar()}>{textoC19("ui.formasPago.reintentar")}</Button></div> : resultado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground">
+      <p className="font-semibold">{id ? textoC19("ui.clases.interfaz.configuracionActualizada") : textoC19("ui.clases.interfaz.claseConfigurada")}</p>
+      <p>{resultado.fecha} · {resultado.hora_inicio}–{resultado.hora_fin} · {resultado.aula ? textoC19("ui.clases.interfaz.cupoMaximo", { valor1: resultado.aula, valor2: resultado.cupo_maximo }) : textoC19("ui.clases.interfaz.sinAulaAsignada")}{(" " + textoC19("ui.clases.interfaz.pendiente"))}</p>
+      {resultado.profesor_desasignado && <p>{textoC19("ui.clases.interfaz.elProfesorDejoDeCorresponderALaMateriaYFueDesasignadoDebe")}</p>}
+      {!resultado.aula && <p>{textoC19("ui.clases.interfaz.asignaUnAulaParaPoderContinuarConProfesorYAlumnos")}</p>}
       <div className="flex flex-wrap gap-4">
-        {resultado.aula ? <Link className={enlace} href={`/turnos/${encodeURIComponent(resultado.id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Continuar con profesor y alumnos</Link>
-          : <button type="button" className={enlace} onClick={() => setResultado(null)}>Asignar aula ahora</button>}
-        <Link className={enlace} href={`/turnos/${encodeURIComponent(resultado.id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Ver detalle</Link>
-        <Link className={enlace} href={retorno} prefetch={false}>Volver al listado</Link>
+        {resultado.aula ? <Link className={enlace} href={`/turnos/${encodeURIComponent(resultado.id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.continuarConProfesorYAlumnos")}</Link>
+          : <button type="button" className={enlace} onClick={() => setResultado(null)}>{textoC19("ui.clases.interfaz.asignarAulaAhora")}</button>}
+        <Link className={enlace} href={`/turnos/${encodeURIComponent(resultado.id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.verDetalle")}</Link>
+        <Link className={enlace} href={retorno} prefetch={false}>{textoC19("ui.clases.interfaz.volverAlListado")}</Link>
       </div>
-    </div> : turno && turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de configuración.</p> : materias.length === 0 ? <p role="status">No hay materias activas para configurar turnos</p> : <form noValidate onSubmit={(event) => void guardar(event)} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
-      <p className="text-sm text-muted-foreground">Horario operativo: {parametros?.apertura}–{parametros?.cierre}. Duraciones disponibles: {parametros?.duraciones_permitidas_minutos.map(etiquetaDuracion).join(", ")}. Anticipación máxima: {parametros?.anticipacion_maxima_dias} días.</p>
-      <div className="space-y-1"><label htmlFor="fecha" className="text-sm font-medium">Fecha *</label><Input id="fecha" type="date" required min={momento?.fecha} max={maximo} value={campos.fecha} onChange={(e) => cambiarFecha(e.target.value)} aria-invalid={Boolean(errores.fecha || fechaInvalida)} aria-describedby={errores.fecha || fechaInvalida ? "fecha-error" : "fecha-ayuda"} /><p id="fecha-ayuda" className="text-sm text-muted-foreground">Elegí una fecha entre hoy y el {maximo}. Los días no operativos se indican al seleccionarlos.</p>{(errores.fecha || fechaInvalida) && <p id="fecha-error" role="alert" className="text-sm text-destructive">{errores.fecha || fechaInvalida}</p>}</div>
+    </div> : turno && turno.estado !== "PENDIENTE" ? <p role="alert">{textoC19("ui.clases.interfaz.unaClaseDisponibleOCompletaNoAdmiteCambiosDeConfiguracion")}</p> : materias.length === 0 ? <p role="status">{textoC19("ui.clases.interfaz.noHayMateriasActivasParaConfigurarClases")}</p> : <form noValidate onSubmit={(event) => void guardar(event)} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
+      <p className="text-sm text-muted-foreground">{(textoC19("ui.clases.interfaz.horarioOperativo") + " ")}{parametros?.apertura}–{parametros?.cierre}{(textoC19("ui.clases.interfaz.duracionesDisponibles") + " ")}{parametros?.duraciones_permitidas_minutos.map(etiquetaDuracion).join(", ")}{(textoC19("ui.clases.interfaz.anticipacionMaxima") + " ")}{parametros?.anticipacion_maxima_dias}{(" " + textoC19("ui.clases.interfaz.dias"))}</p>
+      <div className="space-y-1"><label htmlFor="fecha" className="text-sm font-medium">{textoC19("ui.clases.interfaz.fecha")}</label><Input id="fecha" type="date" required min={momento?.fecha} max={maximo} value={campos.fecha} onChange={(e) => cambiarFecha(e.target.value)} aria-invalid={Boolean(errores.fecha || fechaInvalida)} aria-describedby={errores.fecha || fechaInvalida ? "fecha-error" : "fecha-ayuda"} /><p id="fecha-ayuda" className="text-sm text-muted-foreground">{(textoC19("ui.clases.interfaz.elegiUnaFechaEntreHoyYEl") + " ")}{maximo}{textoC19("ui.clases.interfaz.losDiasNoOperativosSeIndicanAlSeleccionarlos")}</p>{(errores.fecha || fechaInvalida) && <p id="fecha-error" role="alert" className="text-sm text-destructive">{errores.fecha || fechaInvalida}</p>}</div>
       <fieldset id="duracion" aria-invalid={Boolean(errores.duracion_min)} aria-describedby={errores.duracion_min ? "duracion-error" : "duracion-ayuda"} className="space-y-1">
-        <legend className="text-sm font-medium">Duración *</legend>
+        <legend className="text-sm font-medium">{textoC19("ui.clases.interfaz.duracion")}</legend>
         <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">{parametros?.duraciones_permitidas_minutos.map((duracion) => <label key={duracion} className="flex items-center gap-2 text-sm"><input type="radio" name="duracion_min" value={String(duracion)} checked={campos.duracion_min === String(duracion)} onChange={(e) => cambiarDuracion(e.target.value)} className="h-4 w-4 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />{etiquetaDuracion(duracion)}</label>)}</div>
-        <p id="duracion-ayuda" className="text-sm text-muted-foreground">Elegí cuánto dura el turno. Define la hora de finalización y las horas de inicio disponibles.</p>
+        <p id="duracion-ayuda" className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.elegiCuantoDuraLaClaseDefineLaHoraDeFinalizacionYLas")}</p>
         {errores.duracion_min && <p id="duracion-error" role="alert" className="text-sm text-destructive">{errores.duracion_min}</p>}
       </fieldset>
-      <div className="space-y-1"><label htmlFor="hora" className="text-sm font-medium">Hora de inicio *</label><select id="hora" required value={campos.hora_inicio} onChange={(e) => cambiar("hora_inicio", e.target.value)} disabled={!campos.fecha || Boolean(fechaInvalida) || horas.length === 0} aria-invalid={Boolean(errores.hora_inicio || horaInvalida || sinHorarios)} aria-describedby={errores.hora_inicio || horaInvalida || sinHorarios ? "hora-error" : avisoHora ? "hora-aviso" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"><option value="">Seleccioná una hora</option>{horas.map((hora) => <option key={hora} value={hora}>{hora}</option>)}</select>{avisoHora && !horaInvalida && <p id="hora-aviso" role="status" className="text-sm text-warning-foreground">{avisoHora}</p>}{(errores.hora_inicio || horaInvalida || sinHorarios) && <p id="hora-error" role="alert" className="text-sm text-destructive">{errores.hora_inicio || horaInvalida || "No hay horarios de inicio válidos para esta fecha"}</p>}{fechaInvalida === "El centro no atiende el día seleccionado" && <p className="text-sm text-muted-foreground">No se ofrecen horarios en días no operativos.</p>}</div>
-      <p className="text-sm">Hora de finalización: <strong aria-live="polite">{fin}</strong> <span className="text-muted-foreground">(calculada automáticamente; solo lectura)</span></p>
-      <div className="space-y-1"><label htmlFor="materia" className="text-sm font-medium">Materia *</label><select id="materia" required value={campos.materia_id} onChange={(e) => cambiar("materia_id", e.target.value)} aria-invalid={Boolean(errores.materia_id)} aria-describedby={errores.materia_id ? "materia-error" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná una materia</option>{materias.map((materia) => <option key={materia.id} value={materia.id}>{materia.nombre}{materia.codigo ? ` (${materia.codigo})` : ""}</option>)}</select><p id="materia-error" className="text-sm text-destructive">{errores.materia_id}</p></div>
-      {id && turno && !turno.profesor_id && <div className="space-y-1"><label htmlFor="profesor-legacy" className="text-sm font-medium">Profesor para modificar la configuración *</label><select id="profesor-legacy" value={profesorIdLegacy} onChange={(e) => { setProfesorIdLegacy(e.target.value); setError(""); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná un profesor</option>{profesoresLegacy.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>{avisoProfesoresLegacy && <p role="status" className="text-sm text-warning-foreground">{avisoProfesoresLegacy}</p>}<p className="text-sm text-muted-foreground">Este turno anterior no tiene profesor. Para cambiar fecha, hora, duración o materia, elegí uno disponible. Podés asignar el aula sin modificar esos datos.</p></div>}
-      {!turnoId ? null : intervaloCambiado ? <p role="status" className="border-t border-border pt-5 text-sm text-muted-foreground">Guardá la configuración para consultar aulas para el nuevo horario.</p>
-        : estadoAulas === "cargando" ? <p role="status" className="border-t border-border pt-5">Cargando aulas disponibles</p>
-          : estadoAulas === "error" ? <div role="alert" className="space-y-2 border-t border-border pt-5"><p>{errorAula}</p><Button type="button" variant="outline" onClick={() => void recargarAulas()}>Reintentar</Button></div>
-            : estadoAulas === "sin-consultar" ? <div className="space-y-2 border-t border-border pt-5"><Button type="button" variant="outline" onClick={() => void recargarAulas()}>Consultar aulas</Button></div>
+      <div className="space-y-1"><label htmlFor="hora" className="text-sm font-medium">{textoC19("ui.clases.interfaz.horaDeInicio")}{" "}</label><select id="hora" required value={campos.hora_inicio} onChange={(e) => cambiar("hora_inicio", e.target.value)} disabled={!campos.fecha || Boolean(fechaInvalida) || horas.length === 0} aria-invalid={Boolean(errores.hora_inicio || horaInvalida || sinHorarios)} aria-describedby={errores.hora_inicio || horaInvalida || sinHorarios ? "hora-error" : avisoHora ? "hora-aviso" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"><option value="">{textoC19("ui.clases.interfaz.seleccionaUnaHora")}</option>{horas.map((hora) => <option key={hora} value={hora}>{hora}</option>)}</select>{avisoHora && !horaInvalida && <p id="hora-aviso" role="status" className="text-sm text-warning-foreground">{avisoHora}</p>}{(errores.hora_inicio || horaInvalida || sinHorarios) && <p id="hora-error" role="alert" className="text-sm text-destructive">{errores.hora_inicio || horaInvalida || textoC19("ui.clases.interfaz.noHayHorariosDeInicioValidosParaEstaFecha")}</p>}{fechaInvalida === textoC19("ui.clases.interfaz.elCentroNoAtiendeElDiaSeleccionado") && <p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.noSeOfrecenHorariosEnDiasNoOperativos")}</p>}</div>
+      <p className="text-sm">{(textoC19("ui.clases.interfaz.horaDeFinalizacion") + " ")}<strong aria-live="polite">{fin}</strong> <span className="text-muted-foreground">{textoC19("ui.clases.interfaz.calculadaAutomaticamenteSoloLectura")}</span></p>
+      <div className="space-y-1"><label htmlFor="materia" className="text-sm font-medium">{textoC19("ui.clases.interfaz.materia")}</label><select id="materia" required value={campos.materia_id} onChange={(e) => cambiar("materia_id", e.target.value)} aria-invalid={Boolean(errores.materia_id)} aria-describedby={errores.materia_id ? "materia-error" : undefined} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">{textoC19("ui.clases.calendario.seleccionaUnaMateria")}</option>{materias.map((materia) => <option key={materia.id} value={materia.id}>{materia.nombre}{materia.codigo ? ` (${materia.codigo})` : ""}</option>)}</select><p id="materia-error" className="text-sm text-destructive">{errores.materia_id}</p></div>
+      {id && turno && !turno.profesor_id && <div className="space-y-1"><label htmlFor="profesor-legacy" className="text-sm font-medium">{textoC19("ui.clases.interfaz.profesorParaModificarLaConfiguracion")}</label><select id="profesor-legacy" value={profesorIdLegacy} onChange={(e) => { setProfesorIdLegacy(e.target.value); setError(""); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">{textoC19("ui.clases.calendario.seleccionaUnProfesor")}</option>{profesoresLegacy.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>{avisoProfesoresLegacy && <p role="status" className="text-sm text-warning-foreground">{avisoProfesoresLegacy}</p>}<p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.estaClaseAnteriorNoTieneProfesorParaCambiarFechaHoraDuracionO")}</p></div>}
+      {!turnoId ? null : intervaloCambiado ? <p role="status" className="border-t border-border pt-5 text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.guardaLaConfiguracionParaConsultarAulasParaElNuevoHorario")}</p>
+        : estadoAulas === "cargando" ? <p role="status" className="border-t border-border pt-5">{textoC19("ui.clases.interfaz.cargandoAulasDisponibles")}</p>
+          : estadoAulas === "error" ? <div role="alert" className="space-y-2 border-t border-border pt-5"><p>{errorAula}</p><Button type="button" variant="outline" onClick={() => void recargarAulas()}>{textoC19("ui.formasPago.reintentar")}</Button></div>
+            : estadoAulas === "sin-consultar" ? <div className="space-y-2 border-t border-border pt-5"><Button type="button" variant="outline" onClick={() => void recargarAulas()}>{textoC19("ui.clases.interfaz.consultarAulas")}</Button></div>
               : <SeccionAulaTurno aulas={aulas} aulaId={aulaId} aulaIdGuardada={aulaIdOriginal} aulaGuardadaNoDisponible={aulaGuardadaNoDisponible} habilitada={configuracionValida && !guardando} sinAulas={sinAulas} error={errorAula}
                 onCambiar={(valor) => { setAulaId(valor); setErrorAula(""); setAviso(""); setError(""); }} onReintentar={() => void recargarAulas()} />}
       {aviso && <p role="status" className="rounded-md bg-warning p-3 text-sm text-warning-foreground">{aviso}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!puedeGuardar}>{guardando ? "Guardando…" : turnoId ? "Guardar cambios" : "Guardar turno"}</Button>{turnoId && !turno?.aula_id && !aulaId && !configuracionCambiada && !intervaloCambiado && estadoAulas !== "cargando" && <Button type="button" variant="outline" onClick={() => setResultado({ id: turnoId, fecha: campos.fecha, hora_inicio: campos.hora_inicio, hora_fin: fin, aula: null, cupo_maximo: null })}>Dejar sin aula por ahora</Button>}<Link className={buttonVariants({ variant: "outline" })} href={retorno} prefetch={false}>Cancelar</Link></div>
+      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={!puedeGuardar}>{guardando ? "Guardando…" : turnoId ? textoC19("ui.clases.interfaz.guardarCambios") : textoC19("ui.clases.interfaz.guardarClase")}</Button>{turnoId && !turno?.aula_id && !aulaId && !configuracionCambiada && !intervaloCambiado && estadoAulas !== "cargando" && <Button type="button" variant="outline" onClick={() => setResultado({ id: turnoId, fecha: campos.fecha, hora_inicio: campos.hora_inicio, hora_fin: fin, aula: null, cupo_maximo: null })}>{textoC19("ui.clases.interfaz.dejarSinAulaPorAhora")}</Button>}<Link className={buttonVariants({ variant: "outline" })} href={retorno} prefetch={false}>{textoC19("ui.formasPago.cancelar")}</Link></div>
     </form>}
   </main>;
 }

@@ -1,0 +1,100 @@
+{
+  "historia": "HU-C-19",
+  "base": "e753682",
+  "roles": {
+    "Gerente": [
+      "/home",
+      "/turnos",
+      "/turnos/seed-turno-01 (enlace desde listado)",
+      "/calendario/profesor (selección y Mes)"
+    ],
+    "Mesa de entrada": [
+      "/home",
+      "/turnos",
+      "/turnos/nuevo (individual y recurrente, sin guardar)"
+    ],
+    "Profesor": [
+      "/home",
+      "/turnos",
+      "/calendario/profesor"
+    ],
+    "Alumno": [
+      "/home",
+      "/alumno (Próximas y Anteriores)",
+      "/alumno/turnos/solicitar"
+    ]
+  },
+  "conservados": [
+    "rutas /turnos",
+    "EstadoTurno",
+    "modelos y tablas",
+    "permisos",
+    "claves legacy",
+    "eventos técnicos"
+  ],
+  "canales": {
+    "metadata": "Noctium; sin terminología antigua",
+    "emails": "recuperación y contacto existentes sin terminología antigua",
+    "impresiones": "I-11/I-12 pendientes de otras historias; repetir al cierre del sprint"
+  },
+  "estado": "verificación local y recorrido completados; merge pendiente",
+  "browser": {
+    "motor": "Chromium mediante Playwright MCP configurado",
+    "escritorio": "1366×900",
+    "movil": "390×844",
+    "cuentas": [
+      "gerente@noctium.local",
+      "mesa.entrada@noctium.local",
+      "profesor1@noctium.local",
+      "alumno01@noctium.local"
+    ],
+    "datos": "Base descartable D-08 reutilizada; sin seed ni mutaciones de negocio para las capturas",
+    "resultados": "Sin terminología antigua en las vistas y aria inspeccionados; móvil Mesa/Profesor/Alumno sin desborde de documento; selección de Materia mediante teclado"
+  },
+  "http": [
+    {
+      "rol": "Gerente",
+      "ruta": "/api/turnos/c19-inexistente",
+      "status": 404,
+      "code": "TURNO_NO_ENCONTRADO",
+      "message": "No se encontró la clase"
+    },
+    {
+      "rol": "Profesor",
+      "ruta": "/api/turnos/seed-turno-01",
+      "status": 403,
+      "code": "SIN_PERMISO"
+    },
+    {
+      "rol": "Alumno",
+      "ruta": "/api/turnos",
+      "status": 403,
+      "code": "SIN_PERMISO"
+    }
+  ],
+  "coincidenciasTecnicasPermitidas": [
+    "IDs de aria-labelledby (datos-turno-titulo, pago-turno-titulo, titulo-resumen-turno)",
+    "nombres de modelos, variables, tipos, archivos y rutas",
+    "claves ui.turnos y errores.turno",
+    "SQL y tabla turnos",
+    "permisos y códigos de evento turno:*",
+    "logs e invariantes internos de calendario/historial/turno.publico; las rutas traducen fallos inesperados a un mensaje genérico"
+  ],
+  "capturas": [
+    "alumno-mis-clases-movil.png",
+    "mesa-nueva-clase-movil.png",
+    "alumno-mis-clases.png",
+    "profesor-calendario-movil.png",
+    "gerente-calendario-mes.png",
+    "profesor-clases.png",
+    "gerente-clases.png",
+    "mesa-clases.png"
+  ],
+  "checksLocales": {
+    "typescript": 0,
+    "lint": 0,
+    "checkerC23": 0,
+    "diffCheck": 0,
+    "advertenciaLint": "CALENDARIO sin uso en Sidebar, preexistente"
+  }
+}

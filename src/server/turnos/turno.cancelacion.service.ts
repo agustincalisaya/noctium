@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import type { EstadoTurno } from "@prisma/client";
 import { ahora } from "@/server/shared/reloj";
 import { ServiceError } from "@/server/shared/service-error";
@@ -38,10 +39,10 @@ export async function cancelarTurnoEnTransaccion(tx: import("@/server/shared/tra
       SELECT "idTurno", "estadoTurno", "fechaTurno", "horaInicioTurno", "profesorId", "aulaId"
       FROM "turnos" WHERE "idTurno" = ${id} FOR UPDATE
     `;
-    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-    if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "El turno ya está cancelado");
+    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+    if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", textoC19("ui.clases.errores.laClaseYaEstaCancelada"));
     if (turno.estadoTurno !== "PENDIENTE" && !turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) {
-      throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó: no se puede cancelar");
+      throw new ServiceError("TURNO_VENCIDO", textoC19("ui.clases.errores.elHorarioDeLaClaseYaPasoNoSePuedeCancelar"));
     }
 
     const momento = ahora();
@@ -51,6 +52,6 @@ export async function cancelarTurnoEnTransaccion(tx: import("@/server/shared/tra
       where: { idTurno: id, estadoTurno: { in: ["PENDIENTE", "DISPONIBLE", "COMPLETO"] } },
       data: { estadoTurno: "CANCELADO", modificadoPorUsuarioId: usuarioId },
     });
-    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", textoC19("ui.clases.errores.elClaseCambioMientrasLaEditabasVolveACargarla"));
     return { turno, alumnoIds: inscriptos.map(({ alumnoId }) => alumnoId) };
 }

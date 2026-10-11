@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
   const estadoAlta = useRef("");
   // Solo se gestiona en turnos DISPONIBLE/COMPLETO, que siempre tienen aula y cupo.
   const cupoAlcanzado = turno.cupo_maximo !== null && turno.alumnos.length >= turno.cupo_maximo;
-  const ocupacion = turno.cupo_maximo === null ? "Sin asignar" : `${turno.alumnos.length} de ${turno.cupo_maximo}`;
+  const ocupacion = turno.cupo_maximo === null ? textoC19("ui.clases.interfaz.sinAsignar") : textoC19("ui.clases.interfaz.deNumeroDos", { valor1: turno.alumnos.length, valor2: turno.cupo_maximo });
 
   const ejecutar = async (clave: string, url: string, init: RequestInit, exito: (estado: string) => string) => {
     setProcesando(clave); setAviso(""); setError(""); setErrorAlumno(null);
@@ -69,7 +70,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
       const respuesta = await fetchAutenticado(url, { ...init, cache: "no-store" });
       const valor = await respuesta.json().catch(() => null);
       if (!respuesta.ok) {
-        const mensaje = valor?.error?.message ?? "No se pudo actualizar la inscripción";
+        const mensaje = valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoActualizarLaInscripcion");
         const alumnoId = valor?.error?.detalles?.alumno_id;
         if (typeof alumnoId === "string" && turno.alumnos.some(({ id }) => id === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
         else setError(mensaje);
@@ -77,7 +78,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
       }
       setAviso(exito(valor.data.estado));
       await onCambio();
-    } catch { setError("No se pudo actualizar la inscripción. Intentá nuevamente."); }
+    } catch { setError(textoC19("ui.clases.interfaz.noSePudoActualizarLaInscripcionIntentaNuevamente")); }
     finally { setProcesando(null); }
   };
 
@@ -90,21 +91,21 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
   };
   const inscripcionConfirmada = () => {
     setError(""); setErrorAlumno(null);
-    setAviso(estadoAlta.current === "COMPLETO" ? "Alumno agregado. El turno alcanzó su cupo máximo y pasó a Completo." : "Alumno agregado al turno");
+    setAviso(estadoAlta.current === "COMPLETO" ? textoC19("ui.clases.interfaz.alumnoAgregadoLaClaseAlcanzoSuCupoMaximoYPasoACompleta") : textoC19("ui.clases.interfaz.alumnoAgregadoALaClase"));
     void onCambio();
   };
   const quitar = (alumnoId: string) => ejecutar(alumnoId, `/api/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumnoId)}`, { method: "DELETE" },
-    (estado) => turno.estado === "COMPLETO" && estado === "DISPONIBLE" ? "Alumno quitado. El turno volvió a Disponible." : "Alumno quitado del turno");
+    (estado) => turno.estado === "COMPLETO" && estado === "DISPONIBLE" ? textoC19("ui.clases.interfaz.alumnoQuitadoLaClaseVolvioADisponible") : textoC19("ui.clases.interfaz.alumnoQuitadoDeLaClase"));
 
   return <section aria-labelledby="inscripciones-titulo" className="space-y-3 rounded-md border border-border bg-card p-4 text-card-foreground sm:p-[22px]">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <h2 id="inscripciones-titulo" className="text-sm font-semibold">Alumnos inscriptos <span className="font-normal text-muted-foreground">· {ocupacion}</span></h2>
-      {gestionable && <div className="w-full max-w-xs space-y-1"><label htmlFor="agregar-alumno" className="text-xs">Agregar alumno</label>
-        <BuscadorAlumnos id="agregar-alumno" excluir={turno.alumnos.map(({ id }) => id)} deshabilitado={cupoAlcanzado || procesando !== null} avisoDeshabilitado={cupoAlcanzado ? "El turno alcanzó su cupo máximo" : undefined} onSeleccionar={setPorInscribir} />
+      <h2 id="inscripciones-titulo" className="text-sm font-semibold">{(textoC19("ui.clases.interfaz.alumnosInscriptosNumeroTres") + " ")}<span className="font-normal text-muted-foreground">· {ocupacion}</span></h2>
+      {gestionable && <div className="w-full max-w-xs space-y-1"><label htmlFor="agregar-alumno" className="text-xs">{textoC19("ui.clases.interfaz.agregarAlumno")}</label>
+        <BuscadorAlumnos id="agregar-alumno" excluir={turno.alumnos.map(({ id }) => id)} deshabilitado={cupoAlcanzado || procesando !== null} avisoDeshabilitado={cupoAlcanzado ? textoC19("errores.turno.cupoInsuficiente") : undefined} onSeleccionar={setPorInscribir} />
       </div>}
     </div>
     <div className="flex justify-between text-xs uppercase tracking-wide text-muted-foreground"><span>{texto("ui.historial.correccionClase.alumno")}</span><span>{texto("ui.historial.correccionClase.asistencia")}</span></div>
-    {alumnosLista.length === 0 ? <p className="text-sm text-muted-foreground">El turno no tiene alumnos inscriptos.</p> : <ul className="divide-y divide-border border-t border-border" aria-label="Alumnos inscriptos">{alumnosLista.map((alumno) => {
+    {alumnosLista.length === 0 ? <p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.laClaseNoTieneAlumnosInscriptos")}</p> : <ul className="divide-y divide-border border-t border-border" aria-label={textoC19("ui.clases.interfaz.alumnosInscriptos")}>{alumnosLista.map((alumno) => {
       const conflicto = errorAlumno?.id === alumno.id ? errorAlumno.mensaje : "";
       const reserva = turno.alumnos.find(({ id }) => id === alumno.id);
       const inscripcion = reserva?.inscripcion;
@@ -114,7 +115,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
             <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">{iniciales(alumno.nombre)}</span>
             <span className="min-w-0 break-words text-sm">{alumno.nombre}</span>
           </span>
-          {editable && <div role="group" aria-label={`Asistencia de ${alumno.nombre}`} className="flex shrink-0 gap-1">
+          {editable && <div role="group" aria-label={textoC19("ui.clases.interfaz.asistenciaDe", { valor1: alumno.nombre })} className="flex shrink-0 gap-1">
             {(["PRESENTE", "AUSENTE"] as const).map((estado) => <button key={estado} type="button" disabled={guardandoAsistencia}
               aria-pressed={(seleccion[alumno.id] ?? "PRESENTE") === estado}
               onClick={() => setSeleccion((actual) => ({ ...actual, [alumno.id]: estado }))}
@@ -123,9 +124,9 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
             </button>)}
           </div>}
           {!corrigiendo && registroId && registro?.id === registroId && <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-medium ${asistenciaGuardada.get(alumno.id) === "PRESENTE" ? "bg-success text-success-foreground" : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? "bg-destructive-soft text-destructive-soft-foreground" : "bg-muted text-muted-foreground"}`}>
-            {asistenciaGuardada.get(alumno.id) === "PRESENTE" ? texto("ui.historial.asistencia.presente") : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? texto("ui.historial.asistencia.ausente") : "Sin control de asistencia"}
+            {asistenciaGuardada.get(alumno.id) === "PRESENTE" ? texto("ui.historial.asistencia.presente") : asistenciaGuardada.get(alumno.id) === "AUSENTE" ? texto("ui.historial.asistencia.ausente") : textoC19("ui.clases.interfaz.sinControlDeAsistencia")}
           </span>}
-          {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
+          {gestionable && !editable && !registroId && <Button type="button" variant="outline" size="sm" disabled={procesando !== null} onClick={() => void quitar(alumno.id)} aria-label={textoC19("ui.clases.interfaz.quitarA", { valor1: alumno.nombre })}>{procesando === alumno.id ? "Quitando…" : "Quitar"}</Button>}
         </div>
         {inscripcion && <div className="ml-10 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>{inscripcion.estado_pago === "RESERVADA" && inscripcion.vence_el && turno.estado !== "CANCELADO"
@@ -137,7 +138,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
         </div>}
         {alumno.puede_ver_historial && <Link className="ml-10 inline-flex text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={esProfesor
           ? `/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumno.id)}/historial`
-          : `/alumnos/${encodeURIComponent(alumno.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
+          : `/alumnos/${encodeURIComponent(alumno.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>{textoC19("ui.clases.interfaz.verHistorial")}</Link>}
         {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
       </li>;
     })}</ul>}
@@ -158,17 +159,17 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
       }} onExito={() => { setCorrigiendo(false); toast.success(texto("ui.historial.correccionClase.guardada")); void cargarAsistencia(); void onCambio(); }} />
     </div>}
     {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.cargando")}</p>}
-    {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>Reintentar</Button></div>}
-    {!corrigiendo && registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : "Clase sin control de asistencia"}</p>}
+    {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>{textoC19("ui.formasPago.reintentar")}</Button></div>}
+    {!corrigiendo && registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : textoC19("ui.clases.interfaz.claseSinControlDeAsistencia")}</p>}
     {!corrigiendo && puedeRegistrarIndicacion && registroVisible && <div className="space-y-3 rounded-md border border-border bg-background p-3">
-      <h3 className="text-sm font-semibold">Indicaciones académicas de esta clase</h3>
-      <ul className="divide-y divide-border" aria-label="Alumnos de la clase dictada para registrar indicaciones">
+      <h3 className="text-sm font-semibold">{textoC19("ui.clases.interfaz.indicacionesAcademicasDeEstaClase")}</h3>
+      <ul className="divide-y divide-border" aria-label={textoC19("ui.clases.interfaz.alumnosDeLaClaseDictadaParaRegistrarIndicaciones")}>
         {registroVisible.alumnos.map((alumnoRegistro) => <li key={alumnoRegistro.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
           <span className="text-sm">{alumnoRegistro.nombre_completo}</span>
           <div className="flex flex-wrap items-center gap-3">
             {!turno.alumnos.some(({ id }) => id === alumnoRegistro.id) && <Link className="text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={esProfesor
               ? `/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumnoRegistro.id)}/historial`
-              : `/alumnos/${encodeURIComponent(alumnoRegistro.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>Ver historial</Link>}
+              : `/alumnos/${encodeURIComponent(alumnoRegistro.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>{textoC19("ui.clases.interfaz.verHistorial")}</Link>}
             <RegistrarIndicacionDialog
               alumnoId={alumnoRegistro.id}
               nombreAlumno={alumnoRegistro.nombre_completo}

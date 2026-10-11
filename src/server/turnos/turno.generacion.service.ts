@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { bloquear } from "@/server/shared/bloquear";
 import { transaccion } from "@/server/shared/transaccion";
 import type { Prisma } from "@prisma/client";
@@ -67,7 +68,7 @@ async function calcularGeneracion(input: GenerarTurnosInput, db: Prisma.Transact
     input.fecha_desde, input.fecha_hasta, franja.dia_semana, horarioOperativo.diasOperativos, input.hora_inicio, hoy,
   );
   if (!contarOcurrenciasDentroDelMaximo(fechas.length, limites.turnos)) {
-    throw new ServiceError("RANGO_EXCEDIDO", `La generación no puede superar ${limites.turnos} turnos`);
+    throw new ServiceError("RANGO_EXCEDIDO", textoC19("ui.clases.errores.laGeneracionNoPuedeSuperarClases", { valor1: limites.turnos }));
   }
   if (fechas.length === 0) throw new ServiceError("SIN_FECHAS_EN_RANGO", "No hay fechas para generar en el rango elegido");
 

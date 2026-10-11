@@ -106,7 +106,7 @@ describe("HU-C-06 reprogramarTurno", () => {
 
   it.each([
     ["profesor fuera de su horario de atención", () => m.enHorario.mockResolvedValue(false), [{ recurso: "PROFESOR", id: "prof-1" }]],
-    ["profesor con otro turno", () => m.profesores.mockResolvedValue(new Map([["prof-1", { inicio: 1020, fin: 1080 }]])), [{ recurso: "PROFESOR", id: "prof-1" }]],
+    ["profesor con otra clase", () => m.profesores.mockResolvedValue(new Map([["prof-1", { inicio: 1020, fin: 1080 }]])), [{ recurso: "PROFESOR", id: "prof-1" }]],
     ["aula ocupada", () => m.aula.mockResolvedValue(true), [{ recurso: "AULA", id: "aula-1" }]],
     ["un alumno ocupado", () => m.alumnos.mockResolvedValue(["alumno-2"]), [{ recurso: "ALUMNO", id: "alumno-2" }]],
     ["dos alumnos ocupados", () => m.alumnos.mockResolvedValue(["alumno-1", "alumno-2"]), [{ recurso: "ALUMNO", id: "alumno-1" }, { recurso: "ALUMNO", id: "alumno-2" }]],

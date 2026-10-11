@@ -57,7 +57,7 @@ describe("HU-C-10 Dialog del mockup, página 10", () => {
 
   it("muestra error y permite reintentar; ante Cancelado refresca las acciones", async () => {
     fetchAutenticado.mockResolvedValueOnce(respuesta(500, null, { message: "Error de red" }))
-      .mockResolvedValueOnce(respuesta(409, null, { code: "TURNO_CANCELADO", message: "Turno cancelado" }));
+      .mockResolvedValueOnce(respuesta(409, null, { code: "TURNO_CANCELADO", message: "Clase cancelada" }));
     await montar();
     const enviar = async () => act(async () => document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     await enviar();
@@ -65,7 +65,7 @@ describe("HU-C-10 Dialog del mockup, página 10", () => {
     expect(cerrar).not.toHaveBeenCalled();
     expect(boton("Guardar").disabled).toBe(false);
     await enviar();
-    expect(fallo).toHaveBeenCalledWith("Turno cancelado");
+    expect(fallo).toHaveBeenCalledWith("Clase cancelada");
     expect(cambio).toHaveBeenCalledOnce();
   });
 });

@@ -92,7 +92,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     expect(tx.turno.updateMany.mock.calls[0]![0].data).not.toHaveProperty("profesorId");
   });
   it("sin profesor persistido ni enviado responde TURNO_SIN_PROFESOR", async () => {
-    await expect(asignarParticipantesTurno(TURNO, { alumno_ids: [A] }, USUARIO)).rejects.toMatchObject({ code: "TURNO_SIN_PROFESOR", message: "Elegí un profesor antes de confirmar el turno" });
+    await expect(asignarParticipantesTurno(TURNO, { alumno_ids: [A] }, USUARIO)).rejects.toMatchObject({ code: "TURNO_SIN_PROFESOR", message: "Elegí un profesor antes de confirmar la clase" });
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
     expect(inscripcion.crear).not.toHaveBeenCalled();
   });
@@ -163,7 +163,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   });
   it("rechaza TURNO_SIN_AULA sin aula asignada, antes de validar nada más", async () => {
     tx.turno.findUnique.mockResolvedValueOnce({ ...turno, aulaId: null, cupoMaximoTurno: null });
-    await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_SIN_AULA", message: "Asigná un aula antes de confirmar el turno" });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "TURNO_SIN_AULA", message: "Asigná un aula antes de confirmar la clase" });
     expect(vigente).not.toHaveBeenCalled();
     expect(activo).not.toHaveBeenCalled();
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
@@ -189,12 +189,12 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
     tx.turno.updateMany.mockResolvedValueOnce({ count: 1 }).mockRejectedValueOnce(exclusion("(PROFESOR, x, ...)"));
     await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_NO_DISPONIBLE" });
     tx.turno.updateMany.mockResolvedValueOnce({ count: 1 }).mockRejectedValueOnce(exclusion(`(ALUMNO, ${B}, ...)`));
-    await expect(ejecutar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: B } });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene una clase agendada en ese horario", detalles: { alumno_id: B } });
     expect(evento).not.toHaveBeenCalled();
   });
   it("rechaza más alumnos que el cupo sin persistir nada", async () => {
     tx.turno.findUnique.mockResolvedValueOnce({ ...turno, cupoMaximoTurno: 2 });
-    await expect(ejecutar()).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "El turno alcanzó su cupo máximo" });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "La clase alcanzó su cupo máximo" });
     expect(activo).not.toHaveBeenCalled();
     expect(tx.turno.updateMany).not.toHaveBeenCalled();
   });
@@ -228,12 +228,12 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   });
   it("rechaza profesor fuera del horario de atención con el intervalo completo", async () => {
     horario.mockResolvedValueOnce(false);
-    await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_FUERA_DE_HORARIO", message: "El turno está fuera del horario de atención del profesor" });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_FUERA_DE_HORARIO", message: "La clase está fuera del horario de atención del profesor" });
     expect(horario).toHaveBeenCalledWith(P, turno.fechaTurno, "10:00", "11:00", tx);
   });
   it("rechaza un turno DISPONIBLE/COMPLETO superpuesto del profesor con horario concreto", async () => {
     conflictos([otroTurno("10:30", 60)]);
-    await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_NO_DISPONIBLE", message: "El profesor ya tiene un turno agendado de 10:30 a 11:30" });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "PROFESOR_NO_DISPONIBLE", message: "El profesor ya tiene una clase agendada de 10:30 a 11:30" });
     expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("permite turnos contiguos y consulta solo DISPONIBLE/COMPLETO, excluyendo el propio", async () => {
@@ -246,7 +246,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   });
   it("identifica al alumno con un turno superpuesto", async () => {
     conflictos([], [otroTurno("10:30", 60, [C])]);
-    await expect(ejecutar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: C } });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene una clase agendada en ese horario", detalles: { alumno_id: C } });
     expect(inscripcion.crear).not.toHaveBeenCalled();
   });
   it("el reemplazo no borra: las vigentes que no siguen pasan a QUITADA_CENTRO y las que siguen no se tocan", async () => {

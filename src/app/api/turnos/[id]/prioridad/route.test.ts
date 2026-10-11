@@ -52,9 +52,9 @@ describe("HU-C-10 PATCH prioridad", () => {
 
   it.each([["TURNO_NO_ENCONTRADO", 404], ["TURNO_CANCELADO", 409], ["TURNO_MODIFICADO", 409]] as const)
   ("traduce %s a HTTP %i", async (code, status) => {
-    actualizar.mockRejectedValue(new ServiceError(code, "Error del turno"));
+    actualizar.mockRejectedValue(new ServiceError(code, "Error de la clase"));
     const response = await consultar({ prioridad: "URGENTE" });
     expect(response.status).toBe(status);
-    expect(await response.json()).toEqual({ data: null, error: { code, message: "Error del turno" } });
+    expect(await response.json()).toEqual({ data: null, error: { code, message: "Error de la clase" } });
   });
 });

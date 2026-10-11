@@ -1,5 +1,8 @@
 "use server";
 
+import { texto as textoC19 } from "@/lib/textos";
+
+
 import { DesactivarProfesorSchema, ReactivarProfesorSchema, TurnosLoteSchema, CambiarProfesorLoteSchema } from "@/server/profesores/profesor.schema";
 import { desactivarProfesor as desactivarProfesorEstado, reactivarProfesor as reactivarProfesorEstado, cancelarTurnosFuturosDeProfesor as cancelarTurnosFuturosEstado, cambiarProfesorDeTurnosFuturos as cambiarProfesorDeTurnosEstado } from "@/server/profesores/profesor.estado.service";
 import { revalidatePath } from "next/cache";
@@ -273,7 +276,7 @@ export async function modificarProfesor(
 // HU-D-03 para los códigos compartidos.
 const MENSAJES_MATERIAS_POR_CODIGO: Record<string, string> = {
   ...MENSAJES_POR_CODIGO,
-  MATERIA_CON_TURNOS_FUTUROS: "No se pudieron guardar los cambios de materias: hay materias con turnos futuros",
+  MATERIA_CON_TURNOS_FUTUROS: textoC19("ui.clases.errores.noSePudieronGuardarLosCambiosDeMateriasHayMateriasConClases"),
   MATERIA_INACTIVA: "Alguna de las materias seleccionadas dejó de estar activa",
 };
 

@@ -65,7 +65,7 @@ describe("HU-C-03 schema (Revisión 3: sin cupo; Revisión 4: duración obligato
     void _omitida;
     const resultado = ConfigurarTurnoSchema.safeParse(sinDuracion);
     expect(resultado.success).toBe(false);
-    expect(resultado.error?.flatten().fieldErrors.duracion_min).toEqual(["Elegí la duración del turno"]);
+    expect(resultado.error?.flatten().fieldErrors.duracion_min).toEqual(["Elegí la duración de la clase"]);
   });
   it.each([[0], [30], [90], [240], [60.5], ["120"], [null]])("rechaza la duración %j", (duracion_min) => {
     const resultado = ConfigurarTurnoSchema.safeParse({ ...base, duracion_min });

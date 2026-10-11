@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CircleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -20,9 +22,9 @@ const hoyLocal = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Arg
 
 /** «Profesor Méndez, Laura», «Aula 3», «Alumno Pérez, Juan»: nombres que ya trae el detalle. */
 function nombrarConflicto(turno: TurnoDetalle, conflicto: Conflicto) {
-  if (conflicto.recurso === "PROFESOR") return `Profesor ${turno.profesor}`;
+  if (conflicto.recurso === "PROFESOR") return textoC19("ui.clases.interfaz.profesorNumeroDos", { valor1: turno.profesor });
   if (conflicto.recurso === "AULA") return turno.aula;
-  return `Alumno ${turno.alumnos.find((alumno) => alumno.id === conflicto.id)?.nombre ?? conflicto.id}`;
+  return textoC19("ui.clases.interfaz.alumno", { valor1: turno.alumnos.find((alumno) => alumno.id === conflicto.id)?.nombre ?? conflicto.id });
 }
 
 /**
@@ -67,16 +69,16 @@ export function ReprogramarTurnoDialog({ turno, onCerrar, onCambio }: { turno: T
         setOpciones(null);
         if (response.status === 404 || response.status === 409) {
           // El turno dejó de ser reprogramable (cancelado, vencido, etc.).
-          toast.error(result?.error?.message ?? "El turno ya no se puede reprogramar");
+          toast.error(result?.error?.message ?? textoC19("ui.clases.interfaz.laClaseYaNoSePuedeReprogramar"));
           callbacks.current.onCerrar();
           await callbacks.current.onCambio();
           return;
         }
-        setAviso(response.status === 400 ? result?.error?.message ?? "Elegí una fecha válida" : "No se pudieron consultar los horarios. Intentá nuevamente.");
+        setAviso(response.status === 400 ? result?.error?.message ?? textoC19("ui.clases.interfaz.elegiUnaFechaValida") : textoC19("ui.clases.interfaz.noSePudieronConsultarLosHorariosIntentaNuevamente"));
       } catch {
         if (controller.signal.aborted) return;
         setOpciones(null);
-        setAviso("No se pudieron consultar los horarios. Intentá nuevamente.");
+        setAviso(textoC19("ui.clases.interfaz.noSePudieronConsultarLosHorariosIntentaNuevamente"));
       } finally {
         if (!controller.signal.aborted) setCargando(false);
       }
@@ -103,7 +105,7 @@ export function ReprogramarTurnoDialog({ turno, onCerrar, onCambio }: { turno: T
       const result = await response.json().catch(() => null);
       if (response.ok) {
         onCerrar();
-        toast.success("Turno reprogramado correctamente");
+        toast.success(textoC19("ui.clases.interfaz.claseReprogramadaCorrectamente"));
         await onCambio();
         return;
       }
@@ -111,13 +113,13 @@ export function ReprogramarTurnoDialog({ turno, onCerrar, onCambio }: { turno: T
       else if (result?.error?.code === "REPROGRAMACION_CONFLICTO") {
         const conflictos: Conflicto[] = result.error.detalles?.conflictos ?? [];
         setAviso(conflictos.length
-          ? `No disponible en ese horario: ${conflictos.map((conflicto) => nombrarConflicto(turno, conflicto)).join(" · ")}`
+          ? textoC19("ui.clases.interfaz.noDisponibleEnEseHorario", { valor1: conflictos.map((conflicto) => nombrarConflicto(turno, conflicto)).join(" · ") })
           : result.error.message);
         setConsulta((n) => n + 1);
       } else if (response.status === 400) {
-        setAviso(result?.error?.message ?? "Revisá la fecha y la hora elegidas");
+        setAviso(result?.error?.message ?? textoC19("ui.clases.interfaz.revisaLaFechaYLaHoraElegidas"));
       } else {
-        toast.error(result?.error?.message ?? "No se pudo reprogramar el turno");
+        toast.error(result?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoReprogramarLaClase"));
         onCerrar();
         await onCambio();
       }
@@ -139,21 +141,21 @@ export function ReprogramarTurnoDialog({ turno, onCerrar, onCambio }: { turno: T
       <DialogContent initialFocus={campoFecha}>
         <form onSubmit={guardar}>
           <DialogHeader>
-            <DialogTitle>Reprogramar turno</DialogTitle>
-            <DialogDescription>Cambia fecha y hora de inicio. Profesor ({turno.profesor}), aula y duración se mantienen.</DialogDescription>
+            <DialogTitle>{textoC19("ui.clases.interfaz.reprogramarClase")}</DialogTitle>
+            <DialogDescription>{textoC19("ui.clases.interfaz.cambiaFechaYHoraDeInicioProfesor")}{turno.profesor}{textoC19("ui.clases.interfaz.aulaYDuracionSeMantienen")}</DialogDescription>
           </DialogHeader>
           <fieldset className="mt-4 space-y-4" disabled={enviando}>
             <div className="space-y-1.5">
-              <Label htmlFor="reprogramar-fecha">Nueva fecha</Label>
+              <Label htmlFor="reprogramar-fecha">{textoC19("ui.clases.interfaz.nuevaFecha")}</Label>
               <Input id="reprogramar-fecha" ref={campoFecha} type="date" value={fecha} min={hoyLocal()} max={tope} onChange={(event) => cambiarFecha(event.target.value)} />
             </div>
             <div className="space-y-2">
               <p id="reprogramar-hora" className="text-sm font-medium">
-                Hora de inicio <span className="font-normal text-muted-foreground">(dentro del horario de atención, {duracionHoras})</span>
+                {textoC19("ui.clases.interfaz.horaDeInicioNumeroDos")}{" "}<span className="font-normal text-muted-foreground">{(textoC19("ui.clases.interfaz.dentroDelHorarioDeAtencion") + " ")}{duracionHoras})</span>
               </p>
-              {cargando ? <p role="status" className="text-sm text-muted-foreground">Buscando horarios</p>
+              {cargando ? <p role="status" className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.buscandoHorarios")}</p>
                 : !opciones ? null
-                  : !opciones.inicios.length ? <p className="text-sm text-muted-foreground">No hay horarios disponibles para esa fecha</p>
+                  : !opciones.inicios.length ? <p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.noHayHorariosDisponiblesParaEsaFecha")}</p>
                     : <div role="radiogroup" aria-labelledby="reprogramar-hora" className="grid grid-cols-3 gap-2">
                       {opciones.inicios.map((inicio) => (
                         <label key={inicio.hora_inicio} className={cn(
@@ -162,19 +164,19 @@ export function ReprogramarTurnoDialog({ turno, onCerrar, onCambio }: { turno: T
                         )}>
                           <input type="radio" name="hora_inicio" value={inicio.hora_inicio} className="sr-only" disabled={inicio.actual}
                             checked={hora === inicio.hora_inicio} onChange={() => { setHora(inicio.hora_inicio); setAviso(""); }}
-                            aria-label={`${inicio.hora_inicio}–${inicio.hora_fin}${inicio.actual ? " (horario actual)" : ""}`} />
+                            aria-label={`${inicio.hora_inicio}–${inicio.hora_fin}${inicio.actual ? (" " + textoC19("ui.clases.interfaz.horarioActual")) : ""}`} />
                           {inicio.hora_inicio}–{inicio.hora_fin}
                         </label>
                       ))}
                     </div>}
-              <p className="text-xs text-muted-foreground">Profesor, {turno.aula} y alumnos inscriptos disponibles en ese horario.</p>
+              <p className="text-xs text-muted-foreground">{(textoC19("ui.clases.interfaz.profesorNumeroTres") + " ")}{turno.aula}{(" " + textoC19("ui.clases.interfaz.yAlumnosInscriptosDisponiblesEnEseHorario"))}</p>
             </div>
             {aviso && <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive-soft-foreground">
               <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{aviso}
             </p>}
           </fieldset>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={enviando} onClick={onCerrar}>Cancelar</Button>
+            <Button type="button" variant="outline" disabled={enviando} onClick={onCerrar}>{textoC19("ui.formasPago.cancelar")}</Button>
             <Button type="submit" disabled={enviando || !hora}>{enviando ? "Reprogramando…" : "Reprogramar"}</Button>
           </DialogFooter>
         </form>

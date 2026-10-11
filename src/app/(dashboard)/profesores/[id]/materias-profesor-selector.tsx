@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { filtrarMaterias } from "@/lib/filtrar-materias";
 import type { OpcionMateria } from "./materias/asociar-materias-form";
 
-const MENSAJE_PROFESOR_INACTIVO = "Solo pueden asociarse materias a profesores activos";
+const MENSAJE_PROFESOR_INACTIVO = textoC19("ui.clases.profesores.soloPuedenAsociarseMateriasAProfesoresActivos");
 
 function etiquetaMateria({ nombre, codigo }: { nombre: string; codigo: string | null }) {
   return codigo ? `${nombre} (${codigo})` : nombre;
@@ -70,8 +72,7 @@ export function MateriasProfesorSelector({
       className="relative scroll-mt-6 space-y-4 rounded-md border border-border bg-card p-6 text-card-foreground"
     >
       <h2 id="titulo-materias" className="text-lg font-semibold">
-        Materias
-      </h2>
+        {textoC19("ui.clases.menu.materias")}</h2>
 
       {!profesorActivo ? (
         <div className="space-y-2">
@@ -85,25 +86,25 @@ export function MateriasProfesorSelector({
           )}
         </div>
       ) : opciones.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No hay materias activas para asociar</p>
+        <p className="text-sm text-muted-foreground">{textoC19("ui.clases.profesores.noHayMateriasActivasParaAsociar")}</p>
       ) : (
         <>
           <div className="space-y-1.5">
-            <Label htmlFor="filtro-materias">Filtrar por nombre o código</Label>
+            <Label htmlFor="filtro-materias">{textoC19("ui.clases.profesores.filtrarPorNombreOCodigo")}</Label>
             <Input
               id="filtro-materias"
               type="search"
               autoComplete="off"
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              placeholder="Ej.: matemática o MAT101"
+              placeholder={textoC19("ui.clases.profesores.ejMatematicaOMatNumeroUnoCeroUno")}
             />
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="sr-only">Materias del profesor</legend>
+            <legend className="sr-only">{textoC19("ui.clases.profesores.materiasDelProfesor")}</legend>
             {visibles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Ninguna materia coincide con el filtro</p>
+              <p className="text-sm text-muted-foreground">{textoC19("ui.clases.profesores.ningunaMateriaCoincideConElFiltro")}</p>
             ) : (
               <ul className="divide-y divide-border rounded-md border border-border bg-card">
                 {visibles.map((materia) => {
@@ -130,11 +131,10 @@ export function MateriasProfesorSelector({
                           aria-describedby={descripcion}
                         />
                         <span className="min-w-0 flex-1 break-words">{etiquetaMateria(materia)}</span>
-                        {!materia.activa && <Badge variant="muted">Inactiva</Badge>}
+                        {!materia.activa && <Badge variant="muted">{textoC19("ui.formasPago.inactiva")}</Badge>}
                         {inactivaEnLote && (
                           <span id={`${idCheckbox}-error`} className="text-xs font-medium text-destructive">
-                            Dejó de estar activa
-                          </span>
+                            {textoC19("ui.clases.profesores.dejoDeEstarActiva")}</span>
                         )}
                       </label>
                       {cantidad !== undefined && (
@@ -145,15 +145,13 @@ export function MateriasProfesorSelector({
                         >
                           <CircleAlert className="size-4 shrink-0" aria-hidden />
                           <span>
-                            No se puede quitar: el profesor tiene {cantidad} turnos futuros de esta materia
-                          </span>
+                            {textoC19("ui.clases.profesores.noSePuedeQuitarElProfesorTiene")}{" "}{cantidad} {textoC19("ui.clases.profesores.clasesFuturasDeEstaMateria")}</span>
                           <button
                             type="button"
                             onClick={() => onVerTurnos({ id: materia.id, nombre: materia.nombre })}
                             className="rounded-sm font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                           >
-                            Ver turnos
-                          </button>
+                            {textoC19("ui.clases.interfaz.verClases")}</button>
                         </div>
                       )}
                     </li>
@@ -164,8 +162,8 @@ export function MateriasProfesorSelector({
           </fieldset>
 
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {seleccionadas.size === 1 ? "1 materia asociada" : `${seleccionadas.size} materias asociadas`}
-            {(agregar > 0 || quitar > 0) && ` · ${agregar} para agregar · ${quitar} para quitar`}
+            {seleccionadas.size === 1 ? textoC19("ui.clases.profesores.NumeroUnoMateriaAsociada") : textoC19("ui.clases.profesores.materiasAsociadas", { valor1: seleccionadas.size })}
+            {(agregar > 0 || quitar > 0) && (" " + textoC19("ui.clases.profesores.paraAgregarParaQuitar", { valor1: agregar, valor2: quitar }))}
           </p>
         </>
       )}

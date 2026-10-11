@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { texto } from "@/lib/textos";
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
@@ -198,7 +199,7 @@ async function validarProfesorConfiguracion(input: ConfigurarTurnoInput, data: A
     throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", "El profesor no atiende en ese horario");
   }
   const conflicto = (await profesoresConTurnoSuperpuesto(db, turno, [input.profesor_id])).get(input.profesor_id);
-  if (conflicto) throw new ServiceError("PROFESOR_NO_DISPONIBLE", "El profesor ya tiene un turno en ese horario");
+  if (conflicto) throw new ServiceError("PROFESOR_NO_DISPONIBLE", textoC19("ui.clases.errores.elProfesorYaTieneUnaClaseEnEseHorario"));
 }
 
 export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: string) {
@@ -217,8 +218,8 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
   const { actual, aulaDesasignada } = await transaccion(async (tx) => {
     await bloquear(tx, { recursos: { profesores: [input.profesor_id] }, clases: [id] });
     const pendiente = await tx.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
-    if (!pendiente) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-    if (pendiente.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de configuración");
+    if (!pendiente) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+    if (pendiente.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", textoC19("ui.clases.errores.unaClaseDisponibleOCompletaNoAdmiteCambiosDeConfiguracion"));
     await validarProfesorConfiguracion(input, data, tx, id);
     // Estado y versión de la fila se comprueban en la misma sentencia que la mutación.
     const actualizado = await tx.turno.updateMany({
@@ -271,7 +272,7 @@ async function alumnoConTurnoSuperpuesto(
 }
 
 function alumnoOcupado(alumnoId: string) {
-  return new ServiceError("ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario", { alumno_id: alumnoId });
+  return new ServiceError("ALUMNO_NO_DISPONIBLE", textoC19("errores.inscripcion.alumnoNoDisponible"), { alumno_id: alumnoId });
 }
 
 /** Lectura preventiva del Paso 5. La confirmación conserva su validación transaccional. */
@@ -280,9 +281,9 @@ export async function listarOpcionesAlumnoTurno(turnoId: string) {
     where: { idTurno: turnoId },
     select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, aulaId: true, cupoMaximoTurno: true },
   });
-  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-  if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de participantes");
-  if (!turno.aulaId || turno.cupoMaximoTurno === null) throw new ServiceError("TURNO_SIN_AULA", "Asigná un aula antes de confirmar el turno");
+  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+  if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", textoC19("ui.clases.errores.unaClaseDisponibleOCompletaNoAdmiteCambiosDeParticipantes"));
+  if (!turno.aulaId || turno.cupoMaximoTurno === null) throw new ServiceError("TURNO_SIN_AULA", textoC19("ui.clases.errores.asignaUnAulaAntesDeConfirmarLaClase"));
 
   const ids = await listarIdsAlumnosActivos();
   if (ids.length === 0) return { turno_id: turnoId, alumnos: [] };
@@ -322,13 +323,13 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
         where: { idTurno: turnoId },
         select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true },
       });
-      if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-      if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de participantes");
+      if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+      if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", textoC19("ui.clases.errores.unaClaseDisponibleOCompletaNoAdmiteCambiosDeParticipantes"));
       const { aulaId, cupoMaximoTurno: cupo } = turno;
       // Sin aula no hay cupo contra el cual validar (§2.3 lo fija).
-      if (!aulaId || cupo === null) throw new ServiceError("TURNO_SIN_AULA", "Asigná un aula antes de confirmar el turno");
-      if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó. Corregí su configuración antes de continuar");
-      if (input.alumno_ids.length > cupo) throw new ServiceError("CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo");
+      if (!aulaId || cupo === null) throw new ServiceError("TURNO_SIN_AULA", textoC19("ui.clases.errores.asignaUnAulaAntesDeConfirmarLaClase"));
+      if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", textoC19("ui.clases.errores.elHorarioDeLaClaseYaPasoCorregiSuConfiguracionAntesDe"));
+      if (input.alumno_ids.length > cupo) throw new ServiceError("CUPO_INSUFICIENTE", textoC19("errores.turno.cupoInsuficiente"));
       if (!(await verificarMateriaActiva(turno.materiaId, tx))) throw new ServiceError("MATERIA_NO_DISPONIBLE", "La materia seleccionada no está disponible");
 
       for (const alumnoId of input.alumno_ids) {
@@ -340,7 +341,7 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
       }
       const profesorId = input.profesor_id ?? turno.profesorId;
       if (profesorId !== profesorPrevio) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
-      if (!profesorId) throw new ServiceError("TURNO_SIN_PROFESOR", "Elegí un profesor antes de confirmar el turno");
+      if (!profesorId) throw new ServiceError("TURNO_SIN_PROFESOR", textoC19("ui.clases.errores.elegiUnProfesorAntesDeConfirmarLaClase"));
       if (input.profesor_id && input.profesor_id !== turno.profesorId) {
         const profesores = await listarProfesoresActivosPorMateria(turno.materiaId, tx);
         if (profesores.length === 0) throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");
@@ -352,11 +353,11 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
 
       const intervalo = intervaloTurno(turno);
       if (!(await estaDentroDeHorarioAtencion(profesorId, turno.fechaTurno, horaDeMinutos(intervalo.inicio), horaDeMinutos(intervalo.fin), tx))) {
-        throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", "El turno está fuera del horario de atención del profesor");
+        throw new ServiceError("PROFESOR_FUERA_DE_HORARIO", textoC19("ui.clases.errores.laClaseEstaFueraDelHorarioDeAtencionDelProfesor"));
       }
       const conflictoProfesor = (await profesoresConTurnoSuperpuesto(tx, turno, [profesorId])).get(profesorId);
       if (conflictoProfesor) {
-        throw new ServiceError("PROFESOR_NO_DISPONIBLE", `El profesor ya tiene un turno agendado de ${horaDeMinutos(conflictoProfesor.inicio)} a ${horaDeMinutos(conflictoProfesor.fin)}`);
+        throw new ServiceError("PROFESOR_NO_DISPONIBLE", textoC19("ui.clases.errores.elProfesorYaTieneUnaClaseAgendadaDeA", { valor1: horaDeMinutos(conflictoProfesor.inicio), valor2: horaDeMinutos(conflictoProfesor.fin) }));
       }
       const ocupado = await alumnoConTurnoSuperpuesto(tx, turnoId, turno.fechaTurno, intervalo, input.alumno_ids);
       if (ocupado) throw alumnoOcupado(ocupado);
@@ -431,14 +432,14 @@ type OrigenInscripcion = "MESA_ENTRADA" | "AUTOSERVICIO";
 async function bloquearTurno(tx: Prisma.TransactionClient, turnoId: string) {
   const [fila] = await tx.$queryRaw<{ idTurno: string; cupoMaximoTurno: number | null; estadoTurno: EstadoTurno }[]>`
     SELECT "idTurno", "cupoMaximoTurno", "estadoTurno" FROM turnos WHERE "idTurno" = ${turnoId} FOR UPDATE`;
-  if (!fila) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-  if (fila.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "El turno está cancelado");
-  if (fila.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", "El turno está pendiente: los alumnos se cargan desde la asignación de participantes");
+  if (!fila) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+  if (fila.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", textoC19("errores.turno.cancelado"));
+  if (fila.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", textoC19("errores.turno.pendiente"));
   // Un turno confirmado siempre tiene aula y, por lo tanto, cupo (§2.2).
   const cupoMaximoTurno = fila.cupoMaximoTurno;
-  if (cupoMaximoTurno === null) throw new ServiceError("TURNO_SIN_AULA", "El turno no tiene aula asignada");
+  if (cupoMaximoTurno === null) throw new ServiceError("TURNO_SIN_AULA", textoC19("errores.turno.sinAula"));
   const horario = await tx.turno.findUniqueOrThrow({ where: { idTurno: turnoId }, select: { fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true } });
-  if (!turnoSigueVigente(horario.fechaTurno, horario.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó");
+  if (!turnoSigueVigente(horario.fechaTurno, horario.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", textoC19("errores.turno.vencido"));
   return { ...fila, cupoMaximoTurno, ...horario };
 }
 
@@ -495,12 +496,12 @@ export async function solicitarTurnoPropio(turnoId: string, usuarioId: string) {
   try {
     resultado = await transaccion((tx) => inscribirAlumnoEnTurno(turnoId, alumno.id, { origen: "AUTOSERVICIO", usuarioId, alumnoActivo: alumno.activo }, tx));
   } catch (error) {
-    if (esConflictoDeReserva(error)) throw new ServiceError("ALUMNO_NO_DISPONIBLE", "Ya tenés otro turno en ese horario");
+    if (esConflictoDeReserva(error)) throw new ServiceError("ALUMNO_NO_DISPONIBLE", textoC19("errores.inscripcion.alumnoNoDisponiblePropio"));
     if (error instanceof ServiceError && (error.code === "TURNO_PENDIENTE" || error.code === "TURNO_CANCELADO")) {
-      throw new ServiceError("TURNO_NO_DISPONIBLE", "El turno ya no está disponible");
+      throw new ServiceError("TURNO_NO_DISPONIBLE", textoC19("ui.turnos.resumen.noDisponible"));
     }
     if (error instanceof ServiceError && error.code === "ALUMNO_NO_DISPONIBLE") {
-      throw new ServiceError("ALUMNO_NO_DISPONIBLE", "Ya tenés otro turno en ese horario");
+      throw new ServiceError("ALUMNO_NO_DISPONIBLE", textoC19("errores.inscripcion.alumnoNoDisponiblePropio"));
     }
     throw error;
   }
@@ -595,7 +596,7 @@ export async function quitarAlumnoTurno(turnoId: string, alumnoId: string, usuar
     const estadoAntes = marcadas === 0 ? turno.estadoTurno
       : (await tx.turno.findUniqueOrThrow({ where: { idTurno: turnoId }, select: { estadoTurno: true } })).estadoTurno;
     const inscripcion = await inscripcionVigenteDelPar(alumnoId, turnoId, tx);
-    if (!inscripcion) throw new ServiceError("ALUMNO_NO_ASIGNADO", "El alumno no está inscripto en este turno", { alumno_id: alumnoId });
+    if (!inscripcion) throw new ServiceError("ALUMNO_NO_ASIGNADO", textoC19("errores.pago.alumnoNoInscripto"), { alumno_id: alumnoId });
     const finalizada = await finalizarInscripcion(tx, { inscripcionId: inscripcion.id, vigencia: "QUITADA_CENTRO", actor: actorUsuario(usuarioId), fecha: momento });
     const estado = finalizada.estadoTurno?.nuevo ?? estadoAntes;
     const liberado = estadoAntes === "COMPLETO" && estado === "DISPONIBLE";
@@ -656,7 +657,7 @@ export async function listarOpcionesFiltroProfesor(): Promise<{ id: string; nomb
   return (await listarOpcionesProfesoresActivos()).map(({ id, nombre, apellido }) => ({ id, nombre, apellido }));
 }
 
-const MENSAJE_SIN_PERMISO_LISTADO = "No tenés permisos para ver los turnos de ese profesor";
+const MENSAJE_SIN_PERMISO_LISTADO = textoC19("ui.clases.errores.noTenesPermisosParaVerLasClasesDeEseProfesor");
 
 /**
  * Alcance por profesor del listado, siempre resuelto en el servidor
@@ -742,8 +743,8 @@ export async function actualizarPrioridadTurno(id: string, input: ActualizarPrio
       SELECT "idTurno", "estadoTurno", "prioridadTurno"
       FROM "turnos" WHERE "idTurno" = ${id} FOR UPDATE
     `;
-    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-    if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "Un turno cancelado no admite cambios de prioridad");
+    if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+    if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", textoC19("ui.clases.errores.unaClaseCanceladaNoAdmiteCambiosDePrioridad"));
     if (turno.prioridadTurno === input.prioridad) return { anterior: turno.prioridadTurno, sinCambios: true };
 
     const actualizado = await tx.turno.updateMany({

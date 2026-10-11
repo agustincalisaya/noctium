@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import Link from "next/link";
 import { texto } from "@/lib/textos";
 import { HistorialClases } from "./historial-clases";
@@ -68,8 +69,8 @@ export default async function AlumnoDetallePage({
   return (
     <div className={`mx-auto w-full min-w-0 space-y-5 p-6 ${mostrarHistorial || mostrarClases ? "max-w-6xl" : "max-w-3xl"}`}>
       {puedeLeerFicha && (mostrarHistorial || mostrarClases) && alumno ? (
-        <nav aria-label="Migas de pan" className="text-sm text-muted-foreground">
-          <Link href={hrefListado} className="text-primary underline underline-offset-4 hover:text-foreground">Alumnos</Link>
+        <nav aria-label={textoC19("ui.clases.interfaz.migasDePan")} className="text-sm text-muted-foreground">
+          <Link href={hrefListado} className="text-primary underline underline-offset-4 hover:text-foreground">{textoC19("ui.clases.menu.alumnos")}</Link>
           <span aria-hidden="true" className="px-2">/</span>
           <span aria-current="page" className="text-foreground">{alumno.nombre} {alumno.apellido}</span>
         </nav>
@@ -78,7 +79,7 @@ export default async function AlumnoDetallePage({
           href={puedeLeerFicha ? hrefListado : turnoOrigen}
           className="rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {puedeLeerFicha ? "Volver al listado" : "Volver al turno"}
+          {puedeLeerFicha ? textoC19("ui.clases.interfaz.volverAlListado") : textoC19("ui.historial.clasesAlumno.volverClase")}
         </Link>
       )}
 
@@ -95,18 +96,18 @@ export default async function AlumnoDetallePage({
             modoHistorial={mostrarHistorial || mostrarClases}
           />
           {gerente && <p className="text-xs text-muted-foreground">{texto("ui.historial.clasesAlumno.consulta")}</p>}
-          <nav className="flex gap-5 border-b border-border" aria-label="Secciones de la ficha">
+          <nav className="flex gap-5 border-b border-border" aria-label={textoC19("ui.clases.interfaz.seccionesDeLaFicha")}>
             <Link
               href={`/alumnos/${encodeURIComponent(id)}?tab=datos`}
               aria-current={!mostrarHistorial && !mostrarClases ? "page" : undefined}
               className={`border-b-2 px-1 py-2 text-sm ${!mostrarHistorial && !mostrarClases ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            >Datos</Link>
+            >{textoC19("ui.clases.interfaz.datos")}</Link>
             <Link href={`/alumnos/${encodeURIComponent(id)}/clases`} aria-current={mostrarClases ? "page" : undefined} className={`border-b-2 px-1 py-2 text-sm ${mostrarClases ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{texto("ui.historial.clasesAlumno.tab")}</Link>
             {puedeLeerHistorial && <Link
               href={`/alumnos/${encodeURIComponent(id)}?tab=historial`}
               aria-current={mostrarHistorial ? "page" : undefined}
               className={`border-b-2 px-1 py-2 text-sm ${mostrarHistorial ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            >Historial académico</Link>}
+            >{textoC19("ui.indicadores.presentismo.historial")}</Link>}
           </nav>
         </>
       ) : null}

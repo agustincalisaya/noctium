@@ -59,7 +59,7 @@ const seleccionarFecha = async (etiqueta: "Desde" | "Hasta", valor: string) => {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
 };
-const modoRecurrente = async () => pulsar(boton("Generar varios turnos"));
+const modoRecurrente = async () => pulsar(boton("Generar varias clases"));
 const seleccionar = async (id: string, valor: string) => {
   const input = container.querySelector<HTMLSelectElement>(`select#${id}`)!;
   await act(async () => { input.value = valor; input.dispatchEvent(new Event("change", { bubbles: true })); });
@@ -98,10 +98,10 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 describe("HU-C-17: configuración recurrente en una pantalla", () => {
   it("preserva el modo individual con stepper y muestra las dos cards recurrentes", async () => {
     await montar();
-    expect(boton("Turno individual").getAttribute("aria-pressed")).toBe("true");
-    expect(container.querySelector('nav[aria-label="Progreso del nuevo turno"]')).not.toBeNull();
+    expect(boton("Clase individual").getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector("nav[aria-label=\"Progreso de la nueva clase\"]")).not.toBeNull();
     await modoRecurrente();
-    expect(container.querySelector('nav[aria-label="Progreso del nuevo turno"]')).toBeNull();
+    expect(container.querySelector("nav[aria-label=\"Progreso de la nueva clase\"]")).toBeNull();
     const card = container.querySelector('[data-testid="configuracion-recurrente"]')!;
     const panel = container.querySelector('[data-testid="vista-previa-recurrente"]')!;
     expect(card.parentElement?.classList.contains("xl:grid-cols-[440px_minmax(0,1fr)]")).toBe(true);
@@ -121,8 +121,8 @@ describe("HU-C-17: configuración recurrente en una pantalla", () => {
     expect(boton("Ver vista previa").classList.contains("w-full")).toBe(true);
     expect(boton("Ver vista previa").classList.contains("bg-background")).toBe(true);
     expect(boton("Ver vista previa").classList.contains("border-border")).toBe(true);
-    await pulsar(boton("Turno individual"));
-    expect(container.querySelector('nav[aria-label="Progreso del nuevo turno"]')).not.toBeNull();
+    await pulsar(boton("Clase individual"));
+    expect(container.querySelector("nav[aria-label=\"Progreso de la nueva clase\"]")).not.toBeNull();
     expect(llamadas("POST", "/api/turnos")).toHaveLength(0);
   });
 
@@ -156,12 +156,12 @@ describe("HU-C-17: configuración recurrente en una pantalla", () => {
     expect(filas[0]?.textContent).toContain("Aula 1");
     expect([...filas].map((fila) => fila.querySelector("td:last-child")?.textContent)).toEqual(["Libre", "Libre"]);
     expect(filas[0]?.classList.contains("bg-card")).toBe(true);
-    expect(panel.textContent).toContain("2 turnos");
+    expect(panel.textContent).toContain("2 clases");
     expect(panel.textContent).toContain("martes 16:00–18:00");
     expect(panel.textContent).toContain("Física con Ana Pérez");
     expect(panel.textContent).toContain("estado inicial Disponible, 0 alumnos");
     expect(panel.textContent).not.toContain("fechas tienen conflicto");
-    expect(boton("Confirmar generación").textContent).toBe("Confirmar generación (2 turnos)");
+    expect(boton("Confirmar generación").textContent).toBe("Confirmar generación (2 clases)");
     expect(boton("Confirmar generación").disabled).toBe(false);
     expect(boton("Confirmar generación").classList.contains("w-full")).toBe(false);
     expect(llamadas("POST", "/api/turnos")).toHaveLength(0);
@@ -175,14 +175,14 @@ describe("HU-C-17: configuración recurrente en una pantalla", () => {
     expect(filas).toHaveLength(2);
     expect(panel.textContent).toContain("1 fecha tiene conflicto.");
     expect(panel.textContent).toContain("Elegí otra aula para todo el rango");
-    expect(panel.textContent).toContain("No se genera ningún turno");
+    expect(panel.textContent).toContain("No se genera ninguna clase");
     expect(panel.querySelector("svg")).not.toBeNull();
     expect(filas[0]?.classList.contains("bg-warning/20")).toBe(true);
-    expect([...filas[0]!.querySelectorAll("td:last-child span")].map((badge) => badge.textContent)).toEqual(["Aula ocupada", "Profesor con otro turno"]);
+    expect([...filas[0]!.querySelectorAll("td:last-child span")].map((badge) => badge.textContent)).toEqual(["Aula ocupada", "Profesor con otra clase"]);
     expect(filas[1]?.querySelector("td:last-child")?.textContent).toBe("Libre");
     expect(panel.textContent).toContain("1 fecha de hoy vencida fue omitida");
     expect(panel.textContent).toContain("Resolvé los conflictos para habilitar la generación.");
-    expect(boton("Confirmar generación").textContent).toBe("Confirmar generación (2 turnos)");
+    expect(boton("Confirmar generación").textContent).toBe("Confirmar generación (2 clases)");
     expect(boton("Confirmar generación").disabled).toBe(true);
   });
 
@@ -223,18 +223,18 @@ describe("HU-C-17: configuración recurrente en una pantalla", () => {
     let resolver: (valor: Respuesta) => void = () => {};
     rutas = (url) => url === "/api/turnos/generacion" ? new Promise<Respuesta>((resolve) => { resolver = resolve; }) : undefined;
     await configurar(); await pulsar(boton("Ver vista previa"));
-    act(() => { boton("Confirmar generación").click(); boton("Generando turnos")?.click(); });
+    act(() => { boton("Confirmar generación").click(); boton("Generando clases")?.click(); });
     expect(llamadas("POST", "/api/turnos/generacion")).toHaveLength(1);
     expect(JSON.parse(String(llamadas("POST", "/api/turnos/generacion")[0]?.[1]?.body))).toEqual(JSON.parse(String(llamadas("POST", "/api/turnos/generacion/vista-previa")[0]?.[1]?.body)));
     await act(async () => { resolver(respuesta({ generacion_id: "cgrupo", cantidad: 2, turno_ids: ["cuno", "cdos"] }, 201)); });
-    expect(container.querySelector('[data-testid="vista-previa-recurrente"]')?.textContent).toContain("Se generaron 2 turnos correctamente");
+    expect(container.querySelector('[data-testid="vista-previa-recurrente"]')?.textContent).toContain("Se generaron 2 clases correctamente");
   });
 
   it("409 muestra conflictos recalculados y exige otra preview", async () => {
     const detalle = { cantidad: 2, fechas: [{ fecha: desde, estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] }, { fecha: hasta, estado: "OK", motivos: [] }], hay_conflictos: true, fechas_omitidas_vencidas: 0 };
     rutas = (url) => url === "/api/turnos/generacion" ? respuesta(null, 409, { code: "GENERACION_CON_CONFLICTOS", detalles: detalle }) : undefined;
     await configurar(); await pulsar(boton("Ver vista previa")); await pulsar(boton("Confirmar generación"));
-    expect(container.querySelector('[data-testid="vista-previa-recurrente"]')?.textContent).toContain("Profesor con otro turno");
+    expect(container.querySelector('[data-testid="vista-previa-recurrente"]')?.textContent).toContain("Profesor con otra clase");
     expect(boton("Confirmar generación")).toBeUndefined();
     await pulsar(boton("Ver vista previa"));
     expect(boton("Confirmar generación").disabled).toBe(false);

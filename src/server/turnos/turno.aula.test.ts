@@ -54,7 +54,7 @@ describe("HU-C-15 §2.3 asignarAulaTurno (Revisión 3)", () => {
   it("defensivo: rechaza reasignar un aula con menos capacidad que los alumnos ya cargados", async () => {
     tx.turno.findUnique.mockImplementation(async ({ select }) => select.updatedAtTurno ? { estadoTurno: "PENDIENTE", updatedAtTurno: new Date() } : { ...turno, _count: { alumnos: 4 } });
     aulaActiva.mockResolvedValueOnce({ idAula: AULA, capacidadAula: 3 });
-    await expect(ejecutar()).rejects.toMatchObject({ code: "AULA_CAPACIDAD_INSUFICIENTE", message: "El aula elegida tiene menos capacidad que los alumnos ya inscriptos en este turno" });
+    await expect(ejecutar()).rejects.toMatchObject({ code: "AULA_CAPACIDAD_INSUFICIENTE", message: "El aula elegida tiene menos capacidad que los alumnos ya inscriptos en esta clase" });
     expect(tx.turno.updateMany).toHaveBeenCalledTimes(1); // solo el bloqueo optimista, sin guardar el aula
     aulaActiva.mockResolvedValueOnce({ idAula: AULA, capacidadAula: 4 });
     await expect(ejecutar()).resolves.toMatchObject({ cupo_maximo: 4 });

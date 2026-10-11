@@ -53,7 +53,7 @@ describe("HU-C-06 Dialog «Reprogramar turno» (mockup pág. 9)", () => {
     await montar();
     expect(fetchAutenticado).toHaveBeenCalledWith("/api/turnos/turno-1/reprogramacion/opciones?fecha=2026-10-06", expect.objectContaining({ cache: "no-store" }));
     const texto = dialogo().textContent!;
-    expect(texto).toContain("Reprogramar turno");
+    expect(texto).toContain("Reprogramar clase");
     expect(texto).toContain("Cambia fecha y hora de inicio. Profesor (Méndez, Laura), aula y duración se mantienen.");
     expect(texto).toContain("Nueva fecha");
     expect(texto).toContain("Hora de inicio (dentro del horario de atención, 1 h)");
@@ -90,7 +90,7 @@ describe("HU-C-06 Dialog «Reprogramar turno» (mockup pág. 9)", () => {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fecha: "2026-10-06", hora_inicio: "17:00" }), cache: "no-store",
     });
     expect(cerrar).toHaveBeenCalledOnce();
-    expect(exito).toHaveBeenCalledExactlyOnceWith("Turno reprogramado correctamente");
+    expect(exito).toHaveBeenCalledExactlyOnceWith("Clase reprogramada correctamente");
     expect(cambio).toHaveBeenCalledOnce();
   });
 
@@ -119,9 +119,9 @@ describe("HU-C-06 Dialog «Reprogramar turno» (mockup pág. 9)", () => {
   it("409 de estado (p. ej. cancelado mientras tanto): toast de error, cierra y recarga", async () => {
     await montar();
     await act(async () => radio("17:00")!.click());
-    fetchAutenticado.mockResolvedValueOnce(respuesta(409, null, { code: "TURNO_CANCELADO", message: "Un turno cancelado no se puede reprogramar" }));
+    fetchAutenticado.mockResolvedValueOnce(respuesta(409, null, { code: "TURNO_CANCELADO", message: "Una clase cancelada no se puede reprogramar" }));
     await enviar();
-    expect(fallo).toHaveBeenCalledExactlyOnceWith("Un turno cancelado no se puede reprogramar");
+    expect(fallo).toHaveBeenCalledExactlyOnceWith("Una clase cancelada no se puede reprogramar");
     expect(cerrar).toHaveBeenCalledOnce();
     expect(cambio).toHaveBeenCalledOnce();
   });

@@ -102,7 +102,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     rutas = (url) => url === "/api/turnos/aula/opciones?turno_id=turno-nuevo" ? respuesta([AULAS[1]]) : undefined;
     await montar();
     await completarConfiguracion();
-    expect(campo<HTMLButtonElement>('button[type="submit"]').textContent).toBe("Guardar turno");
+    expect(campo<HTMLButtonElement>('button[type="submit"]').textContent).toBe("Guardar clase");
     await enviar();
     const [post] = llamadas("POST", "/api/turnos");
     expect(JSON.parse(String(post![1].body))).toEqual({ fecha: "2026-10-01", duracion_min: 60, hora_inicio: "10:00", materia_id: "materia-1" });
@@ -118,7 +118,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     const [patch] = llamadas("PATCH", "/api/turnos/turno-nuevo/aula");
     expect(JSON.parse(String(patch![1].body))).toEqual({ aula_id: "aula-2" });
     expect(fetch.mock.invocationCallOrder[fetch.mock.calls.indexOf(get!)]).toBeLessThan(fetch.mock.invocationCallOrder[fetch.mock.calls.indexOf(patch!)]);
-    expect(container.textContent).toContain("Turno configurado");
+    expect(container.textContent).toContain("Clase configurada");
     expect(container.textContent).toContain("2026-10-01 · 10:00–11:00 · Aula 2 · Cupo máximo: 30 · Pendiente");
     expect(campo<HTMLAnchorElement>('a[href="/turnos/turno-nuevo/participantes?volver=%2Fturnos"]').textContent).toBe("Continuar con profesor y alumnos");
   });
@@ -141,7 +141,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
   it("si el aula falla después de crear el turno, no lo vuelve a crear y reintenta solo el aula", async () => {
     let falla = true;
     rutas = (url, init) => {
-      if (falla && url.endsWith("/aula") && init?.method === "PATCH") { falla = false; return respuesta(null, false, { code: "AULA_NO_DISPONIBLE", message: "El aula ya tiene un turno confirmado en ese horario" }); }
+      if (falla && url.endsWith("/aula") && init?.method === "PATCH") { falla = false; return respuesta(null, false, { code: "AULA_NO_DISPONIBLE", message: "El aula ya tiene una clase confirmada en ese horario" }); }
       return undefined;
     };
     await montar();
@@ -149,8 +149,8 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     await enviar();
     await escribir(campo<HTMLSelectElement>("#aula"), "aula-1");
     await enviar();
-    expect(container.textContent).toContain("El aula ya tiene un turno confirmado en ese horario");
-    expect(container.textContent).toContain("El turno ya quedó guardado como Pendiente, sin aula.");
+    expect(container.textContent).toContain("El aula ya tiene una clase confirmada en ese horario");
+    expect(container.textContent).toContain("La clase ya quedó guardada como Pendiente, sin aula.");
     expect(window.location.pathname).toBe("/turnos/turno-nuevo/configuracion");
     expect(campo<HTMLSelectElement>("#aula")).toBeDefined();
     await escribir(campo<HTMLSelectElement>("#aula"), "aula-2");
@@ -255,7 +255,7 @@ describe("HU-C-03 + HU-C-15 pantalla fusionada (Revisión 3)", () => {
     await completarConfiguracion();
     expect(container.textContent).not.toContain("No hay aulas activas registradas");
     await enviar();
-    expect(container.querySelector('[role="status"]')?.textContent).toBe("No hay aulas activas registradas. Podés guardar el turno sin aula y asignarla más tarde.");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("No hay aulas activas registradas. Podés guardar la clase sin aula y asignarla más tarde.");
     expect(container.textContent).not.toContain("No hay aulas disponibles para este horario");
     expect([...container.querySelectorAll("button")].some((boton) => boton.textContent === "Dejar sin aula por ahora")).toBe(true);
   });

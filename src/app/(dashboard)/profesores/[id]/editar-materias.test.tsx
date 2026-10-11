@@ -162,9 +162,9 @@ describe("HU-D-07 selector de materias en el modo edición", () => {
     expect(casilla(MAT).checked).toBe(true);
     expect(casilla(QUI).checked).toBe(true); // cambio pendiente conservado
     const aviso = document.getElementById(`materia-${MAT}-bloqueo`)!;
-    expect(aviso.textContent).toContain("No se puede quitar: el profesor tiene 3 turnos futuros de esta materia");
+    expect(aviso.textContent).toContain("No se puede quitar: el profesor tiene 3 clases futuras de esta materia");
     expect(aviso.className).toContain("bg-destructive-soft");
-    expect(aviso.querySelector("button")!.textContent).toBe("Ver turnos");
+    expect(aviso.querySelector("button")!.textContent).toBe("Ver clases");
     expect(modificarProfesor).not.toHaveBeenCalled(); // 2.7 falló: los datos no se envían
     expect(replace).not.toHaveBeenCalled();
     expect(boton("Guardar cambios").disabled).toBe(false);
@@ -239,13 +239,13 @@ describe("HU-D-07 modal «Ver turnos»", () => {
       { cache: "no-store" },
     );
     const texto = dialogo().textContent!;
-    expect(texto).toContain("El profesor tiene 3 turnos futuros de esta materia. Cancelá o resolvé estos turnos y volvé a intentar.");
+    expect(texto).toContain("El profesor tiene 3 clases futuras de esta materia. Cancelá o resolvé estas clases y volvé a intentar.");
     expect(texto).toContain("06/10/2026");
     expect(texto).toContain("08:00–10:00");
     expect(texto).toContain("Aula 1");
     expect(texto).toContain("3/5");
     expect(texto).toContain("Disponible");
-    expect(texto).toContain("Completo");
+    expect(texto).toContain("Completa");
     const link = dialogo().querySelector('a[href="/turnos/turno-0"]') as HTMLAnchorElement;
     expect(link.target).toBe("_blank");
     expect(link.rel).toBe("noopener noreferrer");
@@ -273,7 +273,7 @@ describe("HU-D-07 modal «Ver turnos»", () => {
     await alternar(MAT);
     await guardar();
     await act(async () => document.getElementById(`materia-${MAT}-bloqueo`)!.querySelector("button")!.click());
-    expect(dialogo().textContent).toContain("No se pudieron cargar los turnos.");
+    expect(dialogo().textContent).toContain("No se pudieron cargar las clases.");
     await act(async () => boton("Entendido").click());
     expect(actualizarMateriasProfesor).toHaveBeenCalledOnce();
   });
