@@ -78,27 +78,27 @@ describe.skipIf(!basePgHabilitada)("servicio de inscripción con PostgreSQL real
     const pasada = await crearTurnoDePrueba(db, { enDias: -1 });
     await expect(inscribir({ turnoId: "no-existe", alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "TURNO_NO_ENCONTRADO" });
     await expect(inscribir({ turnoId: pendiente.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "TURNO_PENDIENTE" });
-    await expect(inscribir({ turnoId: cancelada.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "TURNO_CANCELADO", message: "El turno está cancelado" });
-    await expect(inscribir({ turnoId: pasada.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "TURNO_VENCIDO", message: "El horario del turno ya pasó" });
+    await expect(inscribir({ turnoId: cancelada.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "TURNO_CANCELADO", message: "La clase está cancelada" });
+    await expect(inscribir({ turnoId: pasada.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "TURNO_VENCIDO", message: "El horario de la clase ya pasó" });
 
     const lleno = await crearTurnoDePrueba(db, { cupo: 1 });
     await inscribir({ turnoId: lleno.idTurno, alumnoId: (await crearAlumnoDePrueba(db)).idAlumno });
-    await expect(inscribir({ turnoId: lleno.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "El turno alcanzó su cupo máximo" });
+    await expect(inscribir({ turnoId: lleno.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "La clase alcanzó su cupo máximo" });
 
     const turno = await crearTurnoDePrueba(db, { hora: "15:00" });
     await inscribir({ turnoId: turno.idTurno, alumnoId: alumno.idAlumno });
     await expect(inscribir({ turnoId: turno.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({
-      code: "ALUMNO_YA_ASIGNADO", message: "El mismo alumno no puede agregarse dos veces al mismo turno", detalles: { alumno_id: alumno.idAlumno },
+      code: "ALUMNO_YA_ASIGNADO", message: "El mismo alumno no puede agregarse dos veces a la misma clase", detalles: { alumno_id: alumno.idAlumno },
     });
     await expect(inscribir({ turnoId: turno.idTurno, alumnoId: alumno.idAlumno, origen: "ALUMNO" })).rejects.toMatchObject({
-      code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en este turno",
+      code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en esta clase",
     });
     const superpuesta = await crearTurnoDePrueba(db, { hora: "15:00" });
     await expect(inscribir({ turnoId: superpuesta.idTurno, alumnoId: alumno.idAlumno })).rejects.toMatchObject({
-      code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario",
+      code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene una clase agendada en ese horario",
     });
     await expect(inscribir({ turnoId: superpuesta.idTurno, alumnoId: alumno.idAlumno, origen: "ALUMNO" })).rejects.toMatchObject({
-      code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otro turno en ese horario",
+      code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otra clase en ese horario",
     });
   });
 

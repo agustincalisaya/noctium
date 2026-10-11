@@ -67,7 +67,7 @@ describe("EventoCalendarioMateria", () => {
     expect(lineas).toContain("Aula 2");
     expect(link.textContent).toContain("Disponible");
     expect(link.getAttribute("aria-label")).toBe(
-      "Turno 10:00–11:00 · Giménez, Laura · 3 de 5 alumnos inscriptos · Aula 2 · Disponible. Ver detalle",
+      "Clase 10:00–11:00 · Giménez, Laura · 3 de 5 alumnos inscriptos · Aula 2 · Disponible. Ver detalle",
     );
   });
 
@@ -94,7 +94,7 @@ describe("EventoCalendarioMateria", () => {
     );
     const link = container.querySelector("a")!;
 
-    expect(link.textContent).toContain("Completo");
+    expect(link.textContent).toContain("Completa");
     expect(link.textContent).toContain("Alumnos: 5/5");
     expect(container.querySelector("svg")!.getAttribute("class")).not.toBe(iconoDisponible);
   });
@@ -132,8 +132,8 @@ describe("EventoCalendario (HU-J-01, regresión del refactor)", () => {
 
     const link = container.querySelector("a")!;
     expect(link.getAttribute("aria-label")).toBe(
-      "Turno 10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completo. Ver detalle",
+      "Clase 10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completa. Ver detalle",
     );
-    expect(link.getAttribute("title")).toBe("10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completo");
+    expect(link.getAttribute("title")).toBe("10:00–11:00 · Pérez, Ana · Matemática · Aula 2 · Completa");
   });
 });

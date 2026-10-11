@@ -146,7 +146,7 @@ describe.skipIf(!basePgHabilitada)("registrarOperacion, caja y comprobante con P
       const enCancelada = await enTx((tx) => crearInscripcion(tx, { turnoId: cancelada.idTurno, alumnoId: alumno.idAlumno, origen: "CENTRO", conReserva: false, actor: actorUsuario(mesa.usuarioId) }));
       await db.turno.update({ where: { idTurno: cancelada.idTurno }, data: { estadoTurno: "CANCELADO" } });
       await expect(cobrar({ alumnoId: alumno.idAlumno, usuarioId: mesa.usuarioId, items: [{ inscripcionId: enCancelada.inscripcion.id, monto: "12000" }] }))
-        .rejects.toMatchObject({ code: "TURNO_NO_ADMITE_PAGO", message: "Solo se pueden registrar pagos en turnos disponibles o completos" });
+        .rejects.toMatchObject({ code: "TURNO_NO_ADMITE_PAGO", message: "Solo se pueden registrar pagos en clases disponibles o completas" });
     });
 
     it("«Se inscribe al confirmar el pago»: solo si exigeInscripcionConPago; crea la inscripción ya PAGADA con el precio vigente", async () => {

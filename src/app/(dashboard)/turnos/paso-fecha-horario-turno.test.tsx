@@ -94,7 +94,7 @@ describe("Paso 3 agenda y calendario", () => {
     expect(container.textContent).toContain("Horario de atención: 09:00–12:00");
     expect(horario("10:00–11:00").className).toContain("line-through");
     expect(horario("10:00–11:00").querySelector<HTMLInputElement>("input")?.disabled).toBe(true);
-    expect(container.textContent).toContain("Los horarios tachados no están disponibles: el profesor ya tiene un turno.");
+    expect(container.textContent).toContain("Los horarios tachados no están disponibles: el profesor ya tiene una clase.");
     await pulsar(horario("10:00–11:00"));
     expect(boton("Continuar a aula").disabled).toBe(true);
     await pulsar(horario("09:00–10:00"));

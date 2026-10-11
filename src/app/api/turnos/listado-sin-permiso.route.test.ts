@@ -45,7 +45,7 @@ describe("HU-C-08 GET /api/turnos: 403 neutro del Profesor", () => {
   it("mismo cuerpo 403 para un profesor_id ajeno y para uno inexistente", async () => {
     const ajeno = await consultar(AJENO);
     const inexistente = await consultar(INEXISTENTE);
-    const esperado = { data: null, error: { code: "SIN_PERMISO", message: "No tenés permisos para ver los turnos de ese profesor" } };
+    const esperado = { data: null, error: { code: "SIN_PERMISO", message: "No tenés permisos para ver las clases de ese profesor" } };
     expect(ajeno).toEqual({ status: 403, body: esperado });
     expect(inexistente).toEqual({ status: 403, body: esperado });
     expect(prisma.turno.count).not.toHaveBeenCalled();

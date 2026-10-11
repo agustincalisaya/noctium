@@ -1633,3 +1633,14 @@ Alineación con el backlog oficial (40 HU). No cambia el alcance técnico ni las
 - **2.13, lecturas públicas (HU-C-26):** `listarReservasVencidas` incluye las reservas ya marcadas como vencidas aunque la clase se haya cancelado después, como cuentan HU-C-24 (criterio 6) y HU-H-10. Las vencidas sin marcar de clases Canceladas siguen sin listarse.
 - **2.3, comprobante:** aclara que `datos` guarda el usuario real y que la vista del alumno lo reemplaza (HU-I-11, criterio 2).
 - La fecha de merge no se modificó: sigue como en el backlog y está pendiente de definir.
+
+### Nota de integración — aislamiento de pruebas del seed (11/10/2026)
+
+`scripts/test-pg.mjs` ejecuta cada archivo que invoca `prisma/seed.ts` en una
+base descartable propia, con migraciones y borrado al terminar. Los demás
+archivos conservan la pasada compartida y las guardas de nombre existentes.
+Esto evita que alumnos creados por otras pruebas o seeds con fechas diferentes
+cambien los escenarios históricos y los conteos de una suite que exige
+repetibilidad (§2.12/§2.16). No altera el seed ni los datos de desarrollo.
+La evidencia y las expectativas de copy ajustadas a HU-C-19 se documentan en
+[la revisión de integración](../../testing/integracion-c19-seed.md).

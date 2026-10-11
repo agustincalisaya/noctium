@@ -127,10 +127,10 @@ describe.skipIf(!habilitada)("HU-C-15 / HU-C-04 (Revisión 3): exclusión real e
     // Solo datos previos a la Revisión 3 tienen alumnos en un turno PENDIENTE.
     const turnoId = await crearTurno(11, 11, "10:00", profesores[0], aulas[0], alumnos);
     await expect(asignarAulaTurno(turnoId, { aula_id: aulaPequena }, "usuario-prueba"))
-      .rejects.toMatchObject({ code: "AULA_CAPACIDAD_INSUFICIENTE", message: "El aula elegida tiene menos capacidad que los alumnos ya inscriptos en este turno" });
+      .rejects.toMatchObject({ code: "AULA_CAPACIDAD_INSUFICIENTE", message: "El aula elegida tiene menos capacidad que los alumnos ya inscriptos en esta clase" });
     expect(await db!.turno.findUniqueOrThrow({ where: { idTurno: turnoId } })).toMatchObject({ aulaId: aulas[0], cupoMaximoTurno: 3 });
   });
-  it("asignar profesor y alumnos confirma Disponible o Completo, reserva y revalida todos los alumnos", async () => {
+  it("asignar profesor y alumnos confirma Disponible o Completa, reserva y revalida todos los alumnos", async () => {
     const sinAula = await crearPendienteSinAula(12, 12, "10:00");
     await expect(asignarParticipantesTurno(sinAula, { alumno_ids: [alumnos[0]], profesor_id: profesores[0] }, "usuario-prueba"))
       .rejects.toMatchObject({ code: "TURNO_SIN_AULA" });
