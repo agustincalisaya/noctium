@@ -10,6 +10,7 @@ import { ListarMateriasQuerySchema } from "@/server/materias/materia.schema";
 import { texto } from "@/lib/textos";
 import { formatearMonto } from "@/lib/moneda";
 import { listarMaterias } from "@/server/materias/materia.service";
+import { CambiarTarifasDialog } from "@/app/(dashboard)/materias/cambiar-tarifas-dialog";
 
 export default async function MateriasPage({
   searchParams,
@@ -26,7 +27,8 @@ export default async function MateriasPage({
 
   const { creada, pagina } = await searchParams;
   const esGerente = rol === "GERENTE";
-  const conTarifa = await tienePermiso("materias:cambiar_tarifa") || await tienePermiso("materias:ver_tarifa");
+  const puedeCambiarTarifa = await tienePermiso("materias:cambiar_tarifa");
+  const conTarifa = puedeCambiarTarifa || await tienePermiso("materias:ver_tarifa");
 
   return (
     <div className="space-y-4 p-6">
@@ -40,6 +42,8 @@ export default async function MateriasPage({
         <div><h1 className="text-lg font-semibold">Materias</h1>{conTarifa && <p className="mt-1 max-w-xl text-sm text-muted-foreground">{texto("ui.materias.tarifa.descripcion")} {texto("ui.materias.tarifa.aviso")}</p>}</div>
         {/* Ocultamiento de UI únicamente — la verificación real es la de
             verificarPermiso("materias:crear") en el Server Action. */}
+        <div className="flex items-center gap-3">
+        {puedeCambiarTarifa && <CambiarTarifasDialog />}
         {esGerente && (
           <Link
             href="/materias/nueva"
@@ -49,6 +53,7 @@ export default async function MateriasPage({
             Nueva materia
           </Link>
         )}
+        </div>
       </div>
 
       {/*

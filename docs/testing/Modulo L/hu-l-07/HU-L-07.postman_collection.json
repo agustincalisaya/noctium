@@ -1,0 +1,993 @@
+{
+  "info": {
+    "name": "HU-L-07 — Cambio masivo de tarifas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar solo contra un servidor conectado a una base nueva noctium_pruebas_<8 hex>. Iniciar sesión real con cada rol y configurar cookie_gerente/mesa/profesor/alumno con el encabezado Cookie del entorno local, sin exportar sus valores. El jar de cookies está deshabilitado en los requests para separar roles y anonimato. Preparar tres activas (tarifas distinta, igual y null) y una inactiva mediante datos de prueba; configurar materiaInactivaId y nuevaTarifa. GET prepara hasta tres seleccionadas sin asumir IDs ni tarifas anteriores. Ejecutar en orden; para repetir el éxito refrescar GET. El timeout y el rollback inyectado se verifican en pruebas PG, no se provocan sobre datos cotidianos."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3100"
+    },
+    {
+      "key": "cookie_gerente",
+      "value": ""
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "cookie_profesor",
+      "value": ""
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    },
+    {
+      "key": "materiaId",
+      "value": ""
+    },
+    {
+      "key": "materiaInactivaId",
+      "value": ""
+    },
+    {
+      "key": "tarifaActual",
+      "value": "12000"
+    },
+    {
+      "key": "nuevaTarifa",
+      "value": "15000"
+    },
+    {
+      "key": "materias",
+      "value": "[]"
+    },
+    {
+      "key": "materiasNoop",
+      "value": "[]"
+    }
+  ],
+  "item": [
+    {
+      "name": "Sin sesión — GET",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión — POST",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa — GET rechazado",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa — POST rechazado",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor — GET rechazado",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor — POST rechazado",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno — GET rechazado",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno — POST rechazado",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — GET, preparar selección",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Lista y DTO\", () => { pm.expect(body.data.items).to.be.an(\"array\"); body.data.items.forEach(x => { pm.expect(x).to.have.all.keys(\"id\",\"nombre\",\"codigo\",\"tarifa_hora\"); pm.expect(x.tarifa_hora === null || Number.isInteger(x.tarifa_hora)).to.eql(true); }); });",
+              "if (body.data.items.length) { const elegidas = body.data.items.slice(0,3); pm.collectionVariables.set(\"materiaId\",elegidas[0].id); pm.collectionVariables.set(\"tarifaActual\",JSON.stringify(elegidas[0].tarifa_hora)); pm.collectionVariables.set(\"materias\",JSON.stringify(elegidas.map(x => ({id:x.id,tarifa_actual:x.tarifa_hora})))); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — lista vacía",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":15000,\"materias\":[]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — cero",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":0,\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — negativo",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":-1,\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — decimal",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":1.5,\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — mayor al tope",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":1000001,\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — campo ajeno",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":{{nuevaTarifa}},\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}}] ,\"activo\":true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — id no CUID",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":15000,\"materias\":[{\"id\":\"tarifas\",\"tarifa_actual\":null}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — ids repetidos",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":15000,\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}},{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — más de 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{{loteExcesivo}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.variables.set(\"loteExcesivo\",JSON.stringify({tarifa_hora:15000,materias:Array.from({length:201},(_,i)=>({id:\"cm\"+String(i).padStart(23,\"0\"),tarifa_actual:null}))}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — inexistente",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":15000,\"materias\":[{\"id\":\"cm000000000000000000000099\",\"tarifa_actual\":null}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código MATERIA_NO_ENCONTRADA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_NO_ENCONTRADA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — inactiva, ninguna escritura",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":15000,\"materias\":[{\"id\":\"{{materiaId}}\",\"tarifa_actual\":{{tarifaActual}}},{\"id\":\"{{materiaInactivaId}}\",\"tarifa_actual\":null}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código MATERIA_INACTIVA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_INACTIVA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — anterior desactualizada",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{{loteConflicto}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const actual=JSON.parse(pm.collectionVariables.get(\"tarifaActual\")); pm.variables.set(\"loteConflicto\",JSON.stringify({tarifa_hora:Number(pm.collectionVariables.get(\"nuevaTarifa\")),materias:[{id:pm.collectionVariables.get(\"materiaId\"),tarifa_actual:actual===1?2:1}]}));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código CONFLICTO_EDICION_CONCURRENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CONFLICTO_EDICION_CONCURRENTE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — cambio masivo (preparar null/iguales/distintas)",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":{{nuevaTarifa}},\"materias\":{{materias}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Resultado masivo\",()=>{ const m=JSON.parse(pm.collectionVariables.get(\"materias\")); const nueva=Number(pm.collectionVariables.get(\"nuevaTarifa\")); pm.expect(body.data.tarifa_hora).to.eql(nueva); pm.expect(body.data.actualizadas).to.eql(m.filter(x=>x.tarifa_actual!==nueva).length); pm.expect(body.data.sin_cambio).to.eql(m.filter(x=>x.tarifa_actual===nueva).length); });",
+              "if(body.data){ const m=JSON.parse(pm.collectionVariables.get(\"materias\")); pm.collectionVariables.set(\"materiasNoop\",JSON.stringify(m.map(x=>({id:x.id,tarifa_actual:body.data.tarifa_hora})))); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — todas sin cambio",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":{{nuevaTarifa}},\"materias\":{{materiasNoop}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"No-op sin actualizaciones\",()=>{pm.expect(body.data.actualizadas).to.eql(0); pm.expect(body.data.sin_cambio).to.eql(JSON.parse(pm.collectionVariables.get(\"materiasNoop\")).length);});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
