@@ -10,7 +10,7 @@ import { vencerReservas } from "@/server/turnos/reserva.vencimiento.service";
 
 // HU-C-24 contra PostgreSQL descartable de `npm run test:pg`. Las verificaciones
 // que dependen de I-10 (pantalla de cobro), I-06, C-14, E-02, H-10 y N-01 no se
-// acreditan acá: ver docs/testing/hu-c-24/HU-C-24-evidencia.md.
+// acreditan acá: ver docs/testing/Modulo C/hu-c-24/HU-C-24-evidencia.md.
 const MOMENTO = new Date("2026-10-05T12:00:00.000Z"); // Lunes, 09:00 del centro.
 const HORA = 3_600_000;
 const CAPACIDADES = { verPagos: true, verHistorial: true, cancelar: true, reprogramar: true, priorizar: true, registrarPago: true, registrarClase: true };
@@ -188,7 +188,10 @@ describe.skipIf(!basePgHabilitada)("HU-C-24: vencimiento de reservas en PostgreS
 
       const cancelada = await crearTurnoDePrueba(db, { estado: "CANCELADO" });
       await vigente(cancelada.idTurno, await alumno());
-      expect((await detalle(cancelada.idTurno, MOMENTO)).alumnos[0]).toMatchObject({ inscripcion: { estado_pago: "RESERVADA" }, puede_registrar_pago: false });
+      // Las reservas de una clase cancelada dejan de vencer: se informan como «Pago sin registrar» y sin vencimiento (C §2.18.6, §2.17.4).
+      const [reservaDeCancelada] = (await detalle(cancelada.idTurno, MOMENTO)).alumnos;
+      expect(reservaDeCancelada).toMatchObject({ inscripcion: { estado_pago: "PAGO_SIN_REGISTRAR" }, puede_registrar_pago: false });
+      expect(reservaDeCancelada!.inscripcion).not.toHaveProperty("vence_el");
     }));
   });
 });
