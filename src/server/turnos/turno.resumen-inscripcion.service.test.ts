@@ -59,9 +59,9 @@ describe("C-20 resumen informativo", () => {
     ]);
     expect(await consultar()).toMatchObject({ cupo: 2, lugares_disponibles: 1 });
   });
-  it("calcula límite pasado en el servidor, incluido el instante exacto, y lee el parámetro vigente", async () => {
+  it("calcula límite pasado en el servidor, admite el instante exacto y lee el parámetro vigente", async () => {
     parametros.mockResolvedValue({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 97 });
-    expect(await consultar()).toMatchObject({ limite_cancelacion_en_linea: "2026-10-09T15:00:00-03:00", limite_cancelacion_pasado: true });
+    expect(await consultar()).toMatchObject({ limite_cancelacion_en_linea: "2026-10-09T15:00:00-03:00", limite_cancelacion_pasado: false });
     parametros.mockResolvedValue({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 96 });
     expect(await consultar()).toMatchObject({ limite_cancelacion_pasado: false });
   });

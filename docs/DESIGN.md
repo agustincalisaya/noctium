@@ -235,6 +235,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Acción | Disparador | Feedback de éxito |
 |---|---|---|
 | Cancelar turno (HU-C-05) | `AlertDialog` | Toast |
+| Cancelar inscripción propia (HU-C-14, «Mis clases») | `ConfirmarAccionDialog` irreversible; rechazo dentro del diálogo | Toast «Cancelaste tu inscripción» y recarga del listado al cerrar |
 | Reprogramar turno (HU-C-06) | `Dialog` | Toast |
 | Asignar prioridad (HU-C-10) | `Dialog` | Toast |
 | Registrar pago (HU-I-01) | `Dialog` | Toast |

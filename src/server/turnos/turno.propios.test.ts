@@ -8,6 +8,7 @@ const { db, resolverAlumno, obtenerClase } = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnoDeUsuario: resolverAlumno }));
 vi.mock("@/server/historial/historial.publico", () => ({ obtenerClaseDictadaDeTurno: obtenerClase }));
+vi.mock("@/server/shared/parametros-vigentes", () => ({ parametrosVigentes: vi.fn(async () => ({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 24 })) }));
 
 const { listarTurnosPropios, obtenerConfirmacionReservaPropia } = await import("./turno.service");
 const tx = db as never;
@@ -43,7 +44,7 @@ describe("listarTurnosPropios (HU-C-13 §2.14.1)", () => {
       items: [{
         turno_id: "turno-pasado", fecha: "2026-09-28", hora_inicio: "12:30", hora_fin: "14:00",
         materia: "Matemática I", profesor: "Ríos, Martín", aula: "Aula 2", estado: "CANCELADO", clase_dictada: true,
-        inscripcion: { id: "i1", situacion: "PAGO_SIN_REGISTRAR", vence_el: "2026-09-30T09:00:00-03:00", precio: 24000 },
+        inscripcion: { id: "i1", situacion: "PAGO_SIN_REGISTRAR", vence_el: "2026-09-30T09:00:00-03:00", precio: 24000, cancelacion: "NO_DISPONIBLE", limite_cancelacion_en_linea: null },
       }],
       paginacion: { total: 41, pagina_actual: 2, total_paginas: 5, por_pagina: 10 },
       totales: { proximos: 23, anteriores: 41 },

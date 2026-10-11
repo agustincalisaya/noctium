@@ -62,6 +62,6 @@ export async function obtenerResumenInscripcion(
     plazo_pago_horas: parametros.plazoPagoHoras,
     vence_pago_el: isoCentro(calcularVencimiento(momento, inicio, parametros.plazoPagoHoras).venceEl),
     limite_cancelacion_en_linea: isoCentro(limite),
-    limite_cancelacion_pasado: momento.getTime() >= limite.getTime(),
+    limite_cancelacion_pasado: momento.getTime() > limite.getTime(),
   };
 }

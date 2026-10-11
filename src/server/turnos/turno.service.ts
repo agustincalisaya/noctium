@@ -23,6 +23,8 @@ import { bloquear } from "@/server/shared/bloquear";
 import { actorUsuario } from "@/server/shared/historial";
 import { ahora as relojAhora } from "@/server/shared/reloj";
 import { transaccion } from "@/server/shared/transaccion";
+import { parametrosVigentes } from "@/server/shared/parametros-vigentes";
+import { evaluarCancelacion } from "./turno.cancelacion-propia";
 import {
   clasesConReservasVencidasDelAlumno,
   crearInscripcion,
@@ -91,6 +93,7 @@ export async function listarTurnosPropios(
 
   const { fecha: fechaCorte, hora: horaCorte } = corteLocal(ahora);
   const vigente = filtroVigenteEn(ahora);
+  const parametros = await parametrosVigentes(db);
   const propietario = { estadoTurno: { not: "PENDIENTE" as const }, alumnos: { some: { alumnoId: alumno.id } } };
   const filtroProximos = { ...propietario, ...filtroVistaPropia("proximos", fechaCorte, horaCorte) };
   const filtroAnteriores = { ...propietario, ...filtroVistaPropia("anteriores", fechaCorte, horaCorte) };
@@ -111,7 +114,7 @@ export async function listarTurnosPropios(
         profesor: { select: { apellidoProfesor: true, nombreProfesor: true } },
         aula: { select: { nombreAula: true } },
         _count: { select: { alumnos: { where: vigente } } },
-        alumnos: { where: { alumnoId: alumno.id }, orderBy: [{ reservadaEl: "desc" }, { idInscripcion: "desc" }] },
+        alumnos: { where: { alumnoId: alumno.id }, orderBy: [{ reservadaEl: "desc" }, { createdAtInscripcion: "desc" }, { idInscripcion: "desc" }] },
       },
       orderBy: query.vista === "proximos"
         ? [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { idTurno: "asc" }]
@@ -135,7 +138,7 @@ export async function listarTurnosPropios(
       clase_dictada: claseDictada !== null,
       inscripcion: presentarInscripcionPropia(
         turno.alumnos.find((fila) => esVigenteEn({ ...fila, estadoClase: turno.estadoTurno }, ahora)) ?? turno.alumnos[0]!,
-        turno, ahora,
+        turno, ahora, parametros,
       ),
     };
   }));
@@ -156,6 +159,7 @@ function presentarInscripcionPropia(
   fila: TurnoAlumno,
   turno: { estadoTurno: EstadoTurno; fechaTurno: Date; horaInicioTurno: Date },
   momento: Date,
+  parametros: { cancelacionAnticipacionHoras: number },
 ): InscripcionPropia {
   let situacion: InscripcionPropia["situacion"];
   if (fila.vigencia !== "VIGENTE") situacion = fila.vigencia;
@@ -163,7 +167,15 @@ function presentarInscripcionPropia(
   else if (fila.estadoPago === "PAGADA") situacion = "PAGADA";
   else if (!["DISPONIBLE", "COMPLETO"].includes(turno.estadoTurno) || inicioDeTurno(turno).getTime() <= momento.getTime()) situacion = "PAGO_SIN_REGISTRAR";
   else situacion = fila.estadoPago === "RESERVADA" ? "RESERVADA" : "PAGO_PENDIENTE";
-  return { id: fila.idInscripcion, situacion, vence_el: fila.venceEl ? isoCentro(fila.venceEl) : null, precio: fila.precio };
+  const cancelacion = evaluarCancelacion(fila, turno, momento, parametros);
+  return {
+    id: fila.idInscripcion,
+    situacion,
+    vence_el: fila.venceEl ? isoCentro(fila.venceEl) : null,
+    precio: fila.precio,
+    cancelacion: cancelacion.estado,
+    limite_cancelacion_en_linea: cancelacion.limite ? isoCentro(cancelacion.limite) : null,
+  };
 }
 
 /** Confirmación actual independiente de la página del listado; identidad de sesión. */
@@ -172,10 +184,11 @@ export async function obtenerConfirmacionReservaPropia(
 ): Promise<InscripcionPropia | null> {
   const alumno = await obtenerAlumnoDeUsuario(usuarioId, db);
   if (!alumno) return null;
-  const fila = await db.turnoAlumno.findFirst({
-    where: { idInscripcion: inscripcionId, alumnoId: alumno.id }, include: { turno: true },
-  });
-  return fila ? presentarInscripcionPropia(fila, fila.turno, momento) : null;
+  const [fila, parametros] = await Promise.all([
+    db.turnoAlumno.findFirst({ where: { idInscripcion: inscripcionId, alumnoId: alumno.id }, include: { turno: true } }),
+    parametrosVigentes(db),
+  ]);
+  return fila ? presentarInscripcionPropia(fila, fila.turno, momento, parametros) : null;
 }
 
 export async function emitirEventoTurno(tipoEvento: string, turnoId: string, usuarioId: string, payloadEvento: Record<string, unknown>) {

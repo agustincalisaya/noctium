@@ -11,6 +11,7 @@ import { exigirPermiso } from "@/server/shared/with-permission";
 import { listarTurnosPropios, obtenerConfirmacionReservaPropia } from "@/server/turnos/turno.service";
 import { MisTurnosQuerySchema } from "@/server/turnos/turno.schema";
 import type { InscripcionPropia } from "@/types/turno.types";
+import { CancelarInscripcion } from "./cancelar-inscripcion";
 
 type TurnoPropio = Awaited<ReturnType<typeof listarTurnosPropios>>["items"][number];
 type Vista = "proximos" | "anteriores";
@@ -175,6 +176,20 @@ function TarjetaTurno({ turno, vista }: { turno: TurnoPropio; vista: Vista }) {
         </p>
         <p className="text-sm">{situacionInscripcion(turno.inscripcion)}</p>
         {inscripcionVigente(turno.inscripcion) && <p className="text-sm font-medium">{textoUi("ui.turnos.resumen.precio")}: {formatearMonto(turno.inscripcion.precio)}</p>}
+        {vista === "proximos" && turno.inscripcion.cancelacion === "FUERA_DE_PLAZO" && (
+          <p className="text-sm text-muted-foreground">{textoUi("ui.turnos.cancelacion.fueraDePlazo")}</p>
+        )}
+        {vista === "proximos" && turno.inscripcion.cancelacion === "PERMITIDA" && (
+          <div className="pt-2">
+            <CancelarInscripcion
+              turnoId={turno.turno_id}
+              materia={turno.materia}
+              fecha={fechaLarga(turno.fecha).toLocaleLowerCase("es-AR")}
+              hora={turno.hora_inicio}
+              conPagos={turno.inscripcion.situacion === "PAGADA"}
+            />
+          </div>
+        )}
       </div>
     </article>
   );

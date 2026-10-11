@@ -1,0 +1,29 @@
+{
+  "info": {
+    "name": "HU-C-14 — Cancelar inscripción propia",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección no ejecutada. Requiere base aislada y Cookie Jar con sesiones reales; no exportar cookies ni secretos."
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "turno_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Cancelar inscripción propia",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/cancelacion", "host": ["{{base_url}}"], "path": ["api", "turnos", "{{turno_id}}", "inscripcion", "cancelacion"] }
+      }
+    },
+    {
+      "name": "Repetir cancelación — 409",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/cancelacion", "host": ["{{base_url}}"], "path": ["api", "turnos", "{{turno_id}}", "inscripcion", "cancelacion"] }
+      }
+    }
+  ]
+}

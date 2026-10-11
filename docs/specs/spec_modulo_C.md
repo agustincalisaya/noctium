@@ -49,6 +49,7 @@
 | HU-C-22 — transición a HU-C-14 (09/10/2026) | §2.17.4 exige `cancelacion`, cuya funcionalidad se difiere en el Excel a HU-C-14 | Excepción interina autorizada por Tomás: Mis clases entrega `id`, `situacion`, `vence_el` y `precio` hasta integrar HU-C-14. Se conserva el contrato final; sin cambio en límites del resumen ni POST de reserva |
 | HU-C-24 | Sin contrato | Nueva sección 2.18: proceso de vencimiento, validación por fecha, inscripción desde el centro, reservas en el detalle, plazo nuevo tras anulación y clases canceladas |
 | HU-C-14 | Diferida desde Sprint 2 (criterio 6 de HU-C-05 y 5 de HU-C-13) | Nueva sección 2.19 |
+| HU-C-14 — sincronización local (11/10/2026) | §2.19 contractualizada y pendiente | Evaluador compartido, DTO de cancelación, servicio/POST transaccional, acción en Mis clases y leyendas diferidas de C-20 implementados; sin migraciones ni cambios de permisos |
 | HU-C-26 | Sin contrato | Nueva sección 2.20 |
 | HU-C-21 | Sin contrato; 2.9 exigía una sola aula para todo el rango | Nueva subsección 2.9.1 (al final de 2.9) |
 | HU-C-04 / HU-C-18 (2.2, 2.5) | Inscribían sin plazo de pago | Notas de Revisión 6; el cambio lo pide HU-C-24, criterio 3 (2.18.3) |
