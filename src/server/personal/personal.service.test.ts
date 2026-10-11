@@ -17,6 +17,14 @@ const m = vi.hoisted(() => {
     cambiarEmail: vi.fn(),
     verificarEmail: vi.fn(),
     resumen: vi.fn(),
+    desactivarCuenta: vi.fn(),
+    reactivarCuenta: vi.fn(),
+    bloquear: vi.fn(),
+    cajaAbierta: vi.fn(),
+    registroOperaciones: vi.fn(),
+    registrarCambio: vi.fn(),
+    listarHistorial: vi.fn(),
+    nombres: vi.fn(),
   };
 });
 
@@ -27,10 +35,28 @@ vi.mock("@/server/usuarios/cuenta.service", () => ({
   cambiarEmailCuenta: m.cambiarEmail,
   verificarEmailNoAsociadoAOtraCuenta: m.verificarEmail,
   obtenerResumenCuenta: m.resumen,
+  desactivarCuenta: m.desactivarCuenta,
+  reactivarCuenta: m.reactivarCuenta,
 }));
+vi.mock("@/server/shared/bloquear", () => ({ bloquear: m.bloquear }));
+vi.mock("@/server/pagos/caja.publico", () => ({ cajaAbiertaDe: m.cajaAbierta }));
+vi.mock("@/server/shared/actividad-usuario", () => ({ usuarioRegistroOperaciones: m.registroOperaciones }));
+vi.mock("@/server/shared/historial-estados", () => ({
+  registrarCambioEstado: m.registrarCambio,
+  listarHistorialEstados: m.listarHistorial,
+}));
+vi.mock("@/server/personal/personal.publico", () => ({ obtenerNombresPersonal: m.nombres }));
 
-const { crearIntegrante, listarPersonal, modificarIntegrante, obtenerDetalleIntegrante, verificarDisponibilidadIntegrante } =
-  await import("@/server/personal/personal.service");
+const {
+  crearIntegrante,
+  desactivarIntegrante,
+  listarPersonal,
+  modificarIntegrante,
+  obtenerDetalleIntegrante,
+  reactivarIntegrante,
+  verificarDisponibilidadIntegrante,
+} = await import("@/server/personal/personal.service");
+const { actorUsuario, PROCESO_AUTOMATICO } = await import("@/server/shared/historial");
 
 const GERENTE = "ckgerente";
 const FICHA = "ckficha";
@@ -99,6 +125,10 @@ beforeEach(() => {
     return { cambio: true };
   });
   m.resumen.mockResolvedValue(RESUMEN);
+  m.listarHistorial.mockResolvedValue([]);
+  m.nombres.mockResolvedValue([]);
+  m.cajaAbierta.mockResolvedValue(null);
+  m.registroOperaciones.mockResolvedValue(false);
 });
 
 describe("crearIntegrante", () => {
@@ -300,8 +330,53 @@ describe("obtenerDetalleIntegrante", () => {
       creadoEl: FILA.createdAtFichaMesaEntrada,
       modificadoEl: null,
       cuenta: RESUMEN,
+      historialEstados: [],
+      cajaAbierta: false,
+      motivoObligatorioAlDesactivar: false,
     });
     expect(m.resumen).toHaveBeenCalledWith(CUENTA, m.tx);
+    expect(m.listarHistorial).toHaveBeenCalledWith("FICHA_MESA_ENTRADA", FICHA, m.tx);
+  });
+
+  it("historial del más reciente al más antiguo, en camelCase y con el nombre de quien actuó", async () => {
+    m.tx.fichaMesaEntrada.findUnique.mockResolvedValue(FILA);
+    const reactivo = { id: "h2", accion: "REACTIVAR", motivo: null, fecha: new Date(2000), actor_tipo: "USUARIO", usuario_id: GERENTE };
+    const dioBaja = { id: "h1", accion: "DESACTIVAR", motivo: "Licencia", fecha: new Date(1000), actor_tipo: "USUARIO", usuario_id: "ckotro" };
+    const automatico = { id: "h0", accion: "DESACTIVAR", motivo: null, fecha: new Date(500), actor_tipo: "PROCESO_AUTOMATICO", usuario_id: null };
+    m.listarHistorial.mockResolvedValue([reactivo, dioBaja, automatico]);
+    m.nombres.mockResolvedValue([{ usuario_id: GERENTE, nombre_completo: "Gómez, Ana" }]);
+
+    expect((await obtenerDetalleIntegrante(FICHA)).historialEstados).toEqual([
+      { id: "h2", accion: "REACTIVAR", motivo: null, fecha: reactivo.fecha, usuarioId: GERENTE, usuarioNombre: "Gómez, Ana" },
+      { id: "h1", accion: "DESACTIVAR", motivo: "Licencia", fecha: dioBaja.fecha, usuarioId: "ckotro", usuarioNombre: null },
+      { id: "h0", accion: "DESACTIVAR", motivo: null, fecha: automatico.fecha, usuarioId: null, usuarioNombre: null },
+    ]);
+    expect(m.nombres).toHaveBeenCalledWith([GERENTE, "ckotro"], m.tx);
+  });
+
+  it("activa con cuenta: cajaAbierta y motivoObligatorioAlDesactivar salen de I y del agregador", async () => {
+    m.tx.fichaMesaEntrada.findUnique.mockResolvedValue({ ...FILA, activoFichaMesaEntrada: true });
+    m.cajaAbierta.mockResolvedValue({ id: "ckcaja", abiertaEl: new Date(0) });
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await obtenerDetalleIntegrante(FICHA)).toMatchObject({ cajaAbierta: true, motivoObligatorioAlDesactivar: true });
+    expect(m.cajaAbierta).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.registroOperaciones).toHaveBeenCalledWith(m.tx, CUENTA);
+
+    m.cajaAbierta.mockResolvedValue(null);
+    m.registroOperaciones.mockResolvedValue(false);
+    expect(await obtenerDetalleIntegrante(FICHA)).toMatchObject({ cajaAbierta: false, motivoObligatorioAlDesactivar: false });
+  });
+
+  it.each([
+    ["inactiva con cuenta", { activoFichaMesaEntrada: false, usuarioId: CUENTA }],
+    ["activa sin cuenta", { activoFichaMesaEntrada: true, usuarioId: null }],
+  ])("%s: los dos indicadores son false y no se consultan", async (_caso, fila) => {
+    m.tx.fichaMesaEntrada.findUnique.mockResolvedValue({ ...FILA, ...fila });
+    m.cajaAbierta.mockResolvedValue({ id: "ckcaja", abiertaEl: new Date(0) });
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await obtenerDetalleIntegrante(FICHA)).toMatchObject({ cajaAbierta: false, motivoObligatorioAlDesactivar: false });
+    expect(m.cajaAbierta).not.toHaveBeenCalled();
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
   });
 
   it("modificada: modificadoEl es la última modificación", async () => {
@@ -313,6 +388,169 @@ describe("obtenerDetalleIntegrante", () => {
   it("inexistente: INTEGRANTE_NO_ENCONTRADO", async () => {
     m.tx.fichaMesaEntrada.findUnique.mockResolvedValue(null);
     expect(await capturar(obtenerDetalleIntegrante("nada"))).toMatchObject({ code: "INTEGRANTE_NO_ENCONTRADO" });
+  });
+});
+
+describe("desactivarIntegrante", () => {
+  const ACTIVA = { activoFichaMesaEntrada: true, version: 2, usuarioId: CUENTA };
+
+  /** Registra el orden de los pasos de la baja. */
+  function registrarPasos(ficha: object = ACTIVA) {
+    m.bloquear.mockImplementation(async () => { m.pasos.push("bloquear"); });
+    m.tx.fichaMesaEntrada.findUnique.mockImplementation(async () => { m.pasos.push("releer"); return ficha; });
+    m.cajaAbierta.mockImplementation(async () => { m.pasos.push("caja"); return null; });
+    m.registroOperaciones.mockImplementation(async () => { m.pasos.push("motivo"); return false; });
+    m.desactivarCuenta.mockImplementation(async () => { m.pasos.push("cuenta"); return { cambio: true }; });
+    m.registrarCambio.mockImplementation(() => { m.pasos.push("historial"); return { id: "h1" }; });
+  }
+
+  it("orden: bloqueo → relectura → caja → motivo → updateMany → cuenta → historial", async () => {
+    registrarPasos();
+    expect(await desactivarIntegrante(FICHA, { version: 2 }, actorUsuario(GERENTE))).toEqual({ id: FICHA, activo: false, version: 3 });
+    expect(m.pasos).toEqual(["bloquear", "releer", "caja", "motivo", "updateMany", "cuenta", "historial"]);
+    expect(m.bloquear).toHaveBeenCalledWith(m.tx, { recursos: { fichasMesaEntrada: [FICHA] } });
+    expect(m.tx.fichaMesaEntrada.updateMany).toHaveBeenCalledWith({
+      where: { idFichaMesaEntrada: FICHA, activoFichaMesaEntrada: true, version: 2 },
+      data: { activoFichaMesaEntrada: false, version: { increment: 1 }, modificadoPorUsuarioId: GERENTE },
+    });
+    expect(m.cajaAbierta).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.desactivarCuenta).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, {
+      entidad: "FICHA_MESA_ENTRADA", id: FICHA, accion: "DESACTIVAR", motivo: null, actor: actorUsuario(GERENTE),
+    });
+  });
+
+  it("con motivo: se recorta y se guarda aunque no sea obligatorio; no consulta «registró operaciones»", async () => {
+    registrarPasos();
+    await desactivarIntegrante(FICHA, { version: 2, motivo: "  Dejó el centro " }, actorUsuario(GERENTE));
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, expect.objectContaining({ motivo: "Dejó el centro" }));
+  });
+
+  it("sin motivo y con operaciones: MOTIVO_REQUERIDO, sin escribir nada", async () => {
+    registrarPasos();
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await capturar(desactivarIntegrante(FICHA, { version: 2 }, actorUsuario(GERENTE)))).toMatchObject({
+      code: "MOTIVO_REQUERIDO", status: 400,
+    });
+    expect(m.registroOperaciones).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.tx.fichaMesaEntrada.updateMany).not.toHaveBeenCalled();
+    expect(m.desactivarCuenta).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it("con operaciones y motivo: procede", async () => {
+    registrarPasos();
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await desactivarIntegrante(FICHA, { version: 2, motivo: "Renuncia" }, actorUsuario(GERENTE))).toMatchObject({ activo: false });
+  });
+
+  it("caja abierta: CAJA_ABIERTA antes de mirar el motivo, sin escribir nada", async () => {
+    registrarPasos();
+    m.cajaAbierta.mockResolvedValue({ id: "ckcaja", abiertaEl: new Date(0) });
+    expect(await capturar(desactivarIntegrante(FICHA, { version: 2, motivo: "x" }, actorUsuario(GERENTE)))).toMatchObject({
+      code: "CAJA_ABIERTA", status: 409,
+    });
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+    expect(m.tx.fichaMesaEntrada.updateMany).not.toHaveBeenCalled();
+    expect(m.desactivarCuenta).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["inexistente", null, 2, "INTEGRANTE_NO_ENCONTRADO", 404],
+    ["ya inactiva", { ...ACTIVA, activoFichaMesaEntrada: false }, 2, "INTEGRANTE_YA_INACTIVO", 409],
+    ["versión vieja", ACTIVA, 1, "CONFLICTO_EDICION_CONCURRENTE", 409],
+  ])("%s: %s, después del bloqueo y sin consultar la caja", async (_caso, ficha, version, code, status) => {
+    registrarPasos(ficha as object);
+    expect(await capturar(desactivarIntegrante(FICHA, { version }, actorUsuario(GERENTE)))).toMatchObject({ code, status });
+    expect(m.pasos).toEqual(["bloquear", "releer"]);
+    expect(m.tx.fichaMesaEntrada.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("updateMany sin filas (otra baja ganó entre la relectura y la escritura): conflicto, sin cuenta ni historial", async () => {
+    registrarPasos();
+    m.tx.fichaMesaEntrada.updateMany.mockResolvedValue({ count: 0 });
+    expect(await capturar(desactivarIntegrante(FICHA, { version: 2 }, actorUsuario(GERENTE)))).toMatchObject({
+      code: "CONFLICTO_EDICION_CONCURRENTE",
+    });
+    expect(m.desactivarCuenta).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it("si la cuenta falla, la transacción revierte y el historial no se encola", async () => {
+    registrarPasos();
+    m.desactivarCuenta.mockRejectedValue(new Error("fallo de A"));
+    await expect(desactivarIntegrante(FICHA, { version: 2 }, actorUsuario(GERENTE))).rejects.toThrow("fallo de A");
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it("ficha sin cuenta: no consulta la caja ni las operaciones ni toca ninguna cuenta; motivo opcional", async () => {
+    registrarPasos({ ...ACTIVA, usuarioId: null });
+    expect(await desactivarIntegrante(FICHA, { version: 2 }, actorUsuario(GERENTE))).toEqual({ id: FICHA, activo: false, version: 3 });
+    expect(m.pasos).toEqual(["bloquear", "releer", "updateMany", "historial"]);
+  });
+
+  it("actor proceso automático: modificadoPorUsuarioId null", async () => {
+    registrarPasos();
+    await desactivarIntegrante(FICHA, { version: 2 }, PROCESO_AUTOMATICO);
+    expect(m.tx.fichaMesaEntrada.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ modificadoPorUsuarioId: null }) }),
+    );
+  });
+});
+
+describe("reactivarIntegrante", () => {
+  const INACTIVA = { activoFichaMesaEntrada: false, version: 3, usuarioId: CUENTA };
+
+  function registrarPasos(ficha: object | null = INACTIVA) {
+    m.bloquear.mockImplementation(async () => { m.pasos.push("bloquear"); });
+    m.tx.fichaMesaEntrada.findUnique.mockImplementation(async () => { m.pasos.push("releer"); return ficha; });
+    m.reactivarCuenta.mockImplementation(async () => { m.pasos.push("cuenta"); return { cambio: true }; });
+    m.registrarCambio.mockImplementation(() => { m.pasos.push("historial"); return { id: "h2" }; });
+  }
+
+  it("bloqueo → relectura → updateMany → cuenta → historial REACTIVAR sin motivo", async () => {
+    registrarPasos();
+    expect(await reactivarIntegrante(FICHA, { version: 3 }, actorUsuario(GERENTE))).toEqual({ id: FICHA, activo: true, version: 4 });
+    expect(m.pasos).toEqual(["bloquear", "releer", "updateMany", "cuenta", "historial"]);
+    expect(m.bloquear).toHaveBeenCalledWith(m.tx, { recursos: { fichasMesaEntrada: [FICHA] } });
+    expect(m.tx.fichaMesaEntrada.updateMany).toHaveBeenCalledWith({
+      where: { idFichaMesaEntrada: FICHA, activoFichaMesaEntrada: false, version: 3 },
+      data: { activoFichaMesaEntrada: true, version: { increment: 1 }, modificadoPorUsuarioId: GERENTE },
+    });
+    expect(m.reactivarCuenta).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, {
+      entidad: "FICHA_MESA_ENTRADA", id: FICHA, accion: "REACTIVAR", actor: actorUsuario(GERENTE),
+    });
+    expect(m.cajaAbierta).not.toHaveBeenCalled();
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["inexistente", null, 3, "INTEGRANTE_NO_ENCONTRADO", 404],
+    ["ya activa", { ...INACTIVA, activoFichaMesaEntrada: true }, 3, "INTEGRANTE_YA_ACTIVO", 409],
+    ["versión vieja", INACTIVA, 2, "CONFLICTO_EDICION_CONCURRENTE", 409],
+  ])("%s: %s, sin escribir", async (_caso, ficha, version, code, status) => {
+    registrarPasos(ficha);
+    expect(await capturar(reactivarIntegrante(FICHA, { version }, actorUsuario(GERENTE)))).toMatchObject({ code, status });
+    expect(m.pasos).toEqual(["bloquear", "releer"]);
+  });
+
+  it("updateMany sin filas: conflicto, sin cuenta ni historial", async () => {
+    registrarPasos();
+    m.tx.fichaMesaEntrada.updateMany.mockResolvedValue({ count: 0 });
+    expect(await capturar(reactivarIntegrante(FICHA, { version: 3 }, actorUsuario(GERENTE)))).toMatchObject({
+      code: "CONFLICTO_EDICION_CONCURRENTE",
+    });
+    expect(m.reactivarCuenta).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it("ficha sin cuenta: reactiva sin tocar ninguna cuenta", async () => {
+    registrarPasos({ ...INACTIVA, usuarioId: null });
+    await reactivarIntegrante(FICHA, { version: 3 }, actorUsuario(GERENTE));
+    expect(m.pasos).toEqual(["bloquear", "releer", "updateMany", "historial"]);
   });
 });
 

@@ -8,6 +8,8 @@ const m = vi.hoisted(() => ({
   crear: vi.fn(),
   modificar: vi.fn(),
   disponibilidad: vi.fn(),
+  desactivar: vi.fn(),
+  reactivar: vi.fn(),
   permiso: vi.fn(),
   sesion: { actual: null as { user: { id: string; rol: string } } | null },
 }));
@@ -20,6 +22,8 @@ vi.mock("@/server/personal/personal.service", () => ({
   crearIntegrante: m.crear,
   modificarIntegrante: m.modificar,
   verificarDisponibilidadIntegrante: m.disponibilidad,
+  desactivarIntegrante: m.desactivar,
+  reactivarIntegrante: m.reactivar,
 }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: async (_c: string, porDefecto: number) => porDefecto }));
 vi.mock("@/lib/prisma", () => ({
@@ -36,7 +40,8 @@ vi.mock("@/auth", () => ({
 }));
 
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
-const { crearIntegrante, modificarIntegrante, verificarDisponibilidadIntegrante } = await import("@/server/personal/actions");
+const { crearIntegrante, desactivarIntegrante, modificarIntegrante, reactivarIntegrante, verificarDisponibilidadIntegrante } =
+  await import("@/server/personal/actions");
 const { revalidatePath } = await import("next/cache");
 
 const ID = "ckficha";
@@ -54,6 +59,8 @@ beforeEach(() => {
   m.crear.mockResolvedValue({ id: ID });
   m.modificar.mockResolvedValue({ id: ID, campos_modificados: ["telefono"], version: 4 });
   m.disponibilidad.mockResolvedValue({ dni_disponible: true, email_disponible: false });
+  m.desactivar.mockResolvedValue({ id: ID, activo: false, version: 4 });
+  m.reactivar.mockResolvedValue({ id: ID, activo: true, version: 5 });
 });
 
 describe("crearIntegrante (Server Action)", () => {
@@ -143,6 +150,83 @@ describe("modificarIntegrante (Server Action)", () => {
   ] as const)("%s → %s", async (clave, code) => {
     m.modificar.mockRejectedValue(new ErrorDeDominio(clave));
     expect((await modificarIntegrante(ID, { version: 3 })).error?.code).toBe(code);
+  });
+});
+
+describe("desactivarIntegrante (Server Action, HU-F-05)", () => {
+  it("permiso → Zod → servicio con el Gerente como actor; revalida el listado y la ficha", async () => {
+    expect(await desactivarIntegrante(ID, { version: 3, motivo: "  Renuncia " })).toEqual({
+      data: { id: ID, activo: false, version: 4 },
+      error: null,
+    });
+    expect(accionPedida()).toBe("personal:cambiar_estado");
+    expect(m.desactivar).toHaveBeenCalledWith(ID, { version: 3, motivo: "Renuncia" }, { tipo: "USUARIO", usuarioId: "gerente" });
+    expect(revalidatePath).toHaveBeenCalledWith("/personal");
+    expect(revalidatePath).toHaveBeenCalledWith(`/personal/${ID}`);
+  });
+
+  it.each(OTROS_ROLES)("%s: SIN_PERMISO antes de validar (un cuerpo inválido tampoco se valida)", async (rol) => {
+    m.sesion.actual = { user: { id: "otro", rol } };
+    expect((await desactivarIntegrante(ID, { activo: false })).error?.code).toBe("SIN_PERMISO");
+    expect(m.desactivar).not.toHaveBeenCalled();
+  });
+
+  it("sin sesión: SESION_INVALIDA", async () => {
+    m.sesion.actual = null;
+    expect((await desactivarIntegrante(ID, { version: 3 })).error?.code).toBe("SESION_INVALIDA");
+    expect(m.desactivar).not.toHaveBeenCalled();
+  });
+
+  it("VALIDATION_ERROR: sin version, motivo de 301 caracteres o campo ajeno; no llama al servicio ni revalida", async () => {
+    expect((await desactivarIntegrante(ID, {})).error).toMatchObject({ code: "VALIDATION_ERROR", detalles: { version: expect.any(Array) } });
+    expect((await desactivarIntegrante(ID, { version: 3, motivo: "a".repeat(301) })).error).toMatchObject({
+      code: "VALIDATION_ERROR",
+      detalles: { motivo: ["El motivo admite hasta 300 caracteres."] },
+    });
+    expect((await desactivarIntegrante(ID, { version: 3, usuarioId: "x" })).error?.code).toBe("VALIDATION_ERROR");
+    expect(m.desactivar).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["errores.personal.noEncontrado", "INTEGRANTE_NO_ENCONTRADO"],
+    ["errores.personal.yaInactivo", "INTEGRANTE_YA_INACTIVO"],
+    ["errores.personal.cajaAbierta", "CAJA_ABIERTA"],
+    ["errores.personal.motivoRequerido", "MOTIVO_REQUERIDO"],
+    ["errores.personal.conflictoEdicion", "CONFLICTO_EDICION_CONCURRENTE"],
+  ] as const)("%s → %s con el texto central, sin revalidar", async (clave, code) => {
+    const error = new ErrorDeDominio(clave);
+    m.desactivar.mockRejectedValue(error);
+    expect(await desactivarIntegrante(ID, { version: 3 })).toEqual({ data: null, error: { code, message: error.message } });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("reactivarIntegrante (Server Action, HU-F-05)", () => {
+  it("permiso → Zod → servicio; revalida el listado y la ficha", async () => {
+    expect(await reactivarIntegrante(ID, { version: 4 })).toEqual({ data: { id: ID, activo: true, version: 5 }, error: null });
+    expect(accionPedida()).toBe("personal:cambiar_estado");
+    expect(m.reactivar).toHaveBeenCalledWith(ID, { version: 4 }, { tipo: "USUARIO", usuarioId: "gerente" });
+    expect(revalidatePath).toHaveBeenCalledWith(`/personal/${ID}`);
+  });
+
+  it.each(OTROS_ROLES)("%s: SIN_PERMISO antes de validar", async (rol) => {
+    m.sesion.actual = { user: { id: "otro", rol } };
+    expect((await reactivarIntegrante(ID, {})).error?.code).toBe("SIN_PERMISO");
+    expect(m.reactivar).not.toHaveBeenCalled();
+  });
+
+  it("no acepta motivo: VALIDATION_ERROR", async () => {
+    expect((await reactivarIntegrante(ID, { version: 4, motivo: "Vuelve" })).error?.code).toBe("VALIDATION_ERROR");
+    expect(m.reactivar).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["errores.personal.yaActivo", "INTEGRANTE_YA_ACTIVO"],
+    ["errores.personal.conflictoEdicion", "CONFLICTO_EDICION_CONCURRENTE"],
+  ] as const)("%s → %s", async (clave, code) => {
+    m.reactivar.mockRejectedValue(new ErrorDeDominio(clave));
+    expect((await reactivarIntegrante(ID, { version: 4 })).error?.code).toBe(code);
   });
 });
 

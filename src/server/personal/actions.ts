@@ -5,26 +5,35 @@ import { headers } from "next/headers";
 import { flattenError, type ZodError } from "zod";
 import { obtenerIp } from "@/auth";
 import { texto } from "@/lib/textos";
-import { construirAltaIntegranteSchema, construirModificarIntegranteSchema } from "@/server/personal/personal.schema";
+import {
+  DesactivarIntegranteSchema,
+  ReactivarIntegranteSchema,
+  construirAltaIntegranteSchema,
+  construirModificarIntegranteSchema,
+} from "@/server/personal/personal.schema";
 import {
   crearIntegrante as crearIntegranteEnServicio,
+  desactivarIntegrante as desactivarIntegranteEnServicio,
   modificarIntegrante as modificarIntegranteEnServicio,
+  reactivarIntegrante as reactivarIntegranteEnServicio,
   verificarDisponibilidadIntegrante as verificarDisponibilidadEnServicio,
 } from "@/server/personal/personal.service";
 import { emailContactoSchema } from "@/server/shared/contacto.schema";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
+import { actorUsuario } from "@/server/shared/historial";
 import { construirIdentidadPersonaSchema } from "@/server/shared/identidad-persona.schema";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import type {
   DisponibilidadIntegrante,
+  EstadoIntegranteCambiado,
   IntegranteCreado,
   IntegranteModificado,
   ResultadoAccionPersonal,
 } from "@/types/personal.types";
 
-// Server Actions del personal de mesa de entrada (spec_modulo_F.md §2.1 y
-// §2.2, HU-F-01). Capa delgada (Regla N.° 4): permiso primero (el rechazo vale
+// Server Actions del personal de mesa de entrada (spec_modulo_F.md §2.1,
+// §2.2, §2.5 y §2.6; HU-F-01 y HU-F-05). Capa delgada (Regla N.° 4): permiso primero (el rechazo vale
 // aunque la acción se invoque sin pasar por la pantalla), después Zod con el
 // mismo schema del formulario y de la ruta, después el servicio, y el
 // resultado como { data, error } (Regla N.° 5). La pantalla las llama directo,
@@ -84,6 +93,51 @@ export async function modificarIntegrante(
       revalidatePath("/personal");
       revalidatePath(`/personal/${id}`);
     }
+    return { data: resultado, error: null };
+  } catch (error) {
+    return errorDeAccion(error);
+  }
+}
+
+/** Revalida el listado y la ficha después de un cambio de estado. */
+function revalidarFicha(id: string) {
+  revalidatePath("/personal");
+  revalidatePath(`/personal/${id}`);
+}
+
+/**
+ * Baja del integrante (HU-F-05 c1 a c4 y c6): `{ motivo?, version }`. La caja
+ * abierta, el motivo obligatorio y la versión los decide el servicio.
+ */
+export async function desactivarIntegrante(
+  id: string,
+  datos: unknown,
+): Promise<ResultadoAccionPersonal<EstadoIntegranteCambiado>> {
+  try {
+    const { id: usuarioId } = await verificarPermiso("personal:cambiar_estado");
+    const parsed = DesactivarIntegranteSchema.safeParse(datos);
+    if (!parsed.success) return validacion(parsed.error);
+
+    const resultado = await desactivarIntegranteEnServicio(id, parsed.data, actorUsuario(usuarioId));
+    revalidarFicha(id);
+    return { data: resultado, error: null };
+  } catch (error) {
+    return errorDeAccion(error);
+  }
+}
+
+/** Reactivación del integrante (HU-F-05 c5 y c6): `{ version }`, sin motivo. */
+export async function reactivarIntegrante(
+  id: string,
+  datos: unknown,
+): Promise<ResultadoAccionPersonal<EstadoIntegranteCambiado>> {
+  try {
+    const { id: usuarioId } = await verificarPermiso("personal:cambiar_estado");
+    const parsed = ReactivarIntegranteSchema.safeParse(datos);
+    if (!parsed.success) return validacion(parsed.error);
+
+    const resultado = await reactivarIntegranteEnServicio(id, parsed.data, actorUsuario(usuarioId));
+    revalidarFicha(id);
     return { data: resultado, error: null };
   } catch (error) {
     return errorDeAccion(error);

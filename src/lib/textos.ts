@@ -1100,6 +1100,14 @@ export const TEXTOS = {
   "errores.personal.datosInvalidos": "Los datos del integrante no son válidos.",
   "errores.personal.interno": "No se pudo completar la operación",
   "errores.personal.comunicacion": "No se pudo conectar. Intentá nuevamente",
+  // HU-F-05: baja y reactivación (spec_modulo_F.md §2.5 y §2.6). El de la caja es literal del backlog.
+  "errores.personal.yaInactivo": "El integrante ya está inactivo.",
+  "errores.personal.yaActivo": "El integrante ya está activo.",
+  "errores.personal.cajaAbierta": "El integrante tiene la caja abierta. Tiene que cerrarla (o hacé un cierre por ausencia) antes de desactivarlo.",
+  // propuesto, pendiente de validar por el PO (P-F6)
+  "errores.personal.motivoRequerido": "Ingresá el motivo de la baja: el integrante registró operaciones.",
+  // propuesto
+  "errores.personal.motivoDemasiadoLargo": "El motivo admite hasta 300 caracteres.",
   "ui.personal.contacto.emailRequerido": "Ingresá el email: con él se crea la cuenta de acceso",
   "ui.comun.genero.masculino": "Masculino",
   "ui.comun.genero.femenino": "Femenino",
@@ -1162,6 +1170,35 @@ export const TEXTOS = {
   "ui.personal.ficha.fechaAlta": "Fecha de alta",
   "ui.personal.ficha.ultimaModificacion": "Última modificación",
   "ui.personal.ficha.sinCambios": "Sin cambios",
+  // --- Baja y reactivación desde la ficha (P-46, HU-F-05). Literales de la
+  // figura 94: título, detalle, «Motivo de la baja», la ayuda del motivo
+  // obligatorio y «Desactivar». El resto, propuesto.
+  "ui.personal.ficha.desactivar": "Desactivar",
+  "ui.personal.ficha.reactivar": "Reactivar",
+  "ui.personal.baja.titulo": "¿Estás seguro de que querés desactivar a {nombre} {apellido}? No podrá ingresar al sistema.",
+  "ui.personal.baja.detalle": "Las operaciones que registró se conservan con su nombre. Su cuenta pasa a inactiva y se cierran todas sus sesiones.",
+  // propuesto
+  "ui.personal.baja.detalleSinCuenta": "Las operaciones que registró se conservan con su nombre. No tiene una cuenta de acceso vinculada.",
+  "ui.personal.baja.motivo": "Motivo de la baja",
+  "ui.personal.baja.motivoObligatorio": "Obligatorio: tiene clases, pagos u operaciones registradas",
+  // propuesto
+  "ui.personal.baja.motivoOpcional": "Opcional",
+  "ui.personal.baja.contador": "{cantidad} / 300",
+  "ui.personal.baja.confirmar": "Desactivar",
+  // propuestos
+  "ui.personal.baja.exito": "Integrante desactivado correctamente",
+  "ui.personal.baja.cajaAbiertaTitulo": "No se puede desactivar al integrante",
+  "ui.personal.baja.cerrar": "Cerrar",
+  "ui.personal.reactivacion.titulo": "¿Estás seguro de que querés reactivar a {nombre} {apellido}?",
+  "ui.personal.reactivacion.detalle": "Su cuenta vuelve a quedar activa. Las sesiones cerradas en la baja no se restauran: tiene que iniciar sesión de nuevo.",
+  "ui.personal.reactivacion.detalleSinCuenta": "Vuelve a figurar como activo. No tiene una cuenta de acceso vinculada.",
+  "ui.personal.reactivacion.confirmar": "Reactivar",
+  "ui.personal.reactivacion.exito": "Integrante reactivado correctamente",
+  "ui.personal.historial.titulo": "Historial de estados",
+  "ui.personal.historial.vacio": "Sin bajas ni reactivaciones.",
+  "ui.personal.historial.desactivacion": "Desactivación",
+  "ui.personal.historial.reactivacion": "Reactivación",
+  "ui.personal.historial.usuario": "Usuario",
   "ui.personal.error.cargar": "No se pudo cargar la información del personal",
   "ui.personal.error.reintentar": "Reintentar",
 

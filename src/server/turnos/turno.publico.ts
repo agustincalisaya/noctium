@@ -415,4 +415,25 @@ export async function gerentePuedeGestionarClaseDeBaja(turnoId: string, profesor
   return turno?.profesorId === profesorId;
 }
 
+/**
+ * Línea de C de «registró operaciones» (DEC-39, spec_modulo_F.md §2.7): `true`
+ * si la cuenta figura como actor de una clase (creada o modificada), de una
+ * inscripción (creada o finalizada), de su historial o de un evento de clase.
+ * Lecturas de existencia, cortando en la primera verdadera. Solo lectura.
+ */
+export async function usuarioRegistroOperaciones(usuarioId: string, db: Db = prisma): Promise<boolean> {
+  const lecturas = [
+    () => db.turno.findFirst({
+      where: { OR: [{ creadoPorUsuarioId: usuarioId }, { modificadoPorUsuarioId: usuarioId }] }, select: { idTurno: true },
+    }),
+    () => db.turnoAlumno.findFirst({
+      where: { OR: [{ creadoPorUsuarioId: usuarioId }, { finalizadaPorUsuarioId: usuarioId }] }, select: { idInscripcion: true },
+    }),
+    () => db.historialInscripcion.findFirst({ where: { usuarioId }, select: { idHistorialInscripcion: true } }),
+    () => db.eventoTurno.findFirst({ where: { usuarioId }, select: { idEvento: true } }),
+  ];
+  for (const leer of lecturas) if (await leer()) return true;
+  return false;
+}
+
 export { contarTurnosFuturosDeProfesor, profesorTieneClasesPasadas, obtenerTurnosBasicos, listarTurnosFuturosDeProfesor, evaluarCambioDeProfesor, cancelarTurnoPorBajaDeProfesor, cambiarProfesorDeTurno } from "@/server/turnos/turno.baja-profesor.service";

@@ -77,3 +77,28 @@ export const ListarPersonalQuerySchema = z
   .strict();
 
 export type ListarPersonalQuery = z.infer<typeof ListarPersonalQuerySchema>;
+
+/**
+ * Baja (spec_modulo_F.md §2.5, HU-F-05), con la forma de la de profesor. El
+ * motivo se recorta y vacío equivale a no enviado; si es obligatorio lo decide
+ * el servicio (DEC-39). `.strict()` rechaza `activo`, `usuarioId` y cualquier
+ * campo ajeno.
+ */
+export const DesactivarIntegranteSchema = z
+  .object({
+    motivo: z
+      .string()
+      .trim()
+      .max(300, texto("errores.personal.motivoDemasiadoLargo"))
+      .transform((motivo) => motivo || undefined)
+      .optional(),
+    version: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export type DesactivarIntegranteInput = z.infer<typeof DesactivarIntegranteSchema>;
+
+/** Reactivación (spec_modulo_F.md §2.6): solo la `version`; no pide motivo. */
+export const ReactivarIntegranteSchema = z.object({ version: z.number().int().nonnegative() }).strict();
+
+export type ReactivarIntegranteInput = z.infer<typeof ReactivarIntegranteSchema>;

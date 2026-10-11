@@ -222,6 +222,13 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 - No es un permiso general para informar éxitos con modal: eso sigue
   prohibido (6.1). Cualquier caso nuevo de este tipo se agrega acá y en la
   tabla 6.4 antes de escribir el task.
+- **Caso agregado por HU-F-05 — aviso de caja abierta:** al tocar
+  «Desactivar» en la ficha de un integrante de mesa de entrada que tiene la
+  caja abierta, se muestra un `Dialog` informativo («No se puede desactivar
+  al integrante» y el texto de `CAJA_ABIERTA`) en lugar de la confirmación.
+  A diferencia del caso de HU-D-07, usa el botón «Cerrar» (no «Entendido»),
+  y se abre directamente desde la acción de desactivar, no desde un link de
+  un aviso de error. No lleva lista ni tabla y no dispara toast.
 
 ### 6.4 Tabla resumen — qué usa cada acción del producto
 
@@ -253,7 +260,11 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Listado del personal sin integrantes o sin resultados (HU-F-03) | — | Estado vacío inline: «Todavía no hay personal de mesa de entrada registrado» (sin búsqueda) o «No se encontraron integrantes para «{q}»» (con búsqueda), con «Nuevo integrante» siempre arriba a la derecha |
 | Alta de integrante de mesa de entrada con cuenta (HU-F-01 con HU-A-06, P-46 alta, `/personal/nuevo`) | Página completa + `ConfirmarAccionDialog` («Registrar integrante») | Navegación a la ficha `/personal/[id]?creado=1` con banner inline «Integrante registrado correctamente. Se creó su cuenta: ingresa con su email y su DNI como contraseña, y la cambia en el primer ingreso.» |
 | Edición de integrante de mesa de entrada (HU-F-01, P-46 edición, `/personal/[id]/editar`) | Página completa + `ConfirmarAccionDialog` siempre («Guardar cambios»), con el aviso de que cambia el usuario de ingreso si cambia el email | Navegación a la ficha `/personal/[id]?actualizada=1` con banner inline «Integrante actualizado correctamente» |
-| Ficha del integrante de mesa de entrada (HU-F-01, P-46 consulta, `/personal/[id]`) | Página completa de solo lectura; en esta HU no tiene acciones con feedback (desactivar y reactivar los agrega HU-F-05) | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
+| Ficha del integrante de mesa de entrada (HU-F-01 y HU-F-05, P-46 consulta, `/personal/[id]`) | Página completa de solo lectura; junto a «Editar», «Desactivar» (botón de contorno con estilo destructivo) si está activa o «Reactivar» si está inactiva, solo con `personal:cambiar_estado`. «Cuenta de acceso» e «Historial de estados» van en una grilla de dos columnas debajo de «Registro» | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
+| Desactivar integrante de mesa de entrada (HU-F-05, figura 94) | `ConfirmarAccionDialog` reversible: `destructiva` sin `irreversible` (sin leyenda «Esta acción no se puede deshacer.»), con el campo «Motivo de la baja» en `contenido` (hasta 300 caracteres, contador «n / 300»), obligatorio si el integrante registró operaciones (confirmar deshabilitado mientras esté vacío) u opcional. Los rechazos del servidor (caja abierta, motivo, conflicto de versión) se muestran dentro del mismo modal; al cerrarlo después de un rechazo, la ficha se refresca | Toast «Integrante desactivado correctamente» y `router.refresh()` |
+| Desactivar integrante con la caja abierta (HU-F-05 c2, HU-I-12 c10) | `Dialog` informativo de una acción rechazada (6.3), en lugar de la confirmación: «No se puede desactivar al integrante», el texto de `CAJA_ABIERTA` y un único botón «Cerrar» (y la X). Se abre al tocar «Desactivar» cuando la ficha ya indica la caja abierta; si la caja se abre después de cargar la ficha, el rechazo aparece dentro del modal de confirmación. Sin enlace a «Cierres de caja» mientras esa pantalla (HU-I-12) no exista | Ninguno: no modifica datos |
+| Reactivar integrante de mesa de entrada (HU-F-05) | `ConfirmarAccionDialog` sin motivo, con el aviso de que las sesiones cerradas en la baja no se restauran | Toast «Integrante reactivado correctamente» y `router.refresh()` |
+| Historial de estados del integrante (HU-F-05, figura 93) | Sección de la ficha, de solo lectura: cada baja o reactivación con la acción, la fecha y hora en la zona del centro, quien la hizo y el motivo, del más reciente al más antiguo (mismo formato de fecha y hora que «Registro» en la misma ficha) | Ninguno; sin entradas muestra «Sin bajas ni reactivaciones.» |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
@@ -460,6 +471,14 @@ sus consumidores, sin editar sus fuentes.
   sección desplegable «Personal de mesa de entrada» con un único ítem
   «Listado» (como Profesores, Materias, Aulas y Formas de pago), en lugar del
   enlace suelto de primer nivel que había dejado HU-F-01.
+- **11/10/2026:** HU-F-05 reemplaza en 6.4 la fila de la ficha del integrante
+  de mesa de entrada («Desactivar» o «Reactivar» junto a «Editar», y «Cuenta
+  de acceso» e «Historial de estados» en dos columnas debajo de «Registro»,
+  figura 93) y agrega las filas de desactivar (confirmación reversible de
+  C-25 con el motivo, figura 94), del aviso de caja abierta (`Dialog`
+  informativo de 6.3, con «Cerrar»), de reactivar y del historial de
+  estados. El éxito se informa con toast, como la baja de profesor y de
+  formas de pago.
 
 ## Selección de asistencia (HU-E-11)
 
