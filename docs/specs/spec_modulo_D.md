@@ -1303,3 +1303,9 @@ La tabla siguiente es **referencia histórica** de la versión previa de la Regl
 >
 > Qué cambia en lo existente: el alta con cuenta (2.9.1) sigue la opción (a) de siempre; cuando se crea la cuenta, A registra aparte su evento de seguridad `CUENTA_CREADA` (`spec_modulo_A.md` 4) y D no lo emite. La ficha conserva `modificadoPorUsuarioId`, `updatedAtProfesor` y `version`. El lote de 2.10.3 y 2.10.5 deja, por cada clase, el evento de C (`turno:cancelado` con `origen: "BAJA_PROFESOR"`, o `turno:profesor_cambiado`), que escribe C después del commit de esa clase; D no escribe eventos de clases. La lectura del historial (`listarHistorialEstados`) y las consultas de 2.10.1, 2.10.2, 2.10.4 y 2.12 son de solo lectura y **no emiten eventos**.
 ```
+
+### Sincronización de implementación HU-D-08 (10/10/2026)
+
+Decisión confirmada por el usuario: “Seleccionar todas” opera sobre la página visible del filtro, máximo diez; cambiar página o materia limpia la selección. No se utiliza la selección global del contrato propuesto para mutaciones UI. Los ids de clase son strings no vacíos acotados, incluidos `seed-turno-*`; las fichas y destinos conservan validación CUID. La ficha de consulta del Gerente usa los datos y la cuenta oficiales, sin otorgar edición de Mesa.
+
+La resolución vive en `profesor.estado.service.ts` y compone las fachadas de C, E, I, L y F; C comparte el núcleo C-05 y revalida bloqueos por clase. A conserva precisión de milisegundos al revocar y mantiene `iat_sesion` original al renovar. Ver task `docs/tasks/Sprint 3/Modulo D/HU-D-08.md` y evidencia `docs/testing/hu-d-08/`.

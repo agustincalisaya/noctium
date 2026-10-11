@@ -414,3 +414,5 @@ export async function gerentePuedeGestionarClaseDeBaja(turnoId: string, profesor
   const turno = await db.turno.findUnique({ where: { idTurno: turnoId }, select: { profesorId: true } });
   return turno?.profesorId === profesorId;
 }
+
+export { contarTurnosFuturosDeProfesor, profesorTieneClasesPasadas, obtenerTurnosBasicos, listarTurnosFuturosDeProfesor, evaluarCambioDeProfesor, cancelarTurnoPorBajaDeProfesor, cambiarProfesorDeTurno } from "@/server/turnos/turno.baja-profesor.service";

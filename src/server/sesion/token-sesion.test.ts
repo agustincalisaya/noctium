@@ -52,7 +52,8 @@ describe("callback jwt, rama de ingreso", () => {
     expect(m.obtenerEstadoCuenta).toHaveBeenCalledWith(USUARIO);
     expect(token).toMatchObject({ id: USUARIO, rol: "PROFESOR", debeCambiarPassword: true });
     expect(typeof token.jti).toBe("string");
-    expect(token.iat_sesion).toBe(token.iat);
+    expect(Math.floor(token.iat_sesion as number)).toBe(token.iat);
+    expect(token.iat_sesion).toBeGreaterThanOrEqual(token.iat as number);
   });
 
   it("una cuenta sin la marca deja el claim en false", async () => {
@@ -70,7 +71,7 @@ describe("callback jwt, rama de ingreso", () => {
 
 describe("callback jwt, renovación y rama update", () => {
   it("la renovación no vuelve a leer la cuenta ni cambia la marca ni iat_sesion", async () => {
-    const entrada = tokenVigente({ debeCambiarPassword: true });
+    const entrada = tokenVigente({ debeCambiarPassword: true, iat_sesion: Date.now() / 1000 - 600.125 });
     const { iat_sesion } = entrada;
     const token = await jwt()({ token: entrada });
     expect(m.obtenerEstadoCuenta).not.toHaveBeenCalled();

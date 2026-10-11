@@ -1,3 +1,4 @@
+import { texto } from "@/lib/textos";
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import type { EstadoTurno, Prisma, PrioridadTurno, RolUsuario, TurnoAlumno } from "@prisma/client";
@@ -202,7 +203,8 @@ async function validarProfesorConfiguracion(input: ConfigurarTurnoInput, data: A
 
 export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
-  const turno = await prisma.$transaction(async (tx) => {
+  const turno = await transaccion(async (tx) => {
+    await bloquear(tx, { recursos: { profesores: [input.profesor_id] } });
     await validarProfesorConfiguracion(input, data, tx);
     return tx.turno.create({ data: { ...data, estadoTurno: "PENDIENTE", profesorId: input.profesor_id, aulaId: null, cupoMaximoTurno: null, creadoPorUsuarioId: usuarioId } });
   });
@@ -212,7 +214,8 @@ export async function configurarTurno(input: ConfigurarTurnoInput, usuarioId: st
 
 export async function modificarConfiguracionTurno(id: string, input: ConfigurarTurnoInput, usuarioId: string) {
   const { data, validacion } = await prepararConfiguracion(input);
-  const { actual, aulaDesasignada } = await prisma.$transaction(async (tx) => {
+  const { actual, aulaDesasignada } = await transaccion(async (tx) => {
+    await bloquear(tx, { recursos: { profesores: [input.profesor_id] }, clases: [id] });
     const pendiente = await tx.turno.findUnique({ where: { idTurno: id }, select: { estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true } });
     if (!pendiente) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
     if (pendiente.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "Un turno disponible o completo no admite cambios de configuración");
@@ -222,7 +225,7 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
       where: { idTurno: id, estadoTurno: "PENDIENTE", updatedAtTurno: pendiente.updatedAtTurno, materiaId: pendiente.materiaId, profesorId: pendiente.profesorId },
       data: { ...data, profesorId: input.profesor_id, modificadoPorUsuarioId: usuarioId },
     });
-    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
     const aulaDesasignada = pendiente.aulaId !== null && await aulaConTurnoSuperpuesto(tx, {
       idTurno: id, fechaTurno: data.fechaTurno, horaInicioTurno: data.horaInicioTurno, duracionMinutosTurno: data.duracionMinutosTurno,
     }, pendiente.aulaId);
@@ -231,7 +234,7 @@ export async function modificarConfiguracionTurno(id: string, input: ConfigurarT
         where: { idTurno: id, estadoTurno: "PENDIENTE", aulaId: pendiente.aulaId },
         data: { aulaId: null, cupoMaximoTurno: null, modificadoPorUsuarioId: usuarioId },
       });
-      if (desasignado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+      if (desasignado.count === 0) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
     }
     return { actual: pendiente, aulaDesasignada };
   });
@@ -312,7 +315,9 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
       // clase y las clases donde tienen reservas vencidas sin marcar.
       const momento = relojAhora();
       const conVencidas = (await Promise.all(input.alumno_ids.map((alumnoId) => clasesConReservasVencidasDelAlumno(tx, alumnoId, momento)))).flat();
-      await bloquear(tx, { recursos: { alumnos: input.alumno_ids }, clases: [turnoId, ...conVencidas] });
+      const previa = input.profesor_id ? null : await tx.turno.findUnique({ where: { idTurno: turnoId }, select: { profesorId: true } });
+      const profesorPrevio = input.profesor_id ?? previa?.profesorId;
+      await bloquear(tx, { recursos: { profesores: profesorPrevio ? [profesorPrevio] : [], alumnos: input.alumno_ids }, clases: [turnoId, ...conVencidas] });
       const turno = await tx.turno.findUnique({
         where: { idTurno: turnoId },
         select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true, profesorId: true, aulaId: true, cupoMaximoTurno: true, updatedAtTurno: true },
@@ -334,6 +339,7 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
         }
       }
       const profesorId = input.profesor_id ?? turno.profesorId;
+      if (profesorId !== profesorPrevio) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
       if (!profesorId) throw new ServiceError("TURNO_SIN_PROFESOR", "Elegí un profesor antes de confirmar el turno");
       if (input.profesor_id && input.profesor_id !== turno.profesorId) {
         const profesores = await listarProfesoresActivosPorMateria(turno.materiaId, tx);
@@ -365,12 +371,12 @@ export async function asignarParticipantesTurno(turnoId: string, input: AsignarP
         where: { idTurno: turnoId, estadoTurno: "PENDIENTE", updatedAtTurno: turno.updatedAtTurno },
         data: { ...(profesorId !== turno.profesorId ? { profesorId } : {}), modificadoPorUsuarioId: usuarioId },
       });
-      if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+      if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
 
       // Confirmación: el trigger de estadoTurno proyecta profesor y aula en
       // reservas_turno (§3.4); una exclusión GiST revierte toda la transacción.
       const confirmado = await tx.turno.updateMany({ where: { idTurno: turnoId, estadoTurno: "PENDIENTE" }, data: { estadoTurno: "DISPONIBLE" } });
-      if (confirmado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+      if (confirmado.count === 0) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
 
       // Reemplazo del conjunto (PR-0.md §2.0): la inscripción no se borra. Las
       // vigentes que no siguen pasan a QUITADA_CENTRO y los alumnos nuevos se
@@ -744,7 +750,7 @@ export async function actualizarPrioridadTurno(id: string, input: ActualizarPrio
       where: { idTurno: id, estadoTurno: { not: "CANCELADO" } },
       data: { prioridadTurno: input.prioridad, modificadoPorUsuarioId: usuarioId },
     });
-    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+    if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
     return { anterior: turno.prioridadTurno, sinCambios: false };
   });
 

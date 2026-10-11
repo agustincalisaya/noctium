@@ -1,5 +1,7 @@
 "use server";
 
+import { DesactivarProfesorSchema, ReactivarProfesorSchema, TurnosLoteSchema, CambiarProfesorLoteSchema } from "@/server/profesores/profesor.schema";
+import { desactivarProfesor as desactivarProfesorEstado, reactivarProfesor as reactivarProfesorEstado, cancelarTurnosFuturosDeProfesor as cancelarTurnosFuturosEstado, cambiarProfesorDeTurnosFuturos as cambiarProfesorDeTurnosEstado } from "@/server/profesores/profesor.estado.service";
 import { revalidatePath } from "next/cache";
 import { flattenError } from "zod";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
@@ -342,4 +344,32 @@ export async function actualizarMateriasProfesor(
     }
     return { data: null, error: { code: "ERROR_COMUNICACION", message: MENSAJE_ERROR_COMUNICACION } };
   }
+}
+
+// HU-D-08: adaptadores equivalentes a las rutas; permisos y Zod antes del servicio.
+async function ejecutarEstadoProfesor<T>(id: string, input: unknown, schema: import("zod").ZodType<T>, operar: (id: string, datos: T, actor: import("@/server/shared/historial").ActorDominio) => Promise<unknown>) {
+  try {
+    const usuario = await verificarPermiso("profesores:cambiar_estado");
+    const parsed = schema.safeParse(input);
+    if (!ProfesorIdSchema.safeParse(id).success || !parsed.success) return { data: null, error: { code: "VALIDATION_ERROR", message: texto("ui.profesores.estado.datosInvalidos"), detalles: parsed.success ? undefined : flattenError(parsed.error) } };
+    const data = await operar(id, parsed.data, { tipo: "USUARIO", usuarioId: usuario.id });
+    revalidatePath("/profesores"); revalidatePath(`/profesores/${id}`); revalidatePath("/turnos");
+    return { data, error: null };
+  } catch (error) {
+    if (error instanceof ServiceError || error instanceof PermisoError) return { data: null, error: { code: error.code, message: error.message, ...(error instanceof ServiceError ? error.detalles : {}) } };
+    return { data: null, error: { code: "ERROR_INTERNO", message: texto("ui.profesores.estado.error") } };
+  }
+}
+
+export async function desactivarProfesor(id: string, input: unknown) {
+  return ejecutarEstadoProfesor(id, input, DesactivarProfesorSchema, desactivarProfesorEstado);
+}
+export async function reactivarProfesor(id: string, input: unknown) {
+  return ejecutarEstadoProfesor(id, input, ReactivarProfesorSchema, reactivarProfesorEstado);
+}
+export async function cancelarTurnosFuturosDeProfesor(id: string, input: unknown) {
+  return ejecutarEstadoProfesor(id, input, TurnosLoteSchema, cancelarTurnosFuturosEstado);
+}
+export async function cambiarProfesorDeTurnosFuturos(id: string, input: unknown) {
+  return ejecutarEstadoProfesor(id, input, CambiarProfesorLoteSchema, cambiarProfesorDeTurnosEstado);
 }

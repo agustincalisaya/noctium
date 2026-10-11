@@ -1,3 +1,4 @@
+import { obtenerHistorialEstadosProfesor } from "@/server/profesores/profesor.estado.service";
 import { NextResponse } from "next/server";
 import { flattenError } from "zod";
 import { withPermission } from "@/server/shared/with-permission";
@@ -34,6 +35,7 @@ export const GET = withPermission("profesores:leer", async (_req, ctx) => {
           // HU-A-06 (spec_modulo_D.md §2.12): campo extra `cuenta`, en la
           // convención camelCase de este contrato; nunca el hash.
           cuenta: await cuentaParaRespuesta(profesor.id),
+          historialEstados: await obtenerHistorialEstadosProfesor(profesor.id),
           horarios: Object.fromEntries(
             agruparHorariosPorDia(horarios).map(({ dia, intervalos }) => [
               dia,

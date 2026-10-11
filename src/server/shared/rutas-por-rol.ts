@@ -17,7 +17,7 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   gerente: ["GERENTE"],
   alumno: ["ALUMNO"],
   "mi-historial": ["ALUMNO"],
-  profesores: ["MESA_ENTRADA"],
+  profesores: ["MESA_ENTRADA", "GERENTE"],
   aulas: ["GERENTE"],
   alumnos: ["MESA_ENTRADA", "GERENTE"],
   pagos: ["MESA_ENTRADA"],
@@ -54,7 +54,10 @@ export function rutaAdmiteMarca(pathname: string): boolean {
  * src/proxy.ts, no este mapa.
  */
 export function rolPuedeAccederRuta(rol: RolUsuario, pathname: string): boolean {
-  const segmento = pathname.split("/").filter(Boolean)[0];
+  const partes = pathname.split("/").filter(Boolean);
+  const segmento = partes[0];
+  if (segmento === "profesores" && rol === "GERENTE" &&
+    (partes[1] === "nuevo" || partes[1] === "horarios" || partes.length > 2)) return false;
   if (!segmento) return true;
 
   const regla = RUTAS_POR_ROL[segmento];

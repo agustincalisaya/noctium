@@ -81,7 +81,7 @@ describe("HU-C-04 §2.2 schema", () => {
 
 describe("HU-C-04 §2.2 asignar participantes", () => {
   it("usa y revalida el profesor persistido cuando el payload lo omite", async () => {
-    tx.turno.findUnique.mockResolvedValueOnce({ ...turno, profesorId: P });
+    tx.turno.findUnique.mockResolvedValue({ ...turno, profesorId: P });
     await expect(asignarParticipantesTurno(TURNO, { alumno_ids: [A] }, USUARIO)).resolves.toMatchObject({ profesor_id: P, estado: "DISPONIBLE" });
     expect(profesores).not.toHaveBeenCalled();
     expect(opcion).toHaveBeenCalledWith(P, tx);
@@ -112,7 +112,7 @@ describe("HU-C-04 §2.2 asignar participantes", () => {
   });
   it("un profesor_id explícito distinto reemplaza al persistido tras revalidarse", async () => {
     const nuevo = "ckprofesor000000000000002";
-    tx.turno.findUnique.mockResolvedValueOnce({ ...turno, profesorId: P });
+    tx.turno.findUnique.mockResolvedValue({ ...turno, profesorId: P });
     opcion.mockResolvedValueOnce({ id: nuevo });
     await expect(asignarParticipantesTurno(TURNO, { alumno_ids: [A], profesor_id: nuevo }, USUARIO)).resolves.toMatchObject({ profesor_id: nuevo });
     expect(profesores).toHaveBeenCalledWith(turno.materiaId, tx);

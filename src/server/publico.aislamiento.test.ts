@@ -49,7 +49,7 @@ const PUBLICOS = [
   {
     ruta: "server/turnos/turno.publico.ts",
     // PR 0: la regla «vigente a un momento dado» es del propio módulo C (2.2).
-    permitidos: ["@prisma/client", "@/lib/prisma", "./turno.validaciones", "@/server/turnos/inscripcion.vigencia"],
+    permitidos: ["@prisma/client", "@/lib/prisma", "./turno.validaciones", "@/server/turnos/inscripcion.vigencia", "@/server/turnos/turno.baja-profesor.service"],
   },
   {
     ruta: "server/pagos/pago.publico.ts",
