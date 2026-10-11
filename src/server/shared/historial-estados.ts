@@ -62,3 +62,16 @@ export async function listarHistorialEstados(
     usuario_id: fila.usuarioId,
   }));
 }
+
+/**
+ * Línea del historial de estados de «registró operaciones» (DEC-39,
+ * spec_modulo_F.md §2.7): `true` si la cuenta hizo alguna baja o
+ * reactivación, de cualquier entidad. Solo lectura.
+ */
+export async function usuarioRegistroCambiosDeEstado(
+  usuarioId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<boolean> {
+  const cambio = await db.historialEstado.findFirst({ where: { usuarioId }, select: { idHistorialEstado: true } });
+  return cambio !== null;
+}

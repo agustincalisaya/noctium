@@ -13,6 +13,8 @@ import { obtenerDetalleIntegrante } from "@/server/personal/personal.service";
 import { esErrorDeDominio } from "@/server/shared/error-dominio";
 import { exigirPermiso, tienePermiso } from "@/server/shared/with-permission";
 import type { DetalleIntegrante } from "@/types/personal.types";
+import { EstadoIntegranteDialog } from "./estado-integrante-dialog";
+import { HistorialEstadosIntegrante } from "./historial-estados-integrante";
 
 const GENERO_LEGIBLE: Record<string, string> = {
   MASCULINO: texto("ui.comun.genero.masculino"),
@@ -56,10 +58,11 @@ function Datos({ datos }: { datos: [etiqueta: string, valor: string][] }) {
 /**
  * Ficha del integrante en modo consulta (P-46, HU-F-01; HU-A-06 c5): datos en
  * solo lectura, fechas de alta y de última modificación, y «Cuenta de acceso»
- * con `CuentaAccesoCard`. «Editar» solo con `personal:editar`. En esta HU no
- * hay desactivar ni reactivar (los agrega HU-F-05). Los banners de vuelta
- * siguen el patrón de las otras fichas: `?creado=1` tras el alta y
- * `?actualizada=1` tras editar.
+ * con `CuentaAccesoCard`. «Editar» solo con `personal:editar`. HU-F-05 suma,
+ * junto a «Editar», «Desactivar» o «Reactivar» solo con
+ * `personal:cambiar_estado`, y el «Historial de estados» al lado de «Cuenta de
+ * acceso». Los banners de vuelta siguen el patrón de las otras fichas:
+ * `?creado=1` tras el alta y `?actualizada=1` tras editar.
  */
 export default async function FichaIntegrantePage({
   params,
@@ -71,7 +74,10 @@ export default async function FichaIntegrantePage({
   await exigirPermiso("personal:leer");
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const integrante = await cargarIntegrante(id);
-  const puedeEditar = await tienePermiso("personal:editar");
+  const [puedeEditar, puedeCambiarEstado] = await Promise.all([
+    tienePermiso("personal:editar"),
+    tienePermiso("personal:cambiar_estado"),
+  ]);
   const ausente = texto("ui.personal.valorAusente");
   const nombreCompleto = `${integrante.nombre} ${integrante.apellido}`;
 
@@ -100,11 +106,29 @@ export default async function FichaIntegrantePage({
           <h1 className="text-2xl font-semibold">{nombreCompleto}</h1>
           {!integrante.activo && <Badge variant="muted">{texto("ui.personal.estado.inactivo")}</Badge>}
         </div>
-        {puedeEditar && (
-          <Link href={`/personal/${integrante.id}/editar`} className={buttonVariants({ variant: "outline" })}>
-            <Pencil className="size-4" aria-hidden />
-            {texto("ui.personal.ficha.editar")}
-          </Link>
+        {(puedeEditar || puedeCambiarEstado) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {puedeEditar && (
+              <Link href={`/personal/${integrante.id}/editar`} className={buttonVariants({ variant: "outline" })}>
+                <Pencil className="size-4" aria-hidden />
+                {texto("ui.personal.ficha.editar")}
+              </Link>
+            )}
+            {puedeCambiarEstado && (
+              <EstadoIntegranteDialog
+                integrante={{
+                  id: integrante.id,
+                  nombre: integrante.nombre,
+                  apellido: integrante.apellido,
+                  activo: integrante.activo,
+                  version: integrante.version,
+                  tieneCuenta: integrante.cuenta.estado !== "SIN_CUENTA",
+                  cajaAbierta: integrante.cajaAbierta,
+                  motivoObligatorio: integrante.motivoObligatorioAlDesactivar,
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -145,7 +169,10 @@ export default async function FichaIntegrantePage({
         />
       </Seccion>
 
-      <CuentaAccesoCard cuenta={integrante.cuenta} />
+      <div className="grid items-start gap-5 md:grid-cols-2">
+        <CuentaAccesoCard cuenta={integrante.cuenta} />
+        <HistorialEstadosIntegrante historial={integrante.historialEstados} />
+      </div>
     </div>
   );
 }

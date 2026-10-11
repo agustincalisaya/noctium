@@ -28,6 +28,7 @@ import { fixtureHuA06 } from "./hu-a-06";
 import { fixtureHuA05 } from "./hu-a-05";
 import { fixtureHuF01 } from "./hu-f-01";
 import { fixtureHuF03 } from "./hu-f-03";
+import { fixtureHuF05 } from "./hu-f-05";
 import type { PrismaClient } from "@prisma/client";
 
 /** Lo que recibe cada fixture. */
@@ -36,7 +37,7 @@ export type ContextoFixtures = { prisma: PrismaClient };
 type Fixture = { nombre: string; correr: (contexto: ContextoFixtures) => Promise<void> };
 
 /** Fixtures en orden de ejecución: una línea por HU. */
-const FIXTURES: Fixture[] = [{ nombre: "HU-D-08", correr: fixtureHuD08 }, { nombre: "HU-I-07", correr: fixtureHuI07 }, { nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "HU-E-04", correr: fixtureHuE04 }, { nombre: "HU-E-10", correr: fixtureHuE10 }, { nombre: "HU-E-11", correr: fixtureHuE11 }, { nombre: "HU-E-08", correr: fixtureHuE08 }, { nombre: "HU-E-02", correr: fixtureHuE02 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }, { nombre: "HU-H-03", correr: fixtureHuH03 }, { nombre: "HU-H-10", correr: fixtureHuH10 }, { nombre: "HU-A-06", correr: fixtureHuA06 }, { nombre: "HU-A-05", correr: fixtureHuA05 }, { nombre: "HU-F-01", correr: fixtureHuF01 }, { nombre: "HU-F-03", correr: fixtureHuF03 }];
+const FIXTURES: Fixture[] = [{ nombre: "HU-D-08", correr: fixtureHuD08 }, { nombre: "HU-I-07", correr: fixtureHuI07 }, { nombre: "HU-E-09", correr: fixtureHuE09 }, { nombre: "HU-E-07", correr: fixtureHuE07 }, { nombre: "HU-E-04", correr: fixtureHuE04 }, { nombre: "HU-E-10", correr: fixtureHuE10 }, { nombre: "HU-E-11", correr: fixtureHuE11 }, { nombre: "HU-E-08", correr: fixtureHuE08 }, { nombre: "HU-E-02", correr: fixtureHuE02 }, { nombre: "hu-h-06", correr: fixtureHuH06 }, { nombre: "HU-H-07", correr: fixtureHuH07 }, { nombre: "HU-H-03", correr: fixtureHuH03 }, { nombre: "HU-H-10", correr: fixtureHuH10 }, { nombre: "HU-A-06", correr: fixtureHuA06 }, { nombre: "HU-A-05", correr: fixtureHuA05 }, { nombre: "HU-F-01", correr: fixtureHuF01 }, { nombre: "HU-F-03", correr: fixtureHuF03 }, { nombre: "HU-F-05", correr: fixtureHuF05 }];
 
 export async function correrFixtures(contexto: ContextoFixtures): Promise<void> {
   for (const fixture of FIXTURES) {

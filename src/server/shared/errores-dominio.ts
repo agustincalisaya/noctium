@@ -64,6 +64,11 @@ export const ERRORES_DE_DOMINIO = {
   "errores.personal.dniDuplicado": { code: "DNI_DUPLICADO", status: 409 },
   "errores.personal.noEncontrado": { code: "INTEGRANTE_NO_ENCONTRADO", status: 404 },
   "errores.personal.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
+  // HU-F-05 (spec_modulo_F.md §2.5 y §2.6).
+  "errores.personal.yaInactivo": { code: "INTEGRANTE_YA_INACTIVO", status: 409 },
+  "errores.personal.yaActivo": { code: "INTEGRANTE_YA_ACTIVO", status: 409 },
+  "errores.personal.cajaAbierta": { code: "CAJA_ABIERTA", status: 409 },
+  "errores.personal.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
 
   // Módulo A (spec_modulo_A.md §2.6.1).
   "errores.cuenta.emailYaAsociado": { code: "EMAIL_YA_ASOCIADO", status: 409 },

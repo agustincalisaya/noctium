@@ -52,3 +52,15 @@ export async function obtenerTarifasPorIds(
   const porId = new Map(materias.map((materia) => [materia.idMateria, materia.tarifaHoraMateria]));
   return unicos.flatMap((id) => (porId.has(id) ? [{ id, tarifaHora: porId.get(id)! }] : []));
 }
+
+/**
+ * Línea de L de «registró operaciones» (DEC-39, spec_modulo_F.md §2.7): `true`
+ * si la cuenta registró algún cambio de tarifa. Solo lectura.
+ */
+export async function usuarioRegistroOperaciones(
+  usuarioId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<boolean> {
+  const cambio = await db.historialTarifa.findFirst({ where: { usuarioId }, select: { idHistorialTarifa: true } });
+  return cambio !== null;
+}
