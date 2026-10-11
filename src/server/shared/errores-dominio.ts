@@ -60,6 +60,11 @@ export const ERRORES_DE_DOMINIO = {
   "errores.profesor.noDictaMateria": { code: "PROFESOR_NO_DICTA_MATERIA", status: 409 },
   "errores.profesor.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
 
+  // Módulo F (spec_modulo_F.md §2.1 a §2.4, HU-F-01).
+  "errores.personal.dniDuplicado": { code: "DNI_DUPLICADO", status: 409 },
+  "errores.personal.noEncontrado": { code: "INTEGRANTE_NO_ENCONTRADO", status: 404 },
+  "errores.personal.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
+
   // Módulo A (spec_modulo_A.md §2.6.1).
   "errores.cuenta.emailYaAsociado": { code: "EMAIL_YA_ASOCIADO", status: 409 },
   "errores.cuenta.datosInvalidos": { code: "VALIDATION_ERROR", status: 400 },
