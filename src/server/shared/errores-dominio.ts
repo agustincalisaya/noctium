@@ -10,6 +10,11 @@ import type { ClaveTexto } from "@/lib/textos";
  * cuando el texto depende de quién opera (alumno o mesa de entrada).
  */
 export const ERRORES_DE_DOMINIO = {
+  "errores.profesor.fueraHorario": { code: "PROFESOR_FUERA_DE_HORARIO", status: 409 },
+  "errores.profesor.ocupado": { code: "PROFESOR_OCUPADO", status: 409 },
+  "errores.profesor.sinPermiso": { code: "SIN_PERMISO", status: 403 },
+  "errores.profesor.claseModificada": { code: "TURNO_MODIFICADO", status: 409 },
+  "errores.profesor.materiaNoEncontrada": { code: "MATERIA_NO_ENCONTRADA", status: 404 },
   "errores.transaccion.ocupada": { code: "TRANSACCION_OCUPADA", status: 409 },
 
   // Turnos e inscripción: condiciones existentes (mismo code de hoy).

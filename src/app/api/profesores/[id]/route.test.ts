@@ -8,6 +8,7 @@ import { ErrorDeDominio } from "@/server/shared/error-dominio";
 // del detalle. El permiso y el servicio están simulados.
 
 const m = vi.hoisted(() => ({ modificar: vi.fn(), detalle: vi.fn(), cuenta: vi.fn() }));
+vi.mock("@/server/profesores/profesor.estado.service", () => ({ obtenerHistorialEstadosProfesor: vi.fn(async () => []) }));
 vi.mock("@/server/shared/with-permission", () => ({
   withPermission:
     (_accion: string, handler: (req: NextRequest, ctx: unknown) => Promise<Response>) =>
@@ -91,6 +92,7 @@ describe("GET /api/profesores/[id]", () => {
     });
     const { data } = await respuesta.json();
     expect(data.cuenta).toEqual({ estado: "ACTIVA", email: "ana@mail.com", rol: "PROFESOR", debeCambiarPassword: true });
+    expect(data.historialEstados).toEqual([]);
     expect(data.contacto).toEqual({ telefono: null, email: "ana@mail.com" });
   });
 });

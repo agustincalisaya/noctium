@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { Suspense } from "react";
 import type { RolUsuario } from "@prisma/client";
 import { EventoCalendario } from "@/components/shared/evento-calendario";
@@ -67,21 +68,21 @@ export default async function AgendaProfesorPage({
   return (
     <div className="space-y-4 p-6">
       <EncabezadoCalendario
-        subtitulo={esProfesor ? "Mi agenda" : "Agenda por profesor"}
+        subtitulo={esProfesor ? textoC19("ui.clases.calendario.miAgenda") : textoC19("ui.clases.calendario.agendaPorProfesor")}
         vista={vista}
         hrefsVista={navegacion.hrefsVista}
         tipos={[
-          { etiqueta: esProfesor ? "Mi agenda" : "Por profesor", href: construirUrlCalendarioProfesor({ vista, fecha: fechaUrl }), activa: true },
-          { etiqueta: "Por materia", href: construirUrlCalendarioMateria({ vista, fecha: fechaUrl }), activa: false },
+          { etiqueta: esProfesor ? textoC19("ui.clases.calendario.miAgenda") : textoC19("ui.clases.calendario.porProfesor"), href: construirUrlCalendarioProfesor({ vista, fecha: fechaUrl }), activa: true },
+          { etiqueta: textoC19("ui.indicadores.presentismo.materia"), href: construirUrlCalendarioMateria({ vista, fecha: fechaUrl }), activa: false },
         ]}
         navegacion={hayAgenda ? navegacion : undefined}
       >
         {opciones && (
           <SelectorCalendario
             id="profesor"
-            etiqueta="Profesor"
-            placeholder="Seleccioná un profesor"
-            sinOpciones="No hay profesores activos"
+            etiqueta={textoC19("ui.turnos.solicitar.profesor")}
+            placeholder={textoC19("ui.clases.calendario.seleccionaUnProfesor")}
+            sinOpciones={textoC19("ui.clases.calendario.noHayProfesoresActivos")}
             opciones={opciones.map(({ id, nombreParaMostrar }) => ({ id, etiqueta: nombreParaMostrar }))}
             valor={profesorId}
             rutaBase="/calendario/profesor"
@@ -98,12 +99,12 @@ export default async function AgendaProfesorPage({
         // vista o de período, así no se ve la agenda anterior mientras carga.
         <Suspense
           key={`${profesorId ?? "propia"}-${vista}-${periodo.consulta.desde}`}
-          fallback={<CargandoCalendario texto="Cargando agenda" />}
+          fallback={<CargandoCalendario texto={textoC19("ui.clases.calendario.cargandoAgenda")} />}
         >
           <Agenda usuario={usuario} profesorId={profesorId} vista={vista} fecha={fecha} hoy={hoy} />
         </Suspense>
       ) : (
-        <AvisoCalendario>Seleccioná un profesor para ver su agenda</AvisoCalendario>
+        <AvisoCalendario>{textoC19("ui.clases.calendario.seleccionaUnProfesorParaVerSuAgenda")}</AvisoCalendario>
       )}
     </div>
   );
@@ -116,9 +117,9 @@ function primerValor(valor: Param): string | undefined {
 // Errores de negocio esperables: se informan en la página, no como error
 // técnico (ese va a `error.tsx` con Reintentar).
 const MENSAJES_POR_CODIGO: Record<string, string> = {
-  PROFESOR_NO_ENCONTRADO: "El profesor seleccionado no existe o no está activo",
-  PROFESOR_SIN_FICHA: "Tu cuenta no tiene una ficha de profesor vinculada",
-  SIN_PERMISO: "No tenés permisos para acceder a esta sección",
+  PROFESOR_NO_ENCONTRADO: textoC19("ui.clases.calendario.elProfesorSeleccionadoNoExisteONoEstaActivo"),
+  PROFESOR_SIN_FICHA: textoC19("ui.clases.calendario.tuCuentaNoTieneUnaFichaDeProfesorVinculada"),
+  SIN_PERMISO: textoC19("ui.clases.calendario.noTenesPermisosParaAccederAEstaSeccion"),
 };
 
 async function Agenda({
@@ -159,11 +160,10 @@ async function Agenda({
       calendario={calendario}
       hoy={hoy}
       encabezado={
-        <>
-          Turnos agendados de <span className="font-medium text-foreground">{calendario.profesor.nombre_completo}</span>
+        <>{textoC19("ui.clases.calendario.clasesAgendadasDe")}{" "}<span className="font-medium text-foreground">{calendario.profesor.nombre_completo}</span>
         </>
       }
-      textoVacio="Agenda sin turnos"
+      textoVacio={textoC19("ui.clases.calendario.agendaSinClases")}
       hrefDia={(dia) => construirUrlCalendarioProfesor({ profesorId, vista: "dia", fecha: dia })}
       renderEvento={(evento, estilo) => <EventoCalendario evento={evento} estilo={estilo} volverA={volverA} />}
     />

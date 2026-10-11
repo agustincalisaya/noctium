@@ -82,15 +82,15 @@ describe("GrillaMensual", () => {
     );
 
     const uno = celda("2026-09-15");
-    expect(uno.textContent).toContain("1 turno");
+    expect(uno.textContent).toContain("1 clase");
     expect(uno.textContent).toContain("Disponible");
     expect(uno.querySelector("svg")).not.toBeNull();
     expect(uno.querySelector(".bg-success")).not.toBeNull();
-    expect(uno.getAttribute("aria-label")).toBe("Martes 15 de septiembre de 2026: 1 turno, mayoría Disponible. Ver día");
+    expect(uno.getAttribute("aria-label")).toBe("Martes 15 de septiembre de 2026: 1 clase, mayoría Disponible. Ver día");
 
     const tres = celda("2026-09-16");
-    expect(tres.textContent).toContain("3 turnos");
-    expect(tres.textContent).toContain("Completo");
+    expect(tres.textContent).toContain("3 clases");
+    expect(tres.textContent).toContain("Completa");
   });
 
   it("un día sin turnos muestra solo el número", async () => {
@@ -98,7 +98,7 @@ describe("GrillaMensual", () => {
 
     const vacio = celda("2026-09-15");
     expect(vacio.textContent).toBe("15");
-    expect(vacio.getAttribute("aria-label")).toContain("sin turnos");
+    expect(vacio.getAttribute("aria-label")).toContain("sin clases");
   });
 
   it("días de relleno atenuados (con sus turnos igual) y hoy resaltado", async () => {
@@ -117,7 +117,7 @@ describe("GrillaMensual", () => {
     const relleno = celda("2026-10-02");
     expect(relleno.className).toContain("bg-muted");
     expect(relleno.dataset.enMes).toBe("false");
-    expect(relleno.textContent).toContain("2 turnos");
+    expect(relleno.textContent).toContain("2 clases");
     expect(celda("2026-08-31").className).toContain("bg-muted");
     expect(celda("2026-09-15").className).toContain("bg-card");
 

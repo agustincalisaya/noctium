@@ -1,0 +1,62 @@
+{
+  "entorno": "PostgreSQL descartable, Chromium, cuentas oficiales",
+  "roles": {
+    "MESA_ENTRADA": {
+      "rutas": 7,
+      "status": 403,
+      "code": "SIN_PERMISO"
+    },
+    "PROFESOR": {
+      "rutas": 7,
+      "status": 403,
+      "code": "SIN_PERMISO"
+    },
+    "ALUMNO": {
+      "rutas": 7,
+      "status": 403,
+      "code": "SIN_PERMISO"
+    }
+  },
+  "sesiones": {
+    "anterior_baja": 401,
+    "anterior_despues_reactivacion": 401,
+    "login_inactivo": "La cuenta está inactiva. Comunicate con la administración",
+    "nuevo_login": "/home"
+  },
+  "seleccion": {
+    "total": 21,
+    "pagina": 10,
+    "seleccionadas": 10,
+    "cambio_pagina": 0
+  },
+  "cambio_parcial": {
+    "procesadas": 1,
+    "fallidas_seleccionadas": 9,
+    "restantes": 20
+  },
+  "selectores": {
+    "nueva_clase": {
+      "activo": true,
+      "inactivo": false,
+      "reactivado": true
+    },
+    "generacion": {
+      "activo": true,
+      "inactivo": false,
+      "reactivado": true
+    },
+    "calendario": {
+      "inactivo": false,
+      "reactivado": true
+    },
+    "solicitar_clase": {
+      "inactivo": false,
+      "nota": "Solo ofrece profesores con clases disponibles; las canceladas no vuelven al reactivar."
+    }
+  },
+  "resolucion_final": {
+    "sin_futuras_ofrece_baja": true,
+    "motivo_obligatorio_por_historia": true,
+    "canceladas_no_restauradas": true
+  }
+}

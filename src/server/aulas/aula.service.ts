@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
@@ -15,7 +16,7 @@ const MENSAJES = {
   AULA_NO_ENCONTRADA: "No se encontró el aula",
   CONFLICTO_EDICION_CONCURRENTE: "El aula fue modificada por otro usuario. Recargá para ver los datos actuales.",
   CAPACIDAD_MENOR_A_INSCRIPTOS:
-    "La nueva capacidad es menor a la cantidad de alumnos ya inscriptos en turnos que usan esta aula",
+    textoC19("ui.clases.errores.laNuevaCapacidadEsMenorALaCantidadDeAlumnosYaInscriptos"),
 } as const;
 
 /** P2002 sobre `nombreAula` o `nombreNormalizadaAula` (los dos únicos de Aula). */

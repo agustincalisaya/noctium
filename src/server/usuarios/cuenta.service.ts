@@ -17,11 +17,6 @@ import { CrearCuentaParaFichaSchema, EmailCuentaSchema } from "@/server/usuarios
 
 type Db = Tx | Prisma.TransactionClient;
 
-/** Instante truncado a segundos, igual que el claim `iat_sesion`. */
-function truncarASegundos(momento: Date): Date {
-  return new Date(Math.floor(momento.getTime() / 1000) * 1000);
-}
-
 function datosInvalidos(error: unknown): never {
   throw new ErrorDeDominio("errores.cuenta.datosInvalidos", {
     campos: error instanceof Error && "issues" in error ? (error as { issues: { path: unknown[] }[] }).issues.map((i) => i.path.join(".")) : [],
@@ -116,11 +111,10 @@ export async function cambiarEmailCuenta(tx: Tx, datos: { usuarioId: string; ema
 
 /**
  * Revoca todas las sesiones de la cuenta iniciadas antes de ahora (RNF-SEG-04,
- * spec_modulo_A.md §3.7): `sesionesValidasDesde` = ahora truncado a
- * segundos, y nunca retrocede (GREATEST con el valor anterior).
+ * spec_modulo_A.md §3.7): `sesionesValidasDesde` = ahora con precisión de milisegundos, y nunca retrocede (GREATEST con el valor anterior).
  */
 export async function revocarSesiones(tx: Db, usuarioId: string): Promise<void> {
-  const desde = truncarASegundos(ahora());
+  const desde = ahora();
   await tx.$executeRaw(Prisma.sql`
     UPDATE "usuarios"
     SET "sesionesValidasDesdeUsuario" = GREATEST(

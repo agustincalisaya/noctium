@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import Link from "next/link";
 import { CalendarCheck, Flag, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,8 +9,8 @@ import { ETIQUETA_PRIORIDAD_TURNO, type PrioridadTurno } from "@/types/turno.typ
 type Estado = EventoCalendarioBase["estado"];
 
 export const ETIQUETA_ESTADO: Record<Estado, string> = {
-  DISPONIBLE: "Disponible",
-  COMPLETO: "Completo",
+  DISPONIBLE: textoC19("ui.turnos.estado.disponible"),
+  COMPLETO: textoC19("ui.turnos.estado.completa"),
 };
 
 // El ícono distingue el estado además del texto, sin depender del color
@@ -64,7 +65,7 @@ export function BloqueEventoCalendario({
   const horario = `${horaInicio}–${horaFin}`;
   const etiquetaEstado = ETIQUETA_ESTADO[estado];
   const IconoEstado = ICONO_ESTADO[estado];
-  const etiquetaPrioridad = prioridad === "NORMAL" ? "" : ` · Prioridad ${ETIQUETA_PRIORIDAD_TURNO[prioridad]}`;
+  const etiquetaPrioridad = prioridad === "NORMAL" ? "" : (" " + textoC19("ui.clases.calendario.prioridad", { valor1: ETIQUETA_PRIORIDAD_TURNO[prioridad] }));
   const completa = `${horario} · ${descripcion} · ${etiquetaEstado}${etiquetaPrioridad}`;
 
   return (
@@ -72,7 +73,7 @@ export function BloqueEventoCalendario({
       href={`/turnos/${encodeURIComponent(turnoId)}?volver=${encodeURIComponent(volverA)}`}
       prefetch={false}
       title={completa}
-      aria-label={`Turno ${completa}. Ver detalle`}
+      aria-label={textoC19("ui.clases.calendario.claseVerDetalle", { valor1: completa })}
       className="absolute flex flex-col gap-0.5 overflow-hidden rounded-md border border-border border-l-4 border-l-primary bg-background p-1.5 text-xs text-foreground shadow-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={estilo}
     >

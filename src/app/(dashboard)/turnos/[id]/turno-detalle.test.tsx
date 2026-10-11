@@ -54,7 +54,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
   it("migas «Turnos / {materia} · {dd/mm}» con el enlace al listado conservando retorno", async () => {
     await montar();
     const migas = container.querySelector('nav[aria-label="Breadcrumb"]')!;
-    expect(migas.textContent).toBe("Turnos/Matemática · 06/10");
+    expect(migas.textContent).toBe("Clases/Matemática · 06/10");
     expect(migas.querySelector("a")?.getAttribute("href")).toBe(RETORNO);
   });
 
@@ -105,7 +105,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect([...izquierda!.querySelectorAll("section")].map((s) => s.getAttribute("aria-labelledby"))).toEqual(["datos-turno-titulo", "inscripciones-titulo"]);
     expect(derecha!.tagName).toBe("ASIDE");
     expect(derecha!.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
-    expect(container.querySelector('section[aria-labelledby="datos-turno-titulo"] dl')?.className).toContain("lg:grid-cols-3");
+    expect(container.querySelector("section[aria-labelledby=\"datos-turno-titulo\"] dl")?.className).toContain("lg:grid-cols-3");
   });
 
   it("sin «Pago» no se renderiza la columna derecha y el contenido ocupa una sola columna", async () => {
@@ -235,7 +235,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
       await clic(boton("Inscribir"));
       expect(altas).toEqual([{ url: "/api/turnos/turno-1/alumnos", body: { alumno_id: "alumno-9" } }]);
       expect(dialogo()).toBeNull();
-      expect(texto()).toContain("Alumno agregado al turno");
+      expect(texto()).toContain("Alumno agregado a la clase");
       expect(fetch.mock.calls.filter(([url]) => url === "/api/turnos/turno-1").length).toBe(cargasAntes + 1);
     });
 
@@ -271,7 +271,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     await act(async () => { (container.querySelector('button[aria-label="Quitar a Pérez, Juan"]') as HTMLButtonElement).click(); });
     await esperar();
     expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/alumnos/alumno-1", { method: "DELETE", cache: "no-store" });
-    expect(texto()).toContain("Alumno quitado del turno");
+    expect(texto()).toContain("Alumno quitado de la clase");
     expect(texto()).toContain("Alumnos inscriptos · 1 de 6");
   });
 
@@ -279,7 +279,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     fetch.mockResolvedValue(respuesta(detalle({ alumnos: [], alumnos_inscriptos: "0/6" })));
     await montar();
     expect(texto()).toContain("Alumnos inscriptos · 0 de 6");
-    expect(texto()).toContain("El turno no tiene alumnos inscriptos.");
+    expect(texto()).toContain("La clase no tiene alumnos inscriptos.");
   });
 
   it("PENDIENTE sin asignar (AC3): «Sin asignar» en profesor, aula, cupo y ocupación; conserva los controles de configuración", async () => {
@@ -303,13 +303,13 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     await montar({ puedeConfigurar: true, puedeGestionarAlumnos: true });
     expect(texto()).toContain("Modificar configuración o aula");
 
-    fetch.mockRejectedValue(new Error("No se pudo consultar el turno"));
+    fetch.mockRejectedValue(new Error("No se pudo consultar la clase"));
     await act(async () => root.render(
       <TurnoDetalleVista id="turno-2" retorno={RETORNO} puedeConfigurar puedeGestionarAlumnos />,
     ));
     await esperar();
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("No se pudo consultar el turno");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("No se pudo consultar la clase");
     expect(texto()).not.toContain("Modificar configuración o aula");
     expect(texto()).not.toContain("Asignar profesor y alumnos");
     expect(container.querySelector('section[aria-labelledby="datos-turno-titulo"]')).toBeNull();
@@ -366,7 +366,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
   it("acciones en el orden de la pág. 5 (Reprogramar · Asignar prioridad · Cancelar turno); I-01/E-01 siguen pendientes", async () => {
     await montar();
     const botones = [...container.querySelectorAll("header button")].map((elemento) => elemento.textContent);
-    expect(botones).toEqual(["Reprogramar", "Asignar prioridad", "Cancelar turno"]);
+    expect(botones).toEqual(["Reprogramar", "Asignar prioridad", "Cancelar clase"]);
     for (const accion of ["Descartar", "Registrar pago", "Registrar clase dictada"]) {
       expect([...container.querySelectorAll("button, a")].some((elemento) => elemento.textContent === accion)).toBe(false);
     }
@@ -386,11 +386,11 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
 
   it("HU-C-05 AC1: «Cancelar turno» abre el AlertDialog con el texto literal, el resumen y el aviso N-3", async () => {
     await montar();
-    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar clase") as HTMLButtonElement).click());
     const dialogo = document.querySelector('[role="alertdialog"]')!;
-    expect(dialogo.textContent).toContain("¿Confirmás cancelar este turno?");
+    expect(dialogo.textContent).toContain("¿Confirmás cancelar esta clase?");
     expect(dialogo.textContent).toContain("Matemática · Mar 06/10, 16:00–17:00 · Aula 3 · 2 alumnos inscriptos. Esta acción no se puede deshacer.");
-    expect(dialogo.textContent).toContain("Este turno tiene 2 pagos registrados; no se reembolsan automáticamente");
+    expect(dialogo.textContent).toContain("Esta clase tiene 2 pagos registrados; no se reembolsan automáticamente");
   });
 
   it("HU-C-05 N-3: sin la propiedad pagos (sin pagos:leer) no hay aviso de pagos", async () => {
@@ -398,22 +398,22 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     void _pagos;
     fetch.mockResolvedValue(respuesta(sinPagos));
     await montar();
-    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar clase") as HTMLButtonElement).click());
     const dialogo = document.querySelector('[role="alertdialog"]')!;
-    expect(dialogo.textContent).toContain("¿Confirmás cancelar este turno?");
+    expect(dialogo.textContent).toContain("¿Confirmás cancelar esta clase?");
     expect(dialogo.textContent).not.toContain("pagos registrados");
   });
 
   it("HU-C-05 AC3/AC5: al confirmar cancela, recarga el mismo detalle y muestra «Cancelado» sin acciones", async () => {
     await montar();
-    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar clase") as HTMLButtonElement).click());
     fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { id: "turno-1", estado: "CANCELADO" }, error: null }) })
       .mockResolvedValueOnce(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
-    await act(async () => ([...document.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent === "Cancelar turno") as HTMLButtonElement).click());
+    await act(async () => ([...document.querySelectorAll('[role="alertdialog"] button')].find((b) => b.textContent === "Cancelar clase") as HTMLButtonElement).click());
     await esperar();
     expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/cancelacion", { method: "POST", cache: "no-store" });
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(container.querySelector("header")?.textContent).toContain("Cancelado");
+    expect(container.querySelector("header")?.textContent).toContain("Cancelada");
     expect(container.querySelectorAll("header button")).toHaveLength(0);
     expect(texto()).toContain("Pérez, Juan");
   });
@@ -426,7 +426,7 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     await esperar();
     expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/reprogramacion/opciones?fecha=2026-10-06", expect.objectContaining({ cache: "no-store" }));
     const dialogo = document.querySelector('[role="dialog"]')!;
-    expect(dialogo.textContent).toContain("Reprogramar turno");
+    expect(dialogo.textContent).toContain("Reprogramar clase");
     expect(dialogo.textContent).toContain("Profesor (Méndez, Laura), aula y duración se mantienen.");
   });
 
@@ -434,8 +434,8 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     fetch.mockResolvedValue(respuesta(null, false, { code: "SIN_PERMISO", message: "No tenés permisos para acceder a esta sección" }));
     await montar();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("No tenés permisos para acceder a esta sección");
-    expect(container.querySelector('nav[aria-label="Breadcrumb"]')?.textContent).toBe("Turnos");
-    expect(container.querySelector("h1")?.textContent).toBe("Detalle del turno");
+    expect(container.querySelector('nav[aria-label="Breadcrumb"]')?.textContent).toBe("Clases");
+    expect(container.querySelector("h1")?.textContent).toBe("Detalle de la clase");
   });
 });
 

@@ -8,6 +8,7 @@ const m = vi.hoisted(() => ({
   // Persistencia de la inscripción (PR-0.md §2.0): vencimiento de reservas antes y después de mover la clase.
   marcarVencidas: vi.fn(), recalcularVencimientos: vi.fn(),
 }));
+vi.mock("@/server/shared/bloquear", () => ({ bloquear: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
   $transaction: m.transaction,
   eventoTurno: { create: m.eventoCreate },
@@ -17,6 +18,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {
 } }));
 vi.mock("@/server/profesores/profesor.publico", async (original) => ({
   ...(await original<typeof import("@/server/profesores/profesor.publico")>()),
+  obtenerOpcionProfesorActivo: vi.fn(async () => ({ id: "prof-1" })),
   estaDentroDeHorarioAtencion: m.enHorario, obtenerHorariosDeAtencion: m.horarios,
 }));
 // turnoAlumnoFindMany: las inscripciones vigentes de la clase (inscripcionesVigentes, PR-0.md §2.2).
@@ -43,7 +45,7 @@ const fila = (extra: Record<string, unknown> = {}) => ({
   duracionMinutosTurno: 60, profesorId: "prof-1", aulaId: "aula-1", ...extra,
 });
 // transaccion() (PR-0.md §2.16) fija los tiempos de la transacción al empezar ($executeRawUnsafe).
-const tx = () => ({ $executeRawUnsafe: vi.fn(), $queryRaw: m.queryRaw, turno: { updateMany: m.updateMany }, turnoAlumno: { findMany: m.turnoAlumnoFindMany } });
+const tx = () => ({ $executeRawUnsafe: vi.fn(), $queryRaw: m.queryRaw, turno: { findUnique: m.findUnique, updateMany: m.updateMany }, turnoAlumno: { findMany: m.turnoAlumnoFindMany } });
 const input = (valor = "2026-10-07", horaInicio = "17:00") => ({ fecha: fecha(valor), hora_inicio: horaInicio });
 
 beforeEach(() => {
@@ -104,7 +106,7 @@ describe("HU-C-06 reprogramarTurno", () => {
 
   it.each([
     ["profesor fuera de su horario de atención", () => m.enHorario.mockResolvedValue(false), [{ recurso: "PROFESOR", id: "prof-1" }]],
-    ["profesor con otro turno", () => m.profesores.mockResolvedValue(new Map([["prof-1", { inicio: 1020, fin: 1080 }]])), [{ recurso: "PROFESOR", id: "prof-1" }]],
+    ["profesor con otra clase", () => m.profesores.mockResolvedValue(new Map([["prof-1", { inicio: 1020, fin: 1080 }]])), [{ recurso: "PROFESOR", id: "prof-1" }]],
     ["aula ocupada", () => m.aula.mockResolvedValue(true), [{ recurso: "AULA", id: "aula-1" }]],
     ["un alumno ocupado", () => m.alumnos.mockResolvedValue(["alumno-2"]), [{ recurso: "ALUMNO", id: "alumno-2" }]],
     ["dos alumnos ocupados", () => m.alumnos.mockResolvedValue(["alumno-1", "alumno-2"]), [{ recurso: "ALUMNO", id: "alumno-1" }, { recurso: "ALUMNO", id: "alumno-2" }]],

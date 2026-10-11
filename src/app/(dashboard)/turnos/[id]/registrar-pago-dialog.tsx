@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
@@ -49,7 +51,7 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
     try {
       const response = await fetchAutenticado(`/api/pagos/opciones?turno_id=${encodeURIComponent(turnoId)}`, { cache: "no-store" });
       const resultado = await response.json();
-      if (!response.ok || !resultado.data) throw new Error(resultado?.error?.message ?? "No se pudieron consultar las opciones de pago");
+      if (!response.ok || !resultado.data) throw new Error(resultado?.error?.message ?? textoC19("ui.clases.interfaz.noSePudieronConsultarLasOpcionesDePago"));
       if (solicitud !== solicitudActual.current) return;
       const data: OpcionesPago = resultado.data;
       setOpciones(data);
@@ -57,7 +59,7 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
       if (unico) seleccionar(unico);
     } catch (causa) {
       if (solicitud === solicitudActual.current) setError(causa instanceof Error && causa.message !== "Failed to fetch"
-        ? causa.message : "No se pudo conectar. Intentá nuevamente");
+        ? causa.message : textoC19("ui.formasPago.errorComunicacion"));
     } finally {
       if (solicitud === solicitudActual.current) setCargando(false);
     }
@@ -104,10 +106,10 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
     if (envioActual.current || cargando || !opciones) return;
     const importe = monto.trim().replace(",", ".");
     const validacion: Errores = {};
-    if (!alumnoId) validacion.alumno_id = "Elegí el alumno que paga";
-    if (!/^\d{1,9}(\.\d{1,2})?$/.test(importe) || Number(importe) <= 0) validacion.monto = "Ingresá un monto mayor a cero con hasta 2 decimales";
-    if (!formaId) validacion.forma_pago_id = "Elegí una forma de pago";
-    if (!fecha) validacion.fecha_pago = "Ingresá la fecha de pago";
+    if (!alumnoId) validacion.alumno_id = textoC19("ui.clases.interfaz.elegiElAlumnoQuePaga");
+    if (!/^\d{1,9}(\.\d{1,2})?$/.test(importe) || Number(importe) <= 0) validacion.monto = textoC19("ui.clases.interfaz.ingresaUnMontoMayorACeroConHastaNumeroDosDecimales");
+    if (!formaId) validacion.forma_pago_id = textoC19("ui.pagos.confirmacion.elegirForma");
+    if (!fecha) validacion.fecha_pago = textoC19("ui.clases.interfaz.ingresaLaFechaDePago");
     setErrores(validacion); setError("");
     if (Object.keys(validacion).length) {
       document.getElementById(`${prefijo}-${Object.keys(validacion)[0]}`)?.focus();
@@ -123,14 +125,14 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
       if (!response.ok) {
         const campos = resultado?.error?.detalles?.fieldErrors ?? {};
         setErrores(Object.fromEntries(Object.entries(campos).map(([campo, mensajes]) => [campo, (mensajes as string[])[0]])));
-        setError(resultado?.error?.message ?? "No se pudo registrar el pago. Intentá nuevamente.");
+        setError(resultado?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoRegistrarElPagoIntentaNuevamente"));
         return;
       }
       setAbierto(false);
-      toast.success("Pago registrado correctamente");
+      toast.success(textoC19("ui.clases.interfaz.pagoRegistradoCorrectamente"));
       await onRegistrado();
     } catch {
-      setError("No se pudo conectar. Intentá nuevamente");
+      setError(textoC19("ui.formasPago.errorComunicacion"));
     } finally {
       envioActual.current = false; setEnviando(false);
     }
@@ -142,68 +144,68 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
   const sinFormas = opciones?.formas_pago.length === 0;
 
   return <Dialog open={abierto} onOpenChange={cambiarAbierto}>
-    <Button className="w-full" disabled={deshabilitado} onClick={() => cambiarAbierto(true)}>Registrar pago</Button>
+    <Button className="w-full" disabled={deshabilitado} onClick={() => cambiarAbierto(true)}>{textoC19("ui.turnos.reserva.registrarPago")}</Button>
     <DialogContent initialFocus={inputAlumno} className="max-h-[calc(100dvh-2rem)] max-w-[390px] overflow-y-auto p-5 pb-8">
       <DialogHeader className="gap-2">
-        <DialogTitle className="text-base leading-5">Registrar pago</DialogTitle>
+        <DialogTitle className="text-base leading-5">{textoC19("ui.turnos.reserva.registrarPago")}</DialogTitle>
         <DialogDescription className="text-xs">{contexto}</DialogDescription>
       </DialogHeader>
       <form className="mt-4 space-y-3" noValidate onSubmit={enviar} aria-busy={enviando}>
-        {cargando && <p role="status" className="text-xs text-muted-foreground">Cargando opciones de pago…</p>}
+        {cargando && <p role="status" className="text-xs text-muted-foreground">{textoC19("ui.clases.interfaz.cargandoOpcionesDePago")}</p>}
         {error && <div role="alert" className="space-y-2 rounded-md bg-destructive-soft p-3 text-sm text-destructive-soft-foreground">
-          <p>{error}</p>{!opciones && !cargando && <Button size="sm" variant="outline" type="button" onClick={() => void cargarOpciones()}>Reintentar</Button>}
+          <p>{error}</p>{!opciones && !cargando && <Button size="sm" variant="outline" type="button" onClick={() => void cargarOpciones()}>{textoC19("ui.formasPago.reintentar")}</Button>}
         </div>}
-        {sinAlumnos && <p role="status" className="text-sm text-muted-foreground">El turno no tiene alumnos inscriptos</p>}
-        {sinFormas && <p role="status" className="text-sm text-muted-foreground">No hay formas de pago activas. Consultá con Gerencia.</p>}
+        {sinAlumnos && <p role="status" className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.laClaseNoTieneAlumnosInscriptosNumeroDos")}</p>}
+        {sinFormas && <p role="status" className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.noHayFormasDePagoActivasConsultaConGerencia")}</p>}
         <fieldset disabled={cargando || enviando || !opciones || sinAlumnos || sinFormas} className="min-w-0 space-y-3">
           {/* La lista permanece en flujo hasta elegir o cerrar: colapsarla al blur
               movería Cancelar/Guardar entre pointerdown y click. */}
           <div className="space-y-1.5">
-            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-alumno_id`}>Alumno</Label>
+            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-alumno_id`}>{textoC19("ui.indicadores.presentismo.alumno")}</Label>
             <div className="relative">
               <Search aria-hidden className="pointer-events-none absolute top-2.5 left-3 size-3.5 text-muted-foreground" />
-              <Input id={`${prefijo}-alumno_id`} ref={inputAlumno} role="combobox" autoComplete="off" placeholder="Buscar por apellido, nombre o DNI"
+              <Input id={`${prefijo}-alumno_id`} ref={inputAlumno} role="combobox" autoComplete="off" placeholder={textoC19("ui.clases.interfaz.buscarPorApellidoNombreODni")}
                 className="bg-card pl-8 text-xs" value={texto} aria-autocomplete="list" aria-expanded={mostrarResultados}
                 aria-controls={`${prefijo}-resultados`} aria-activedescendant={mostrarResultados && resultados[activo] ? `${prefijo}-opcion-${activo}` : undefined}
                 aria-invalid={Boolean(errores.alumno_id)} aria-describedby={errores.alumno_id ? `${prefijo}-alumno_id-error` : undefined}
                 onFocus={() => { if (!alumnoId) setBuscando(true); }} onKeyDown={navegar}
                 onChange={(evento) => { setTexto(evento.target.value); setAlumnoId(""); setFormaId(""); setBuscando(true); setActivo(0); }} />
             </div>
-            {mostrarResultados && <ul id={`${prefijo}-resultados`} role="listbox" aria-label="Alumnos inscriptos para el pago" className="max-h-40 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
+            {mostrarResultados && <ul id={`${prefijo}-resultados`} role="listbox" aria-label={textoC19("ui.clases.interfaz.alumnosInscriptosParaElPago")} className="max-h-40 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-md">
               {resultados.length ? resultados.map((alumno, indice) => <li key={alumno.id} role="presentation">
                 <button type="button" role="option" id={`${prefijo}-opcion-${indice}`} aria-selected={indice === activo} tabIndex={-1}
                   className={`w-full rounded-sm px-2 py-2 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none ${indice === activo ? "bg-accent" : ""}`}
                   onMouseDown={(evento) => evento.preventDefault()} onClick={() => seleccionar(alumno)}>{alumno.nombre_completo} · {alumno.dni}</button>
-              </li>) : <li role="presentation" className="px-2 py-3 text-xs text-muted-foreground">No hay alumnos que coincidan con la búsqueda</li>}
+              </li>) : <li role="presentation" className="px-2 py-3 text-xs text-muted-foreground">{textoC19("ui.clases.interfaz.noHayAlumnosQueCoincidanConLaBusqueda")}</li>}
             </ul>}
             {campoError("alumno_id")}
           </div>
           <div className="space-y-1.5">
-            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-monto`}>Monto ($)</Label>
+            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-monto`}>{textoC19("ui.clases.interfaz.monto")}</Label>
             <Input id={`${prefijo}-monto`} className="h-8 bg-card font-mono text-xs" inputMode="decimal" placeholder="12000" value={monto}
               aria-invalid={Boolean(errores.monto)} aria-describedby={errores.monto ? `${prefijo}-monto-error` : undefined} onChange={(evento) => setMonto(evento.target.value)} />
             {campoError("monto")}
           </div>
           <div className="space-y-1.5">
-            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-forma_pago_id`}>Forma de pago</Label>
+            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-forma_pago_id`}>{textoC19("ui.pagos.confirmacion.formaPago")}</Label>
             <select id={`${prefijo}-forma_pago_id`} value={formaId} onChange={(evento) => setFormaId(evento.target.value)}
               className="h-8 w-full rounded-md border border-input bg-card px-3 text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
               aria-invalid={Boolean(errores.forma_pago_id)} aria-describedby={errores.forma_pago_id ? `${prefijo}-forma_pago_id-error` : undefined}>
-              <option value="">Seleccionar forma de pago</option>
+              <option value="">{textoC19("ui.clases.interfaz.seleccionarFormaDePago")}</option>
               {opciones?.formas_pago.map((forma) => <option key={forma.id} value={forma.id}>{forma.nombre}</option>)}
             </select>
             {campoError("forma_pago_id")}
           </div>
           <div className="space-y-1.5">
-            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-fecha_pago`}>Fecha de pago</Label>
+            <Label className="block text-[11px] leading-4 font-normal" htmlFor={`${prefijo}-fecha_pago`}>{textoC19("ui.pagos.confirmacion.fechaPago")}</Label>
             <Input id={`${prefijo}-fecha_pago`} className="relative h-8 min-w-0 bg-card font-mono text-xs [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:cursor-pointer" type="date" value={fecha} max={hoyEnZonaCentro()}
               aria-invalid={Boolean(errores.fecha_pago)} aria-describedby={errores.fecha_pago ? `${prefijo}-fecha_pago-error` : undefined} onChange={(evento) => setFecha(evento.target.value)} />
             {campoError("fecha_pago")}
           </div>
         </fieldset>
         <DialogFooter className="mt-7">
-          <Button type="button" variant="outline" className="h-8 bg-card text-xs" disabled={enviando} onClick={() => cambiarAbierto(false)}>Cancelar</Button>
-          <Button type="submit" className="h-8 text-xs" disabled={enviando || cargando || !opciones || sinAlumnos || sinFormas}>{enviando ? "Registrando…" : "Registrar pago"}</Button>
+          <Button type="button" variant="outline" className="h-8 bg-card text-xs" disabled={enviando} onClick={() => cambiarAbierto(false)}>{textoC19("ui.formasPago.cancelar")}</Button>
+          <Button type="submit" className="h-8 text-xs" disabled={enviando || cargando || !opciones || sinAlumnos || sinFormas}>{enviando ? "Registrando…" : textoC19("ui.turnos.reserva.registrarPago")}</Button>
         </DialogFooter>
       </form>
     </DialogContent>

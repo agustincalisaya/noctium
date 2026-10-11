@@ -1,3 +1,7 @@
+import { texto as textoC19 } from "@/lib/textos";
+import { texto } from "@/lib/textos";
+import { bloquear } from "@/server/shared/bloquear";
+import { obtenerOpcionProfesorActivo } from "@/server/profesores/profesor.publico";
 import { prisma } from "@/lib/prisma";
 import type { EstadoTurno, Prisma } from "@prisma/client";
 import { ahora as relojAhora } from "@/server/shared/reloj";
@@ -33,10 +37,10 @@ const MENSAJE_CONFLICTO = "El profesor, el aula o algún alumno inscripto no est
 
 /** Estados y vigencia admitidos para reprogramar (§2.11 pasos 1 y 2, R5-6). */
 function verificarReprogramable(turno: FilaTurno | null): asserts turno is FilaTurno {
-  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-  if (turno.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", "Un turno pendiente se modifica desde su configuración");
-  if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "Un turno cancelado no se puede reprogramar");
-  if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó: no se puede reprogramar");
+  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+  if (turno.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", textoC19("ui.clases.errores.unaClasePendienteSeModificaDesdeSuConfiguracion"));
+  if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", textoC19("ui.clases.errores.unaClaseCanceladaNoSePuedeReprogramar"));
+  if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", textoC19("ui.clases.errores.elHorarioDeLaClaseYaPasoNoSePuedeReprogramar"));
 }
 
 /**
@@ -148,11 +152,15 @@ export async function reprogramarTurno(id: string, input: ReprogramarTurnoInput,
   let resultado: { turno: FilaTurno; horaFin: string };
   try {
     resultado = await transaccion(async (tx) => {
+      const previa = await tx.turno.findUnique({ where: { idTurno: id }, select: { profesorId: true } });
+      await bloquear(tx, { recursos: { profesores: previa?.profesorId ? [previa.profesorId] : [] }, clases: [id] });
       const [turno] = await tx.$queryRaw<FilaTurno[]>`
         SELECT "idTurno", "estadoTurno", "fechaTurno", "horaInicioTurno", "duracionMinutosTurno", "profesorId", "aulaId"
         FROM "turnos" WHERE "idTurno" = ${id} FOR UPDATE
       `;
       verificarReprogramable(turno ?? null);
+      if (turno.profesorId !== previa?.profesorId) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
+      if (turno.profesorId && !(await obtenerOpcionProfesorActivo(turno.profesorId, tx))) throw new ServiceError("PROFESOR_INACTIVO", texto("errores.profesor.inactivo"));
       bloqueado = turno;
       await marcarVencidas(tx, id);
       const parametros = await parametrosConfiguracionTurno();
@@ -166,7 +174,7 @@ export async function reprogramarTurno(id: string, input: ReprogramarTurnoInput,
         where: { idTurno: id, estadoTurno: { in: ESTADOS_AGENDADOS } },
         data: { fechaTurno: input.fecha, horaInicioTurno: horaFecha(input.hora_inicio), modificadoPorUsuarioId: usuarioId },
       });
-      if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", "El turno cambió mientras lo editabas. Volvé a cargarlo");
+      if (actualizado.count === 0) throw new ServiceError("TURNO_MODIFICADO", texto("errores.profesor.claseModificada"));
       await recalcularVencimientos(tx, id);
       return { turno, horaFin: hora_fin };
     });

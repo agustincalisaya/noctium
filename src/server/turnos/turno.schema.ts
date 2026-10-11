@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { z } from "zod";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
 
@@ -27,7 +28,7 @@ export const ConfigurarTurnoSchema = z.object({
   profesor_id: z.cuid(),
   // Sin cupo_maximo (Revisión 3): se fija con la capacidad del aula (§2.3).
   // Revisión 4: obligatorio, sin default. Número JSON (no se coerciona un string).
-  duracion_min: z.number({ error: "Elegí la duración del turno" }).int("Elegí una duración válida (1, 2 o 3 horas)").refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"),
+  duracion_min: z.number({ error: textoC19("ui.clases.errores.elegiLaDuracionDeLaClase") }).int("Elegí una duración válida (1, 2 o 3 horas)").refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"),
 });
 
 export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
@@ -35,7 +36,7 @@ export type ConfigurarTurnoInput = z.infer<typeof ConfigurarTurnoSchema>;
 /** HU-C-07 §2.8.2: parámetros de consulta para disponibilidad del profesor. */
 export const DisponibilidadProfesorQuerySchema = z.object({
   materia_id: ConfigurarTurnoSchema.shape.materia_id,
-  duracion_min: z.coerce.number({ error: "Elegí la duración del turno" })
+  duracion_min: z.coerce.number({ error: textoC19("ui.clases.errores.elegiLaDuracionDeLaClase") })
     .int().refine(esDuracionPermitida, "Elegí una duración válida (1, 2 o 3 horas)"),
   desde: fechaCalendarioValidaSchema.optional(),
   hasta: fechaCalendarioValidaSchema.optional(),

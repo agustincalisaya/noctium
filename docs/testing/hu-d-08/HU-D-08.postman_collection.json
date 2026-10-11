@@ -1,0 +1,245 @@
+{
+  "info": {
+    "name": "HU-D-08 — estado de profesor",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3108"
+    },
+    {
+      "key": "profesorId",
+      "value": ""
+    },
+    {
+      "key": "version",
+      "value": "0"
+    },
+    {
+      "key": "claseId",
+      "value": ""
+    },
+    {
+      "key": "destinoId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Impacto",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/impacto-baja",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Baja",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/desactivar",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": {{version}},\n  \"motivo\": \"Dejó el centro\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactivación",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/reactivar",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"version\": {{version}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clases futuras",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/turnos-futuros?pagina=1",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cancelación",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/turnos-futuros/cancelacion",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_ids\": [\n    \"{{claseId}}\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vista previa",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/turnos-futuros/cambio-profesor/previsualizacion",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_ids\": [\n    \"{{claseId}}\"\n  ],\n  \"profesor_destino_id\": \"{{destinoId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cambio",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/profesores/{{profesorId}}/turnos-futuros/cambio-profesor",
+        "description": "Usar cookie de sesión oficial y base descartable. Repetir con Gerente, Mesa, Profesor y Alumno; estos tres últimos deben devolver 403.",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"turno_ids\": [\n    \"{{claseId}}\"\n  ],\n  \"profesor_destino_id\": \"{{destinoId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(r).to.have.property(\"data\"); pm.expect(r).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

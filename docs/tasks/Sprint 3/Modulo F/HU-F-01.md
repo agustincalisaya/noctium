@@ -237,7 +237,7 @@ Colección de la HU: alta correcta (`201`, sin contraseña en la respuesta), DNI
 - [x] Fixtures en `prisma/seed/fixtures/hu-f-01.ts` con su línea en el índice, sin editar `seed.ts`.
 - [x] Filas de esta HU en `docs/DESIGN.md` §6.4 (y en su historial de cambios).
 - [x] Reglas del módulo en `RULES.md` y nota aditiva en `spec_modulo_F.md` (lo que el código real tuvo que acomodar, incluidas las diferencias de `personal.publico.ts`).
-- [x] `lint`, `tsc`, `npm test` y `npm run test:pg` en verde antes de pedir revisión (en `test:pg` fallan solo dos archivos ajenos a esta HU: HU-E-10 y HU-H-03).
+- [x] `lint`, `tsc`, `npm test` y `npm run test:pg` en verde antes de pedir revisión (los únicos fallos son de HU-C-19, ajenos a esta HU; ver sección 9.3).
 - [x] Tests de los 3 niveles documentados con evidencia.
 - [ ] PR con diff acotado exclusivamente a esta HU.
 
@@ -277,17 +277,18 @@ Evidencia completa en `docs/testing/HU-F-01-evidencia.md`. HU-F-01 queda impleme
 ### 9.3. Verificación final
 
 - `lint` sin errores (el aviso de `CALENDARIO` en `Sidebar.tsx` ya existía), `tsc` sin errores, `verificar-claves-textos` aprobado y `next build` compila (4 pantallas y 2 rutas de `/personal`).
-- `npm test`: 2882 pasan, 0 fallan (230 archivos).
-- `npm run test:pg`: 271 pasan y fallan 2 archivos que no son de esta HU (HU-E-10 `resultado-examen.service.pg.test.ts` y HU-H-03 `clases.service.pg.test.ts`). Los 13 de personal pasan.
-- Seed: `npx prisma db seed` se corrió dos veces; la segunda no cambia filas.
+- `npm test` antes del merge con develop: 2882 pasan, 0 fallan (230 archivos). Después del merge solo fallan 5 casos en 3 archivos (`evento-calendario-materia.test.tsx`, `paso-fecha-horario-turno.test.tsx`, `listado-sin-permiso.route.test.ts`): HU-C-19 (#240) cambió «turno» por «clase» y no actualizó esos tests; fallan igual en develop.
+- `npm run test:pg` antes del merge: 271 pasan y fallaban HU-E-10 y HU-H-03. Después del merge con develop: 277 pasan y fallan 6 casos en 4 archivos (`operacion.service`, `inscripcion.service`, `turno.inscripciones` y `turno.reservas`), todos por el mismo cambio de textos de HU-C-19 (el `code` coincide, difiere el `message`). HU-E-10 y HU-H-03 ya no fallan (fix #239). Los 13 de `personal.service.pg.test.ts` y los de `cuenta.service.pg.test.ts` pasan.
+- Seed: `npx prisma db seed` se corrió dos veces, también después del merge; la segunda no cambia filas y las fixtures HU-D-08 y HU-F-01 conviven.
+- Merge con develop: la fusión dejó un import duplicado de `texto` en `Sidebar.tsx` (HU-C-19 y esta HU lo agregaron por separado); se corrigió en el mismo merge.
 - `schema.prisma` y `seed.ts` sin cambios; sin migraciones.
-- Recorrido en el navegador (confirmaciones, verificación al salir de los campos, «Cancelar», «Recargar» ante conflicto) y cambio de contraseña en `/primer-ingreso`: PENDIENTE de confirmar por Adriel.
+- Recorrido en el navegador (confirmaciones, verificación al salir de los campos, «Cancelar», «Recargar» ante conflicto) y cambio de contraseña en `/primer-ingreso`: verificado por Adriel.
 
 ### 9.4. Deuda y lo que deja para otras HU
 
 - Textos de `ConfirmarDescarteDialog` fuera de `textos.ts` (componente compartido).
 - `fechaCalendarioValidaSchema` duplicado en dos archivos, y mensajes que siguen viniendo de `fecha.ts` y `contacto.schema.ts`.
-- Los dos archivos `test:pg` que fallan (HU-E-10, HU-H-03) no son de esta HU.
+- Los 5 tests de `npm test` y los 6 de `test:pg` que fallan por HU-C-19 (#240) no son de esta HU y no se tocaron.
 - **HU-F-03:** reemplaza el listado mínimo por búsqueda y paginación; `listarPersonal` ya devuelve `{ items, total }`.
 - **HU-F-05:** agrega desactivar y reactivar sobre `obtenerDetalleIntegrante`, pensado para extenderse.
 - **HU-G-01:** reutiliza `construirIdentidadPersonaSchema`.

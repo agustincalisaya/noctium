@@ -66,20 +66,20 @@ describe.skipIf(!basePgHabilitada)("cuentas e historial de estados con PostgreSQ
     await expect(verificarEmailNoAsociadoAOtraCuenta(nuevo, { excluirUsuarioId: a.idUsuario }, db)).resolves.toBeUndefined();
   });
 
-  it("(d) desactivar revoca las sesiones (truncado a segundos); reactivar no las restaura; revocarSesiones nunca retrocede", async () => {
+  it("(d) desactivar revoca las sesiones (precisión de milisegundos); reactivar no las restaura; revocarSesiones nunca retrocede", async () => {
     const usuario = await crearUsuarioDePrueba(db);
     const momento = new Date("2031-03-10T15:20:30.987Z");
     await expect(enTx((tx) => desactivarCuenta(tx, usuario.idUsuario), momento)).resolves.toEqual({ cambio: true });
-    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:20:30.000Z");
+    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:20:30.987Z");
     await expect(enTx((tx) => desactivarCuenta(tx, usuario.idUsuario))).resolves.toEqual({ cambio: false });
     await expect(enTx((tx) => reactivarCuenta(tx, usuario.idUsuario))).resolves.toEqual({ cambio: true });
     await expect(enTx((tx) => reactivarCuenta(tx, usuario.idUsuario))).resolves.toEqual({ cambio: false });
-    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:20:30.000Z");
+    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:20:30.987Z");
     // Un reloj anterior no la mueve hacia atrás; uno posterior la adelanta.
     await enTx((tx) => revocarSesiones(tx, usuario.idUsuario), new Date("2030-01-01T00:00:00.000Z"));
-    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:20:30.000Z");
+    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:20:30.987Z");
     await enTx((tx) => revocarSesiones(tx, usuario.idUsuario), new Date("2031-03-10T15:21:00.400Z"));
-    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:21:00.000Z");
+    expect((await sesionesDesde(usuario.idUsuario))!.toISOString()).toBe("2031-03-10T15:21:00.400Z");
   });
 
   it("cambiarPassword: hash nuevo, quita la marca, revoca las sesiones y registra el evento; conservarSesionActual dice si se reemite", async () => {

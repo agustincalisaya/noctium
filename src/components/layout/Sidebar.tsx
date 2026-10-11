@@ -1,9 +1,10 @@
-import { 
-  CalendarClock, 
-  CalendarDays, 
-  Users, 
-  GraduationCap, 
-  BookOpen, 
+import { texto as textoC19 } from "@/lib/textos";
+import {
+  CalendarClock,
+  CalendarDays,
+  Users,
+  GraduationCap,
+  BookOpen,
   DoorOpen,
   ListOrdered,
   Contact,
@@ -13,11 +14,11 @@ import {
   Wallet,
   BarChart3,
   UserCog,
-  type LucideIcon 
+  type LucideIcon
 } from "lucide-react";
+import { texto } from "@/lib/textos";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
-import { texto } from "@/lib/textos";
 import { SidebarNav, type SidebarNavEntrada } from "./SidebarNav";
 
 interface SidebarItemConfig {
@@ -46,7 +47,7 @@ interface SidebarEnlaceConfig extends SidebarItemConfig {
  * /calendario/materia.
  */
 const CALENDARIO: SidebarEnlaceConfig = {
-  label: "Calendario",
+  label: textoC19("ui.clases.menu.calendario"),
   href: "/calendario/profesor",
   prefijoActivo: "/calendario",
   icon: CalendarDays,
@@ -65,89 +66,90 @@ const CALENDARIO: SidebarEnlaceConfig = {
 const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlaceConfig)[]> = {
   MESA_ENTRADA: [
     {
-      label: "Turnos",
+      label: textoC19("ui.pagos.resumen.clases"),
       icon: CalendarClock,
-      items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/turnos", icon: ListOrdered }],
     },
     // HU-I-10: registrar pago buscando al alumno (pagos:crear, solo Mesa de Entrada).
-    { label: "Registrar pago", href: "/pagos/registrar", prefijoActivo: "/pagos", icon: Wallet },
+    { label: textoC19("ui.turnos.reserva.registrarPago"), href: "/pagos/registrar", prefijoActivo: "/pagos", icon: Wallet },
         {
-      label: "Calendario",
+      label: textoC19("ui.clases.menu.calendario"),
       icon: CalendarDays,
       items: [
-              { 
-                label: "Por Profesor", 
-                href: "/calendario/profesor", 
+              {
+                label: textoC19("ui.clases.menu.porProfesor"),
+                href: "/calendario/profesor",
                 icon: GraduationCap // o UserRound
-              }, 
-              { 
-                label: "Por Materia", 
-                href: "/calendario/materia", 
+              },
+              {
+                label: textoC19("ui.clases.menu.porMateria"),
+                href: "/calendario/materia",
                 icon: BookOpen // o Book
               }
             ],
     },
     {
-      label: "Alumnos",
+      label: textoC19("ui.clases.menu.alumnos"),
       icon: Users,
-      items: [{ label: "Listado", href: "/alumnos", icon: Contact }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/alumnos", icon: Contact }],
     },
     {
-      label: "Materias",
+      label: textoC19("ui.clases.menu.materias"),
       icon: BookOpen,
-      items: [{ label: "Listado", href: "/materias", icon: Library }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/materias", icon: Library }],
     },
     {
-      label: "Profesores",
+      label: textoC19("ui.profesores.estado.menu"),
       icon: GraduationCap,
-      items: [{ label: "Listado", href: "/profesores", icon: BadgeCheck }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/profesores", icon: BadgeCheck }],
     },
   ],
   GERENTE: [
+    { label: texto("ui.profesores.estado.menu"), icon: GraduationCap, items: [{ label: texto("ui.profesores.estado.listado"), href: "/profesores", icon: BadgeCheck }] },
     {
-      label: "Gestión",
+      label: textoC19("ui.clases.menu.gestion"),
       icon: BarChart3,
-      items: [{ label: "Indicadores", href: "/gerente", icon: BarChart3 }],
+      items: [{ label: textoC19("ui.indicadores.panel.titulo"), href: "/gerente", icon: BarChart3 }],
     },
             {
-      label: "Turnos",
+      label: textoC19("ui.pagos.resumen.clases"),
       icon: CalendarClock,
-      items: [{ label: "Listado", href: "/turnos", icon: ListOrdered }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/turnos", icon: ListOrdered }],
     },
     {
-      label: "Calendario",
+      label: textoC19("ui.clases.menu.calendario"),
       icon: CalendarDays,
       items: [
-              { 
-                label: "Por Profesor", 
-                href: "/calendario/profesor", 
+              {
+                label: textoC19("ui.clases.menu.porProfesor"),
+                href: "/calendario/profesor",
                 icon: GraduationCap // o UserRound
-              }, 
-              { 
-                label: "Por Materia", 
-                href: "/calendario/materia", 
+              },
+              {
+                label: textoC19("ui.clases.menu.porMateria"),
+                href: "/calendario/materia",
                 icon: BookOpen // o Book
               }
             ],
     },
     {
-      label: "Materias",
+      label: textoC19("ui.clases.menu.materias"),
       icon: BookOpen,
       items: [
-        { label: "Listado", href: "/materias", icon: Library },
+        { label: textoC19("ui.profesores.estado.listado"), href: "/materias", icon: Library },
       ],
     },
     {
-      label: "Aulas",
+      label: textoC19("ui.clases.menu.aulas"),
       icon: DoorOpen,
       items: [
-        { label: "Listado", href: "/aulas", icon: ListOrdered },
+        { label: textoC19("ui.profesores.estado.listado"), href: "/aulas", icon: ListOrdered },
       ],
     },
     {
-      label: "Formas de pago",
+      label: textoC19("ui.formasPago.titulo"),
       icon: Wallet,
-      items: [{ label: "Listado", href: "/formas-pago", icon: ListOrdered }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/formas-pago", icon: ListOrdered }],
     },
     // HU-F-01: personal de mesa de entrada (personal:*, solo Gerente).
     { label: texto("ui.personal.menu"), href: "/personal", prefijoActivo: "/personal", icon: UserCog },
@@ -158,32 +160,32 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
     // Para el rol Profesor, /calendario/profesor es "Mi agenda" (su propia
     // agenda, resuelta desde la sesión en la página).
     {
-      label: "Calendario",
+      label: textoC19("ui.clases.menu.calendario"),
       icon: CalendarDays,
       items: [
-        { 
-          label: "Por Profesor", 
-          href: "/calendario/profesor", 
+        {
+          label: textoC19("ui.clases.menu.porProfesor"),
+          href: "/calendario/profesor",
           icon: GraduationCap // o UserRound
         }
       ]
     },
     // alumnos:leer: solo lectura (sin alta ni edición).
     {
-      label: "Alumnos",
+      label: textoC19("ui.clases.menu.alumnos"),
       icon: Users,
-      items: [{ label: "Listado", href: "/alumnos", icon: Contact }],
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/alumnos", icon: Contact }],
     },
   ],
   ALUMNO: [
     {
-      label: "Mi cuenta",
+      label: textoC19("ui.sesion.menu.miCuenta"),
       icon: CalendarDays,
       collapsible: false,
       hideItemIcons: true,
       items: [
-        { label: "Mis turnos", href: "/alumno", icon: CalendarDays },
-        { label: "Solicitar turno", href: "/alumno/turnos/solicitar", icon: CalendarPlus2 },
+        { label: textoC19("ui.turnos.solicitar.misClases"), href: "/alumno", icon: CalendarDays },
+        { label: textoC19("ui.turnos.solicitar.titulo"), href: "/alumno/turnos/solicitar", icon: CalendarPlus2 },
       ],
     },
   ],

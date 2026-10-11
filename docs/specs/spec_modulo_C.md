@@ -2086,3 +2086,7 @@ La generación masiva (2.9.1), el proceso (2.18.1), la cancelación propia (2.19
 | `plazo_pago_horas` | **Revisión 6 — nuevo, fila de `ParametroSistema`** (lo carga la migración del PR 0; HU-N-01 lo hace configurable). Plazo para pagar una reserva, contado desde que se hizo (24 por defecto). Se lee con `parametrosVigentes()`. 2.17 y 2.18. Un cambio no afecta a las reservas ya hechas |
 | `cancelacion_anticipacion_horas` | **Revisión 6 — nuevo, fila de `ParametroSistema`** (PR 0 / HU-N-01). Anticipación mínima para que el alumno cancele en línea una inscripción que no es una reserva sin pagar (24 por defecto). Rige el valor vigente al momento de cancelar. 2.17.1 y 2.19 |
 ```
+
+### Sincronización con HU-D-08 (10/10/2026)
+
+`turno.baja-profesor.service.ts` expone por `turno.publico.ts` conteo/listado de futuras, preview, cancelación y cambio por clase. El núcleo C-05 se comparte dentro de la transacción del llamador. Creación, confirmación, generación y reprogramación bloquean el profesor antes de la clase y revalidan su actividad; si cambió el profesor frente a una lectura preliminar, abortan. La UI de resolución selecciona la página visible (diez), por decisión documentada en la task D-08. Los pagos e inscripciones permanecen intactos.

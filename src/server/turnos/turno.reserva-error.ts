@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { Prisma } from "@prisma/client";
 import { ServiceError } from "@/server/shared/service-error";
 
@@ -21,9 +22,9 @@ export function alumnoEnConflicto(error: unknown): string | undefined {
 }
 
 const MENSAJES_CONFLICTO = {
-  AULA: ["AULA_NO_DISPONIBLE", "El aula ya tiene un turno confirmado en ese horario"],
-  PROFESOR: ["PROFESOR_NO_DISPONIBLE", "El profesor ya tiene un turno agendado en ese horario"],
-  ALUMNO: ["ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario"],
+  AULA: ["AULA_NO_DISPONIBLE", textoC19("ui.clases.errores.elAulaYaTieneUnaClaseConfirmadaEnEseHorario")],
+  PROFESOR: ["PROFESOR_NO_DISPONIBLE", textoC19("ui.clases.errores.elProfesorYaTieneUnaClaseAgendadaEnEseHorario")],
+  ALUMNO: ["ALUMNO_NO_DISPONIBLE", textoC19("errores.inscripcion.alumnoNoDisponible")],
 } as const;
 
 export function conflictoDeRecurso(tipo: keyof typeof MENSAJES_CONFLICTO, alumnoId?: string) {

@@ -90,7 +90,7 @@ describe("HU-C-04 §2.5 agregar alumno", () => {
   });
   it("rechaza un turno COMPLETO sin insertar", async () => {
     rechaza("errores.turno.cupoInsuficiente");
-    await expect(agregar()).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "El turno alcanzó su cupo máximo" });
+    await expect(agregar()).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE", message: "La clase alcanzó su cupo máximo" });
     expect(evento).not.toHaveBeenCalled();
   });
   it("rechaza si el conteo con la fila bloqueada ya alcanzó el cupo", async () => {
@@ -116,9 +116,9 @@ describe("HU-C-04 §2.5 agregar alumno", () => {
     rechaza("errores.inscripcion.alumnoNoDisponibleOInactivo", { alumno_id: A });
     await expect(agregar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", detalles: { alumno_id: A } });
     rechaza("errores.inscripcion.alumnoYaAsignado", { alumno_id: A });
-    await expect(agregar()).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "El mismo alumno no puede agregarse dos veces al mismo turno", detalles: { alumno_id: A } });
+    await expect(agregar()).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "El mismo alumno no puede agregarse dos veces a la misma clase", detalles: { alumno_id: A } });
     rechaza("errores.inscripcion.alumnoNoDisponible", { alumno_id: A });
-    await expect(agregar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene un turno agendado en ese horario", detalles: { alumno_id: A } });
+    await expect(agregar()).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene una clase agendada en ese horario", detalles: { alumno_id: A } });
     expect(evento).not.toHaveBeenCalled();
   });
   it("un turno contiguo del alumno no es conflicto", async () => {

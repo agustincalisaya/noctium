@@ -1,3 +1,11 @@
+import { texto as textoC19 } from "@/lib/textos";
+import { texto } from "@/lib/textos";
+import { Badge } from "@/components/ui/badge";
+import { agruparHorariosPorDia, ETIQUETA_DIA } from "@/lib/horario-atencion";
+import { FichaDatos, FichaSeccion } from "./ficha-seccion";
+import { EstadoProfesorDialog } from "./estado-profesor-dialog";
+import { HistorialEstadosProfesor } from "./historial-estados-profesor";
+import { obtenerHistorialEstadosProfesor } from "@/server/profesores/profesor.estado.service";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
@@ -36,7 +44,7 @@ import { EditarProfesorForm } from "./editar-profesor-form";
  * las materias; `&pendientes=N` suma el aviso de turnos pendientes afectados.
  */
 const ACTUALIZADA_SOLO_MATERIAS = "materias";
-const MENSAJE_MATERIAS_ACTUALIZADAS = "Materias del profesor actualizadas";
+const MENSAJE_MATERIAS_ACTUALIZADAS = textoC19("ui.clases.profesores.materiasDelProfesorActualizadas");
 
 export default async function ProfesorDetallePage({
   params,
@@ -121,6 +129,31 @@ export default async function ProfesorDetallePage({
   }
 
   const puedeEditar = await tienePermiso("profesores:editar");
+  const puedeCambiarEstado = await tienePermiso("profesores:cambiar_estado");
+  const historial = await obtenerHistorialEstadosProfesor(profesor.id);
+  if (puedeCambiarEstado) {
+    return <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 p-4 sm:p-6">
+      {breadcrumb}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><h1 className="text-2xl font-semibold">{profesor.nombre} {profesor.apellido}</h1><p className="mt-1 text-sm text-muted-foreground">{texto("ui.profesores.estado.consulta")}</p></div>
+        <EstadoProfesorDialog profesor={profesor} />
+      </div>
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          <FichaSeccion titulo={texto("ui.profesores.estado.datos")}>
+            <FichaDatos datos={[[texto("ui.profesores.estado.nombre"), profesor.nombre], [texto("ui.profesores.estado.apellido"), profesor.apellido], [texto("ui.profesores.estado.dni"), profesor.dni], [texto("ui.profesores.estado.telefono"), profesor.telefono], [texto("ui.profesores.estado.email"), profesor.email]]} />
+            <h3 className="text-sm text-muted-foreground">{texto("ui.profesores.estado.horario")}</h3>
+            <div className="flex flex-wrap gap-2">{agruparHorariosPorDia(profesor.horarios).map(({ dia, intervalos }) => <Badge key={dia} variant="muted">{ETIQUETA_DIA[dia]} {intervalos.map((i) => `${i.horaInicio}–${i.horaFin}`).join(", ")}</Badge>)}</div>
+          </FichaSeccion>
+          <HistorialEstadosProfesor historial={historial} />
+        </div>
+        <div className="space-y-4">
+          <FichaSeccion titulo={texto("ui.profesores.estado.materias")}><div className="flex flex-wrap gap-2">{profesor.materias.map((m) => <Badge key={m.id} variant="muted">{m.nombre}{!m.activa && ` (${texto("ui.profesores.estado.inactiva")})`}</Badge>)}</div></FichaSeccion>
+          <CuentaAccesoCard cuenta={cuenta} />
+        </div>
+      </div>
+    </div>;
+  }
   const soloMaterias = query.actualizada === ACTUALIZADA_SOLO_MATERIAS;
   const pendientes = Number(query.pendientes);
   const pendientesAfectados = soloMaterias && Number.isSafeInteger(pendientes) && pendientes > 0 ? pendientes : 0;
@@ -130,9 +163,7 @@ export default async function ProfesorDetallePage({
       {breadcrumb}
 
       {fueActualizada(query) && (
-        <p role="status" className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">
-          Profesor actualizado correctamente
-        </p>
+        <p role="status" className="rounded-md bg-success px-3 py-2 text-sm text-success-foreground">{textoC19("ui.clases.profesores.profesorActualizadoCorrectamente")}</p>
       )}
       {soloMaterias && (
         <div role="status" className="space-y-2">
@@ -140,10 +171,7 @@ export default async function ProfesorDetallePage({
             {MENSAJE_MATERIAS_ACTUALIZADAS}
           </p>
           {pendientesAfectados > 0 && (
-            <p className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">
-              Atención: hay {pendientesAfectados} turnos pendientes de las materias quitadas que no van a
-              poder confirmarse con este profesor.
-            </p>
+            <p className="rounded-md bg-warning px-3 py-2 text-sm text-warning-foreground">{textoC19(pendientesAfectados === 1 ? "ui.clases.profesores.pendienteAfectada" : "ui.clases.profesores.pendientesAfectadas", { cantidad: pendientesAfectados })}</p>
           )}
         </div>
       )}
@@ -159,9 +187,7 @@ export default async function ProfesorDetallePage({
           <Link
             href={conPagina(rutaModoEdicion(rutaFicha))}
             className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Editar
-          </Link>
+          >{textoC19("ui.formasPago.editar")}</Link>
         )}
       </div>
       <FichaIdentidad profesor={profesor} />
@@ -185,6 +211,7 @@ export default async function ProfesorDetallePage({
       />
       {/* HU-A-06 criterio 5: una ficha anterior muestra «Sin cuenta». */}
       <CuentaAccesoCard cuenta={cuenta} />
+      <HistorialEstadosProfesor historial={historial} />
     </div>
   );
 }

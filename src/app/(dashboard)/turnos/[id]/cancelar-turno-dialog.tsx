@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { CircleAlert } from "lucide-react";
@@ -10,14 +12,14 @@ import { MENSAJE_RESULTADO_INCIERTO } from "./turno-acciones-mensajes";
 
 const TEXTOS = {
   cancelar: {
-    titulo: "¿Confirmás cancelar este turno?",
-    confirmar: "Cancelar turno",
-    exito: "Turno cancelado correctamente",
+    titulo: textoC19("ui.clases.interfaz.confirmasCancelarEstaClase"),
+    confirmar: textoC19("ui.clases.interfaz.cancelarClase"),
+    exito: textoC19("ui.clases.interfaz.claseCanceladaCorrectamente"),
   },
   descartar: {
-    titulo: "¿Confirmás descartar este turno?",
-    confirmar: "Descartar turno",
-    exito: "Turno descartado",
+    titulo: textoC19("ui.clases.interfaz.confirmasDescartarEstaClase"),
+    confirmar: textoC19("ui.clases.interfaz.descartarClase"),
+    exito: textoC19("ui.clases.interfaz.claseDescartada"),
   },
 } as const;
 
@@ -54,7 +56,7 @@ export function CancelarTurnoDialog({ turnoId, modo, resumen, cantidadPagos, onC
       }
       if (response.status >= 500) incierto = true;
       else {
-        toast.error(result?.error?.message ?? "No se pudo completar la acción. Intentá nuevamente.");
+        toast.error(result?.error?.message ?? textoC19("ui.historial.correccionClase.error"));
         if (response.status === 404 || response.status === 409) {
           onCerrar();
           await onCambio();
@@ -79,18 +81,17 @@ export function CancelarTurnoDialog({ turnoId, modo, resumen, cantidadPagos, onC
         <AlertDialog.Popup className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg outline-none">
           <AlertDialog.Title className="text-lg font-semibold">{textos.titulo}</AlertDialog.Title>
           <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">
-            {resumen ? `${resumen}. ` : ""}Esta acción no se puede deshacer.
-          </AlertDialog.Description>
+            {resumen ? `${resumen}. ` : ""}{textoC19("ui.clases.interfaz.estaAccionNoSePuedeDeshacer")}</AlertDialog.Description>
           {modo === "cancelar" && cantidadPagos !== undefined && cantidadPagos > 0 && (
             <p role="note" className="mt-3 flex items-start gap-2 rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive-soft-foreground">
               <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {`Este turno tiene ${cantidadPagos} ${cantidadPagos === 1 ? "pago registrado" : "pagos registrados"}; no se reembolsan automáticamente`}
+              {textoC19("ui.clases.interfaz.estaClaseTieneNoSeReembolsanAutomaticamente", { valor1: cantidadPagos, valor2: cantidadPagos === 1 ? "pago registrado" : "pagos registrados" })}
             </p>
           )}
           <div className="mt-6 flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={enviando} onClick={onCerrar}>Volver</Button>
+            <Button type="button" variant="outline" disabled={enviando} onClick={onCerrar}>{textoC19("ui.pagos.acciones.volver")}</Button>
             <Button type="button" disabled={enviando} onClick={() => void confirmar()} className="bg-destructive text-card hover:bg-destructive/90">
-              {enviando ? "Procesando…" : textos.confirmar}
+              {enviando ? textoC19("ui.historial.correccionClase.procesando") : textos.confirmar}
             </Button>
           </div>
         </AlertDialog.Popup>

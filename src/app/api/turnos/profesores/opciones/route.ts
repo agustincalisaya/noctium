@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
@@ -5,7 +6,7 @@ import { listarOpcionesProfesorTurno } from "@/server/turnos/turno.profesor.serv
 
 export const GET = withPermission("turnos:asignar_participantes", async (req) => {
   const turnoId = req.nextUrl.searchParams.get("turno_id");
-  if (!turnoId) return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Falta el turno" } }, { status: 400 });
+  if (!turnoId) return NextResponse.json({ data: null, error: { code: "VALIDACION", message: textoC19("ui.clases.errores.faltaLaClase") } }, { status: 400 });
   try {
     return NextResponse.json({ data: await listarOpcionesProfesorTurno(turnoId), error: null });
   } catch (error) {

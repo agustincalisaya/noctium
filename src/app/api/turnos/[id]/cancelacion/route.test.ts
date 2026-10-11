@@ -50,10 +50,10 @@ describe("HU-C-05 POST cancelacion", () => {
   it.each([
     ["TURNO_NO_ENCONTRADO", 404], ["TURNO_CANCELADO", 409], ["TURNO_VENCIDO", 409], ["TURNO_MODIFICADO", 409],
   ] as const)("traduce %s a HTTP %i", async (code, status) => {
-    cancelar.mockRejectedValue(new ServiceError(code, "Error del turno"));
+    cancelar.mockRejectedValue(new ServiceError(code, "Error de la clase"));
     const response = await consultar();
     expect(response.status).toBe(status);
-    expect(await response.json()).toEqual({ data: null, error: { code, message: "Error del turno" } });
+    expect(await response.json()).toEqual({ data: null, error: { code, message: "Error de la clase" } });
   });
 
   it("no oculta un error no tipado (p. ej. el evento posterior al commit)", async () => {

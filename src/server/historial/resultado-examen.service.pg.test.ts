@@ -9,6 +9,7 @@ import { conReloj } from "@/server/shared/reloj";
 describe.skipIf(!basePgHabilitada)("HU-E-10 corrección y anulación con PostgreSQL real", () => {
   let db: PrismaClient;
   let alumnoId: string;
+  let alumnoUsuarioId: string;
   let materiaId: string;
   let profesorId: string;
   let profesorUsuarioId: string;
@@ -21,6 +22,9 @@ describe.skipIf(!basePgHabilitada)("HU-E-10 corrección y anulación con Postgre
       crearAlumnoDePrueba(db), crearMateriaDePrueba(db), crearUsuarioDePrueba(db, { rol: "PROFESOR" }),
       crearUsuarioDePrueba(db, { rol: "MESA_ENTRADA" }), crearUsuarioDePrueba(db, { rol: "GERENTE" }),
     ]);
+    const alumnoUsuario = await crearUsuarioDePrueba(db, { rol: "ALUMNO" });
+    await db.alumno.update({ where: { idAlumno: alumno.idAlumno }, data: { usuarioId: alumnoUsuario.idUsuario } });
+    alumnoUsuarioId = alumnoUsuario.idUsuario;
     const profesor = await crearProfesorDePrueba(db);
     await db.profesor.update({ where: { idProfesor: profesor.idProfesor }, data: { usuarioId: profesorUsuario.idUsuario } });
     alumnoId = alumno.idAlumno;
@@ -103,12 +107,17 @@ describe.skipIf(!basePgHabilitada)("HU-E-10 corrección y anulación con Postgre
 
     const mesa = await obtenerHistorialAlumno(alumnoId, { pagina: 1, por_pagina: 10 }, { id: mesaUsuarioId, rol: "MESA_ENTRADA" });
     const gerente = await obtenerHistorialAlumno(alumnoId, { pagina: 1, por_pagina: 10 }, { id: gerenteUsuarioId, rol: "GERENTE" });
-    const profesor = await obtenerHistorialAlumno(alumnoId, { pagina: 1, por_pagina: 10 }, { id: profesorUsuarioId, rol: "PROFESOR" });
+    // Spec E §3.8: sin materia no hay alcance; conserva el 403 contractual.
+    await expect(obtenerHistorialAlumno(alumnoId, { pagina: 1, por_pagina: 10 }, { id: profesorUsuarioId, rol: "PROFESOR" })).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    const profesor = await obtenerHistorialAlumno(alumnoId, { materia_id: materiaId, pagina: 1, por_pagina: 10 }, { id: profesorUsuarioId, rol: "PROFESOR" });
+    const alumno = await obtenerHistorialAlumno(alumnoId, { pagina: 1, por_pagina: 10 }, { id: alumnoUsuarioId, rol: "ALUMNO" });
     const visibleMesa = mesa.items.find((item) => item.tipo === "EXAMEN" && item.id === original.idResultadoExamen);
     const visibleGerente = gerente.items.find((item) => item.tipo === "EXAMEN" && item.id === original.idResultadoExamen);
     expect(visibleMesa).toMatchObject({ anulado: true, puede_corregir: false, anulacion: { motivo: "Resultado cargado a otra persona" } });
     expect(visibleGerente).toMatchObject({ anulado: true, puede_corregir: false, anulacion: { motivo: "Resultado cargado a otra persona" } });
     expect(profesor.items.some((item) => item.tipo === "EXAMEN" && item.id === original.idResultadoExamen)).toBe(false);
+    expect(alumno.items.some((item) => item.tipo === "EXAMEN" && item.id === original.idResultadoExamen)).toBe(false);
+    expect(profesor.items.some((item) => item.tipo === "CLASE_DICTADA" && item.turno_id === turno.idTurno)).toBe(true);
   });
 
   it("serializa dos anulaciones y deja una sola fila de auditoría", async () => {
