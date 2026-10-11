@@ -44,6 +44,17 @@ Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código rea
 13. **Modificación (2.2).** El orden es el de la spec (primero el `updateMany` por `version`, después `cambiarEmailCuenta`), no el de profesor.
 14. **Pantallas.** La edición vive en `/personal/[id]/editar` y confirma siempre, avisando si cambia el email de ingreso (el prototipo guarda sin confirmar). «Cancelar» y el botón de guardar van arriba a la derecha, como el prototipo. Tras el alta se navega a la ficha con `?creado=1` y tras editar con `?actualizada=1`, cada uno con su banner.
 
+
+### Nota de implementación HU-F-03
+
+Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código real tuvo que acomodar respecto de §1 («Utilidades compartidas nuevas») y §2.3.
+
+1. **`tokenizarBusqueda` ya existía** en `src/lib/busqueda-texto.ts` (la usan alumnos y turnos), con el mismo criterio de HU-B-05 (2 caracteres, `normalizarTexto()`, como mucho 5 palabras). Se reutiliza esa y **no se crea `src/server/shared/busqueda-persona.ts`**. El filtro de F es `construirFiltroBusquedaPersonal(q)` en `src/server/personal/personal.busqueda.ts`, copia del de alumnos sobre las columnas de `FichaMesaEntrada`.
+2. **Firma del servicio:** `listarPersonal(query, db?)`, con `query = { pagina, q? }` ya validada por `ListarPersonalQuerySchema`. Reemplaza la versión mínima de HU-F-01 (`listarPersonal(db?)`, nota de HU-F-01 punto 11), que respondía `{ items, total }`.
+3. **Página fuera de rango y listado vacío** (2.3 no los define): como en `listarAlumnos`, una `pagina` mayor que `total_paginas` devuelve la última página (y `pagina` dice cuál), y sin resultados responde `pagina: 1`, `total: 0` y `total_paginas: 0`.
+4. **El 400** usa `VALIDATION_ERROR` con los errores por campo en `detalles`, como el resto de `/api/personal` (nota de HU-F-01 punto 7). `por_pagina` u otro parámetro ajeno responde 400 con `detalles` vacío (`.strict()`). Los mensajes de `pagina` y `q` son los de Zod por defecto: la spec da el schema sin mensajes propios.
+5. **Texto de «sin resultados» (P-F6):** `ui.personal.listado.sinResultados` = «No se encontraron integrantes para «{q}»», propuesto y pendiente de validar por el PO.
+
 ---
 
 ## 1. Visión General

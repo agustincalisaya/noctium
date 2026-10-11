@@ -8,7 +8,7 @@ import { ErrorDeDominio } from "@/server/shared/error-dominio";
 
 const m = vi.hoisted(() => {
   const tx = {
-    fichaMesaEntrada: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    fichaMesaEntrada: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   };
   return {
     tx,
@@ -317,29 +317,90 @@ describe("obtenerDetalleIntegrante", () => {
 });
 
 describe("listarPersonal", () => {
-  it("todas las fichas, activas e inactivas, por apellido, nombre y DNI", async () => {
-    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([
-      {
-        idFichaMesaEntrada: FICHA,
-        apellidoFichaMesaEntrada: "Fernández",
-        nombreFichaMesaEntrada: "Lucía",
-        dniFichaMesaEntrada: DNI,
-        telefonoFichaMesaEntrada: null,
-        emailFichaMesaEntrada: "lucia@mail.com",
-        activoFichaMesaEntrada: false,
-      },
-    ]);
-    expect(await listarPersonal()).toEqual({
+  const FILA = {
+    idFichaMesaEntrada: FICHA,
+    apellidoFichaMesaEntrada: "Fernández",
+    nombreFichaMesaEntrada: "Lucía",
+    dniFichaMesaEntrada: DNI,
+    telefonoFichaMesaEntrada: null,
+    emailFichaMesaEntrada: "lucia@mail.com",
+    activoFichaMesaEntrada: false,
+  };
+
+  // HU-F-01 dejaba el listado completo sin paginar; HU-F-03 suma la query
+  // ({ pagina, q }) y la paginación. Se conservan las aserciones de F-01
+  // (activos e inactivos, orden y forma de cada fila) y se suman las nuevas.
+  it("activos e inactivos, por apellido, nombre y DNI, sin filtro y en la página 1", async () => {
+    m.tx.fichaMesaEntrada.count.mockResolvedValue(1);
+    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([FILA]);
+    expect(await listarPersonal({ pagina: 1 })).toEqual({
       items: [{ id: FICHA, apellido: "Fernández", nombre: "Lucía", dni: DNI, telefono: null, email: "lucia@mail.com", activo: false }],
+      pagina: 1,
+      por_pagina: 10,
       total: 1,
+      total_paginas: 1,
     });
     const consulta = m.tx.fichaMesaEntrada.findMany.mock.calls[0]![0];
     expect(consulta.where).toBeUndefined();
+    expect(m.tx.fichaMesaEntrada.count).toHaveBeenCalledWith({ where: undefined });
     expect(consulta.orderBy).toEqual([
       { apellidoNormalizadoFichaMesaEntrada: "asc" },
       { nombreNormalizadoFichaMesaEntrada: "asc" },
       { dniFichaMesaEntrada: "asc" },
     ]);
+    expect(consulta).toMatchObject({ skip: 0, take: 10 });
+  });
+
+  it("pagina de a 10 con skip/take y el total del resultado filtrado", async () => {
+    m.tx.fichaMesaEntrada.count.mockResolvedValue(23);
+    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([]);
+    const r = await listarPersonal({ pagina: 2, q: "garc 8806" });
+    expect(r).toMatchObject({ pagina: 2, por_pagina: 10, total: 23, total_paginas: 3 });
+    const consulta = m.tx.fichaMesaEntrada.findMany.mock.calls[0]![0];
+    expect(consulta).toMatchObject({ skip: 10, take: 10 });
+    // El mismo filtro para contar y para traer las filas.
+    expect(m.tx.fichaMesaEntrada.count).toHaveBeenCalledWith({ where: consulta.where });
+    expect(consulta.where).toEqual({
+      AND: [
+        { OR: [{ apellidoNormalizadoFichaMesaEntrada: { contains: "garc" } }, { nombreNormalizadoFichaMesaEntrada: { contains: "garc" } }] },
+        {
+          OR: [
+            { apellidoNormalizadoFichaMesaEntrada: { contains: "8806" } },
+            { nombreNormalizadoFichaMesaEntrada: { contains: "8806" } },
+            { dniFichaMesaEntrada: { contains: "8806" } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("una página fuera de rango se lleva a la última, como en alumnos", async () => {
+    m.tx.fichaMesaEntrada.count.mockResolvedValue(23);
+    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([]);
+    expect(await listarPersonal({ pagina: 9 })).toMatchObject({ pagina: 3, total_paginas: 3 });
+    expect(m.tx.fichaMesaEntrada.findMany.mock.calls[0]![0]).toMatchObject({ skip: 20, take: 10 });
+  });
+
+  it("sin resultados: página 1, total_paginas 0 e items vacío", async () => {
+    m.tx.fichaMesaEntrada.count.mockResolvedValue(0);
+    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([]);
+    expect(await listarPersonal({ pagina: 4, q: "zzz" })).toEqual({ items: [], pagina: 1, por_pagina: 10, total: 0, total_paginas: 0 });
+    expect(m.tx.fichaMesaEntrada.findMany.mock.calls[0]![0]).toMatchObject({ skip: 0 });
+  });
+
+  it("un q de menos de 2 caracteres no filtra", async () => {
+    m.tx.fichaMesaEntrada.count.mockResolvedValue(0);
+    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([]);
+    await listarPersonal({ pagina: 1, q: "a" });
+    expect(m.tx.fichaMesaEntrada.findMany.mock.calls[0]![0].where).toBeUndefined();
+  });
+
+  it("solo lee: no escribe nada", async () => {
+    m.tx.fichaMesaEntrada.count.mockResolvedValue(0);
+    m.tx.fichaMesaEntrada.findMany.mockResolvedValue([]);
+    await listarPersonal({ pagina: 1, q: "lucia" });
+    expect(m.tx.fichaMesaEntrada.create).not.toHaveBeenCalled();
+    expect(m.tx.fichaMesaEntrada.updateMany).not.toHaveBeenCalled();
   });
 });
 

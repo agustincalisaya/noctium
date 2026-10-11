@@ -1113,6 +1113,16 @@ export const TEXTOS = {
   "ui.personal.listado.titulo": "Personal de mesa de entrada",
   "ui.personal.listado.nuevo": "Nuevo integrante",
   "ui.personal.listado.vacio": "Todavía no hay personal de mesa de entrada registrado",
+  // Búsqueda y paginación del listado (HU-F-03, prototipo figura 92).
+  "ui.personal.listado.subtitulo": "Buscá por nombre, apellido y DNI (desde 2 caracteres, sin distinguir mayúsculas ni tildes).",
+  "ui.personal.listado.buscarPlaceholder": "Ej.: ferreyra, 31222…",
+  "ui.personal.listado.buscarEtiqueta": "Buscar integrante",
+  "ui.personal.listado.buscando": "Buscando integrantes",
+  "ui.personal.listado.cargando": "Cargando integrantes",
+  // propuesto: pendiente de validar por el PO (P-F6).
+  "ui.personal.listado.sinResultados": "No se encontraron integrantes para «{q}»",
+  "ui.personal.listado.error": "No se pudo cargar el listado del personal",
+  "ui.personal.listado.reintentar": "Reintentar",
   "ui.personal.listado.apellido": "Apellido",
   "ui.personal.listado.nombre": "Nombre",
   "ui.personal.listado.dni": "DNI",

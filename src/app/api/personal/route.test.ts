@@ -57,8 +57,8 @@ async function post(body: unknown, crudo = false) {
   return { status: r.status, cuerpo: await r.json(), cache: r.headers.get("cache-control") };
 }
 
-async function get() {
-  const r = await (GET as unknown as Ruta)(new NextRequest("http://localhost/api/personal"), CTX);
+async function get(query = "") {
+  const r = await (GET as unknown as Ruta)(new NextRequest(`http://localhost/api/personal${query}`), CTX);
   return { status: r.status, cuerpo: await r.json(), cache: r.headers.get("cache-control") };
 }
 
@@ -134,11 +134,47 @@ describe("POST /api/personal", () => {
 });
 
 describe("GET /api/personal", () => {
-  it("200 con el listado mínimo y no-store", async () => {
-    const listado = { items: [{ id: "f1", apellido: "Ruiz", nombre: "Marta", dni: "25100001", telefono: null, email: "m@x.com", activo: true }], total: 1 };
-    m.listar.mockResolvedValue(listado);
-    expect(await get()).toEqual({ status: 200, cuerpo: { data: listado, error: null }, cache: expect.stringContaining("no-store") });
+  const LISTADO = {
+    items: [{ id: "f1", apellido: "Ruiz", nombre: "Marta", dni: "25100001", telefono: null, email: "m@x.com", activo: true }],
+    pagina: 1,
+    por_pagina: 10,
+    total: 1,
+    total_paginas: 1,
+  };
+
+  // HU-F-01 probaba el listado sin parámetros; HU-F-03 suma `pagina` y `q` y la
+  // forma paginada de la spec §2.3. Se conservan las aserciones de F-01.
+  it("200 con la forma de la spec §2.3 y no-store; sin parámetros pide la página 1", async () => {
+    m.listar.mockResolvedValue(LISTADO);
+    expect(await get()).toEqual({ status: 200, cuerpo: { data: LISTADO, error: null }, cache: expect.stringContaining("no-store") });
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 1 });
     expect(m.permiso).toHaveBeenCalledWith({ where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "personal:leer" } } });
+  });
+
+  it("pasa pagina y q (recortado) al servicio", async () => {
+    m.listar.mockResolvedValue({ ...LISTADO, pagina: 2 });
+    expect((await get("?pagina=2&q=%20ferreyra%2031222%20")).status).toBe(200);
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 2, q: "ferreyra 31222" });
+  });
+
+  it.each([
+    ["?pagina=0", "pagina"],
+    ["?pagina=abc", "pagina"],
+    ["?pagina=-1", "pagina"],
+    [`?q=${"a".repeat(101)}`, "q"],
+  ])("400 VALIDATION_ERROR con %s, sin llamar al servicio", async (query, campo) => {
+    const r = await get(query);
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error).toMatchObject({ code: "VALIDATION_ERROR", message: "Los datos del integrante no son válidos." });
+    expect(r.cuerpo.error.detalles[campo]).toBeDefined();
+    expect(m.listar).not.toHaveBeenCalled();
+  });
+
+  it.each(["?por_pagina=5", "?pagina=1&orden=dni"])("400 con un parámetro que no existe (%s): por_pagina es fijo", async (query) => {
+    const r = await get(query);
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error.code).toBe("VALIDATION_ERROR");
+    expect(m.listar).not.toHaveBeenCalled();
   });
 
   it("401 sin sesión y 403 para los otros roles", async () => {
@@ -146,8 +182,14 @@ describe("GET /api/personal", () => {
     expect((await get()).status).toBe(401);
     for (const rol of ["MESA_ENTRADA", "PROFESOR", "ALUMNO"]) {
       m.sesion.actual = { user: { id: "otro", rol } };
-      expect((await get()).status).toBe(403);
+      expect((await get("?q=ruiz")).status).toBe(403);
     }
     expect(m.listar).not.toHaveBeenCalled();
+  });
+
+  it("500 sin detalle técnico ante un error inesperado", async () => {
+    m.listar.mockRejectedValue(new Error("connection refused"));
+    const r = await get();
+    expect(r).toMatchObject({ status: 500, cuerpo: { data: null, error: { code: "ERROR_INTERNO" } } });
   });
 });

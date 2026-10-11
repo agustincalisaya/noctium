@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { flattenError, type ZodError } from "zod";
 import { obtenerIp } from "@/auth";
 import { texto } from "@/lib/textos";
-import { construirAltaIntegranteSchema } from "@/server/personal/personal.schema";
+import { ListarPersonalQuerySchema, construirAltaIntegranteSchema } from "@/server/personal/personal.schema";
 import { crearIntegrante, listarPersonal } from "@/server/personal/personal.service";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
 import { getParametroNumerico } from "@/server/shared/parametros";
@@ -34,10 +34,17 @@ function errorDelServicio(error: unknown) {
   );
 }
 
-/** Listado mínimo, sin `q` ni paginación (DEC-38): los suma HU-F-03. */
-export const GET = withPermission("personal:leer", async () => {
+/**
+ * Listado con búsqueda y paginación (spec_modulo_F.md §2.3, HU-F-03):
+ * `?pagina=&q=`. Cualquier otro parámetro (incluido `por_pagina`, que es fijo)
+ * es 400 `VALIDATION_ERROR`.
+ */
+export const GET = withPermission("personal:leer", async (req) => {
+  const parsed = ListarPersonalQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams));
+  if (!parsed.success) return validacion(parsed.error);
+
   try {
-    return NextResponse.json({ data: await listarPersonal(), error: null }, { status: 200 });
+    return NextResponse.json({ data: await listarPersonal(parsed.data), error: null }, { status: 200 });
   } catch (error) {
     return errorDelServicio(error);
   }

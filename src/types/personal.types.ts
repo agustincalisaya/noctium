@@ -1,7 +1,7 @@
 import type { Genero } from "@prisma/client";
 import type { ResumenCuenta } from "@/server/usuarios/cuenta.service";
 
-/** Fila del listado mínimo de `/personal` (spec_modulo_F.md §2.3; HU-F-03 suma búsqueda y paginación). */
+/** Fila del listado de `/personal` (spec_modulo_F.md §2.3). */
 export type IntegranteListadoItem = {
   id: string;
   apellido: string;
@@ -12,10 +12,17 @@ export type IntegranteListadoItem = {
   activo: boolean;
 };
 
-/** `GET /api/personal` sin `q` ni paginación (HU-F-01, DEC-38). HU-F-03 suma `pagina`, `por_pagina` y `total_paginas`. */
+/**
+ * `GET /api/personal` con búsqueda y paginación (spec_modulo_F.md §2.3,
+ * HU-F-03). `total` y `total_paginas` son del resultado filtrado; sin
+ * resultados, `total_paginas` es 0 y `pagina` es 1.
+ */
 export type ListadoPersonal = {
   items: IntegranteListadoItem[];
+  pagina: number;
+  por_pagina: number;
   total: number;
+  total_paginas: number;
 };
 
 /**
