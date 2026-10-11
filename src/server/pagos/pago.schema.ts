@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { z } from "zod";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
 
@@ -18,7 +19,7 @@ export const motivoSchema = z.string().trim()
   .max(300, "El motivo no puede superar los 300 caracteres");
 
 export const RegistrarPagoSchema = z.object({
-  turno_id: z.string().trim().min(1, "Falta el turno"),
+  turno_id: z.string().trim().min(1, textoC19("ui.clases.errores.faltaLaClase")),
   alumno_id: z.string().cuid("Elegí el alumno que paga"),
   monto: montoSchema,
   forma_pago_id: formaPagoIdSchema,
@@ -26,7 +27,7 @@ export const RegistrarPagoSchema = z.object({
 }).strict();
 
 export const OpcionesPagoQuerySchema = z.object({
-  turno_id: z.string().trim().min(1, "Falta el turno"),
+  turno_id: z.string().trim().min(1, textoC19("ui.clases.errores.faltaLaClase")),
 }).strict();
 
 export type RegistrarPagoInput = z.infer<typeof RegistrarPagoSchema>;

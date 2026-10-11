@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { diaMes, fechaLarga } from "@/lib/turno-detalle";
 import type { TurnoDetalle } from "@/types/turno.types";
@@ -19,7 +20,7 @@ export function TurnoDetalleEncabezado({ turno, retorno, onReprogramar, onAsigna
   onAsignarPrioridad: () => void;
   onCancelar: (modo: "cancelar" | "descartar") => void;
 }) {
-  const tramos = [{ etiqueta: "Turnos", href: retorno }, ...(turno ? [{ etiqueta: `${turno.materia} · ${diaMes(turno.fecha)}` }] : [])];
+  const tramos = [{ etiqueta: textoC19("ui.pagos.resumen.clases"), href: retorno }, ...(turno ? [{ etiqueta: `${turno.materia} · ${diaMes(turno.fecha)}` }] : [])];
   return (
     <header className="space-y-2">
       <Breadcrumb tramos={tramos} />
@@ -32,17 +33,13 @@ export function TurnoDetalleEncabezado({ turno, retorno, onReprogramar, onAsigna
             </div>
             <div className="flex flex-wrap gap-2">
               {turno.acciones_habilitadas.includes("reprogramar") && <Button type="button" variant="outline" onClick={onReprogramar}>
-                <CalendarDays className="size-4" aria-hidden />Reprogramar
-              </Button>}
+                <CalendarDays className="size-4" aria-hidden />{textoC19("ui.clases.interfaz.reprogramar")}</Button>}
               {turno.acciones_habilitadas.includes("prioridad") && <Button type="button" variant="outline" onClick={onAsignarPrioridad}>
-                <Flag className="size-4" aria-hidden />Asignar prioridad
-              </Button>}
+                <Flag className="size-4" aria-hidden />{textoC19("ui.clases.interfaz.asignarPrioridad")}</Button>}
               {turno.acciones_habilitadas.includes("cancelar") && <Button type="button" variant="outline" className={CLASE_DESTRUCTIVA} onClick={() => onCancelar("cancelar")}>
-                Cancelar turno
-              </Button>}
+                {textoC19("ui.clases.interfaz.cancelarClase")}</Button>}
               {turno.acciones_habilitadas.includes("descartar") && <Button type="button" variant="outline" className={CLASE_DESTRUCTIVA} onClick={() => onCancelar("descartar")}>
-                Descartar
-              </Button>}
+                {textoC19("ui.clases.interfaz.descartar")}</Button>}
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -55,7 +52,7 @@ export function TurnoDetalleEncabezado({ turno, retorno, onReprogramar, onAsigna
           </p>
         </>
       ) : (
-        <h1 className="text-2xl font-semibold">Detalle del turno</h1>
+        <h1 className="text-2xl font-semibold">{textoC19("ui.clases.interfaz.detalleDeLaClase")}</h1>
       )}
     </header>
   );

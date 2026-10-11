@@ -86,7 +86,7 @@ describe("modificarAula", () => {
     expect(error).toBeInstanceOf(ServiceError);
     expect(error.code).toBe("CAPACIDAD_MENOR_A_INSCRIPTOS");
     expect(error.message).toBe(
-      "La nueva capacidad es menor a la cantidad de alumnos ya inscriptos en turnos que usan esta aula",
+      "La nueva capacidad es menor a la cantidad de alumnos ya inscriptos en clases que usan esta aula",
     );
     expect(error.detalles).toEqual({ turnos_en_conflicto: ["t01"], max_inscriptos: 10 });
     // El throw ocurre dentro del callback de $transaction: el UPDATE del aula

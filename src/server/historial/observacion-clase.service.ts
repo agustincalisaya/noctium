@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient, type RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -12,7 +13,7 @@ import type { RegistrarObservacionClaseInput } from "./observacion-clase.schema"
 
 const MENSAJES = {
   SIN_PERMISO: "No tenés permisos para registrar o consultar esta clase",
-  CLASE_NO_REGISTRADA: "El turno todavía no tiene una clase dictada registrada",
+  CLASE_NO_REGISTRADA: textoC19("errores.claseDictada.noRegistrada"),
 } as const;
 
 type UsuarioHistorial = { id: string; rol: RolUsuario };

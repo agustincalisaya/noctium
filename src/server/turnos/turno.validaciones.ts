@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { prisma } from "@/lib/prisma";
 import { ahora as leerAhora } from "@/server/shared/reloj";
 import { ServiceError } from "@/server/shared/service-error";
@@ -100,7 +101,7 @@ export async function validarFechaHoraTurno(input: FechaHoraTurno, { topeFecha, 
   if (!esDuracionPermitida(input.duracion_min)) throw new ServiceError("DURACION_NO_PERMITIDA", "Elegí una duración válida (1, 2 o 3 horas)");
   const fin = inicio + input.duracion_min;
   if (inicio < minutos(parametros.apertura) || fin > minutos(parametros.cierre) || fin >= 24 * 60) {
-    throw new ServiceError("FUERA_DE_HORARIO_OPERATIVO", `El turno completo debe estar entre ${parametros.apertura} y ${parametros.cierre}`);
+    throw new ServiceError("FUERA_DE_HORARIO_OPERATIVO", textoC19("ui.clases.errores.laClaseCompletaDebeEstarEntreY", { valor1: parametros.apertura, valor2: parametros.cierre }));
   }
   const hora_fin = `${String(Math.floor(fin / 60)).padStart(2, "0")}:${String(fin % 60).padStart(2, "0")}`;
   return { fecha, hora_fin, duracion_min: input.duracion_min };

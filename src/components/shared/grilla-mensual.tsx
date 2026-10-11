@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { CLASE_ESTADO, ETIQUETA_ESTADO, ICONO_ESTADO } from "@/components/shared/bloque-evento-calendario";
@@ -6,7 +7,7 @@ import { ETIQUETA_DIA_CORTA, formatearDiaLargo } from "@/lib/calendario-semana";
 import type { ResumenDiaCalendario } from "@/types/calendario.types";
 
 function textoCantidad(cantidad: number): string {
-  return cantidad === 1 ? "1 turno" : `${cantidad} turnos`;
+  return cantidad === 1 ? textoC19("ui.pagos.resumen.clases.una") : textoC19("ui.clases.interfaz.clases", { valor1: cantidad });
 }
 
 /**
@@ -55,13 +56,13 @@ function CeldaDelMes({ resumen, esHoy, href }: { resumen: ResumenDiaCalendario; 
   const predominante = estado_predominante ? ETIQUETA_ESTADO[estado_predominante] : null;
   const IconoEstado = estado_predominante ? ICONO_ESTADO[estado_predominante] : null;
   const descripcion =
-    cantidad === 0 ? "sin turnos" : `${textoCantidad(cantidad)}, mayoría ${predominante}`;
+    cantidad === 0 ? textoC19("ui.clases.interfaz.sinClases") : textoC19("ui.clases.interfaz.mayoria", { valor1: textoCantidad(cantidad), valor2: predominante });
 
   return (
     <Link
       href={href}
       prefetch={false}
-      aria-label={`${formatearDiaLargo(fecha)}${esHoy ? " (hoy)" : ""}: ${descripcion}. Ver día`}
+      aria-label={textoC19("ui.clases.interfaz.verDia", { valor1: formatearDiaLargo(fecha), valor2: esHoy ? " (hoy)" : "", valor3: descripcion })}
       aria-current={esHoy ? "date" : undefined}
       data-en-mes={en_mes}
       className={cn(

@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 /** Estado de un turno (spec_modulo_C.md §2, Revisión 5). */
 export type EstadoTurno = "PENDIENTE" | "DISPONIBLE" | "COMPLETO" | "CANCELADO";
 
@@ -52,7 +53,7 @@ export type Turno = {
   modificado_por_id: string | null;
 };
 
-export const ETIQUETA_ESTADO_TURNO: Record<EstadoTurno, string> = { PENDIENTE: "Pendiente", DISPONIBLE: "Disponible", COMPLETO: "Completo", CANCELADO: "Cancelado" };
+export const ETIQUETA_ESTADO_TURNO: Record<EstadoTurno, string> = { PENDIENTE: textoC19("ui.turnos.estado.pendiente"), DISPONIBLE: textoC19("ui.turnos.estado.disponible"), COMPLETO: textoC19("ui.turnos.estado.completa"), CANCELADO: textoC19("ui.turnos.estado.cancelada") };
 
 export const ETIQUETA_PRIORIDAD_TURNO: Record<PrioridadTurno, string> = { NORMAL: "Normal", ALTA: "Alta", URGENTE: "Urgente" };
 

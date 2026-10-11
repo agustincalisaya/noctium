@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,10 +35,10 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
     try {
       const response = await fetchAutenticado(`/api/turnos/${encodeURIComponent(id)}`, { cache: "no-store" });
       const result = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(result?.error?.message ?? "No se pudo consultar el turno");
-      if (!result?.data) throw new Error("No se pudo consultar el turno");
+      if (!response.ok) throw new Error(result?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoConsultarLaClase"));
+      if (!result?.data) throw new Error(textoC19("ui.clases.interfaz.noSePudoConsultarLaClase"));
       setTurno(result.data);
-    } catch (err) { setError(err instanceof Error && err.message !== "Failed to fetch" ? err.message : "No se pudo consultar el turno. Intentá nuevamente."); }
+    } catch (err) { setError(err instanceof Error && err.message !== "Failed to fetch" ? err.message : textoC19("ui.clases.interfaz.noSePudoConsultarLaClaseIntentaNuevamente")); }
     finally { setCargando(false); }
   }, [id]);
   useEffect(() => { const inicial = window.setTimeout(() => void cargar(), 0); return () => window.clearTimeout(inicial); }, [cargar]);
@@ -57,8 +59,8 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
       cantidadPagos={turnoActual.pagos?.length}
       onCerrar={() => setCancelacion(null)} onCambio={() => cargar(true)}
     />}
-    {turnoActual?.estado === "PENDIENTE" && (puedeConfigurar || (puedeGestionarAlumnos && turnoActual.aula_id)) && <div className="flex flex-wrap gap-3">{puedeConfigurar && <Link className="inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{turnoActual.aula_id ? "Modificar configuración o aula" : "Modificar configuración y asignar aula"}</Link>}{puedeGestionarAlumnos && turnoActual.aula_id && <Link className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Asignar profesor y alumnos</Link>}</div>}
-    {cargando ? <p role="status">Cargando turno</p> : error ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turnoActual && (
+    {turnoActual?.estado === "PENDIENTE" && (puedeConfigurar || (puedeGestionarAlumnos && turnoActual.aula_id)) && <div className="flex flex-wrap gap-3">{puedeConfigurar && <Link className="inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{turnoActual.aula_id ? textoC19("ui.clases.interfaz.modificarConfiguracionOAula") : textoC19("ui.clases.interfaz.modificarConfiguracionYAsignarAula")}</Link>}{puedeGestionarAlumnos && turnoActual.aula_id && <Link className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.asignarProfesorYAlumnos")}</Link>}</div>}
+    {cargando ? <p role="status">{textoC19("ui.clases.interfaz.cargandoClase")}</p> : error ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>{textoC19("ui.formasPago.reintentar")}</Button></div> : turnoActual && (
       // Mockup pág. 5: columnas proporcionales 2:1 con datos y alumnos; a la derecha
       // con «Pago» y «Clase» en los roles que pueden registrar, como en el mockup.
       <div className={`grid gap-[18px] ${turnoActual.pagos ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
@@ -66,7 +68,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
           <TurnoDatosCard turno={turnoActual} />
           <TurnoAlumnosCard turno={turnoActual} gestionable={gestionable} puedeRegistrarClase={puedeRegistrarClase} puedeRegistrarIndicacion={puedeRegistrarIndicacion} esProfesor={esProfesor} onCambio={() => cargar(true)} />
         </div>
-        {(turnoActual.pagos) && <aside aria-label="Pago y clase" className="min-w-0 space-y-[18px]">
+        {(turnoActual.pagos) && <aside aria-label={textoC19("ui.clases.interfaz.pagoYClase")} className="min-w-0 space-y-[18px]">
           {turnoActual.pagos && <TurnoPagoCard pagos={turnoActual.pagos} accion={puedeRegistrarPago && (turnoActual.estado === "DISPONIBLE" || turnoActual.estado === "COMPLETO") ? <RegistrarPagoDialog
             turnoId={turnoActual.id}
             contexto={`${turnoActual.materia} · ${diaAbreviadoYFecha(turnoActual.fecha)}, ${turnoActual.hora_inicio}–${turnoActual.hora_fin}`}
@@ -81,6 +83,6 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
 
 /** Mockup pág. 8: «Matemática III · Mar 06/10, 16:00–17:00 · Aula 3 · 3 alumnos inscriptos». */
 function resumenCancelacion(turno: TurnoDetalle) {
-  const alumnos = `${turno.alumnos.length} ${turno.alumnos.length === 1 ? "alumno inscripto" : "alumnos inscriptos"}`;
+  const alumnos = `${turno.alumnos.length} ${turno.alumnos.length === 1 ? textoC19("ui.clases.interfaz.alumnoInscripto") : textoC19("ui.clases.interfaz.alumnosInscriptosNumeroDos")}`;
   return [turno.materia, `${diaAbreviadoYFecha(turno.fecha)}, ${turno.hora_inicio}–${turno.hora_fin}`, turno.aula, alumnos].join(" · ");
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useState } from "react";
 
 export type AlumnoOpcionTurno = { id: string; nombre: string; apellido: string; dni: string };
@@ -11,7 +13,7 @@ export function PasoAlumnosTurno({ opciones, alumnos, cupo, bloqueado, errorAlum
   cupo: number;
   bloqueado: boolean;
   errorAlumno: { id: string; mensaje: string } | null;
-  estadoPredictivo: "Disponible" | "Completo";
+  estadoPredictivo: string;
   onAgregar: (alumno: AlumnoSeleccionadoTurno) => void;
   onQuitar: (id: string) => void;
 }) {
@@ -22,16 +24,16 @@ export function PasoAlumnosTurno({ opciones, alumnos, cupo, bloqueado, errorAlum
   const seleccionados = new Set(alumnos.map(({ id }) => id));
   return <section aria-labelledby="titulo-paso-alumnos" className="space-y-5">
     <div className="flex items-start justify-between gap-4">
-      <div className="space-y-1"><h2 id="titulo-paso-alumnos" className="text-xl font-semibold">Inscribí alumnos</h2>
-        <p className="text-sm text-muted-foreground">El turno se va a crear en estado {estadoPredictivo}, con {alumnos.length} {alumnos.length === 1 ? "alumno" : "alumnos"}</p></div>
-      <span aria-live="polite" className="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium">{alumnos.length} de {cupo}</span>
+      <div className="space-y-1"><h2 id="titulo-paso-alumnos" className="text-xl font-semibold">{textoC19("ui.clases.interfaz.inscribiAlumnos")}</h2>
+        <p className="text-sm text-muted-foreground">{(textoC19("ui.clases.interfaz.laClaseSeVaACrearEnEstado") + " ")}{estadoPredictivo}{(textoC19("ui.clases.interfaz.con") + " ")}{alumnos.length} {alumnos.length === 1 ? "alumno" : "alumnos"}</p></div>
+      <span aria-live="polite" className="shrink-0 rounded-full bg-muted px-3 py-1 text-xs font-medium">{alumnos.length}{(" " + textoC19("ui.clases.interfaz.de") + " ")}{cupo}</span>
     </div>
     <div className="space-y-3">
-      <label htmlFor="alumno-busqueda-wizard" className="sr-only">Buscar alumno</label>
+      <label htmlFor="alumno-busqueda-wizard" className="sr-only">{textoC19("ui.clases.interfaz.buscarAlumno")}</label>
       <input id="alumno-busqueda-wizard" type="search" value={busqueda} onChange={(event) => setBusqueda(event.target.value)}
-        placeholder="Buscar alumno por nombre, apellido o DNI..." className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-      <fieldset className="max-h-[28rem] space-y-2 overflow-y-auto pr-1"><legend className="sr-only">Alumnos elegibles</legend>
-        {visibles.length === 0 ? <p role="status" className="text-sm text-muted-foreground">{opciones.length === 0 ? "No hay alumnos disponibles para este turno." : "No hay alumnos elegibles que coincidan con la búsqueda."}</p> : visibles.map((alumno) => {
+        placeholder={textoC19("ui.clases.interfaz.buscarAlumnoPorNombreApellidoODni")} className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      <fieldset className="max-h-[28rem] space-y-2 overflow-y-auto pr-1"><legend className="sr-only">{textoC19("ui.clases.interfaz.alumnosElegibles")}</legend>
+        {visibles.length === 0 ? <p role="status" className="text-sm text-muted-foreground">{opciones.length === 0 ? textoC19("ui.clases.interfaz.noHayAlumnosDisponiblesParaEstaClase") : textoC19("ui.clases.interfaz.noHayAlumnosElegiblesQueCoincidanConLaBusqueda")}</p> : visibles.map((alumno) => {
           const marcado = seleccionados.has(alumno.id);
           return <label key={alumno.id} className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-sm ${errorAlumno?.id === alumno.id ? "border-destructive" : marcado ? "border-primary bg-primary/5" : "border-border"}`}>
             <input type="checkbox" checked={marcado} disabled={bloqueado || (!marcado && alumnos.length >= cupo)}

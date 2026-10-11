@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 
 import { Prisma, type DiaSemana } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -697,7 +698,7 @@ export async function actualizarMateriasDeProfesor(
       if (bloqueadas.length > 0) {
         throw new ServiceError(
           "MATERIA_CON_TURNOS_FUTUROS",
-          "No se puede quitar: el profesor tiene turnos futuros de esta materia",
+          textoC19("ui.clases.errores.noSePuedeQuitarElProfesorTieneClasesFuturasDeEstaMateriaNumeroDos"),
           { detalle: bloqueadas },
         );
       }

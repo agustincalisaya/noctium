@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { NextResponse } from "next/server";
 import type { RolUsuario } from "@prisma/client";
 import { tienePermiso, withPermission } from "@/server/shared/with-permission";
@@ -30,7 +31,7 @@ export const GET = withPermission("turnos:leer", async (req, ctx) => {
     return NextResponse.json({ data: null, error: { code: "SIN_PERMISO", message: "No tenés permisos para acceder a esta sección" } }, { status: 403 });
   }
   if (detalle.resultado === "no_encontrado") {
-    return NextResponse.json({ data: null, error: { code: "TURNO_NO_ENCONTRADO", message: "No se encontró el turno" } }, { status: 404 });
+    return NextResponse.json({ data: null, error: { code: "TURNO_NO_ENCONTRADO", message: textoC19("errores.turno.noEncontrado") } }, { status: 404 });
   }
   return NextResponse.json({ data: detalle.turno, error: null });
 });

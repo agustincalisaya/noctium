@@ -1,11 +1,12 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { cn } from "@/lib/utils";
 
-export const PASOS_TURNO = ["Materia", "Profesor", "Fecha y horario", "Aula", "Alumnos"] as const;
-export const PASOS_TURNO_RECURRENTES = ["Materia", "Profesor", "Franja y horario", "Aula y rango", "Vista previa"] as const;
+export const PASOS_TURNO = [textoC19("ui.indicadores.presentismo.materiaColumna"), textoC19("ui.turnos.solicitar.profesor"), textoC19("ui.clases.interfaz.fechaYHorario"), textoC19("ui.turnos.resumen.aula"), textoC19("ui.clases.menu.alumnos")] as const;
+export const PASOS_TURNO_RECURRENTES = [textoC19("ui.indicadores.presentismo.materiaColumna"), textoC19("ui.turnos.solicitar.profesor"), textoC19("ui.clases.interfaz.franjaYHorarioNumeroDos"), textoC19("ui.clases.interfaz.aulaYRango"), textoC19("ui.clases.interfaz.vistaPrevia")] as const;
 export type PasoTurno = 1 | 2 | 3 | 4 | 5;
 
 export function ProgresoTurno({ paso, pasoMaximoHabilitado, onPasoSeleccionado, nombres = PASOS_TURNO }: { paso: PasoTurno; pasoMaximoHabilitado: PasoTurno; onPasoSeleccionado: (paso: PasoTurno) => void; nombres?: readonly string[] }) {
-  return <nav aria-label="Progreso del nuevo turno">
+  return <nav aria-label={textoC19("ui.clases.interfaz.progresoDeLaNuevaClase")}>
     <div className="overflow-x-auto pb-1">
       <ol className="grid min-w-[38rem] grid-cols-5 gap-2">
         {nombres.map((nombre, indice) => {
@@ -13,7 +14,7 @@ export function ProgresoTurno({ paso, pasoMaximoHabilitado, onPasoSeleccionado, 
           const estado = numero < paso ? "completado" : numero === paso ? "actual" : "futuro";
           const contenido = <>
             <span aria-hidden="true" className={cn("mb-2 block h-1 rounded-full", estado === "actual" ? "bg-primary" : estado === "completado" ? "bg-primary/70" : "bg-muted")} />
-            <span className="block">Paso {numero}</span>
+            <span className="block">{(textoC19("ui.clases.interfaz.paso") + " ")}{numero}</span>
             <span className={cn("block text-sm", estado === "actual" && "font-semibold")}>{nombre}</span>
           </>;
           return <li key={nombre} aria-current={numero === paso ? "step" : undefined} data-estado={estado} className={cn("text-xs", numero <= paso ? "text-foreground" : "text-muted-foreground")}>

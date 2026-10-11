@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { prisma } from "@/lib/prisma";
 import { diaSemanaDeFecha, horaAMinutos, intervalosSeSuperponen, minutosAHora } from "@/lib/horario-atencion";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
@@ -185,8 +186,8 @@ export async function listarOpcionesProfesorTurno(turnoId: string) {
     where: { idTurno: turnoId },
     select: { idTurno: true, estadoTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, materiaId: true },
   });
-  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-  if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", "El turno ya está confirmado");
+  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+  if (turno.estadoTurno !== "PENDIENTE") throw new ServiceError("TURNO_YA_DISPONIBLE", textoC19("ui.clases.errores.laClaseYaEstaConfirmada"));
   const profesores = await listarProfesoresActivosPorMateria(turno.materiaId);
   // Distingue "la materia no tiene profesores" (HU-C-04 c2) de "ninguno está libre en ese horario" (lista vacía).
   if (profesores.length === 0) throw new ServiceError("SIN_PROFESORES_PARA_MATERIA", "No hay profesores activos asociados a esta materia");

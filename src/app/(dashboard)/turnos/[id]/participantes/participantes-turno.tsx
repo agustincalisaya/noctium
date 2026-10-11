@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import Link from "next/link";
 import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { useCallback, useEffect, useState } from "react";
@@ -38,7 +40,7 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
     try {
       const respuesta = await fetchAutenticado(`/api/turnos/${encodeURIComponent(id)}`, { cache: "no-store" });
       const valor = await respuesta.json().catch(() => null);
-      if (!respuesta.ok || !valor?.data) throw new Error(valor?.error?.message ?? "No se pudo cargar el turno");
+      if (!respuesta.ok || !valor?.data) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoCargarLaClase"));
       const actual = valor.data as Turno;
       let opciones: Profesor[] = [];
       let sinProfesores = false;
@@ -47,12 +49,12 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
         const opcionesRespuesta = await fetchAutenticado(`/api/turnos/profesores/opciones?turno_id=${encodeURIComponent(id)}`, { cache: "no-store" });
         const valorOpciones = await opcionesRespuesta.json().catch(() => null);
         sinProfesores = valorOpciones?.error?.code === "SIN_PROFESORES_PARA_MATERIA";
-        if (!sinProfesores && (!opcionesRespuesta.ok || !Array.isArray(valorOpciones?.data))) throw new Error(valorOpciones?.error?.message ?? "No se pudieron cargar los profesores");
+        if (!sinProfesores && (!opcionesRespuesta.ok || !Array.isArray(valorOpciones?.data))) throw new Error(valorOpciones?.error?.message ?? textoC19("ui.turnos.solicitar.errorProfesores"));
         opciones = sinProfesores ? [] : valorOpciones.data;
       }
       setTurno(actual); setProfesores(opciones); setSinProfesoresMateria(sinProfesores); setAlumnos(actual.alumnos);
       setProfesorId(actual.profesor_id ?? "");
-    } catch (e) { setError(e instanceof Error ? e.message : "No se pudo cargar el turno"); }
+    } catch (e) { setError(e instanceof Error ? e.message : textoC19("ui.clases.interfaz.noSePudoCargarLaClase")); }
     finally { setCargando(false); }
   }, [id]);
 
@@ -91,10 +93,10 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ alumno_ids: alumnos.map(({ id: alumnoId }) => alumnoId), ...(!turno.profesor_id ? { profesor_id: profesorId } : {}) }), cache: "no-store",
       });
-    } catch { throw new Error("No se pudieron asignar los participantes. Intentá nuevamente."); }
+    } catch { throw new Error(textoC19("ui.clases.interfaz.noSePudieronAsignarLosParticipantesIntentaNuevamente")); }
     const valor = await respuesta.json().catch(() => null);
     if (!respuesta.ok) {
-      const mensaje = valor?.error?.message ?? "No se pudieron asignar los participantes";
+      const mensaje = valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudieronAsignarLosParticipantes");
       const alumnoId = valor?.error?.detalles?.alumno_id;
       if (typeof alumnoId === "string" && alumnos.some(({ id: otro }) => otro === alumnoId)) setErrorAlumno({ id: alumnoId, mensaje });
       throw new Error(mensaje);
@@ -104,10 +106,10 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
   };
 
   return <main className="mx-auto w-full min-w-0 max-w-2xl space-y-5 p-6">
-    <LinkProtegido className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</LinkProtegido>
-    <h1 className="text-2xl font-semibold">Asignar profesor y alumnos</h1>
-    {cargando ? <p role="status">Cargando turno</p> : confirmado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">Profesor y alumnos asignados correctamente</p><p className="flex flex-wrap items-center gap-2">Turno confirmado <EstadoTurnoBadge estado={confirmado} /></p>
-      {inscripcionesConfirmadas.length > 0 && <ul aria-label="Alumnos a cobrar" className="space-y-2">{inscripcionesConfirmadas.map((inscripcion) => {
+    <LinkProtegido className="rounded-sm text-sm text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>{textoC19("ui.clases.interfaz.volverAlListado")}</LinkProtegido>
+    <h1 className="text-2xl font-semibold">{textoC19("ui.clases.interfaz.asignarProfesorYAlumnos")}</h1>
+    {cargando ? <p role="status">{textoC19("ui.clases.interfaz.cargandoClase")}</p> : confirmado ? <div role="status" className="space-y-3 rounded-md bg-success p-5 text-success-foreground"><p className="font-semibold">{textoC19("ui.clases.interfaz.profesorYAlumnosAsignadosCorrectamente")}</p><p className="flex flex-wrap items-center gap-2">{(textoC19("ui.clases.interfaz.claseConfirmadaNumeroDos") + " ")}<EstadoTurnoBadge estado={confirmado} /></p>
+      {inscripcionesConfirmadas.length > 0 && <ul aria-label={textoC19("ui.clases.interfaz.alumnosACobrar")} className="space-y-2">{inscripcionesConfirmadas.map((inscripcion) => {
         const alumno = alumnos.find(({ id: alumnoId }) => alumnoId === inscripcion.alumno_id);
         return <li key={inscripcion.alumno_id} className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-card/40 px-3 py-2 text-sm text-foreground">
           <span>{alumno?.nombre ?? inscripcion.alumno_id}</span>
@@ -116,24 +118,24 @@ export function ParticipantesTurno({ id, retorno }: { id: string; retorno: strin
             aria-label={texto("ui.turnos.reserva.registrarPagoDe", { alumno: alumno?.nombre ?? "" })}>{texto("ui.turnos.reserva.registrarPago")}</Link>
         </li>;
       })}</ul>}
-      <div className="flex flex-wrap gap-4"><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Ver detalle</Link><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>Volver al listado</Link></div></div> : !turno ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>Reintentar</Button></div> : turno.estado !== "PENDIENTE" ? <p role="alert">Un turno disponible o completo no admite cambios de participantes. Los alumnos se agregan o quitan desde el detalle del turno.</p> : !turno.aula_id ? <div role="status" className="space-y-3 rounded-md border border-border bg-card p-5"><p>Asigná un aula antes de confirmar el turno.</p><Link className="text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Asignar aula</Link></div> : <form onSubmit={pedirConfirmacion} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
-      <div className="space-y-1"><p className="font-medium">{turno.fecha} · {turno.hora_inicio}–{turno.hora_fin} · {turno.materia}</p><p className="text-sm text-muted-foreground">Aula: {turno.aula} · Cupo máximo: {turno.cupo_maximo}</p><EstadoTurnoBadge estado={turno.estado} /></div>
-      {turno.profesor_id ? <p className="text-sm">Profesor ya asignado al turno.</p> : <div className="space-y-2"><label htmlFor="profesor" className="text-sm font-medium">Profesor *</label>
-        {sinProfesoresMateria ? <p role="status">No hay profesores activos asociados a esta materia</p> : profesores.length === 0 ? <p role="status">No hay profesores disponibles para este horario</p> : <select id="profesor" value={profesorId} onChange={(event) => { setProfesorId(event.target.value); limpiarErrores(); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">Seleccioná un profesor</option>{profesores.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>}
+      <div className="flex flex-wrap gap-4"><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.verDetalle")}</Link><Link className="underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={retorno} prefetch={false}>{textoC19("ui.clases.interfaz.volverAlListado")}</Link></div></div> : !turno ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>{textoC19("ui.formasPago.reintentar")}</Button></div> : turno.estado !== "PENDIENTE" ? <p role="alert">{textoC19("ui.clases.interfaz.unaClaseDisponibleOCompletaNoAdmiteCambiosDeParticipantesLosAlumnos")}</p> : !turno.aula_id ? <div role="status" className="space-y-3 rounded-md border border-border bg-card p-5"><p>{textoC19("ui.clases.interfaz.asignaUnAulaAntesDeConfirmarLaClase")}</p><Link className="text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.asignarAula")}</Link></div> : <form onSubmit={pedirConfirmacion} className="space-y-5 rounded-md border border-border bg-card p-5 text-card-foreground">
+      <div className="space-y-1"><p className="font-medium">{turno.fecha} · {turno.hora_inicio}–{turno.hora_fin} · {turno.materia}</p><p className="text-sm text-muted-foreground">{(textoC19("ui.clases.interfaz.aulaNumeroDos") + " ")}{turno.aula}{(" " + textoC19("ui.clases.interfaz.cupoMaximoNumeroDos") + " ")}{turno.cupo_maximo}</p><EstadoTurnoBadge estado={turno.estado} /></div>
+      {turno.profesor_id ? <p className="text-sm">{textoC19("ui.clases.interfaz.profesorYaAsignadoALaClase")}</p> : <div className="space-y-2"><label htmlFor="profesor" className="text-sm font-medium">{textoC19("ui.clases.interfaz.profesorNumeroCuatro")}</label>
+        {sinProfesoresMateria ? <p role="status">{textoC19("ui.clases.interfaz.noHayProfesoresActivosAsociadosAEstaMateria")}</p> : profesores.length === 0 ? <p role="status">{textoC19("ui.clases.interfaz.noHayProfesoresDisponiblesParaEsteHorario")}</p> : <select id="profesor" value={profesorId} onChange={(event) => { setProfesorId(event.target.value); limpiarErrores(); }} className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><option value="">{textoC19("ui.clases.calendario.seleccionaUnProfesor")}</option>{profesores.map((profesor) => <option key={profesor.id} value={profesor.id}>{profesor.apellido}, {profesor.nombre}</option>)}</select>}
       </div>}
-      <fieldset className="space-y-2"><legend className="text-sm font-medium">Alumnos * <span className="font-normal text-muted-foreground">({alumnos.length}/{cupo})</span></legend>
-        {alumnos.length === 0 ? <p className="text-sm text-muted-foreground">Todavía no agregaste alumnos.</p> : <ul className="space-y-2" aria-label="Alumnos agregados">{alumnos.map((alumno) => {
+      <fieldset className="space-y-2"><legend className="text-sm font-medium">{(textoC19("ui.clases.interfaz.alumnos") + " ")}<span className="font-normal text-muted-foreground">({alumnos.length}/{cupo})</span></legend>
+        {alumnos.length === 0 ? <p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.todaviaNoAgregasteAlumnos")}</p> : <ul className="space-y-2" aria-label={textoC19("ui.clases.interfaz.alumnosAgregados")}>{alumnos.map((alumno) => {
           const conflicto = errorAlumno?.id === alumno.id ? errorAlumno.mensaje : "";
           return <li key={alumno.id} className={`space-y-1 rounded-md border p-2 ${conflicto ? "border-destructive" : "border-border"}`}>
-            <div className="flex items-center justify-between gap-3"><span className="min-w-0 break-words text-sm">{alumno.nombre} · DNI {alumno.dni}</span><Button type="button" variant="outline" size="sm" onClick={() => quitar(alumno.id)} aria-label={`Quitar a ${alumno.nombre}`}>Quitar</Button></div>
+            <div className="flex items-center justify-between gap-3"><span className="min-w-0 break-words text-sm">{alumno.nombre}{(" " + textoC19("ui.clases.interfaz.dni") + " ")}{alumno.dni}</span><Button type="button" variant="outline" size="sm" onClick={() => quitar(alumno.id)} aria-label={textoC19("ui.clases.interfaz.quitarA", { valor1: alumno.nombre })}>{textoC19("ui.clases.interfaz.quitar")}</Button></div>
             {conflicto && <p role="alert" className="text-sm text-destructive">{conflicto}</p>}
           </li>;
         })}</ul>}
-        <label htmlFor="alumno-busqueda" className="sr-only">Buscar alumno</label>
-        <BuscadorAlumnos id="alumno-busqueda" excluir={alumnos.map(({ id: alumnoId }) => alumnoId)} deshabilitado={cupoAlcanzado} avisoDeshabilitado="El turno alcanzó su cupo máximo" onSeleccionar={(alumno) => agregar({ id: alumno.id, nombre: etiquetaAlumno(alumno), dni: alumno.dni })} />
+        <label htmlFor="alumno-busqueda" className="sr-only">{textoC19("ui.clases.interfaz.buscarAlumno")}</label>
+        <BuscadorAlumnos id="alumno-busqueda" excluir={alumnos.map(({ id: alumnoId }) => alumnoId)} deshabilitado={cupoAlcanzado} avisoDeshabilitado={textoC19("errores.turno.cupoInsuficiente")} onSeleccionar={(alumno) => agregar({ id: alumno.id, nombre: etiquetaAlumno(alumno), dni: alumno.dni })} />
       </fieldset>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={alumnos.length === 0 || !profesorId}>Confirmar turno</Button><Link className={buttonVariants({ variant: "outline" })} href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>Cancelar</Link></div>
+      <div className="flex flex-wrap gap-3"><Button type="submit" disabled={alumnos.length === 0 || !profesorId}>{textoC19("ui.clases.interfaz.confirmarClase")}</Button><Link className={buttonVariants({ variant: "outline" })} href={`/turnos/${encodeURIComponent(id)}?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.formasPago.cancelar")}</Link></div>
       <ConfirmarAccionDialog abierto={confirmando} onCerrar={() => setConfirmando(false)}
         titulo={texto("confirmaciones.inscripcion.centro", {
           // "Apellido, Nombre" → "Nombre Apellido": con varios alumnos, unidos por coma, el formato original sería ambiguo.

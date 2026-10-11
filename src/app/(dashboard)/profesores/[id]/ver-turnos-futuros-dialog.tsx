@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,13 +93,13 @@ export function VerTurnosFuturosDialog({
     <Dialog open onOpenChange={(abierto) => { if (!abierto) onCerrar(); }}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Turnos futuros de {materia.nombre}</DialogTitle>
+          <DialogTitle>{(textoC19("ui.clases.profesores.clasesFuturasDe") + " ")}{materia.nombre}</DialogTitle>
           <DialogDescription aria-live="polite">
             {total === null
-              ? "Buscando los turnos futuros de esta materia…"
+              ? textoC19("ui.clases.profesores.buscandoLasClasesFuturasDeEstaMateria")
               : total === 0
-                ? "El profesor ya no tiene turnos futuros de esta materia. Podés volver a intentar quitarla."
-                : `El profesor tiene ${total} turnos futuros de esta materia. Cancelá o resolvé estos turnos y volvé a intentar.`}
+                ? textoC19("ui.clases.profesores.elProfesorYaNoTieneClasesFuturasDeEstaMateriaPodesVolver")
+                : textoC19("ui.clases.profesores.elProfesorTieneClasesFuturasDeEstaMateriaCancelaOResolveEstas", { valor1: total })}
           </DialogDescription>
         </DialogHeader>
 
@@ -105,30 +107,28 @@ export function VerTurnosFuturosDialog({
           {estado.tipo === "cargando" && (
             <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status">
               <Loader2 className="size-4 animate-spin" aria-hidden />
-              Cargando turnos…
-            </p>
+              {textoC19("ui.pagos.clases.cargando")}</p>
           )}
 
           {estado.tipo === "error" && (
             <div role="alert" className="flex flex-wrap items-center gap-3 py-4 text-sm text-destructive">
-              <p>No se pudieron cargar los turnos.</p>
+              <p>{textoC19("ui.clases.profesores.noSePudieronCargarLasClases")}</p>
               <Button type="button" variant="outline" size="sm" onClick={() => void cargar(pagina)}>
-                Reintentar
-              </Button>
+                {textoC19("ui.formasPago.reintentar")}</Button>
             </div>
           )}
 
           {estado.tipo === "listo" && estado.datos.items.length > 0 && (
             <table className="w-full text-left text-sm">
-              <caption className="sr-only">Turnos futuros que impiden quitar la materia</caption>
+              <caption className="sr-only">{textoC19("ui.clases.profesores.clasesFuturasQueImpidenQuitarLaMateria")}</caption>
               <thead className="border-b border-border text-muted-foreground">
                 <tr>
-                  <th scope="col" className="py-2 pr-3 font-medium">Fecha</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">Hora</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">Aula</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">Alumnos inscriptos</th>
-                  <th scope="col" className="py-2 pr-3 font-medium">Estado</th>
-                  <th scope="col" className="py-2 font-medium"><span className="sr-only">Detalle</span></th>
+                  <th scope="col" className="py-2 pr-3 font-medium">{textoC19("ui.pagos.clases.fecha")}</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">{textoC19("ui.historial.clasesAlumno.hora")}</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">{textoC19("ui.turnos.resumen.aula")}</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">{textoC19("ui.clases.interfaz.alumnosInscriptos")}</th>
+                  <th scope="col" className="py-2 pr-3 font-medium">{textoC19("ui.formasPago.estado")}</th>
+                  <th scope="col" className="py-2 font-medium"><span className="sr-only">{textoC19("ui.clases.profesores.detalle")}</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -143,12 +143,11 @@ export function VerTurnosFuturosDialog({
                       <a
                         href={`/turnos/${turno.turno_id}`}
                         target="_blank"
-                        rel="noopener noreferrer"
+                        rel={textoC19("ui.clases.profesores.noopenerNoreferrer")}
                         className="inline-flex items-center gap-1 rounded-sm whitespace-nowrap text-primary underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                       >
-                        Ver detalle
-                        <ExternalLink className="size-3.5" aria-hidden />
-                        <span className="sr-only">(se abre en una pestaña nueva)</span>
+                        {textoC19("ui.clases.interfaz.verDetalle")}<ExternalLink className="size-3.5" aria-hidden />
+                        <span className="sr-only">{textoC19("ui.clases.profesores.seAbreEnUnaPestanaNueva")}</span>
                       </a>
                     </td>
                   </tr>
@@ -173,8 +172,7 @@ export function VerTurnosFuturosDialog({
 
         <DialogFooter>
           <Button type="button" onClick={onCerrar}>
-            Entendido
-          </Button>
+            {textoC19("ui.clases.profesores.entendido")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

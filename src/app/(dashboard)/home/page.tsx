@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import {
@@ -32,57 +33,57 @@ type Rol = keyof typeof ROL_LEGIBLE;
 const ACCESOS_POR_ROL: Partial<Record<Rol, Acceso[]>> = {
   ALUMNO: [
     {
-      titulo: "Tus próximos turnos",
-      detalle: "Revisá los turnos que tenés reservados y su horario.",
+      titulo: textoC19("ui.clases.inicio.tusProximasClases"),
+      detalle: textoC19("ui.clases.inicio.revisaLasClasesQueTenesReservadasYSuHorario"),
       icono: CalendarClock,
     },
     {
-      titulo: "Tus materias",
-      detalle: "Consultá las materias del centro y su información.",
+      titulo: textoC19("ui.clases.inicio.tusMaterias"),
+      detalle: textoC19("ui.clases.inicio.consultaLasMateriasDelCentroYSuInformacion"),
       icono: BookOpen,
     },
   ],
 
   PROFESOR: [
     {
-      titulo: "Tu agenda de atención",
-      detalle: "Consultá los turnos asignados a tus horarios de atención.",
+      titulo: textoC19("ui.clases.inicio.tuAgendaDeAtencion"),
+      detalle: textoC19("ui.clases.inicio.consultaLasClasesAsignadasATusHorariosDeAtencion"),
       icono: CalendarClock,
     },
     {
-      titulo: "Materias que dictás",
-      detalle: "Revisá las materias asignadas a tu perfil.",
+      titulo: textoC19("ui.clases.inicio.materiasQueDictas"),
+      detalle: textoC19("ui.clases.inicio.revisaLasMateriasAsignadasATuPerfil"),
       icono: BookOpen,
     },
   ],
 
   MESA_ENTRADA: [
     {
-      titulo: "Gestión de turnos",
-      detalle: "Cargá, modificá o cancelá turnos de alumnos y profesores.",
+      titulo: textoC19("ui.clases.inicio.gestionDeClases"),
+      detalle: textoC19("ui.clases.inicio.cargaModificaOCancelaClasesDeAlumnosYProfesores"),
       icono: ClipboardList,
     },
     {
-      titulo: "Alumnos y profesores",
-      detalle: "Consultá y actualizá las fichas del centro.",
+      titulo: textoC19("ui.clases.inicio.alumnosYProfesores"),
+      detalle: textoC19("ui.clases.inicio.consultaYActualizaLasFichasDelCentro"),
       icono: Users,
     },
     {
-      titulo: "Aulas y materias",
-      detalle: "Gestioná la disponibilidad de espacios y la oferta académica.",
+      titulo: textoC19("ui.clases.inicio.aulasYMaterias"),
+      detalle: textoC19("ui.clases.inicio.gestionaLaDisponibilidadDeEspaciosYLaOfertaAcademica"),
       icono: DoorOpen,
     },
   ],
 
   GERENTE: [
     {
-      titulo: "Indicadores del centro",
-      detalle: "Seguimiento de turnos, pagos y ocupación (módulo H).",
+      titulo: textoC19("ui.clases.inicio.indicadoresDelCentro"),
+      detalle: textoC19("ui.clases.inicio.seguimientoDeClasesPagosYOcupacionModuloH"),
       icono: GraduationCap,
     },
     {
-      titulo: "Gestión de pagos",
-      detalle: "Revisá los pagos registrados y su estado.",
+      titulo: textoC19("ui.clases.inicio.gestionDePagos"),
+      detalle: textoC19("ui.clases.inicio.revisaLosPagosRegistradosYSuEstado"),
       icono: Wallet,
     },
   ],
@@ -92,24 +93,24 @@ const CONTEXTO_POR_ROL: Partial<
   Record<Rol, { titulo: string; descripcion: string }>
 > = {
   ALUMNO: {
-    titulo: "Tu jornada académica",
+    titulo: textoC19("ui.clases.inicio.tuJornadaAcademica"),
     descripcion:
-      "Todo lo que necesitás consultar para organizar tus próximas atenciones.",
+      textoC19("ui.clases.inicio.todoLoQueNecesitasConsultarParaOrganizarTusProximasAtenciones"),
   },
   PROFESOR: {
-    titulo: "Tu jornada de atención",
+    titulo: textoC19("ui.clases.inicio.tuJornadaDeAtencion"),
     descripcion:
-      "Una vista rápida de los espacios de atención que tenés asignados.",
+      textoC19("ui.clases.inicio.unaVistaRapidaDeLosEspaciosDeAtencionQueTenesAsignados"),
   },
   MESA_ENTRADA: {
-    titulo: "Centro de operaciones",
+    titulo: textoC19("ui.clases.inicio.centroDeOperaciones"),
     descripcion:
-      "Accesos principales para resolver la operación diaria del centro.",
+      textoC19("ui.clases.inicio.accesosPrincipalesParaResolverLaOperacionDiariaDelCentro"),
   },
   GERENTE: {
-    titulo: "Visión del centro",
+    titulo: textoC19("ui.clases.inicio.visionDelCentro"),
     descripcion:
-      "Herramientas disponibles para acompañar la gestión y el seguimiento.",
+      textoC19("ui.clases.inicio.herramientasDisponiblesParaAcompanarLaGestionYElSeguimiento"),
   },
 };
 
@@ -117,14 +118,14 @@ const CONTEXTO_POR_ROL: Partial<
 // (los módulos de la spec, A-L) en vocabulario de usuario. No son
 // links todavía — falta confirmar ruta y permiso por rol de cada uno.
 const MODULOS_NOCTIUM = [
-  { label: "Turnos", icono: CalendarClock },
-  { label: "Alumnos", icono: Users },
-  { label: "Profesores", icono: GraduationCap },
-  { label: "Materias", icono: BookOpen },
-  { label: "Aulas", icono: DoorOpen },
-  { label: "Calendario", icono: CalendarRange },
-  { label: "Pagos", icono: Wallet },
-  { label: "Indicadores", icono: BarChart3 },
+  { label: textoC19("ui.pagos.resumen.clases"), icono: CalendarClock },
+  { label: textoC19("ui.clases.menu.alumnos"), icono: Users },
+  { label: textoC19("ui.profesores.estado.menu"), icono: GraduationCap },
+  { label: textoC19("ui.clases.menu.materias"), icono: BookOpen },
+  { label: textoC19("ui.clases.menu.aulas"), icono: DoorOpen },
+  { label: textoC19("ui.clases.menu.calendario"), icono: CalendarRange },
+  { label: textoC19("ui.clases.inicio.pagos"), icono: Wallet },
+  { label: textoC19("ui.indicadores.panel.titulo"), icono: BarChart3 },
 ];
 
 /* ===============================================================
@@ -169,10 +170,10 @@ const ZONA_HORARIA = "America/Argentina/Buenos_Aires";
 
 /** Saludo según la hora real en Argentina — no es decoración, es dato. */
 function saludoPorHora(hora: number): string {
-  if (hora < 6) return "Buenas noches";
-  if (hora < 12) return "Buenos días";
-  if (hora < 20) return "Buenas tardes";
-  return "Buenas noches";
+  if (hora < 6) return textoC19("ui.clases.inicio.buenasNoches");
+  if (hora < 12) return textoC19("ui.clases.inicio.buenosDias");
+  if (hora < 20) return textoC19("ui.clases.inicio.buenasTardes");
+  return textoC19("ui.clases.inicio.buenasNoches");
 }
 
 /**
@@ -284,8 +285,7 @@ export default async function HomePage({
           <time dateTime={fechaIso}>{fechaLegible}</time>
           <Separador />
           <time dateTime={horaLegible} className="tabular-nums">
-            {horaLegible} hs
-          </time>
+            {horaLegible} {textoC19("ui.clases.inicio.hs")}</time>
         </p>
 
         <h1 className="mt-2 text-balance text-[1.75rem] font-semibold leading-[1.12] tracking-[-0.022em] text-foreground md:text-[2.125rem]">
@@ -297,8 +297,7 @@ export default async function HomePage({
           <span aria-hidden="true" className="mr-1 h-px w-8 bg-primary" />
           <span className="font-medium text-foreground">{rolLegible}</span>
           <Separador />
-          Centro de Atención Académica
-        </p>
+          {textoC19("ui.clases.inicio.centroDeAtencionAcademica")}</p>
       </header>
 
       {/* =========================================================
@@ -314,20 +313,19 @@ export default async function HomePage({
             <header className="mb-3.5 flex flex-col gap-1.5 @2xl:flex-row @2xl:items-baseline-last @2xl:justify-between @2xl:gap-10">
               <div className="min-w-0">
                 <p className={`${ROTULO} flex items-center gap-2 text-primary`}>
-                  Accesos
-                  <Separador />
+                  {textoC19("ui.clases.inicio.accesos")}<Separador />
                   <span className="tabular-nums">{accesos.length}</span>
                 </p>
                 <h2
                   id="accesos-heading"
                   className="mt-1 text-[1.375rem] font-semibold leading-7 tracking-[-0.018em] text-foreground"
                 >
-                  {contexto?.titulo || "Tus accesos"}
+                  {contexto?.titulo || textoC19("ui.clases.inicio.tusAccesos")}
                 </h2>
               </div>
               <p className="max-w-md text-pretty text-[13px] leading-5 text-muted-foreground @2xl:text-right">
                 {contexto?.descripcion ||
-                  "Funciones disponibles según tu rol en el centro."}
+                  textoC19("ui.clases.inicio.funcionesDisponiblesSegunTuRolEnElCentro")}
               </p>
             </header>
 
@@ -353,22 +351,21 @@ export default async function HomePage({
               id="informacion-heading"
               className={`${ROTULO} text-muted-foreground`}
             >
-              Información
-            </h2>
+              {textoC19("ui.clases.inicio.informacion")}</h2>
             <span aria-hidden="true" className="h-px flex-1 bg-border" />
           </header>
 
           <div className={grilla}>
             <EstadoVacio
               icono={Megaphone}
-              titulo="Novedades del centro"
-              descripcion="No hay novedades publicadas por el momento."
+              titulo={textoC19("ui.clases.inicio.novedadesDelCentro")}
+              descripcion={textoC19("ui.clases.inicio.noHayNovedadesPublicadasPorElMomento")}
               className={tresColumnas ? "@4xl:col-span-2" : ""}
             />
             <EstadoVacio
               icono={Bell}
-              titulo="Notificaciones"
-              descripcion="No tenés notificaciones nuevas."
+              titulo={textoC19("ui.clases.inicio.notificaciones")}
+              descripcion={textoC19("ui.clases.inicio.noTenesNotificacionesNuevas")}
             />
           </div>
         </section>
@@ -378,16 +375,15 @@ export default async function HomePage({
         ========================================================= */}
         <footer className="mt-auto flex shrink-0 flex-col gap-2.5 border-t border-border pt-4 @4xl:flex-row @4xl:items-center @4xl:justify-between @4xl:gap-8">
           <p className={`${ROTULO} flex items-center gap-2 text-muted-foreground`}>
-            <span className="text-foreground">Noctium</span>
+            <span className="text-foreground">{textoC19("ui.sesion.primerIngreso.marca")}</span>
             {/* El lema cede su lugar solo en la franja en que comparte fila
                 con los módulos y no hay ancho para ambos. */}
             <span className="contents @4xl:hidden @5xl:contents">
               <Separador />
-              Gestión integral del centro
-            </span>
+              {textoC19("ui.clases.inicio.gestionIntegralDelCentro")}</span>
           </p>
           <ul
-            aria-label="Módulos de Noctium"
+            aria-label={textoC19("ui.clases.inicio.modulosDeNoctium")}
             className="flex flex-wrap items-center gap-x-4 gap-y-1.5"
           >
             {MODULOS_NOCTIUM.map((modulo) => (
@@ -574,8 +570,7 @@ function TarjetaAcceso({
               obligar al título a partirse; el ícono sólido ya la distingue. */}
           {destacada && (
             <span className={`${ROTULO} hidden pl-3 text-primary @sm:inline`}>
-              Principal
-            </span>
+              {textoC19("ui.clases.inicio.principal")}</span>
           )}
           <p className="col-span-2 mt-1 text-pretty text-sm leading-5 text-muted-foreground">
             {item.detalle}

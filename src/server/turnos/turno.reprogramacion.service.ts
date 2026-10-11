@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { texto } from "@/lib/textos";
 import { bloquear } from "@/server/shared/bloquear";
 import { obtenerOpcionProfesorActivo } from "@/server/profesores/profesor.publico";
@@ -36,10 +37,10 @@ const MENSAJE_CONFLICTO = "El profesor, el aula o algún alumno inscripto no est
 
 /** Estados y vigencia admitidos para reprogramar (§2.11 pasos 1 y 2, R5-6). */
 function verificarReprogramable(turno: FilaTurno | null): asserts turno is FilaTurno {
-  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", "No se encontró el turno");
-  if (turno.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", "Un turno pendiente se modifica desde su configuración");
-  if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", "Un turno cancelado no se puede reprogramar");
-  if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", "El horario del turno ya pasó: no se puede reprogramar");
+  if (!turno) throw new ServiceError("TURNO_NO_ENCONTRADO", textoC19("errores.turno.noEncontrado"));
+  if (turno.estadoTurno === "PENDIENTE") throw new ServiceError("TURNO_PENDIENTE", textoC19("ui.clases.errores.unaClasePendienteSeModificaDesdeSuConfiguracion"));
+  if (turno.estadoTurno === "CANCELADO") throw new ServiceError("TURNO_CANCELADO", textoC19("ui.clases.errores.unaClaseCanceladaNoSePuedeReprogramar"));
+  if (!turnoSigueVigente(turno.fechaTurno, turno.horaInicioTurno)) throw new ServiceError("TURNO_VENCIDO", textoC19("ui.clases.errores.elHorarioDeLaClaseYaPasoNoSePuedeReprogramar"));
 }
 
 /**

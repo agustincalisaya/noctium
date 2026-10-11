@@ -1,5 +1,7 @@
 "use client";
 
+import { texto as textoC19 } from "@/lib/textos";
+
 import { useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,15 +32,15 @@ export function AsignarPrioridadDialog({ turnoId, prioridadActual, onCerrar, onC
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) {
-        toast.error(result?.error?.message ?? "No se pudo actualizar la prioridad. Intentá nuevamente.");
+        toast.error(result?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoActualizarLaPrioridadIntentaNuevamente"));
         if (response.status === 409) await onCambio();
         return;
       }
       onCerrar();
-      toast.success("Prioridad actualizada");
+      toast.success(textoC19("ui.clases.interfaz.prioridadActualizada"));
       await onCambio();
     } catch {
-      toast.error("No se pudo actualizar la prioridad. Intentá nuevamente.");
+      toast.error(textoC19("ui.clases.interfaz.noSePudoActualizarLaPrioridadIntentaNuevamente"));
     } finally {
       setEnviando(false);
     }
@@ -49,11 +51,11 @@ export function AsignarPrioridadDialog({ turnoId, prioridadActual, onCerrar, onC
       <DialogContent initialFocus={primeraOpcion}>
         <form onSubmit={guardar}>
           <DialogHeader>
-            <DialogTitle>Asignar prioridad</DialogTitle>
-            <DialogDescription>Alta y Urgente se marcan en el listado y en el calendario. No cambia el orden del listado ni envía notificaciones.</DialogDescription>
+            <DialogTitle>{textoC19("ui.clases.interfaz.asignarPrioridad")}</DialogTitle>
+            <DialogDescription>{textoC19("ui.clases.interfaz.altaYUrgenteSeMarcanEnElListadoYEnElCalendario")}</DialogDescription>
           </DialogHeader>
           <fieldset className="mt-4 space-y-2" disabled={enviando}>
-            <legend className="sr-only">Prioridad del turno</legend>
+            <legend className="sr-only">{textoC19("ui.clases.interfaz.prioridadDeLaClase")}</legend>
             {PRIORIDADES.map((opcion, index) => (
               <label key={opcion} className="flex cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm has-checked:border-primary has-checked:bg-accent">
                 <input ref={index === 0 ? primeraOpcion : undefined} type="radio" name="prioridad" value={opcion} checked={prioridad === opcion} onChange={() => setPrioridad(opcion)} className="accent-primary" />
@@ -62,8 +64,8 @@ export function AsignarPrioridadDialog({ turnoId, prioridadActual, onCerrar, onC
             ))}
           </fieldset>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={enviando} onClick={onCerrar}>Cancelar</Button>
-            <Button type="submit" disabled={enviando}>{enviando ? "Guardando…" : "Guardar"}</Button>
+            <Button type="button" variant="outline" disabled={enviando} onClick={onCerrar}>{textoC19("ui.formasPago.cancelar")}</Button>
+            <Button type="submit" disabled={enviando}>{enviando ? "Guardando…" : textoC19("ui.formasPago.guardar")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -64,7 +64,7 @@ describe("HU-C-09 GET /api/turnos/[id]", () => {
     obtenerDetalleTurno.mockResolvedValue({ resultado: "no_encontrado" });
     const respuesta = await consultar("no-existe");
     expect(respuesta.status).toBe(404);
-    expect(await respuesta.json()).toEqual({ data: null, error: { code: "TURNO_NO_ENCONTRADO", message: "No se encontró el turno" } });
+    expect(await respuesta.json()).toEqual({ data: null, error: { code: "TURNO_NO_ENCONTRADO", message: "No se encontró la clase" } });
   });
 
   it("un fallo de infraestructura se propaga como error, nunca como 403", async () => {

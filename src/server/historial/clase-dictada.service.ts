@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { randomUUID } from "node:crypto";
 import { Prisma, type EstadoAsistencia, type RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -19,10 +20,10 @@ import type { CorregirAsistenciaInput, RegistrarClaseDictadaInput } from "@/serv
 
 const MENSAJES = {
   SIN_PERMISO: "No tenés permisos para registrar o consultar esta clase",
-  TURNO_NO_ENCONTRADO: "No se encontró el turno",
-  TURNO_NO_ADMITE_CLASE: "Solo se puede registrar una clase de un turno disponible o completo",
+  TURNO_NO_ENCONTRADO: textoC19("errores.turno.noEncontrado"),
+  TURNO_NO_ADMITE_CLASE: textoC19("errores.claseDictada.turnoNoAdmiteClase"),
   CLASE_NO_FINALIZADA: "La clase todavía no terminó",
-  CLASE_NO_REGISTRADA: "El turno todavía no tiene una clase dictada registrada",
+  CLASE_NO_REGISTRADA: textoC19("errores.claseDictada.noRegistrada"),
 } as const;
 
 type UsuarioHistorial = { id: string; rol: RolUsuario };

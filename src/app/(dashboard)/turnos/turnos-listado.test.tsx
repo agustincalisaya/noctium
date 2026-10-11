@@ -47,7 +47,7 @@ describe("HU-C-01 interfaz", () => {
     await montar();
     expect(container.querySelector("th")?.textContent).toBe("Fecha");
     expect(container.textContent).toContain("Alumnos inscriptos");
-    for (const texto of ["Pendiente", "Disponible", "Completo", "0/10", "1/5", "5/5", "Sin asignar"]) expect(container.textContent).toContain(texto);
+    for (const texto of ["Pendiente", "Disponible", "Completa", "0/10", "1/5", "5/5", "Sin asignar"]) expect(container.textContent).toContain(texto);
     const estados = [...container.querySelectorAll("tbody tr td:nth-child(8) span")];
     expect(estados[0].className).toContain("bg-warning");
     expect(estados[2].className).toContain("bg-success");
@@ -59,7 +59,7 @@ describe("HU-C-01 interfaz", () => {
       "/turnos/con-aula/participantes?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
     ]);
     expect(enlaces.find((a) => a.textContent === "Anterior")?.getAttribute("href")).toBe("/turnos?pagina=1&orden=fecha_hora_asc");
-    const paginacion = container.querySelector('nav[aria-label="Páginas de turnos"]')!;
+    const paginacion = container.querySelector("nav[aria-label=\"Páginas de clases\"]")!;
     const anterior = [...paginacion.querySelectorAll("a")].find((a) => a.textContent === "Anterior")!;
     expect(anterior.className).toContain("bg-background");
     expect(anterior.className).toContain("border-border");
@@ -84,7 +84,7 @@ describe("HU-C-01 interfaz", () => {
     fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE")], 1)));
     await act(async () => root.render(<TurnosListado pagina={1} orden="fecha_hora_asc" puedeConfigurar />));
     await esperar();
-    const paginacion = container.querySelector('nav[aria-label="Páginas de turnos"]')!;
+    const paginacion = container.querySelector("nav[aria-label=\"Páginas de clases\"]")!;
     expect(paginacion.querySelector('[aria-disabled="true"]')?.textContent).toBe("Anterior");
     expect(paginacion.querySelector('a[href="/turnos?pagina=2&orden=fecha_hora_asc"]')?.textContent).toBe("Siguiente");
   });
@@ -93,16 +93,16 @@ describe("HU-C-01 interfaz", () => {
     let liberar!: (value: ReturnType<typeof respuesta>) => void;
     fetch.mockImplementationOnce(() => new Promise((resolve) => { liberar = resolve; }));
     await act(async () => root.render(<TurnosListado pagina={2} orden="fecha_hora_asc" puedeConfigurar />));
-    expect(container.textContent).toContain("Cargando turnos");
+    expect(container.textContent).toContain("Cargando clases");
     await esperar();
     await act(async () => liberar(respuesta(datos([]))));
-    expect(container.textContent).toContain("No hay turnos registrados");
+    expect(container.textContent).toContain("No hay clases registradas");
     fetch.mockResolvedValueOnce(respuesta(null, false, { message: "Falló la consulta" })).mockResolvedValueOnce(respuesta(datos([item("COMPLETO")])));
     await act(async () => document.dispatchEvent(new Event("visibilitychange")));
     await esperar();
     expect(container.textContent).toContain("Falló la consulta");
     await act(async () => (container.querySelector("button") as HTMLButtonElement).click());
-    expect(container.textContent).toContain("Completo");
+    expect(container.textContent).toContain("Completa");
   });
 
   it("consulta nuevamente al volver a la pestaña tras modificar un turno", async () => {
@@ -114,7 +114,7 @@ describe("HU-C-01 interfaz", () => {
     await esperar();
     expect(container.textContent).toContain("5/5");
     expect(fetch).toHaveBeenLastCalledWith("/api/turnos?pagina=2", { cache: "no-store", signal: expect.any(AbortSignal) });
-    expect(container.textContent).not.toContain("Cargando turnos");
+    expect(container.textContent).not.toContain("Cargando clases");
   });
 
   it("abre el detalle en consulta y conserva página y orden al regresar", async () => {
@@ -203,8 +203,8 @@ describe("HU-C-02 búsqueda en el listado", () => {
     expect(container.textContent).toContain("Buscá por profesor, materia o aula (desde 2 letras, sin distinguir mayúsculas ni tildes).");
     expect(container.textContent).toContain("Desde hoy · Orden: fecha y hora ascendente, luego profesor");
     expect(container.querySelector("input")?.getAttribute("placeholder")).toBe("Ej.: matematica, aula 2, gimenez…");
-    expect(container.querySelector('input[aria-label="Buscar turno"]')).not.toBeNull();
-    expect(container.textContent).toContain("25 turnos");
+    expect(container.querySelector("input[aria-label=\"Buscar clase\"]")).not.toBeNull();
+    expect(container.textContent).toContain("25 clases");
     expect(url()).toBe("/api/turnos?pagina=1");
   });
 
@@ -220,7 +220,7 @@ describe("HU-C-02 búsqueda en el listado", () => {
     await avanzar(0);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(url()).toBe("/api/turnos?pagina=1&q=rossi");
-    expect(container.textContent).toContain("7 turnos");
+    expect(container.textContent).toContain("7 clases");
     expect(replaceState).toHaveBeenLastCalledWith(null, "", "/turnos?q=rossi&pagina=1&orden=fecha_hora_asc");
   });
 
@@ -266,7 +266,7 @@ describe("HU-C-02 búsqueda en el listado", () => {
     await avanzar(0);
     expect(url()).toBe("/api/turnos?pagina=3&q=aula");
     // Mientras llega la respuesta: mismas filas, sin "Cargando turnos".
-    expect(container.textContent).not.toContain("Cargando turnos");
+    expect(container.textContent).not.toContain("Cargando clases");
     expect(filas()).toEqual(["Materia a", "Materia b"]);
     await pagina3.resolver(pagina(["p3"], 25, 3));
     await pagina2.resolver(pagina(["p2"], 25, 2));
@@ -297,8 +297,8 @@ describe("HU-C-02 búsqueda en el listado", () => {
     fetch.mockResolvedValue(respuesta(pagina([], 0)));
     await escribir("  mendez ");
     await buscar();
-    expect(container.textContent).toContain("No se encontraron turnos para «mendez»");
-    expect(container.textContent).not.toContain("0 turnos");
+    expect(container.textContent).toContain("No se encontraron clases para «mendez»");
+    expect(container.textContent).not.toContain("0 clases");
   });
 
   it("muestra el spinner solo si la búsqueda tarda más de 300 ms", async () => {
@@ -312,7 +312,7 @@ describe("HU-C-02 búsqueda en el listado", () => {
     expect(container.querySelector("[data-buscando]")).toBeNull();
     await avanzar(1);
     expect(container.querySelector("[data-buscando]")).not.toBeNull();
-    expect(container.querySelector("[role=status]")?.textContent).toBe("Buscando turnos");
+    expect(container.querySelector("[role=status]")?.textContent).toBe("Buscando clases");
     expect(filas()).toEqual(["Materia a", "Materia b"]);
     await lenta.resolver(pagina(["r"]));
     expect(container.querySelector("[data-buscando]")).toBeNull();
@@ -329,7 +329,7 @@ describe("HU-C-05 listado: Descartar y etiqueta Cancelado", () => {
   it("AC5 / DESIGN §6.5: «Cancelado» con contorno destructivo sobre la tarjeta", async () => {
     fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "cancelado", estado: "CANCELADO" })])));
     await montar();
-    const etiqueta = [...container.querySelectorAll("tbody span")].find((span) => span.textContent === "Cancelado")!;
+    const etiqueta = [...container.querySelectorAll("tbody span")].find((span) => span.textContent === "Cancelada")!;
     expect(etiqueta.className).toContain("border-destructive");
     expect(etiqueta.className).toContain("text-destructive");
     expect(etiqueta.className).toContain("bg-card");
@@ -347,15 +347,15 @@ describe("HU-C-05 listado: Descartar y etiqueta Cancelado", () => {
     expect([...container.querySelectorAll("tbody button")].filter((b) => b.textContent === "Descartar")).toHaveLength(1);
     await act(async () => botonFila("Descartar")!.click());
     const dialogo = document.querySelector('[role="alertdialog"]')!;
-    expect(dialogo.textContent).toContain("¿Confirmás descartar este turno?");
+    expect(dialogo.textContent).toContain("¿Confirmás descartar esta clase?");
     fetch.mockClear();
     fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: { id: "pendiente", estado: "CANCELADO" }, error: null }) })
       .mockResolvedValue(respuesta(datos([item("DISPONIBLE", { id: "pendiente", estado: "CANCELADO" })])));
-    await act(async () => ([...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Descartar turno") as HTMLButtonElement).click());
+    await act(async () => ([...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Descartar clase") as HTMLButtonElement).click());
     await esperar();
     expect(fetch.mock.calls[0][0]).toBe("/api/turnos/pendiente/cancelacion");
     expect(fetch.mock.calls[1][0]).toBe("/api/turnos?pagina=2&q=fisica");
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(container.textContent).toContain("Cancelado");
+    expect(container.textContent).toContain("Cancelada");
   });
 });

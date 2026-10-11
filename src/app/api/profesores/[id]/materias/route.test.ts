@@ -72,7 +72,7 @@ describe("HU-D-07 PUT materias del profesor", () => {
       data: null,
       error: {
         code: "MATERIA_CON_TURNOS_FUTUROS",
-        message: "No se puede quitar: el profesor tiene 3 turnos futuros de esta materia",
+        message: "No se puede quitar: el profesor tiene 3 clases futuras de esta materia",
         detalle: [{ materia_id: MAT, cantidad: 3 }],
       },
     });
@@ -83,7 +83,7 @@ describe("HU-D-07 PUT materias del profesor", () => {
     actualizar.mockRejectedValue(new ServiceError("MATERIA_CON_TURNOS_FUTUROS", "x", { detalle }));
     const { error } = await (await enviar({ materia_ids: [] })).json();
     expect(error.detalle).toEqual(detalle);
-    expect(error.message).toBe("No se pueden quitar algunas materias: el profesor tiene turnos futuros de ellas");
+    expect(error.message).toBe("No se pueden quitar algunas materias: el profesor tiene clases futuras de ellas");
   });
 
   it("409 MATERIA_INACTIVA con materia_ids_invalidas (snake_case)", async () => {

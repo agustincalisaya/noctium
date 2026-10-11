@@ -115,7 +115,7 @@ describe("HU-C-12 §2.14.2 inscripción", () => {
 
   it.each([["PENDIENTE", "errores.turno.pendiente"], ["CANCELADO", "errores.turno.cancelado"]] as const)("rechaza turno %s", async (_estado, codigo) => {
     rechaza(codigo);
-    await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "TURNO_NO_DISPONIBLE", message: "El turno ya no está disponible" });
+    await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "TURNO_NO_DISPONIBLE", message: "La clase ya no está disponible" });
     expect(evento).not.toHaveBeenCalled();
   });
 
@@ -125,7 +125,7 @@ describe("HU-C-12 §2.14.2 inscripción", () => {
     rechaza("errores.turno.vencido");
     await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "TURNO_VENCIDO" });
     rechaza("errores.inscripcion.alumnoYaAsignadoPropio");
-    await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en este turno" });
+    await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "ALUMNO_YA_ASIGNADO", message: "Ya estás inscripto en esta clase" });
     rechaza("errores.turno.cupoInsuficiente");
     await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "CUPO_INSUFICIENTE" });
     expect(evento).not.toHaveBeenCalled();
@@ -133,7 +133,7 @@ describe("HU-C-12 §2.14.2 inscripción", () => {
 
   it("rechaza superposición al confirmar con el mensaje del alumno", async () => {
     rechaza("errores.inscripcion.alumnoNoDisponiblePropio");
-    await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otro turno en ese horario" });
+    await expect(solicitarTurnoPropio(TURNO, USUARIO)).rejects.toMatchObject({ code: "ALUMNO_NO_DISPONIBLE", message: "Ya tenés otra clase en ese horario" });
     expect(evento).not.toHaveBeenCalled();
   });
 });

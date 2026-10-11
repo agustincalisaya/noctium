@@ -146,7 +146,7 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
       ? (falla = false, respuesta(null, false, { code: "ERROR", message: "Falló la lista" })) : undefined;
     await montar(); await crearTurno(); await asignarAula();
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("Falló la lista");
-    expect(boton("Crear turno").disabled).toBe(true);
+    expect(boton("Crear clase").disabled).toBe(true);
     await pulsar(boton("Reintentar"));
     expect(container.textContent).toContain("López, Juan");
   });
@@ -154,13 +154,13 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
   it("lista elegible vacía conserva el mínimo de un alumno", async () => {
     rutas = (url) => url.includes("/participantes/alumnos/opciones?") ? respuesta({ turno_id: "turno-1", alumnos: [] }) : undefined;
     await montar(); await crearTurno(); await asignarAula();
-    expect(container.textContent).toContain("No hay alumnos disponibles para este turno.");
-    expect(boton("Crear turno").disabled).toBe(true);
+    expect(container.textContent).toContain("No hay alumnos disponibles para esta clase.");
+    expect(boton("Crear clase").disabled).toBe(true);
   });
 
   it("muestra lista completa, selecciona varios y permite desmarcar sin PATCH temprano", async () => {
     await montar(); await crearTurno(); await asignarAula();
-    expect(boton("Crear turno").disabled).toBe(true);
+    expect(boton("Crear clase").disabled).toBe(true);
     expect(container.textContent).toContain("López, Juan");
     expect(container.textContent).toContain("Paz, Ana");
     expect(container.textContent).not.toContain("Opcional");
@@ -181,8 +181,8 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
       ? respuesta({ id: "turno-1", aula_id: "aula-1", cupo_maximo: 1, estado: "PENDIENTE" }) : undefined;
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
     expect(container.textContent).toContain("1 de 1");
-    expect(container.querySelector("aside")?.textContent).toContain("ESTADO INICIALCompleto, 1 alumno");
-    expect(container.textContent).toContain("El turno se va a crear en estado Completo, con 1 alumno");
+    expect(container.querySelector("aside")?.textContent).toContain("ESTADO INICIALCompleta, 1 alumno");
+    expect(container.textContent).toContain("La clase se va a crear en estado Completa, con 1 alumno");
     expect(alumnoCheckbox(alumnos[1]).disabled).toBe(true);
     await agregarAlumno();
     expect(alumnoCheckbox(alumnos[1]).disabled).toBe(false);
@@ -190,7 +190,7 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
 
   it("HU-C-25: «Crear turno» pide confirmación con los datos concretos antes de guardar; «Volver» no inscribe", async () => {
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
-    await pulsar(boton("Crear turno"));
+    await pulsar(boton("Crear clase"));
     expect(llamadas("PATCH", "/participantes")).toHaveLength(0);
     expect(dialogoConfirmacion()?.textContent).toContain("¿Estás seguro de que querés inscribir a Juan López en Física del 01/10/2026 a las 10:00?");
     await pulsar(botonDialogo("Volver"));
@@ -201,23 +201,23 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
 
   it("confirma con alumno_ids sin profesor_id, muestra DISPONIBLE y ofrece «Registrar pago» por cada alumno (C §2.18.3)", async () => {
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
-    expect(boton("Ver listado de turnos")).toBeUndefined();
-    expect(container.textContent).not.toContain("Turno creado correctamente.");
+    expect(boton("Ver listado de clases")).toBeUndefined();
+    expect(container.textContent).not.toContain("Clase creado correctamente.");
     await confirmarCreacion();
     expect(JSON.parse(String(llamadas("PATCH", "/participantes")[0]![1].body))).toEqual({ alumno_ids: ["alumno-1"] });
-    expect(container.textContent).toContain("Turno confirmado");
-    expect(container.textContent).toContain("Turno creado correctamente.");
+    expect(container.textContent).toContain("Clase confirmada");
+    expect(container.textContent).toContain("Clase creado correctamente.");
     expect(container.textContent).toContain("Disponible");
     const accesos = [...container.querySelectorAll('a[aria-label^="Registrar pago de"]')];
     expect(accesos.map((a) => [a.getAttribute("aria-label"), a.textContent, a.getAttribute("href")])).toEqual([
       ["Registrar pago de Juan López", "Registrar pago", "/pagos/registrar?alumno=alumno-1&clase=turno-1"],
     ]);
-    expect(boton("Crear turno")).toBeUndefined();
-    expect(boton("Ver listado de turnos")).toBeDefined();
+    expect(boton("Crear clase")).toBeUndefined();
+    expect(boton("Ver listado de clases")).toBeDefined();
     expect(push).not.toHaveBeenCalled();
     expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
     expect(setDirty).toHaveBeenLastCalledWith(false);
-    await pulsar(boton("Ver listado de turnos"));
+    await pulsar(boton("Ver listado de clases"));
     expect(push).toHaveBeenCalledExactlyOnceWith("/turnos");
     expect(llamadas("PATCH", "/participantes")).toHaveLength(1);
   });
@@ -227,16 +227,16 @@ describe("HU-C-18 etapa 6: Alumnos y confirmación", () => {
       ? respuesta({ id: "turno-1", alumno_ids: ["alumno-1"], profesor_id: "profesor-1", cupo_maximo: 20, estado: "COMPLETO", inscripciones: [] }) : undefined;
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
     await confirmarCreacion();
-    expect(container.textContent).toContain("Completo");
+    expect(container.textContent).toContain("Completa");
   });
 
   it.each(["ALUMNO_NO_DISPONIBLE", "TURNO_SIN_AULA"])("rechazo del servidor (%s) se muestra en el diálogo y conserva selección y PENDIENTE", async (codigo) => {
     rutas = (url, init) => url.endsWith("/participantes") && init?.method === "PATCH"
-      ? respuesta(null, false, { code: codigo, message: codigo === "TURNO_SIN_AULA" ? "Asigná un aula antes de confirmar el turno" : "El alumno ya tiene otro turno", detalles: codigo === "ALUMNO_NO_DISPONIBLE" ? { alumno_id: "alumno-1" } : undefined }) : undefined;
+      ? respuesta(null, false, { code: codigo, message: codigo === "TURNO_SIN_AULA" ? "Asigná un aula antes de confirmar la clase" : "El alumno ya tiene otra clase", detalles: codigo === "ALUMNO_NO_DISPONIBLE" ? { alumno_id: "alumno-1" } : undefined }) : undefined;
     await montar(); await crearTurno(); await asignarAula(); await agregarAlumno();
-    await pulsar(boton("Crear turno"));
+    await pulsar(boton("Crear clase"));
     await pulsar(botonDialogo("Inscribir"));
-    expect(dialogoConfirmacion()?.querySelector('[role="alert"]')?.textContent).toContain(codigo === "TURNO_SIN_AULA" ? "Asigná un aula" : "El alumno ya tiene otro turno");
+    expect(dialogoConfirmacion()?.querySelector('[role="alert"]')?.textContent).toContain(codigo === "TURNO_SIN_AULA" ? "Asigná un aula" : "El alumno ya tiene otra clase");
     await pulsar(botonDialogo("Volver"));
     expect(container.querySelector("h2#titulo-paso-alumnos")).not.toBeNull();
     expect(container.textContent).toContain("López, Juan");
@@ -288,7 +288,7 @@ const esperar = () => act(async () => { await new Promise((resolve) => setTimeou
 const montar = async () => { await act(async () => { root.render(<NuevoTurnoPage />); }); await esperar(); };
 const boton = (texto: string) => [...container.querySelectorAll("button")].find((elemento) => elemento.textContent?.trim() === texto)!;
 const botonAvanzar = () => boton("Continuar a profesor") || boton("Continuar a fecha y horario");
-const pasoStepper = (numero: number) => container.querySelectorAll('nav[aria-label="Progreso del nuevo turno"] li')[numero - 1]!;
+const pasoStepper = (numero: number) => container.querySelectorAll("nav[aria-label=\"Progreso de la nueva clase\"] li")[numero - 1]!;
 const botonPaso = (numero: number) => pasoStepper(numero).querySelector<HTMLButtonElement>("button")!;
 const diaCalendario = (fecha: string) => container.querySelector<HTMLButtonElement>(`button[data-fecha="${fecha}"]`)!;
 const horario = (texto: string) => [...container.querySelectorAll('label[data-estado]')].find((elemento) => elemento.textContent?.includes(texto))!;
@@ -314,7 +314,7 @@ const agregarAlumno = async (alumno = alumnos[0]) => pulsar(alumnoCheckbox(alumn
 /** HU-C-25: «Crear turno» abre la confirmación antes de guardar (C §2.18.3); el diálogo se porta fuera de `container`. */
 const dialogoConfirmacion = () => document.querySelector('[role="alertdialog"]');
 const botonDialogo = (texto: string) => [...dialogoConfirmacion()!.querySelectorAll("button")].find((elemento) => elemento.textContent?.trim() === texto) as HTMLButtonElement;
-const confirmarCreacion = async () => { await pulsar(boton("Crear turno")); await pulsar(botonDialogo("Inscribir")); };
+const confirmarCreacion = async () => { await pulsar(boton("Crear clase")); await pulsar(botonDialogo("Inscribir")); };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -432,12 +432,12 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
   });
   it("muestra los cinco pasos y carga Materia y duraciones desde configuración", async () => {
     await montar();
-    expect(container.querySelector("h1")?.textContent).toBe("Nuevo turno");
+    expect(container.querySelector("h1")?.textContent).toBe("Nueva clase");
     expect(container.querySelector("header")?.textContent).toContain("Materia → Profesor → Fecha y horario → Aula → Alumnos.");
-    expect([...container.querySelectorAll('nav[aria-label="Progreso del nuevo turno"] li')].map((paso) => paso.textContent?.trim()))
+    expect([...container.querySelectorAll("nav[aria-label=\"Progreso de la nueva clase\"] li")].map((paso) => paso.textContent?.trim()))
       .toEqual(["Paso 1Materia", "Paso 2Profesor", "Paso 3Fecha y horario", "Paso 4Aula", "Paso 5Alumnos"]);
     expect(container.textContent).not.toContain("Paso 1 de 5");
-    expect([...container.querySelectorAll('nav[aria-label="Progreso del nuevo turno"] li')].map((paso) => paso.getAttribute("data-estado")))
+    expect([...container.querySelectorAll("nav[aria-label=\"Progreso de la nueva clase\"] li")].map((paso) => paso.getAttribute("data-estado")))
       .toEqual(["actual", "futuro", "futuro", "futuro", "futuro"]);
     expect(container.querySelector("h2#titulo-paso-materia")?.textContent).toBe("Elegí la materia");
     expect(botonAvanzar().disabled).toBe(true);
@@ -463,7 +463,7 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
   it("Materia muestra tarjetas con conteo singular/plural y mantiene la selección", async () => {
     await montar();
     expect(container.querySelector("h2#titulo-paso-materia")?.textContent).toBe("Elegí la materia");
-    expect(container.textContent).not.toContain("Seleccioná la materia para este turno.");
+    expect(container.textContent).not.toContain("Seleccioná la materia para esta clase.");
     expect(container.querySelector('fieldset input[name="materia_turno"]')?.parentElement?.parentElement?.className).toContain("grid-cols-3");
     expect(container.textContent).toContain("FIS · 2 profesores");
     expect(container.textContent).toContain("1 profesor");
@@ -499,7 +499,7 @@ describe("HU-C-18 etapa 3: Materia, Profesor, Fecha y horario", () => {
     expect(container.querySelector("h2#titulo-paso-profesor")?.textContent).toBe("Elegí el profesor");
     expect(container.textContent.replaceAll("\u00a0", " ")).toContain("Martes: 16:00–20:00");
     expect(container.textContent).not.toContain("Paso 2 de 5");
-    expect([...container.querySelectorAll('nav[aria-label="Progreso del nuevo turno"] li')].map((paso) => paso.getAttribute("data-estado")))
+    expect([...container.querySelectorAll("nav[aria-label=\"Progreso de la nueva clase\"] li")].map((paso) => paso.getAttribute("data-estado")))
       .toEqual(["completado", "actual", "futuro", "futuro", "futuro"]);
     expect(container.querySelector("aside")?.textContent).toContain("Física");
     expect(llamadas("POST", "/api/turnos")).toHaveLength(0);

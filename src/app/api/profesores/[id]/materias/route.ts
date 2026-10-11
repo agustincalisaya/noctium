@@ -1,3 +1,4 @@
+import { texto as textoC19 } from "@/lib/textos";
 import { NextResponse } from "next/server";
 import { flattenError } from "zod";
 import { withPermission } from "@/server/shared/with-permission";
@@ -144,9 +145,9 @@ function bloqueosDeDetalles(error: ServiceError): { materia_id: string; cantidad
 /** Literal de HU-D-07 AC3 cuando la baja rechazada es de una sola materia. */
 function mensajeTurnosFuturos(bloqueos: { cantidad: number }[]): string {
   if (bloqueos.length === 1) {
-    return `No se puede quitar: el profesor tiene ${bloqueos[0]!.cantidad} turnos futuros de esta materia`;
+    return textoC19("ui.clases.errores.noSePuedeQuitarElProfesorTieneClasesFuturasDeEstaMateria", { valor1: bloqueos[0]!.cantidad });
   }
-  return "No se pueden quitar algunas materias: el profesor tiene turnos futuros de ellas";
+  return textoC19("ui.clases.errores.noSePuedenQuitarAlgunasMateriasElProfesorTieneClasesFuturasDe");
 }
 
 // Modificación de las materias asociadas (HU-D-07, spec_modulo_D.md §2.7):

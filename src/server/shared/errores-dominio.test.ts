@@ -51,7 +51,8 @@ describe("prueba de claves (HU-C-23, PR-0.md §2.13)", () => {
       "errores.formaPago.noDisponible", "errores.pago.fechaFutura",
     ] as const) {
       const { code } = ERRORES_DE_DOMINIO[clave];
-      expect(ruta, clave).toContain(`${code}: { status: ${ERRORES_DE_DOMINIO[clave].status}, message: "${TEXTOS[clave]}" }`);
+      const mensaje = `textoC19("${clave}")`;
+      expect(ruta, clave).toContain(`${code}: { status: ${ERRORES_DE_DOMINIO[clave].status}, message: ${mensaje} }`);
     }
   });
 
@@ -59,19 +60,19 @@ describe("prueba de claves (HU-C-23, PR-0.md §2.13)", () => {
     // Literales de turno.service.ts de Sprint 2: desde la etapa 3 la inscripción
     // los lanza con estas claves (crearInscripcion), así que se fijan acá.
     const sprint2 = {
-      "errores.turno.cupoInsuficiente": ["CUPO_INSUFICIENTE", "El turno alcanzó su cupo máximo"],
+      "errores.turno.cupoInsuficiente": ["CUPO_INSUFICIENTE", "La clase alcanzó su cupo máximo"],
       "errores.alumno.inactivo": ["ALUMNO_INACTIVO", "La ficha del alumno está inactiva"],
       "errores.alumno.inactivoPropio": ["ALUMNO_INACTIVO", "Tu ficha de alumno no está activa"],
-      "errores.inscripcion.alumnoYaAsignado": ["ALUMNO_YA_ASIGNADO", "El mismo alumno no puede agregarse dos veces al mismo turno"],
-      "errores.inscripcion.alumnoYaAsignadoPropio": ["ALUMNO_YA_ASIGNADO", "Ya estás inscripto en este turno"],
-      "errores.inscripcion.alumnoNoDisponible": ["ALUMNO_NO_DISPONIBLE", "El alumno ya tiene un turno agendado en ese horario"],
-      "errores.inscripcion.alumnoNoDisponiblePropio": ["ALUMNO_NO_DISPONIBLE", "Ya tenés otro turno en ese horario"],
+      "errores.inscripcion.alumnoYaAsignado": ["ALUMNO_YA_ASIGNADO", "El mismo alumno no puede agregarse dos veces a la misma clase"],
+      "errores.inscripcion.alumnoYaAsignadoPropio": ["ALUMNO_YA_ASIGNADO", "Ya estás inscripto en esta clase"],
+      "errores.inscripcion.alumnoNoDisponible": ["ALUMNO_NO_DISPONIBLE", "El alumno ya tiene una clase agendada en ese horario"],
+      "errores.inscripcion.alumnoNoDisponiblePropio": ["ALUMNO_NO_DISPONIBLE", "Ya tenés otra clase en ese horario"],
       "errores.inscripcion.alumnoNoDisponibleOInactivo": ["ALUMNO_NO_DISPONIBLE", "El alumno no existe o no está activo"],
-      "errores.turno.noEncontrado": ["TURNO_NO_ENCONTRADO", "No se encontró el turno"],
-      "errores.turno.cancelado": ["TURNO_CANCELADO", "El turno está cancelado"],
-      "errores.turno.pendiente": ["TURNO_PENDIENTE", "El turno está pendiente: los alumnos se cargan desde la asignación de participantes"],
-      "errores.turno.sinAula": ["TURNO_SIN_AULA", "El turno no tiene aula asignada"],
-      "errores.turno.vencido": ["TURNO_VENCIDO", "El horario del turno ya pasó"],
+      "errores.turno.noEncontrado": ["TURNO_NO_ENCONTRADO", "No se encontró la clase"],
+      "errores.turno.cancelado": ["TURNO_CANCELADO", "La clase está cancelada"],
+      "errores.turno.pendiente": ["TURNO_PENDIENTE", "La clase está pendiente: los alumnos se cargan desde la asignación de participantes"],
+      "errores.turno.sinAula": ["TURNO_SIN_AULA", "La clase no tiene aula asignada"],
+      "errores.turno.vencido": ["TURNO_VENCIDO", "El horario de la clase ya pasó"],
     } as const;
     for (const [clave, [code, texto]] of Object.entries(sprint2) as [keyof typeof sprint2, readonly [string, string]][]) {
       expect(TEXTOS[clave], clave).toBe(texto);
@@ -120,7 +121,7 @@ describe("ErrorDeDominio", () => {
   it("conserva el code de hoy cuando la condición ya existía (ALUMNO_NO_DISPONIBLE con alumno_id)", () => {
     const error = new ErrorDeDominio("errores.inscripcion.alumnoNoDisponible", { alumno_id: "a1" });
     expect(error.code).toBe("ALUMNO_NO_DISPONIBLE");
-    expect(error.message).toBe("El alumno ya tiene un turno agendado en ese horario");
+    expect(error.message).toBe("El alumno ya tiene una clase agendada en ese horario");
     expect(error.detalles).toEqual({ alumno_id: "a1" });
   });
 

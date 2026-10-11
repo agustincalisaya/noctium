@@ -55,10 +55,10 @@ describe("HU-C-06 PATCH reprogramacion", () => {
 
   it.each([["TURNO_NO_ENCONTRADO", 404], ["TURNO_PENDIENTE", 409], ["TURNO_CANCELADO", 409], ["TURNO_VENCIDO", 409], ["TURNO_MODIFICADO", 409]] as const)(
     "traduce %s a HTTP %i", async (code, status) => {
-      reprogramar.mockRejectedValue(new ServiceError(code, "Error del turno"));
+      reprogramar.mockRejectedValue(new ServiceError(code, "Error de la clase"));
       const response = await consultar({ fecha: "2026-10-07", hora_inicio: "17:00" });
       expect(response.status).toBe(status);
-      expect(await response.json()).toEqual({ data: null, error: { code, message: "Error del turno" } });
+      expect(await response.json()).toEqual({ data: null, error: { code, message: "Error de la clase" } });
     });
 
   it("AC2: 409 REPROGRAMACION_CONFLICTO con detalles.conflictos { recurso, id }", async () => {
