@@ -66,5 +66,7 @@ export const config = {
     "/home/:path*",
     "/primer-ingreso/:path*",
     "/mi-cuenta/:path*",
+    // HU-F-01: personal de mesa de entrada (solo Gerente).
+    "/personal/:path*",
   ],
 };

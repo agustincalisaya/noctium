@@ -246,6 +246,10 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Cambiar la contraseña desde «Mi cuenta» (HU-A-06, `/mi-cuenta`) | Página completa + `ConfirmarAccionDialog` («Cambiar contraseña») | Banner inline «Tu contraseña se actualizó.», con la sesión abierta |
 | Pedir el enlace de recuperación (HU-A-05, `/recuperar-contrasena`) | Página completa pública (tarjeta centrada con la marca, sin menú), sin confirmación | La misma tarjeta pasa a «Revisá tu email» con el mensaje uniforme inline (alerta de éxito), sin toast. Email inválido: error junto al campo |
 | Definir la contraseña nueva con el enlace (HU-A-05, `/restablecer-contrasena`) | Página completa pública + `ConfirmarAccionDialog` («Cambiar contraseña») | Cierra la sesión que hubiera abierta y navega a `/login?contrasena=actualizada` con el banner «Tu contraseña se actualizó. Iniciá sesión con la nueva contraseña.». Enlace inválido (al abrir o al guardar): la tarjeta reemplaza el formulario por el mensaje y el acceso a pedir otro. «Igual a la anterior»: error junto al campo, el enlace sigue valiendo |
+| Listado del personal de mesa de entrada (HU-F-01, P-45, `/personal`) | Página completa, sin acciones propias que modifiquen datos | Ninguno propio («Nuevo integrante» y cada fila navegan) |
+| Alta de integrante de mesa de entrada con cuenta (HU-F-01 con HU-A-06, P-46 alta, `/personal/nuevo`) | Página completa + `ConfirmarAccionDialog` («Registrar integrante») | Navegación a la ficha `/personal/[id]?creado=1` con banner inline «Integrante registrado correctamente. Se creó su cuenta: ingresa con su email y su DNI como contraseña, y la cambia en el primer ingreso.» |
+| Edición de integrante de mesa de entrada (HU-F-01, P-46 edición, `/personal/[id]/editar`) | Página completa + `ConfirmarAccionDialog` siempre («Guardar cambios»), con el aviso de que cambia el usuario de ingreso si cambia el email | Navegación a la ficha `/personal/[id]?actualizada=1` con banner inline «Integrante actualizado correctamente» |
+| Ficha del integrante de mesa de entrada (HU-F-01, P-46 consulta, `/personal/[id]`) | Página completa de solo lectura; en esta HU no tiene acciones con feedback (desactivar y reactivar los agrega HU-F-05) | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
@@ -436,6 +440,13 @@ sus consumidores, sin editar sus fuentes.
   `/restablecer-contrasena` (confirmación de C-25 y navegación al login con
   el banner existente; el enlace inválido reemplaza el formulario). Las dos
   pantallas son públicas, sin menú: una tarjeta centrada con la marca.
+- **11/10/2026:** HU-F-01 agrega en 6.4 las filas del personal de mesa de
+  entrada: el listado (sin acciones propias), el alta (confirmación de C-25
+  y navegación a la ficha con el banner que informa la cuenta creada), la
+  edición (confirma siempre, a diferencia de profesor, que solo confirma al
+  cambiar el email; vuelve a la ficha con banner) y la ficha de consulta. Los
+  botones «Cancelar» y de guardar van arriba a la derecha, como el prototipo
+  (figura 91).
 
 ## Selección de asistencia (HU-E-11)
 
