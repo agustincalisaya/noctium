@@ -1,5 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+
+/** Historia académica conservada, incluso registros anulados (HU-D-08). */
+export async function profesorTieneRegistros(profesorId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  return (await db.claseDictada.count({ where: { profesorId } })) > 0;
+}
 import { sqlAsistenciaVigente, sqlClaseDictadaVigente, sqlConControlVigente } from "@/server/historial/valor-vigente";
 
 type Db = Prisma.TransactionClient;

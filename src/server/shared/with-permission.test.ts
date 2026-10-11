@@ -251,3 +251,11 @@ describe("verificarPermiso, exigirPermiso y tienePermiso", () => {
     await expect(tienePermiso("cuenta:cambiar_password")).resolves.toBe(true);
   });
 });
+
+// HU-D-08: una baja dentro del mismo segundo debe invalidar la sesión anterior.
+describe("revocación con precisión de milisegundos", () => {
+  it("se rechaza el instante anterior aunque pertenezca al mismo segundo", async () => {
+    m.usuario.mockResolvedValue({ activoUsuario: true, debeCambiarPasswordUsuario: false, sesionesValidasDesdeUsuario: new Date((IAT_SESION + 0.5) * 1000) });
+    await expect(verificarPermiso("profesores:leer")).rejects.toMatchObject({ code: "SESION_INVALIDA" });
+  });
+});

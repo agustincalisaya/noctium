@@ -160,6 +160,19 @@ export type AsociarMateriasProfesorInput = z.infer<typeof AsociarMateriasProfeso
 
 export const ProfesorIdSchema = z.cuid();
 
+export const DesactivarProfesorSchema = z.object({
+  version: z.number().int().nonnegative(),
+  motivo: z.string().trim().max(300).optional(),
+}).strict();
+export const ReactivarProfesorSchema = z.object({ version: z.number().int().nonnegative() }).strict();
+export const TurnosLoteSchema = z.object({
+  turno_ids: z.array(z.string().trim().min(1).max(100)).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, "No repitas clases"),
+}).strict();
+export const CambiarProfesorLoteSchema = TurnosLoteSchema.extend({ profesor_destino_id: z.cuid() }).strict();
+export const ListarTurnosFuturosBajaQuerySchema = z.object({
+  materia_id: z.cuid().optional(), pagina: z.coerce.number().int().positive().default(1),
+}).strict();
+
 /**
  * Modificación de las materias asociadas (HU-D-07, `spec_modulo_D.md` §2.7):
  * el CONJUNTO FINAL deseado, no altas y bajas sueltas; el servicio calcula la

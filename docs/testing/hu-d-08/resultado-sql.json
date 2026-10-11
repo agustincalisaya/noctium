@@ -1,0 +1,20 @@
+[
+  {
+    "dniProfesor": "88080001",
+    "activoProfesor": true,
+    "version": 2,
+    "activoUsuario": true,
+    "debeCambiarPasswordUsuario": false,
+    "sesiones_revocadas": true,
+    "cambios_estado": 2
+  },
+  {
+    "dniProfesor": "88080002",
+    "activoProfesor": false,
+    "version": 1,
+    "activoUsuario": false,
+    "debeCambiarPasswordUsuario": true,
+    "sesiones_revocadas": true,
+    "cambios_estado": 1
+  }
+]

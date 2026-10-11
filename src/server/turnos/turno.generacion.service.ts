@@ -1,3 +1,5 @@
+import { bloquear } from "@/server/shared/bloquear";
+import { transaccion } from "@/server/shared/transaccion";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { horaAMinutos, intervalosSeSuperponen, minutosAHora } from "@/lib/horario-atencion";
@@ -100,7 +102,8 @@ export async function confirmarGeneracion(input: GenerarTurnosInput, usuarioId: 
   let creados: { idTurno: string; fecha: string }[];
   let capacidadAula: number;
   try {
-    ({ creados, capacidadAula } = await prisma.$transaction(async (tx) => {
+    ({ creados, capacidadAula } = await transaccion(async (tx) => {
+      await bloquear(tx, { recursos: { profesores: [input.profesor_id] } });
       const calculo = await calcularGeneracion(input, tx, ahora, true);
       if (calculo.vistaPrevia.hay_conflictos) {
         throw new ServiceError("GENERACION_CON_CONFLICTOS", "La generación tiene fechas en conflicto", { ...calculo.vistaPrevia });
@@ -118,7 +121,7 @@ export async function confirmarGeneracion(input: GenerarTurnosInput, usuarioId: 
         nuevos.push({ idTurno: turno.idTurno, fecha: ocurrencia.fecha });
       }
       return { creados: nuevos, capacidadAula: calculo.capacidadAula };
-    }, { maxWait: 10_000, timeout: 30_000 }));
+    }));
   } catch (error) {
     if (esConflictoDeReserva(error)) {
       throw new ServiceError("GENERACION_CON_CONFLICTOS", "Un recurso dejó de estar disponible. Repetí la vista previa");

@@ -1,5 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+
+/** Clases con al menos un pago vigente; nunca modifica sus pagos (HU-D-08). */
+export async function turnosConPagosVigentes(turnoIds: string[], db: Prisma.TransactionClient = prisma): Promise<string[]> {
+  if (!turnoIds.length) return [];
+  const pagos = await db.pago.findMany({ where: { turnoId: { in: turnoIds }, anulacion: null }, select: { turnoId: true }, distinct: ["turnoId"] });
+  return pagos.map((pago) => pago.turnoId);
+}
 import { obtenerAlumnosBasicos } from "@/server/alumnos/alumno.publico";
 import { formatearNumeroComprobante } from "@/server/pagos/comprobante.schema";
 import {

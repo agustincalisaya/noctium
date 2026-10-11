@@ -121,7 +121,7 @@ async function verificarEstadoCuenta(
   }
 
   if (cuenta.sesionesValidasDesdeUsuario) {
-    const validasDesde = Math.floor(cuenta.sesionesValidasDesdeUsuario.getTime() / 1000);
+    const validasDesde = cuenta.sesionesValidasDesdeUsuario.getTime() / 1000;
     if (iatSesion === undefined || iatSesion < validasDesde) {
       throw new PermisoError(401, "SESION_INVALIDA", MENSAJES.SESION_INVALIDA);
     }

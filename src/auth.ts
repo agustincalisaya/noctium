@@ -130,7 +130,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return !!auth?.user;
     },
     async jwt({ token, user }) {
-      const ahora = Math.floor(Date.now() / 1000);
+      const inicio = Date.now() / 1000;
+      const ahora = Math.floor(inicio);
 
       if (user) {
         // Rama de sign-in inicial (spec_modulo_A.md §2.1/§2.2).
@@ -139,7 +140,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id as string;
         token.rol = user.rol;
         token.jti = crypto.randomUUID();
-        token.iat_sesion = ahora;
+        token.iat_sesion = inicio;
         token.iat = ahora;
         token.exp = ahora + inactividadMin * 60;
         // Marca «Debe cambiar la contraseña» (spec_modulo_A.md §2.6.2, P-A5):

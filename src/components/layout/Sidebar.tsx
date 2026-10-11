@@ -14,6 +14,7 @@ import {
   BarChart3,
   type LucideIcon 
 } from "lucide-react";
+import { texto } from "@/lib/textos";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
 import { SidebarNav, type SidebarNavEntrada } from "./SidebarNav";
@@ -102,6 +103,7 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
     },
   ],
   GERENTE: [
+    { label: texto("ui.profesores.estado.menu"), icon: GraduationCap, items: [{ label: texto("ui.profesores.estado.listado"), href: "/profesores", icon: BadgeCheck }] },
     {
       label: "Gestión",
       icon: BarChart3,

@@ -5,6 +5,7 @@ const { turno, turnoAlumno, evento, materiaActiva, validar, dicta, opcion, horar
   turnoAlumno: { count: vi.fn() },
   evento: vi.fn(), materiaActiva: vi.fn(), validar: vi.fn(), dicta: vi.fn(), opcion: vi.fn(), horario: vi.fn(), transaccion: vi.fn(),
 }));
+vi.mock("@/server/shared/bloquear", () => ({ bloquear: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: { turno, turnoAlumno, $transaction: transaccion, eventoTurno: { create: evento } } }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: materiaActiva }));
 vi.mock("@/server/profesores/profesor.publico", () => ({
@@ -30,7 +31,7 @@ const payload = (tipo: string) => evento.mock.calls.find(([{ data }]) => data.ti
 
 beforeEach(() => {
   vi.clearAllMocks();
-  transaccion.mockImplementation((callback: (tx: unknown) => unknown) => callback({ turno }));
+  transaccion.mockImplementation((callback: (tx: unknown) => unknown) => callback({ turno, $executeRawUnsafe: vi.fn() }));
   materiaActiva.mockResolvedValue({ idMateria: MATERIA });
   opcion.mockResolvedValue({ id: PROFESOR }); dicta.mockResolvedValue(true); horario.mockResolvedValue(true);
   validar.mockResolvedValue({ fecha: "2026-10-01", hora_fin: "11:00", duracion_min: 60 });
@@ -129,7 +130,7 @@ describe("HU-C-03 modificarConfiguracionTurno", () => {
 
   it("conserva el aula y cupo si el nuevo intervalo sigue libre, usando el mismo tx", async () => {
     const txTurno = { findUnique: vi.fn().mockResolvedValue(conAula), findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
-    const tx = { turno: txTurno };
+    const tx = { $executeRawUnsafe: vi.fn(), turno: txTurno };
     transaccion.mockImplementationOnce((callback: (client: typeof tx) => unknown) => callback(tx));
 
     await expect(modificarConfiguracionTurno(TURNO, { ...input, fecha: nuevaFecha }, USUARIO)).resolves.toMatchObject({ cupo_maximo: 20, aula_desasignada: false });
@@ -182,7 +183,7 @@ describe("HU-C-03 modificarConfiguracionTurno", () => {
 
   it("lee, revalida y actualiza con el mismo TransactionClient", async () => {
     const txTurno = { findUnique: vi.fn().mockResolvedValue(actual), findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
-    const tx = { turno: txTurno };
+    const tx = { $executeRawUnsafe: vi.fn(), turno: txTurno };
     transaccion.mockImplementationOnce((callback: (client: typeof tx) => unknown) => callback(tx));
     await modificarConfiguracionTurno(TURNO, input, USUARIO);
     expect(transaccion).toHaveBeenCalledOnce();
