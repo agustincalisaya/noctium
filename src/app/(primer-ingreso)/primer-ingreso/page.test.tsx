@@ -71,4 +71,10 @@ describe("/mi-cuenta", () => {
     m.estadoCuenta.mockResolvedValue(cuenta(true));
     await expect(MiCuentaPage()).rejects.toThrow("REDIRECT:/primer-ingreso");
   });
+
+  it("HU-A-05: ofrece «¿Olvidaste tu contraseña?» hacia /recuperar-contrasena", async () => {
+    m.estadoCuenta.mockResolvedValue(cuenta(false));
+    const html = renderToStaticMarkup(await MiCuentaPage());
+    expect(html).toMatch(/<a [^>]*href="\/recuperar-contrasena"[^>]*>¿Olvidaste tu contraseña\?<\/a>/);
+  });
 });

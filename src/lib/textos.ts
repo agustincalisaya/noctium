@@ -535,6 +535,34 @@ export const TEXTOS = {
   "ui.sesion.miCuenta.exito": "Tu contraseña se actualizó.",
   "ui.sesion.menu.miCuenta": "Mi cuenta",
 
+  // --- Recuperar contraseña olvidada (spec_modulo_A.md §2.7, HU-A-05) ---
+  "errores.sesion.enlaceInvalido": "El enlace ya no es válido. Pedí uno nuevo desde ¿Olvidaste tu contraseña?",
+  "errores.sesion.passwordIgualAnterior": "La contraseña nueva no puede ser igual a la anterior",
+  "ui.sesion.recuperar.emailInvalido": "Ingresá un email válido, por ejemplo nombre@dominio.com.",
+  // Pantallas (figuras 88 a 90); propuestos los que el prototipo no muestra.
+  "ui.sesion.recuperar.olvidaste": "¿Olvidaste tu contraseña?",
+  "ui.sesion.recuperar.titulo": "¿Olvidaste tu contraseña?",
+  "ui.sesion.recuperar.descripcion": "Ingresá el email de tu cuenta y te enviamos un enlace para definir una contraseña nueva.",
+  "ui.sesion.recuperar.email": "Email",
+  "ui.sesion.recuperar.enviar": "Enviar enlace",
+  "ui.sesion.recuperar.volverLogin": "Volver a iniciar sesión",
+  "ui.sesion.recuperar.enviadaTitulo": "Revisá tu email",
+  "ui.sesion.recuperar.enviadaMensaje": "Si el email corresponde a una cuenta, te enviamos un enlace para restablecer la contraseña",
+  "ui.sesion.recuperar.enviadaNota": "El enlace es de un solo uso y vence a los {minutos} minutos. Pedir uno nuevo invalida el anterior.",
+  "ui.sesion.restablecer.titulo": "Definí una contraseña nueva",
+  "ui.sesion.restablecer.descripcion": "La contraseña nueva no puede ser igual a la anterior.",
+  "ui.sesion.restablecer.guardar": "Guardar contraseña",
+  // propuestos
+  "ui.sesion.restablecer.invalidoTitulo": "Enlace no válido",
+  "ui.sesion.restablecer.pedirOtro": "Pedir un enlace nuevo",
+  // Email de recuperación (criterio 7); propuestos salvo el asunto y la frase final.
+  "ui.sesion.emailRecuperacion.asunto": "Restablecé tu contraseña de Noctium",
+  "ui.sesion.emailRecuperacion.saludo": "Hola, {nombre}:",
+  "ui.sesion.emailRecuperacion.cuerpo": "Recibimos un pedido para restablecer la contraseña de tu cuenta de Noctium. Para definir una contraseña nueva, usá este enlace:",
+  "ui.sesion.emailRecuperacion.boton": "Definir contraseña nueva",
+  "ui.sesion.emailRecuperacion.aviso": "El enlace vence a los {minutos} minutos y es de un solo uso.",
+  "ui.sesion.emailRecuperacion.ignorar": "Si no pediste este cambio, ignorá este email.",
+
   // --- Historial académico (spec_modulo_E.md §2.6 a §2.12; todos propuestos) ---
   "errores.asistencia.incompleta": "La asistencia tiene que indicar a cada alumno de la clase una sola vez.",
   "errores.asistencia.sinCambios": "La asistencia es la misma que la registrada.",

@@ -39,3 +39,17 @@ describe("HU-A-06 rutaAdmiteMarca", () => {
     },
   );
 });
+
+// HU-A-05 (spec_modulo_A.md §2.7, P-A11, decisión 12 de la task): las dos
+// pantallas de la recuperación son públicas. No están en el `matcher` del
+// proxy ni en el mapa de rutas: ningún rol queda afuera y la marca no las toca.
+describe("HU-A-05 rutas públicas de la recuperación", () => {
+  it.each(ROLES)("%s no tiene restricción en /recuperar-contrasena ni en /restablecer-contrasena", (rol) => {
+    expect(rolPuedeAccederRuta(rol, "/recuperar-contrasena")).toBe(true);
+    expect(rolPuedeAccederRuta(rol, "/restablecer-contrasena?token=abc")).toBe(true);
+  });
+
+  it.each(["/recuperar-contrasena", "/restablecer-contrasena"])("%s no es la ruta de la marca", (ruta) => {
+    expect(rutaAdmiteMarca(ruta)).toBe(false);
+  });
+});

@@ -30,3 +30,37 @@ export function construirCambiarPasswordSchema(passwordLongitudMinima: number) {
     });
 }
 export type CambiarPasswordInput = z.infer<ReturnType<typeof construirCambiarPasswordSchema>>;
+
+/**
+ * Pedido del enlace de recuperación (HU-A-05, spec_modulo_A.md §2.7.1). El
+ * formato inválido es el único rechazo distinto de la respuesta uniforme.
+ */
+export const SolicitarRecuperacionSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email(texto("ui.sesion.recuperar.emailInvalido"))
+    .max(254, texto("ui.sesion.recuperar.emailInvalido")),
+});
+export type SolicitarRecuperacionInput = z.infer<typeof SolicitarRecuperacionSchema>;
+
+/**
+ * Contraseña nueva con el enlace de recuperación (HU-A-05, spec_modulo_A.md
+ * §2.7.3). Fábrica, igual que `construirCambiarPasswordSchema`: la longitud
+ * mínima sale de `password_longitud_minima` y la política es la de HU-B-08
+ * tal cual (P-A10).
+ */
+export function construirRestablecerPasswordSchema(passwordLongitudMinima: number) {
+  return z
+    .object({
+      token: z.string().min(20).max(200),
+      password_nueva: politicaPasswordSchema(passwordLongitudMinima),
+      confirmacion: z.string(),
+    })
+    .refine((v) => v.password_nueva === v.confirmacion, {
+      message: texto("ui.sesion.formPassword.noCoinciden"),
+      path: ["confirmacion"],
+    });
+}
+export type RestablecerPasswordInput = z.infer<ReturnType<typeof construirRestablecerPasswordSchema>>;

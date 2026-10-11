@@ -61,6 +61,7 @@ HU-A-05 va inmediatamente después de HU-A-06, que crea las cuentas y la marca q
 | 2.9 | — | **Nueva:** servicios públicos nuevos del módulo |
 | 3.6 a 3.13 | — | **Nuevas** reglas (estado de la cuenta, revocación por cuenta, contraseña inicial y política, enlace de recuperación, respuestas uniformes, datos sensibles, concurrencia y pruebas) |
 | Nota de implementación HU-A-06 (antes de §1) | — | **Aditiva:** quién implementó la sesión del servidor, `cambiarEmailCuenta` en lugar de `actualizarEmailCuenta`, `INSERT … ON CONFLICT` en `crearCuentaParaFicha` y la contraseña nueva igual al DNI. No cambia ningún contrato |
+| Nota de implementación HU-A-05 (antes de §1) | — | **Aditiva:** lo que el código real de la recuperación tuvo que acomodar (enlaces que `cambiarPassword` no invalida, helper de eventos propio, `after()` en un módulo aparte, orden de bloqueo, 409 del pedido, 410 en el catálogo, envío fallido). No cambia ningún contrato |
 
 **Puntos resueltos por el Scrum Master el 08/10/2026** (el backlog no los definía o el PR 0 los dejaba al implementador):
 | # | Punto | Decisión | Informar |
@@ -140,6 +141,26 @@ Aditiva: no cambia ningún contrato de esta spec.
 2. **`actualizarEmailCuenta` nunca existió en el código.** La tabla de 2.5 y la T2 la daban por existente. El email de una ficha con cuenta se cambia con `cambiarEmailCuenta(tx, { usuarioId, email })` (2.9), que llaman directamente alumno (HU-B-02 y B-06) y profesor (HU-D-02 y D-06), en la misma transacción que la ficha.
 3. **`crearCuentaParaFicha` usa `INSERT … ON CONFLICT ("emailUsuario") DO NOTHING RETURNING`** (2.6.1 paso 3 y 3.12): un `RETURNING` vacío es `409 EMAIL_YA_ASOCIADO`, sin capturar `P2002` dentro de la transacción del llamador. `cambiarEmailCuenta` conserva la captura de `P2002` del PR 0, con el índice único como respaldo.
 4. **Contraseña nueva igual al DNI.** La rechaza la política de contraseña (`400 VALIDATION_ERROR`) antes de llegar a `422 PASSWORD_IGUAL_A_ACTUAL`: un DNI no tiene mayúscula ni minúscula. La comparación contra el hash vigente de 2.6.3 paso 5 sigue rigiendo para el caso «igual a la actual».
+
+### Nota de implementación HU-A-05
+
+Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código real tuvo que acomodar respecto de 2.7, 2.9, 3.9 a 3.12 y §4.
+
+1. **`cambiarPassword` no invalida los enlaces abiertos** (2.7.3 paso 5 se lo atribuye). Lo hace `restablecerPassword` con su propio `UPDATE`, en la misma transacción. Su firma real suma `origen?: "CAMBIO" | "RECUPERACION"` e `ip?` a la de 2.9; con `origen: "RECUPERACION"` registra `RECUPERACION_CONFIRMADA`.
+2. **Eventos.** El helper de eventos de `cuenta.service.ts` es privado y exige `usuarioId`; `RECUPERACION_SOLICITADA` y `RECUPERACION_LIMITADA` de un email inexistente no lo tienen. `recuperacion.service.ts` tiene su propio helper privado con `usuarioId` opcional. `RECUPERACION_LIMITADA` se escribe siempre con `usuarioId` nulo: buscar la cuenta antes de responder rompería P-A4.
+3. **Texto de la contraseña repetida.** La recuperación usa la clave `errores.sesion.passwordIgualAnterior` («…igual a la anterior», como el backlog), con el mismo `code` `PASSWORD_IGUAL_A_ACTUAL` 422. La clave de HU-A-06 («…igual a la actual») no cambia.
+4. **Nombres reales del esquema:** `idSolicitudRecuperacion` (2.7.5 dice `idSolicitud`) y `tokenHashRecuperacion` (el `UPDATE` de 2.7.3 dice `tokenHash`).
+5. **Schema de 2.7.3.** `politicaPasswordSchema` es una fábrica que depende de `password_longitud_minima`: el schema se arma con `construirRestablecerPasswordSchema(longitudMinima)`.
+6. **Email inválido.** El schema de 2.7.1 y la pantalla de 2.7.6 tenían textos distintos; se unifican en «Ingresá un email válido, por ejemplo nombre@dominio.com.».
+7. **Servicio de email (2.7.4).** `html` es opcional y el simulador escribe en la consola solo el texto plano: el enlace va en el texto. En el HTML se escapan el nombre y la URL. MESA_ENTRADA y GERENTE reciben el saludo con su email (`obtenerNombreVisible` no lee sus fichas; T10 lo admite). La URL pública es `NEXTAUTH_URL` o, si falta, `AUTH_URL`, sin respaldo a `localhost`.
+8. **Envío fallido.** Además de la falla o demora del proveedor, cuenta como envío fallido cualquier error al armar el email, incluida la falta de URL pública: se invalida el enlace recién creado, se registra `RECUPERACION_ENVIO_FALLIDO` y el log lleva solo el motivo, sin el enlace.
+9. **`409 TRANSACCION_OCUPADA` en el pedido.** El bloqueo de aviso por email corre bajo el `lock_timeout` de `transaccion`; si se agota, el pedido responde 409 (2.7.1 solo preveía 200 o 400). Depende solo del email, así que no revela nada de la cuenta.
+10. **Formato del 400.** Las dos rutas nuevas responden `VALIDATION_ERROR` con los errores por campo en `detalles`, como pide esta spec; otras rutas existentes del repo usan `VALIDACION`. Un cuerpo que no es JSON también es `400 VALIDATION_ERROR`.
+11. **Status 410.** El catálogo `errores-dominio.ts` no admitía 410; se sumó para `ENLACE_INVALIDO`.
+12. **`after()` fuera del servicio.** Los servicios no importan `next/*`: `solicitarRecuperacion` devuelve `{ entro }` y la capa delgada programa `procesarSolicitudRecuperacion` con `programarProcesamientoRecuperacion`, de `src/server/sesion/recuperacion.tarea.ts`. Es un módulo aparte porque `actions.ts` es `"use server"`.
+13. **Orden de bloqueo.** 2.7.3 consume el enlace y después bloquea la cuenta. El código bloquea primero la cuenta (`FOR UPDATE`, con el `usuarioId` leído del enlace por su hash) y después consume el enlace con el `UPDATE … RETURNING` condicional; crear un enlace nuevo también bloquea la cuenta antes de invalidar los abiertos. Mismo resultado (un solo envío confirma; 410 y 422 deshacen todo), sin riesgo de interbloqueo entre pedir y restablecer.
+14. **Sesión abierta al restablecer (criterio 5).** `/login` y `/home` usan `auth()` sin mirar la revocación por cuenta, así que una sesión abierta desde «Mi cuenta», ya revocada, llevaba a `/home` y el aviso no se veía. El formulario cierra la sesión (`POST /api/auth/logout`) antes de navegar al login.
+15. **IP desconocida.** `obtenerIp` da `"unknown"` y el helper de `cuenta.service.ts` da `"desconocida"`; la recuperación sigue a `obtenerIp`.
 
 ## 1. Visión General
 

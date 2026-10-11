@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { CambiarPasswordForm } from "@/components/sesion/cambiar-password-form";
+import { LinkProtegido } from "@/components/sesion/link-protegido";
 import { texto } from "@/lib/textos";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { RUTA_PRIMER_INGRESO } from "@/server/shared/rutas-por-rol";
@@ -28,6 +29,12 @@ export default async function MiCuentaPage() {
       <section className="space-y-4 rounded-xl border border-border bg-card p-6 text-card-foreground">
         <h2 className="text-base font-semibold">{texto("ui.sesion.miCuenta.seccion")}</h2>
         <CambiarPasswordForm modo="miCuenta" longitudMinima={longitudMinima} />
+        {/* HU-A-05 (cierra el criterio 4 de HU-A-06): respeta los cambios sin guardar. */}
+        <p className="text-sm">
+          <LinkProtegido href="/recuperar-contrasena" className="text-muted-foreground underline underline-offset-4">
+            {texto("ui.sesion.recuperar.olvidaste")}
+          </LinkProtegido>
+        </p>
       </section>
     </div>
   );
