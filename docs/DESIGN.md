@@ -232,6 +232,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Asignar prioridad (HU-C-10) | `Dialog` | Toast |
 | Registrar pago (HU-I-01) | `Dialog` | Toast |
 | Nueva forma de pago (HU-I-03) | `Dialog` | Toast |
+| Cambiar tarifa de materia (HU-L-06) | `Dialog` y confirmación C-25 | Toast «Tarifa actualizada correctamente» |
 | Editar forma de pago (HU-I-07) | `Dialog` y confirmación C-25 | Toast «Forma de pago actualizada correctamente» |
 | Desactivar/reactivar forma de pago (HU-I-07) | `ConfirmarAccionDialog` reversible | Toast «Forma de pago desactivada» / «Forma de pago reactivada» |
 | Registrar clase dictada (HU-E-01) | `AlertDialog` (confirmación simple) | Toast |

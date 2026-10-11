@@ -576,3 +576,8 @@ El evento `materia:creada` es la notificación de dominio declarada para el alta
 | Cambiar la tarifa de una materia | una fila de `HistorialTarifa` (`masivo = false`), misma transacción | 2.8 |
 | Cambiar la tarifa de varias materias | una fila por materia que cambia (`masivo = true`, misma `fecha`), misma transacción; las «sin cambio» no dejan registro | 2.9 |
 ```
+
+
+### Nota de sincronización HU-L-06 (11/10/2026)
+
+Implementación sobre PR-0 integrado: tarifa `tarifaHoraMateria`; bloqueo real `bloquear(tx, { recursos: { materias: [id] } })`. Gerente ve mediante `materias:cambiar_tarifa` y Mesa mediante `materias:ver_tarifa`; no se agrega un permiso nuevo. `obtenerNombresGerentes` todavía no existe: el historial reutiliza la fachada integrada `obtenerNombresPersonal` (F/G), con una llamada para los ids únicos; falta de ficha produce nombre null. Validación de la ruta/action nueva conserva `VALIDACION` (400), código de Materias existente, en lugar del nombre ilustrativo `VALIDATION_ERROR`. El usuario confirmó P-L3 (tope $1.000.000), P-L4 (inactiva rechazada) y P-L7 (comparación de tarifa mostrada). El historial queda en la misma transacción de negocio, excepción ya confirmada de PR-0 (P-L6). El mapa de pantallas citado no está disponible; se contrastan P-43/P-44/M-42 con figuras 26–28. El listado conserva su conteo de profesores y contratos anteriores; el botón masivo de figura 26 pertenece a L-07.

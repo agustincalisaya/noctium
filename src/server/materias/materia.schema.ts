@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { texto } from "@/lib/textos";
 
 const nombreMateria = z
   .string()
@@ -47,3 +48,15 @@ export const ListarMateriasQuerySchema = z.object({
   por_pagina: z.coerce.number().int().positive().max(20).default(20),
 });
 export type ListarMateriasQuery = z.infer<typeof ListarMateriasQuerySchema>;
+
+/** HU-L-06: importe entero en pesos; límite confirmado en el relevamiento. */
+export const TARIFA_HORA_MAX = 1_000_000;
+export const TarifaHoraSchema = z.number({ error: texto("errores.materias.tarifaImporte") })
+  .int({ error: texto("errores.materias.tarifaImporte") })
+  .positive({ error: texto("errores.materias.tarifaImporte") })
+  .max(TARIFA_HORA_MAX, { error: texto("errores.materias.tarifaImporte") });
+export const CambiarTarifaSchema = z.object({
+  tarifa_hora: TarifaHoraSchema,
+  tarifa_actual: TarifaHoraSchema.nullable(),
+}).strict();
+export type CambiarTarifaInput = z.infer<typeof CambiarTarifaSchema>;
