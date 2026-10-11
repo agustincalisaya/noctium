@@ -40,6 +40,23 @@ describe("HU-A-06 rutaAdmiteMarca", () => {
   );
 });
 
+// HU-F-01 (spec_modulo_F.md §3.7, decisión 12 de la task): solo el Gerente
+// gestiona el personal de mesa de entrada.
+describe("HU-F-01 personal de mesa de entrada", () => {
+  it.each(["/personal", "/personal/nuevo", "/personal/x", "/personal/x/editar"])("GERENTE accede a %s", (ruta) => {
+    expect(rolPuedeAccederRuta("GERENTE", ruta)).toBe(true);
+  });
+
+  it.each(["MESA_ENTRADA", "PROFESOR", "ALUMNO"] as const)("%s no accede a /personal ni a sus subrutas", (rol) => {
+    expect(rolPuedeAccederRuta(rol, "/personal")).toBe(false);
+    expect(rolPuedeAccederRuta(rol, "/personal/x/editar")).toBe(false);
+  });
+
+  it("compara por segmento completo", () => {
+    expect(rolPuedeAccederRuta("ALUMNO", "/personales")).toBe(true);
+  });
+});
+
 // HU-A-05 (spec_modulo_A.md §2.7, P-A11, decisión 12 de la task): las dos
 // pantallas de la recuperación son públicas. No están en el `matcher` del
 // proxy ni en el mapa de rutas: ningún rol queda afuera y la marca no las toca.

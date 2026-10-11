@@ -29,6 +29,8 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   // contraseña son de los cuatro roles, con sesión.
   "primer-ingreso": "CUALQUIERA",
   "mi-cuenta": "CUALQUIERA",
+  // HU-F-01 (spec_modulo_F.md §3.7): el personal de mesa de entrada lo gestiona solo el Gerente.
+  personal: ["GERENTE"],
 };
 
 /** Única página que admite una sesión con la marca «Debe cambiar la contraseña». */

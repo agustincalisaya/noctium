@@ -12,10 +12,12 @@ import {
   CalendarPlus2,
   Wallet,
   BarChart3,
+  UserCog,
   type LucideIcon 
 } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
 import { auth } from "@/auth";
+import { texto } from "@/lib/textos";
 import { SidebarNav, type SidebarNavEntrada } from "./SidebarNav";
 
 interface SidebarItemConfig {
@@ -147,6 +149,8 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: Wallet,
       items: [{ label: "Listado", href: "/formas-pago", icon: ListOrdered }],
     },
+    // HU-F-01: personal de mesa de entrada (personal:*, solo Gerente).
+    { label: texto("ui.personal.menu"), href: "/personal", prefijoActivo: "/personal", icon: UserCog },
   ],
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
   // operar otros módulos (ej. asociar sus propias materias, HU-D-03).
