@@ -2,12 +2,29 @@ import type { EstadoAsistencia } from "@prisma/client";
 import type { ContextoFixtures } from "./index";
 import { configurarTurno, asignarParticipantesTurno } from "../../../src/server/turnos/turno.service";
 import { asignarAulaTurno } from "../../../src/server/turnos/turno.aula.service";
-import { inscripcionesVigentes } from "../../../src/server/turnos/inscripcion.publico";
+import { crearInscripcion, finalizarInscripcion, inscripcionesVigentes, clasesConReservasVencidasDelAlumno } from "../../../src/server/turnos/inscripcion.publico";
 import { registrarClaseDictada } from "../../../src/server/historial/clase-dictada.service";
 import { actorUsuario } from "../../../src/server/shared/historial";
 import { conReloj } from "../../../src/server/shared/reloj";
 import { instanteCentro } from "../../../src/server/shared/fechas-centro";
+import { bloquear } from "../../../src/server/shared/bloquear";
 import { transaccion } from "../../../src/server/shared/transaccion";
+
+/** Datos históricos sin cobro: reemplaza reservas antes de que empiece la clase,
+ * mediante el dominio, por inscripciones sin vencimiento. No altera pagos ni clases dictadas. */
+export async function prepararInscripcionesHistoricas(contexto: ContextoFixtures, turnoId: string, usuarioId: string, momento: Date) {
+  const actor = actorUsuario(usuarioId);
+  for (const inscripcion of await inscripcionesVigentes(contexto.prisma, turnoId, momento)) {
+    const fila = await contexto.prisma.turnoAlumno.findUniqueOrThrow({ where: { idInscripcion: inscripcion.id }, select: { estadoPago: true } });
+    if (fila.estadoPago !== "RESERVADA") continue;
+    await conReloj(momento, () => transaccion(async (tx) => {
+      const vencidas = await clasesConReservasVencidasDelAlumno(tx, inscripcion.alumnoId, momento);
+      await bloquear(tx, { recursos: { alumnos: [inscripcion.alumnoId] }, clases: [turnoId, ...vencidas] });
+      await finalizarInscripcion(tx, { inscripcionId: inscripcion.id, vigencia: "QUITADA_CENTRO", actor, fecha: momento });
+      await crearInscripcion(tx, { turnoId, alumnoId: inscripcion.alumnoId, origen: "CENTRO", conReserva: false, actor, momento, bloqueosTomados: true });
+    }, { db: contexto.prisma }));
+  }
+}
 
 export type DatosClaseAsistenciaFixture = {
   fecha: string; hora: string; materiaId: string; profesorId: string; aulaId: string;
@@ -35,6 +52,9 @@ export async function sembrarClaseAsistencia(contexto: ContextoFixtures, datos: 
       if (!turno.aulaId) await asignarAulaTurno(turnoId, { aula_id: datos.aulaId }, datos.usuarioId);
       await asignarParticipantesTurno(turnoId, { alumno_ids: datos.alumnoIds, profesor_id: datos.profesorId }, datos.usuarioId);
     });
+  }
+  if (!(await contexto.prisma.claseDictada.findFirst({ where: { turnoId, anuladaEl: null } }))) {
+    await prepararInscripcionesHistoricas(contexto, turnoId, datos.usuarioId, antes);
   }
   const inscripciones = await inscripcionesVigentes(contexto.prisma, turnoId, despues);
   if (datos.registrar !== false) {
