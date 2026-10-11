@@ -5,8 +5,10 @@ import { BookOpen, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/shared/pagination";
-import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
+import { PermisoError, verificarPermiso, tienePermiso } from "@/server/shared/with-permission";
 import { ListarMateriasQuerySchema } from "@/server/materias/materia.schema";
+import { texto } from "@/lib/textos";
+import { formatearMonto } from "@/lib/moneda";
 import { listarMaterias } from "@/server/materias/materia.service";
 
 export default async function MateriasPage({
@@ -24,6 +26,7 @@ export default async function MateriasPage({
 
   const { creada, pagina } = await searchParams;
   const esGerente = rol === "GERENTE";
+  const conTarifa = await tienePermiso("materias:cambiar_tarifa") || await tienePermiso("materias:ver_tarifa");
 
   return (
     <div className="space-y-4 p-6">
@@ -34,7 +37,7 @@ export default async function MateriasPage({
       )}
 
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Materias</h1>
+        <div><h1 className="text-lg font-semibold">Materias</h1>{conTarifa && <p className="mt-1 max-w-xl text-sm text-muted-foreground">{texto("ui.materias.tarifa.descripcion")} {texto("ui.materias.tarifa.aviso")}</p>}</div>
         {/* Ocultamiento de UI únicamente — la verificación real es la de
             verificarPermiso("materias:crear") en el Server Action. */}
         {esGerente && (
@@ -61,7 +64,7 @@ export default async function MateriasPage({
        * responder (mismo comportamiento que `profesores/[id]/page.tsx`).
        */}
       <Suspense fallback={<CargandoMaterias />}>
-        <TablaMaterias pagina={pagina} esGerente={esGerente} />
+        <TablaMaterias pagina={pagina} esGerente={esGerente} conTarifa={conTarifa} />
       </Suspense>
     </div>
   );
@@ -76,12 +79,12 @@ function CargandoMaterias() {
   );
 }
 
-async function TablaMaterias({ pagina, esGerente }: { pagina: string | undefined; esGerente: boolean }) {
+async function TablaMaterias({ pagina, esGerente, conTarifa }: { pagina: string | undefined; esGerente: boolean; conTarifa: boolean }) {
   const paginaSolicitada = Number(pagina);
   const query = ListarMateriasQuerySchema.parse({
     pagina: Number.isFinite(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : undefined,
   });
-  const { items, paginacion } = await listarMaterias(query);
+  const { items, paginacion } = await listarMaterias(query, { conTarifa });
 
   if (items.length === 0) {
     return (
@@ -101,12 +104,13 @@ async function TablaMaterias({ pagina, esGerente }: { pagina: string | undefined
 
   return (
     <>
-      <div className="overflow-hidden rounded-md border border-border">
+      <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted text-muted-foreground">
             <tr>
               <th className="px-4 py-2 text-left font-medium">Nombre</th>
               <th className="px-4 py-2 text-left font-medium">Código</th>
+              {conTarifa && <th className="whitespace-nowrap px-4 py-2 text-right font-medium">{texto("ui.materias.tarifa.titulo")}</th>}
               <th className="px-4 py-2 text-left font-medium">Profesores</th>
               <th className="px-4 py-2 text-left font-medium">Estado</th>
             </tr>
@@ -129,6 +133,7 @@ async function TablaMaterias({ pagina, esGerente }: { pagina: string | undefined
                   </Link>
                 </td>
                 <td className="px-4 py-2 text-muted-foreground">{materia.codigo ?? "—"}</td>
+                {conTarifa && <td className="whitespace-nowrap px-4 py-2 text-right font-mono">{materia.tarifa_hora == null ? texto("ui.materias.tarifa.sinTarifa") : formatearMonto(materia.tarifa_hora)}</td>}
                 <td className="px-4 py-2 text-muted-foreground">{materia.profesores_count}</td>
                 <td className="px-4 py-2">
                   <Badge variant={materia.is_active ? "success" : "muted"}>

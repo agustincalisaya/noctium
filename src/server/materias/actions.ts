@@ -3,14 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { flattenError } from "zod";
-import { CrearMateriaSchema, ModificarMateriaSchema } from "@/server/materias/materia.schema";
+import { CrearMateriaSchema, ModificarMateriaSchema, CambiarTarifaSchema } from "@/server/materias/materia.schema";
 import {
   crearMateria as crearMateriaService,
   modificarMateria as modificarMateriaService,
+  cambiarTarifaMateria as cambiarTarifaMateriaService,
 } from "@/server/materias/materia.service";
 import { verificarPermiso, PermisoError } from "@/server/shared/with-permission";
 import { ServiceError } from "@/server/shared/service-error";
-import type { EstadoMateria, ResultadoModificarMateria } from "@/types/materia.types";
+import type { EstadoMateria, ResultadoModificarMateria, ResultadoCambiarTarifaMateria } from "@/types/materia.types";
+import { texto } from "@/lib/textos";
 
 export async function crearMateria(
   _estadoAnterior: EstadoMateria,
@@ -65,6 +67,26 @@ export async function crearMateria(
   }
 
   redirect("/materias?creada=1");
+}
+
+/** HU-L-06: autorización y validación idénticas al PUT. */
+export async function cambiarTarifaMateria(materiaId: string, payload: unknown): Promise<ResultadoCambiarTarifaMateria> {
+  try {
+    const { id } = await verificarPermiso("materias:cambiar_tarifa");
+    const parsed = CambiarTarifaSchema.safeParse(payload);
+    if (!parsed.success) return { data: null, error: {
+      code: "VALIDACION", message: texto("errores.materias.tarifaDatos"), detalles: flattenError(parsed.error),
+    } };
+    const data = await cambiarTarifaMateriaService(materiaId, parsed.data, id);
+    revalidatePath("/materias");
+    revalidatePath(`/materias/${materiaId}`);
+    return { data, error: null };
+  } catch (error) {
+    if (error instanceof PermisoError || error instanceof ServiceError) return { data: null, error: {
+      code: error.code, message: error.message, detalles: error instanceof ServiceError ? error.detalles : undefined,
+    } };
+    throw error;
+  }
 }
 
 /**

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withPermission } from "@/server/shared/with-permission";
+import { withPermission, tienePermiso } from "@/server/shared/with-permission";
 import { ModificarMateriaSchema } from "@/server/materias/materia.schema";
 import { modificarMateria, obtenerMateriaPorId } from "@/server/materias/materia.service";
 import { ServiceError } from "@/server/shared/service-error";
@@ -8,7 +8,8 @@ export const GET = withPermission("materias:leer", async (_req, ctx) => {
   const { id } = (await ctx.params) as { id: string };
 
   try {
-    const data = await obtenerMateriaPorId(id);
+    const conTarifa = await tienePermiso("materias:cambiar_tarifa") || await tienePermiso("materias:ver_tarifa");
+    const data = await obtenerMateriaPorId(id, { conTarifa });
     return NextResponse.json({ data, error: null });
   } catch (error) {
     if (error instanceof ServiceError) {

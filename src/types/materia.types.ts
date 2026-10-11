@@ -30,4 +30,18 @@ export type DetalleMateria = {
   updated_at: string;
   version: number;
   profesores: { id: string; nombre_completo: string }[];
+  tarifa_hora?: number | null;
+  historial_tarifas?: HistorialTarifaMateria[];
 };
+
+export type HistorialTarifaMateria = {
+  fecha: string;
+  tarifa_anterior: number | null;
+  tarifa_nueva: number;
+  usuario: { id: string; nombre: string | null };
+  masivo: boolean;
+};
+export type CambioTarifaMateria = { id: string; tarifa_hora: number; tarifa_anterior: number | null };
+export type ResultadoCambiarTarifaMateria =
+  | { data: CambioTarifaMateria; error: null }
+  | { data: null; error: { code: string; message: string; detalles?: unknown } };

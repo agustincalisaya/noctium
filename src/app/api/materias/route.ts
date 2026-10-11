@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withPermission } from "@/server/shared/with-permission";
+import { withPermission, tienePermiso } from "@/server/shared/with-permission";
 import { CrearMateriaSchema, ListarMateriasQuerySchema } from "@/server/materias/materia.schema";
 import { crearMateria, listarMaterias } from "@/server/materias/materia.service";
 import { ServiceError } from "@/server/shared/service-error";
@@ -16,7 +16,8 @@ export const GET = withPermission("materias:leer", async (req) => {
     );
   }
 
-  const data = await listarMaterias(parsed.data);
+  const conTarifa = await tienePermiso("materias:cambiar_tarifa") || await tienePermiso("materias:ver_tarifa");
+  const data = await listarMaterias(parsed.data, { conTarifa });
   return NextResponse.json({ data, error: null });
 });
 

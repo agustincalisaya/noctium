@@ -3,7 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
 import type { DetalleMateria } from "@/types/materia.types";
-import type { CrearMateriaInput, ListarMateriasQuery, ModificarMateriaInput } from "./materia.schema";
+import type { CrearMateriaInput, ListarMateriasQuery, ModificarMateriaInput, CambiarTarifaInput } from "@/server/materias/materia.schema";
+import { transaccion, type Tx, type OpcionesTransaccion } from "@/server/shared/transaccion";
+import { bloquear } from "@/server/shared/bloquear";
+import { ErrorDeDominio } from "@/server/shared/error-dominio";
+import { ahora } from "@/server/shared/reloj";
+import { obtenerNombresPersonal } from "@/server/personal/personal.publico";
 
 function nombreCompleto(apellido: string, nombre: string): string {
   return `${apellido}, ${nombre}`;
@@ -156,7 +161,7 @@ export async function crearMateria(input: CrearMateriaInput, usuarioId: string) 
  * el propio modelo `Materia`, no una consulta cruda a una tabla interna
  * ajena a este dominio.
  */
-export async function listarMaterias(query: ListarMateriasQuery) {
+export async function listarMaterias(query: ListarMateriasQuery, opciones: { conTarifa?: boolean } = {}) {
   const { pagina, por_pagina: porPagina } = query;
 
   const total = await prisma.materia.count();
@@ -166,16 +171,17 @@ export async function listarMaterias(query: ListarMateriasQuery) {
     orderBy: { nombreNormalizadaMateria: "asc" },
     skip: (paginaActual - 1) * porPagina,
     take: porPagina,
-    include: { _count: { select: { profesores: true } } },
+    select: {
+      idMateria: true, nombreMateria: true, codigoMateria: true, activaMateria: true,
+      _count: { select: { profesores: true } },
+      ...(opciones.conTarifa ? { tarifaHoraMateria: true } : {}),
+    },
   });
 
   return {
     items: materias.map((materia) => ({
-      id: materia.idMateria,
-      nombre: materia.nombreMateria,
-      codigo: materia.codigoMateria,
+      ...aDtoMateria(materia, opciones),
       profesores_count: materia._count.profesores,
-      is_active: materia.activaMateria,
     })),
     paginacion: {
       total,
@@ -191,10 +197,16 @@ export async function listarMaterias(query: ListarMateriasQuery) {
  * materia inactiva sigue siendo consultable en detalle, no es un 404 solo
  * por estar de baja.
  */
-export async function obtenerMateriaPorId(id: string): Promise<DetalleMateria> {
+export async function obtenerMateriaPorId(id: string, opciones: { conTarifa?: boolean } = {}): Promise<DetalleMateria> {
   const materia = await prisma.materia.findUnique({
     where: { idMateria: id },
-    include: {
+    select: {
+      idMateria: true, nombreMateria: true, codigoMateria: true, activaMateria: true,
+      createdAtMateria: true, updatedAtMateria: true, version: true,
+      ...(opciones.conTarifa ? {
+        tarifaHoraMateria: true,
+        historialTarifas: { orderBy: [{ fecha: "desc" }, { idHistorialTarifa: "desc" }] },
+      } as const : {}),
       profesores: {
         include: {
           profesor: { select: { idProfesor: true, apellidoProfesor: true, nombreProfesor: true } },
@@ -207,11 +219,16 @@ export async function obtenerMateriaPorId(id: string): Promise<DetalleMateria> {
     throw new ServiceError("MATERIA_NO_ENCONTRADA", MENSAJES.MATERIA_NO_ENCONTRADA);
   }
 
+  const historial = opciones.conTarifa ? materia.historialTarifas ?? [] : [];
+  const nombres = opciones.conTarifa
+    ? new Map((await obtenerNombresPersonal(historial.map((fila) => fila.usuarioId))).map((fila) => [fila.usuario_id, fila.nombre_completo]))
+    : new Map<string, string>();
   return {
-    id: materia.idMateria,
-    nombre: materia.nombreMateria,
-    codigo: materia.codigoMateria,
-    is_active: materia.activaMateria,
+    ...aDtoMateria(materia, opciones),
+    ...(opciones.conTarifa ? { historial_tarifas: historial.map((fila) => ({
+      fecha: fila.fecha.toISOString(), tarifa_anterior: fila.tarifaAnterior, tarifa_nueva: fila.tarifaNueva,
+      usuario: { id: fila.usuarioId, nombre: nombres.get(fila.usuarioId) ?? null }, masivo: fila.masivo,
+    })) } : {}),
     created_at: materia.createdAtMateria.toISOString(),
     updated_at: materia.updatedAtMateria.toISOString(),
     version: materia.version,
@@ -308,4 +325,52 @@ export async function modificarMateria(
     if (error instanceof ServiceError) throw error;
     throw traducirViolacionUnicidad(error) ?? error;
   }
+}
+
+/** DTO común: tarifa e historial nunca se exponen por defecto. */
+function aDtoMateria(materia: {
+  idMateria: string; nombreMateria: string; codigoMateria: string | null; activaMateria: boolean;
+  tarifaHoraMateria?: number | null;
+}, opciones: { conTarifa?: boolean }) {
+  return {
+    id: materia.idMateria, nombre: materia.nombreMateria, codigo: materia.codigoMateria,
+    is_active: materia.activaMateria,
+    ...(opciones.conTarifa ? { tarifa_hora: materia.tarifaHoraMateria ?? null } : {}),
+  };
+}
+
+/** Única escritura de tarifa e historial; L-07 reutiliza esta función dentro de su transacción. */
+async function aplicarCambiosDeTarifa(
+  tx: Tx,
+  cambios: { id: string; anterior: number | null; nueva: number }[],
+  opciones: { masivo: boolean },
+  actor: string,
+) {
+  const fecha = ahora();
+  for (const cambio of [...cambios].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) {
+    await tx.materia.update({ where: { idMateria: cambio.id }, data: {
+      tarifaHoraMateria: cambio.nueva, modificadoPorUsuarioId: actor,
+    } });
+    await tx.historialTarifa.create({ data: {
+      materiaId: cambio.id, tarifaAnterior: cambio.anterior, tarifaNueva: cambio.nueva,
+      usuarioId: actor, fecha, masivo: opciones.masivo,
+    } });
+  }
+}
+
+export async function cambiarTarifaMateria(
+  id: string, input: CambiarTarifaInput, actor: string, opciones: OpcionesTransaccion = {},
+) {
+  return transaccion(async (tx) => {
+    await bloquear(tx, { recursos: { materias: [id] } });
+    const actual = await tx.materia.findUnique({ where: { idMateria: id }, select: {
+      activaMateria: true, tarifaHoraMateria: true,
+    } });
+    if (!actual) throw new ErrorDeDominio("errores.materias.noEncontrada");
+    if (!actual.activaMateria) throw new ErrorDeDominio("errores.materias.inactiva");
+    if (actual.tarifaHoraMateria !== input.tarifa_actual) throw new ErrorDeDominio("errores.materias.tarifaConflicto");
+    if (actual.tarifaHoraMateria === input.tarifa_hora) throw new ErrorDeDominio("errores.materias.tarifaSinCambio");
+    await aplicarCambiosDeTarifa(tx, [{ id, anterior: actual.tarifaHoraMateria, nueva: input.tarifa_hora }], { masivo: false }, actor);
+    return { id, tarifa_hora: input.tarifa_hora, tarifa_anterior: actual.tarifaHoraMateria };
+  }, opciones);
 }

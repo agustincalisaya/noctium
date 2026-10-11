@@ -1,0 +1,313 @@
+{
+  "info": {
+    "name": "HU-L-06 — Tarifa individual",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Usar exclusivamente con base descartable y sesión oficial autenticada. Cambios reales solo en esa base. Ajustar tarifaActual/nuevaTarifa e ids antes de cada ejecución. La comprobación por rol requiere iniciar sesión con ese rol."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3108"
+    },
+    {
+      "key": "materiaId",
+      "value": ""
+    },
+    {
+      "key": "materiaInactivaId",
+      "value": ""
+    },
+    {
+      "key": "tarifaActual",
+      "value": "12000"
+    },
+    {
+      "key": "nuevaTarifa",
+      "value": "15000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Gerente/Mesa — Listado con tarifa",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/materias"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(r.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente/Mesa — Detalle e historial",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(r.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Guardar tarifa",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": {{nuevaTarifa}}, \"tarifa_actual\": {{tarifaActual}}}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Envelope\", () => pm.expect(r.error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Tarifa mostrada desactualizada",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": 18000, \"tarifa_actual\": {{tarifaActual}}}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"CONFLICTO_EDICION_CONCURRENTE\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Entero positivo requerido",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": 0, \"tarifa_actual\": 12000}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Campos ajenos rechazados",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": 15000, \"tarifa_actual\": 12000, \"version\": 1}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"VALIDACION\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Igual a la actual",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": {{tarifaActual}}, \"tarifa_actual\": {{tarifaActual}}}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"TARIFA_SIN_CAMBIO\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Inexistente",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/cmateriainexistente/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": 15000, \"tarifa_actual\": 12000}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"MATERIA_NO_ENCONTRADA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — Inactiva",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaInactivaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": 15000, \"tarifa_actual\": 12000}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"MATERIA_INACTIVA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa/Profesor/Alumno — Cambio prohibido",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/{{materiaId}}/tarifa",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\": 15000, \"tarifa_actual\": 12000}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const r = pm.response.json();",
+              "pm.test(\"Código estable\", () => pm.expect(r.error.code).to.eql(\"SIN_PERMISO\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
