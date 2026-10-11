@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { flattenError } from "zod";
-import { construirAltaIntegranteSchema, construirModificarIntegranteSchema } from "@/server/personal/personal.schema";
+import {
+  ListarPersonalQuerySchema,
+  POR_PAGINA_PERSONAL,
+  construirAltaIntegranteSchema,
+  construirModificarIntegranteSchema,
+} from "@/server/personal/personal.schema";
 
 // Schemas del personal (spec_modulo_F.md §2.1 y §2.2, HU-F-01 c1 y c2;
 // decisiones 3 y 4 de la task).
@@ -95,5 +100,26 @@ describe("construirModificarIntegranteSchema", () => {
 
   it.each([{ activo: true }, { usuarioId: "x" }, { rol: "GERENTE" }])(".strict() rechaza %j", (extra) => {
     expect(modificar.safeParse({ version: 0, ...extra }).success).toBe(false);
+  });
+});
+
+describe("ListarPersonalQuerySchema (HU-F-03)", () => {
+  it("pagina por defecto 1 y q recortado", () => {
+    expect(ListarPersonalQuerySchema.parse({})).toEqual({ pagina: 1 });
+    expect(ListarPersonalQuerySchema.parse({ pagina: "3", q: "  ruiz " })).toEqual({ pagina: 3, q: "ruiz" });
+    expect(POR_PAGINA_PERSONAL).toBe(10);
+  });
+
+  it.each(["0", "-1", "1.5", "abc"])("rechaza pagina=%s", (pagina) => {
+    expect(ListarPersonalQuerySchema.safeParse({ pagina }).success).toBe(false);
+  });
+
+  it("q de hasta 100 caracteres", () => {
+    expect(ListarPersonalQuerySchema.safeParse({ q: "a".repeat(100) }).success).toBe(true);
+    expect(ListarPersonalQuerySchema.safeParse({ q: "a".repeat(101) }).success).toBe(false);
+  });
+
+  it.each([{ por_pagina: "5" }, { orden: "dni" }])(".strict() rechaza %j: por_pagina no es parámetro", (extra) => {
+    expect(ListarPersonalQuerySchema.safeParse({ pagina: "1", ...extra }).success).toBe(false);
   });
 });

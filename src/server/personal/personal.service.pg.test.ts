@@ -227,13 +227,76 @@ describe.skipIf(!basePgHabilitada)("personal de mesa de entrada, con PostgreSQL 
     const b = await crearIntegrante({ ...alta(), apellido: `zeta${sufijo}`, nombre: "Ana" }, gerente, IP);
     await db.fichaMesaEntrada.update({ where: { idFichaMesaEntrada: a.id }, data: { activoFichaMesaEntrada: false } });
 
-    const { items, total } = await listarPersonal(db);
+    // HU-F-03: el listado pagina de a 10 y la base de pruebas es compartida;
+    // la búsqueda por el sufijo acota el resultado a las fichas de esta prueba.
+    const { items, total } = await listarPersonal({ pagina: 1, q: sufijo }, db);
     expect(total).toBe(items.length);
     const propios = items.filter((i) => i.id === a.id || i.id === b.id);
     expect(propios.map((i) => [i.nombre, i.activo])).toEqual([
       ["Ana", true],
       ["Beto", false],
     ]);
+  });
+
+  describe("búsqueda y paginación (HU-F-03)", () => {
+    // Doce fichas con un sufijo propio en el apellido: la búsqueda por el
+    // sufijo las separa de las demás fichas de la base compartida.
+    const sufijo = unico("busq").toLowerCase().replace(/[^a-z]/g, "");
+    const APELLIDOS = ["Álvarez", "Núñez", "García", "Garcés", "Ruiz", "Sosa", "Paz", "Luna", "Mena", "Ortiz", "Quiroga", "Vera"];
+    let creados: { id: string; apellido: string; nombre: string; dni: string }[] = [];
+
+    beforeAll(async () => {
+      creados = [];
+      for (const [i, apellido] of APELLIDOS.entries()) {
+        const r = await crearIntegrante({ ...alta(), apellido: `${apellido}${sufijo}`, nombre: i % 2 ? "Beatriz" : "Andrés" }, gerente, IP);
+        creados.push({ id: r.id, apellido: r.apellido, nombre: r.nombre, dni: r.dni });
+      }
+      // Una inactiva: la búsqueda opera sobre activos e inactivos.
+      await db.fichaMesaEntrada.update({ where: { idFichaMesaEntrada: creados[1]!.id }, data: { activoFichaMesaEntrada: false } });
+    });
+
+    const apellidosDe = (items: { apellido: string }[]) => items.map((i) => i.apellido.replace(sufijo, ""));
+
+    it("sin distinguir tildes: «alvarez» encuentra «Álvarez» y «nunez», «Núñez» (inactiva)", async () => {
+      expect(apellidosDe((await listarPersonal({ pagina: 1, q: `alvarez ${sufijo}` }, db)).items)).toEqual(["Álvarez"]);
+      const nunez = await listarPersonal({ pagina: 1, q: `NUNEZ ${sufijo}` }, db);
+      expect(nunez.items).toEqual([expect.objectContaining({ apellido: `Núñez${sufijo}`, activo: false })]);
+    });
+
+    it("coincidencia parcial y AND entre palabras", async () => {
+      expect(apellidosDe((await listarPersonal({ pagina: 1, q: `garc ${sufijo}` }, db)).items)).toEqual(["Garcés", "García"]);
+      expect(apellidosDe((await listarPersonal({ pagina: 1, q: `garci ${sufijo}` }, db)).items)).toEqual(["García"]);
+      // «García» se creó con «Andrés» (índice 2): AND con el nombre.
+      expect(apellidosDe((await listarPersonal({ pagina: 1, q: `andres garc ${sufijo}` }, db)).items)).toEqual(["García"]);
+      expect((await listarPersonal({ pagina: 1, q: `beatriz garci ${sufijo}` }, db)).total).toBe(0);
+    });
+
+    it("por nombre y por DNI (parcial)", async () => {
+      const andres = await listarPersonal({ pagina: 1, q: `andres ${sufijo}` }, db);
+      expect(andres.total).toBe(6);
+      const objetivo = creados[5]!;
+      expect((await listarPersonal({ pagina: 1, q: objetivo.dni }, db)).items.map((i) => i.id)).toEqual([objetivo.id]);
+      const parcial = await listarPersonal({ pagina: 1, q: `${objetivo.dni.slice(0, 6)} ${sufijo}` }, db);
+      expect(parcial.items.map((i) => i.id)).toContain(objetivo.id);
+    });
+
+    it("pagina de a 10 con el total filtrado, sin repetidos ni faltantes, en orden", async () => {
+      const p1 = await listarPersonal({ pagina: 1, q: sufijo }, db);
+      const p2 = await listarPersonal({ pagina: 2, q: sufijo }, db);
+      expect(p1).toMatchObject({ pagina: 1, por_pagina: 10, total: 12, total_paginas: 2 });
+      expect(p1.items).toHaveLength(10);
+      expect(p2).toMatchObject({ pagina: 2, total: 12, total_paginas: 2 });
+      expect(p2.items).toHaveLength(2);
+      const todos = [...p1.items, ...p2.items];
+      expect(new Set(todos.map((i) => i.id)).size).toBe(12);
+      expect(apellidosDe(todos)).toEqual(["Álvarez", "Garcés", "García", "Luna", "Mena", "Núñez", "Ortiz", "Paz", "Quiroga", "Ruiz", "Sosa", "Vera"]);
+      // Fuera de rango: la última página.
+      expect(await listarPersonal({ pagina: 7, q: sufijo }, db)).toMatchObject({ pagina: 2, items: p2.items });
+    });
+
+    it("sin resultados: total 0, total_paginas 0 y página 1", async () => {
+      expect(await listarPersonal({ pagina: 3, q: `${sufijo}zzz` }, db)).toEqual({ items: [], pagina: 1, por_pagina: 10, total: 0, total_paginas: 0 });
+    });
   });
 
   it("detalle inexistente: INTEGRANTE_NO_ENCONTRADO", async () => {

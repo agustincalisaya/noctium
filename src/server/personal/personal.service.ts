@@ -9,7 +9,13 @@ import {
   obtenerResumenCuenta,
   verificarEmailNoAsociadoAOtraCuenta,
 } from "@/server/usuarios/cuenta.service";
-import type { AltaIntegranteInput, ModificarIntegranteInput } from "@/server/personal/personal.schema";
+import { construirFiltroBusquedaPersonal } from "@/server/personal/personal.busqueda";
+import {
+  POR_PAGINA_PERSONAL,
+  type AltaIntegranteInput,
+  type ListarPersonalQuery,
+  type ModificarIntegranteInput,
+} from "@/server/personal/personal.schema";
 import type {
   DetalleIntegrante,
   DisponibilidadIntegrante,
@@ -266,17 +272,32 @@ export async function obtenerDetalleIntegrante(id: string, db: Db = prisma): Pro
 }
 
 /**
- * Listado mínimo (spec_modulo_F.md §2.3, DEC-38): todas las fichas, activas e
- * inactivas, por apellido y nombre normalizados y el DNI como desempate (orden
- * total). Sin búsqueda ni paginación: las suma HU-F-03. Solo lectura.
+ * Listado del personal (spec_modulo_F.md §2.3, HU-F-03 c1, c2 y c4), sobre
+ * activos e inactivos:
+ * - Orden por apellido y nombre normalizados y el DNI como desempate (orden
+ *   total: ninguna fila se repite ni se pierde al paginar).
+ * - Búsqueda con `construirFiltroBusquedaPersonal` (criterio de HU-B-05); un
+ *   `q` de menos de 2 caracteres devuelve el listado completo.
+ * - Paginación de a `POR_PAGINA_PERSONAL`, con el `total` del resultado
+ *   filtrado. Como en alumnos, una página fuera de rango se lleva a la última y,
+ *   sin resultados, `pagina` es 1 y `total_paginas` es 0.
+ * Solo lectura: no escribe nada.
  */
-export async function listarPersonal(db: Db = prisma): Promise<ListadoPersonal> {
+export async function listarPersonal(query: ListarPersonalQuery, db: Db = prisma): Promise<ListadoPersonal> {
+  const where = construirFiltroBusquedaPersonal(query.q);
+  const total = await db.fichaMesaEntrada.count({ where });
+  const totalPaginas = Math.ceil(total / POR_PAGINA_PERSONAL);
+  const pagina = total === 0 ? 1 : Math.min(query.pagina, totalPaginas);
+
   const fichas = await db.fichaMesaEntrada.findMany({
+    where,
     orderBy: [
       { apellidoNormalizadoFichaMesaEntrada: "asc" },
       { nombreNormalizadoFichaMesaEntrada: "asc" },
       { dniFichaMesaEntrada: "asc" },
     ],
+    skip: (pagina - 1) * POR_PAGINA_PERSONAL,
+    take: POR_PAGINA_PERSONAL,
     select: {
       idFichaMesaEntrada: true,
       apellidoFichaMesaEntrada: true,
@@ -297,7 +318,10 @@ export async function listarPersonal(db: Db = prisma): Promise<ListadoPersonal> 
       email: f.emailFichaMesaEntrada,
       activo: f.activoFichaMesaEntrada,
     })),
-    total: fichas.length,
+    pagina,
+    por_pagina: POR_PAGINA_PERSONAL,
+    total,
+    total_paginas: totalPaginas,
   };
 }
 

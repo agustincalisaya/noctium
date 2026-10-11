@@ -60,3 +60,20 @@ export function construirModificarIntegranteSchema(dniLongitudMin: number, dniLo
 }
 
 export type ModificarIntegranteInput = z.infer<ReturnType<typeof construirModificarIntegranteSchema>>;
+
+/** Integrantes por página del listado (HU-F-03 c1): fijo, no es parámetro. */
+export const POR_PAGINA_PERSONAL = 10;
+
+/**
+ * Query de `GET /api/personal` (spec_modulo_F.md §2.3, HU-F-03). `q` de menos
+ * de 2 caracteres no es un error: el servicio la ignora. `.strict()`: a
+ * diferencia de `/api/alumnos`, `por_pagina` no se acepta (400).
+ */
+export const ListarPersonalQuerySchema = z
+  .object({
+    pagina: z.coerce.number().int().positive().default(1),
+    q: z.string().trim().max(100).optional(),
+  })
+  .strict();
+
+export type ListarPersonalQuery = z.infer<typeof ListarPersonalQuerySchema>;

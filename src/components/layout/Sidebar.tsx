@@ -151,8 +151,12 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: Wallet,
       items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/formas-pago", icon: ListOrdered }],
     },
-    // HU-F-01: personal de mesa de entrada (personal:*, solo Gerente).
-    { label: texto("ui.personal.menu"), href: "/personal", prefijoActivo: "/personal", icon: UserCog },
+    // HU-F-01 y HU-F-03: personal de mesa de entrada (personal:*, solo Gerente).
+    {
+      label: texto("ui.personal.menu"),
+      icon: UserCog,
+      items: [{ label: texto("ui.profesores.estado.listado"), href: "/personal", icon: ListOrdered }],
+    },
   ],
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
   // operar otros módulos (ej. asociar sus propias materias, HU-D-03).

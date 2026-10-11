@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 // Páginas del personal de mesa de entrada (P-45 y P-46, HU-F-01): listado
@@ -79,25 +80,55 @@ beforeEach(() => {
   m.parametro.mockImplementation(async (clave: string) => (clave === "dni_longitud_min" ? 7 : 8));
 });
 
-describe("listado mínimo (P-45)", () => {
+/**
+ * Renderiza el listado: `page.tsx` envuelve la tabla en un componente de
+ * servidor async dentro de `Suspense` (HU-F-03), que `renderToStaticMarkup` no
+ * resuelve; acá se reemplaza por su resultado antes de renderizar.
+ */
+async function resolverAsync(nodo: unknown): Promise<unknown> {
+  if (Array.isArray(nodo)) return Promise.all(nodo.map(resolverAsync));
+  if (!isValidElement(nodo)) return nodo;
+  const elemento = nodo as ReactElement<{ children?: unknown }>;
+  if (typeof elemento.type === "function" && elemento.type.constructor.name === "AsyncFunction") {
+    return resolverAsync(await (elemento.type as (p: unknown) => Promise<unknown>)(elemento.props));
+  }
+  if (elemento.props?.children === undefined) return elemento;
+  return cloneElement(elemento, undefined, (await resolverAsync(elemento.props.children)) as ReactNode);
+}
+
+const listado = async (searchParams: Record<string, string> = {}) =>
+  renderToStaticMarkup((await resolverAsync(await Listado({ searchParams: Promise.resolve(searchParams) }))) as ReactElement);
+
+const PAGINA = (items: unknown[], extra: Record<string, unknown> = {}) => ({
+  items,
+  pagina: 1,
+  por_pagina: 10,
+  total: items.length,
+  total_paginas: items.length ? 1 : 0,
+  ...extra,
+});
+
+// HU-F-01 fijó el listado mínimo; HU-F-03 suma búsqueda y paginación. Los
+// casos de F-01 se conservan (con la respuesta paginada) y se suman los nuevos.
+describe("listado (P-45)", () => {
   it("vacío: el mensaje y el acceso a «Nuevo integrante»", async () => {
-    m.listar.mockResolvedValue({ items: [], total: 0 });
-    const html = renderToStaticMarkup(await Listado());
+    m.listar.mockResolvedValue(PAGINA([]));
+    const html = await listado();
     expect(m.exigir).toHaveBeenCalledWith("personal:leer");
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 1 });
     expect(html).toContain("Todavía no hay personal de mesa de entrada registrado");
     expect(html.match(/href="\/personal\/nuevo"/g)).toHaveLength(2);
     expect(html).not.toContain("<table");
   });
 
   it("con datos: columnas, «—» sin teléfono, estado y enlace a la ficha", async () => {
-    m.listar.mockResolvedValue({
-      items: [
+    m.listar.mockResolvedValue(
+      PAGINA([
         { id: "f1", apellido: "Ruiz", nombre: "Marta", dni: "25100001", telefono: "+541155700001", email: "m@x.com", activo: true },
         { id: "f2", apellido: "Sosa", nombre: "Pablo", dni: "25100002", telefono: null, email: "p@x.com", activo: false },
-      ],
-      total: 2,
-    });
-    const html = renderToStaticMarkup(await Listado());
+      ]),
+    );
+    const html = await listado();
     for (const columna of ["Apellido", "Nombre", "DNI", "Teléfono", "Email", "Estado"]) expect(html).toContain(`>${columna}</th>`);
     expect(html).toContain('href="/personal/f1"');
     expect(html).toContain('href="/personal/f2"');
@@ -107,9 +138,52 @@ describe("listado mínimo (P-45)", () => {
     expect(html).toContain('href="/personal/nuevo"');
   });
 
+  it("encabezado del prototipo: título, subtítulo de búsqueda, buscador y «Nuevo integrante»", async () => {
+    m.listar.mockResolvedValue(PAGINA([]));
+    const html = await listado();
+    expect(html).toContain("Personal de mesa de entrada</h1>");
+    expect(html).toContain("Buscá por nombre, apellido y DNI (desde 2 caracteres, sin distinguir mayúsculas ni tildes).");
+    expect(html).toContain('placeholder="Ej.: ferreyra, 31222…"');
+    expect(html).toContain('aria-label="Buscar integrante"');
+  });
+
+  it("toma pagina y q de la URL para el primer render", async () => {
+    m.listar.mockResolvedValue(PAGINA([], { total: 0 }));
+    const html = await listado({ pagina: "2", q: " gar " });
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 2, q: "gar" });
+    expect(html).toContain('value="gar"');
+  });
+
+  it("una pagina inválida vuelve a la 1 y un q de más de 100 caracteres se ignora", async () => {
+    m.listar.mockResolvedValue(PAGINA([]));
+    await listado({ pagina: "abc", q: "a".repeat(101) });
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 1 });
+  });
+
+  it("sin resultados con q: el texto propuesto con el término y «Nuevo integrante»", async () => {
+    m.listar.mockResolvedValue(PAGINA([]));
+    const html = await listado({ q: "zeta" });
+    expect(html).toContain("No se encontraron integrantes para «zeta»");
+    expect(html).not.toContain("Todavía no hay personal");
+    expect(html.match(/href="\/personal\/nuevo"/g)).toHaveLength(2);
+  });
+
+  it("con más de una página: el paginador conserva q", async () => {
+    m.listar.mockResolvedValue(
+      PAGINA([{ id: "f1", apellido: "Ruiz", nombre: "Marta", dni: "25100001", telefono: null, email: "m@x.com", activo: true }], {
+        total: 23,
+        total_paginas: 3,
+        pagina: 2,
+      }),
+    );
+    const html = await listado({ pagina: "2", q: "ruiz" });
+    expect(html).toContain('href="/personal?q=ruiz"');
+    expect(html).toContain('href="/personal?q=ruiz&amp;pagina=3"');
+  });
+
   it("sin permiso no consulta el listado (exigirPermiso redirige)", async () => {
     m.exigir.mockRejectedValue(new Error("REDIRECT"));
-    await expect(Listado()).rejects.toThrow("REDIRECT");
+    await expect(Listado({ searchParams: Promise.resolve({}) })).rejects.toThrow("REDIRECT");
     expect(m.listar).not.toHaveBeenCalled();
   });
 });
