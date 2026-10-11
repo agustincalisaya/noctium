@@ -10,7 +10,7 @@ import { vencerReservas } from "@/server/turnos/reserva.vencimiento.service";
 
 // HU-C-24 contra PostgreSQL descartable de `npm run test:pg`. Las verificaciones
 // que dependen de I-10 (pantalla de cobro), I-06, C-14, E-02, H-10 y N-01 no se
-// acreditan acá: ver docs/testing/hu-c-24/HU-C-24-evidencia.md.
+// acreditan acá: ver docs/testing/Modulo C/hu-c-24/HU-C-24-evidencia.md.
 const MOMENTO = new Date("2026-10-05T12:00:00.000Z"); // Lunes, 09:00 del centro.
 const HORA = 3_600_000;
 const CAPACIDADES = { verPagos: true, verHistorial: true, cancelar: true, reprogramar: true, priorizar: true, registrarPago: true, registrarClase: true };

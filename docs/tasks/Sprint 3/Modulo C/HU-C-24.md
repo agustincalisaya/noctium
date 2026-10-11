@@ -26,7 +26,7 @@ Archivos nuevos:
 - `src/app/api/procesos/vencer-reservas/route.ts` y su test.
 - `src/server/turnos/reserva.vencimiento.pg.test.ts`.
 - `docs/tasks/Sprint 3/Modulo C/HU-C-24.md` (este archivo).
-- `docs/testing/hu-c-24/HU-C-24.postman_collection.json`, `HU-C-24.sql` y `HU-C-24-evidencia.md`.
+- `docs/testing/Modulo C/hu-c-24/HU-C-24.postman_collection.json`, `HU-C-24.sql` y `HU-C-24-evidencia.md`.
 
 **Puntos detectados:**
 - No existe documento independiente de developers. El disparo del proceso queda como **Anexo** al final de esta task.
@@ -160,13 +160,13 @@ Patrón (a)+(historial de PR 0): cada vencimiento deja `finalizadaEl = venceEl`,
 - `crearInscripcion` del centro: reserva con plazo y precio; `INSCRIPCION_REQUIERE_PAGO` con `{ alumno_id }`.
 
 ### Nivel 2 — Postman
-`docs/testing/hu-c-24/HU-C-24.postman_collection.json`: proceso sin secreto y con secreto erróneo (401), con secreto correcto (200); 2.5 agregar con `ofrecer_pago`; 409 `INSCRIPCION_REQUIERE_PAGO`; detalle con y sin permiso de pagos. Sin secretos ni cookies en la colección.
+`docs/testing/Modulo C/hu-c-24/HU-C-24.postman_collection.json`: proceso sin secreto y con secreto erróneo (401), con secreto correcto (200); 2.5 agregar con `ofrecer_pago`; 409 `INSCRIPCION_REQUIERE_PAGO`; detalle con y sin permiso de pagos. Sin secretos ni cookies en la colección.
 
 ### Nivel 3 — BD / TablePlus
 - `npm run test:pg -- src/server/turnos/reserva.vencimiento.pg.test.ts` (base descartable aleatoria): vencimiento con fecha = `venceEl` y actor «Proceso automático»; clase Completa vuelve a Disponible; idempotencia; clase Cancelada intacta; reserva pagada intacta; **operaciones con el proceso detenido** (cupo, inscripción, cobro y listados tratan la reserva vencida como vencida).
-- `docs/testing/hu-c-24/HU-C-24.sql`: consultas de solo lectura.
+- `docs/testing/Modulo C/hu-c-24/HU-C-24.sql`: consultas de solo lectura.
 
-**Matriz CA, comandos, exit codes, omisiones y pendientes:** `docs/testing/hu-c-24/HU-C-24-evidencia.md`.
+**Matriz CA, comandos, exit codes, omisiones y pendientes:** `docs/testing/Modulo C/hu-c-24/HU-C-24-evidencia.md`.
 
 **Recorrido en el navegador con I-10 integrada:** reserva → «Registrar pago» → pago, y la excepción del criterio 3 (409 → «Se inscribe al confirmar el pago» → «Pagada») están ejecutados (`HU-C-24-evidencia.md`, sección 3 quater). El mensaje `La reserva venció…` en la pantalla de cobro se verificó por lectura de código (`operacion.service.ts:143`), sin recorrido.
 
