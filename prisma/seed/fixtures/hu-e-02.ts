@@ -1,3 +1,4 @@
+import { prepararInscripcionesHistoricas } from "./hu-e-09";
 import type { ContextoFixtures } from "./index";
 import { configurarTurno, asignarParticipantesTurno } from "../../../src/server/turnos/turno.service";
 import { asignarAulaTurno, listarOpcionesAulaTurno } from "../../../src/server/turnos/turno.aula.service";
@@ -24,7 +25,9 @@ export async function fixtureHuE02({ prisma: db }: ContextoFixtures) {
   for (const e of escenarios) {
     const hora = ["2026-10-12", "2026-10-14", "2026-10-16", "2026-10-19"].includes(e.fecha) ? "10:00" : "08:00";
     let turno = await db.turno.findFirst({ where: { fechaTurno: new Date(`${e.fecha}T00:00:00Z`), horaInicioTurno: new Date(`1970-01-01T${hora}:00Z`), profesorId: profesor.idProfesor, materiaId: materia.idMateria } });
-    turno = await conReloj(new Date(e.fecha >= "2026-10-01" ? "2026-09-25T12:00:00Z" : "2026-09-01T12:00:00Z"), async () => {
+    // Crear la reserva cerca de la acción demostrada, antes de su vencimiento.
+    const alta = e.fecha < "2026-10-01" ? "2026-09-01T12:00:00Z" : e.tipo === "RESERVA_VENCIDA" ? "2026-10-01T11:00:00Z" : e.tipo === "REINSCRIPCION" ? "2026-10-06T11:00:00Z" : "2026-10-07T11:00:00Z";
+    turno = await conReloj(new Date(alta), async () => {
       let actual = turno;
       if (!actual) {
         const creado = await configurarTurno({ fecha: new Date(`${e.fecha}T00:00:00Z`), hora_inicio: hora, materia_id: materia.idMateria, profesor_id: profesor.idProfesor, duracion_min: 60 }, mesa.idUsuario);
@@ -41,8 +44,12 @@ export async function fixtureHuE02({ prisma: db }: ContextoFixtures) {
       return db.turno.findUniqueOrThrow({ where: { idTurno: actual.idTurno } });
     });
     const turnoId = turno.idTurno;
+    const historica = ["PRESENTE", "AUSENTE", "LEGACY"].includes(e.tipo);
+    if (historica && !(await db.claseDictada.findFirst({ where: { turnoId } }))) {
+      await prepararInscripcionesHistoricas({ prisma: db }, turnoId, mesa.idUsuario, new Date("2026-09-01T12:00:00Z"));
+    }
     const inscripciones = await db.turnoAlumno.findMany({ where: { turnoId: turnoId, alumnoId: alumno.idAlumno }, orderBy: { createdAtInscripcion: "asc" } });
-    const original = inscripciones[0]; if (!original) throw new Error("Fixture E02 sin inscripción inicial");
+    const original = historica ? inscripciones.find((fila) => fila.vigencia === "VIGENTE") : inscripciones[0]; if (!original) throw new Error("Fixture E02 sin inscripción inicial");
     if (["PRESENTE", "AUSENTE", "LEGACY"].includes(e.tipo) && !(await db.claseDictada.findFirst({ where: { turnoId: turnoId } }))) {
       const estado = e.tipo === "AUSENTE" ? "AUSENTE" : "PRESENTE";
       await conReloj(new Date(`${e.fecha}T15:00:00Z`), () => transaccion(tx => registrarClaseDictada(tx, { turnoId: turnoId, actor, asistencias: e.tipo === "LEGACY" ? undefined : [{ inscripcionId: original.idInscripcion, estado }] })));
