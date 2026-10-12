@@ -18,6 +18,11 @@ import {
   type OperacionConVigente,
 } from "@/server/pagos/pago.vigente";
 
+/** `true` si el alumno tiene algún pago registrado, vigente o anulado (motivo obligatorio de la baja, HU-B-07). */
+export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  return (await db.pago.findFirst({ where: { alumnoId }, select: { idPago: true } })) !== null;
+}
+
 /**
  * Contrato público de pagos del Módulo I (spec_modulo_I.md §2.3, Regla N.° 3):
  * otros módulos leen los pagos por acá y no consultan `pagos` directamente.
@@ -26,10 +31,6 @@ import {
  * archivo, así que ninguno de los dos importa al otro. Todas las lecturas
  * usan una sola implementación del valor vigente (`pago.vigente.ts`, R3-PR0-I11).
  */
-
-export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
-  return (await db.pago.findFirst({ where: { alumnoId }, select: { idPago: true } })) !== null;
-}
 
 /** Un pago registrado de un turno, tal como lo muestra el detalle (spec_modulo_C.md §2.4). */
 export type PagoDeTurno = {

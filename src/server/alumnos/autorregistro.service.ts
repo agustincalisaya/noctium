@@ -161,6 +161,17 @@ export async function iniciarAutorregistro(
     throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
   }
 
+  // HU-B-07 criterio 5: el email de contacto de una ficha inactiva sigue
+  // contando para la unicidad, tenga o no cuenta y sea cual sea el DNI
+  // tipeado. Mismo error y mismo cuerpo que la rama (c): no se genera código,
+  // no se envía nada y no se crea ficha ni cuenta.
+  const fichasInactivasConEmail = await prisma.alumno.count({
+    where: { activoAlumno: false, emailAlumno: { equals: input.email, mode: "insensitive" } },
+  });
+  if (fichasInactivasConEmail > 0) {
+    throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+  }
+
   const alumno = await prisma.alumno.findFirst({
     where: { dniAlumno: input.dni },
     select: { idAlumno: true, usuarioId: true, emailAlumno: true, activoAlumno: true },
@@ -178,6 +189,14 @@ export async function iniciarAutorregistro(
     let usuario: { id: string };
     try {
       usuario = await prisma.$transaction(async (tx) => {
+        // Se repite la comprobación de arriba con las fichas de ese email
+        // tomadas `FOR SHARE`: una baja concurrente (que las toma `FOR UPDATE`)
+        // termina antes de decidir, o espera a que esta alta confirme.
+        const fichasConEmail = await tx.$queryRaw<{ activoAlumno: boolean }[]>(Prisma.sql`
+          SELECT "activoAlumno" FROM "alumnos" WHERE lower("emailAlumno") = lower(${input.email}) FOR SHARE`);
+        if (fichasConEmail.some((ficha) => !ficha.activoAlumno)) {
+          throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+        }
         const nuevoUsuario = await crearCuentaConCredenciales(
           { email: input.email, passwordHash, rol: "ALUMNO" },
           tx,

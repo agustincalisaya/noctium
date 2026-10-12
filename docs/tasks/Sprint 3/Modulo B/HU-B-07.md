@@ -5,7 +5,7 @@
 **Contrato:** `docs/specs/spec_modulo_B.md` §§2.10–2.13 y 3.11–3.17.
 **RBAC:** `alumnos:cambiar_estado`, exclusivo de Mesa de Entrada.
 **Schema:** completo; sin migración.
-**Estado:** commit e99a2a7 en feature/hu-restantes más las correcciones de auditoría (sección 7); pendiente revisión e integración.
+**Estado:** implementada y verificada localmente en `feature/hu-restantes`; recorrido de navegador, CI sobre el SHA del PR e integración pendientes (ver evidencia). SHA del PR: ⏳ se completa al abrirlo.
 
 ## 0. Relevamiento previo
 
@@ -29,13 +29,13 @@ La baja lógica libera inscripciones vigentes de clases futuras, conserva pagos 
 
 - `DesactivarAlumnoSchema`: `version` obligatoria y motivo opcional normalizado, máximo 300.
 - `ReactivarAlumnoSchema`: solo `version`.
-- `alumno.estado.service.ts`: impacto, baja, reactivación e historial.
+- `alumno.estado.service.ts`: impacto (con `listarInscripcionesDeAlumno(id, { desde })`, la misma regla que la baja), baja, reactivación e historial. `obtenerHistorialEstadosAlumno` arma `historial_estados` (más reciente primero) y la usan `GET /api/alumnos/[id]` y la ficha.
 - `GET impacto-baja`, `POST desactivar` y `POST reactivar` con `withPermission("alumnos:cambiar_estado")`.
-- Actions equivalentes con validación, permiso y revalidación.
+- Actions equivalentes: permiso verificado antes de validar el payload, validación y revalidación.
 - C expone baja masiva y existencia de clases pasadas (corte en la hora local del centro); I y E exponen existencia de registros.
-- El autorregistro devuelve `CUENTA_YA_EXISTE` para una ficha inactiva, tenga o no cuenta: al iniciar y también al confirmar el código, donde la ficha se bloquea y se relee antes de crear y vincular la cuenta.
+- El autorregistro devuelve `CUENTA_YA_EXISTE` (mismo código, mensaje y cuerpo que la rama de cuenta existente) para una ficha inactiva, tenga o no cuenta, por su DNI o por su email de contacto: al iniciar; de nuevo dentro de la transacción de la alta directa, con `SELECT … FOR SHARE` sobre las fichas con ese email, que serializa contra una baja concurrente; y al confirmar el código, donde la ficha se bloquea y se relee antes de crear y vincular la cuenta. `verificar-codigo` responde 409 también ante `TRANSACCION_OCUPADA`.
 
-La baja usa el orden alumno → clases → inscripciones, revalida bajo bloqueo y registra el historial después del commit mediante el mecanismo compartido. La confirmación del autorregistro toma el mismo bloqueo de la ficha, así que una baja y una confirmación simultáneas se serializan.
+La baja usa el orden alumno → clases → inscripciones. Solo lee, filtra y bloquea las inscripciones de clases futuras (las pasadas o en curso no se bloquean ni se tocan); marca vencidas únicamente las reservas de las clases bloqueadas, revalida bajo bloqueo y registra el historial después del commit mediante el mecanismo compartido. La confirmación del autorregistro toma el mismo bloqueo de la ficha, así que una baja y una confirmación simultáneas se serializan.
 
 ## 4. Frontend
 
@@ -46,20 +46,22 @@ La ficha muestra la acción según el estado y el permiso. La confirmación de b
 ### Unitario/API automatizado
 
 - Schemas estrictos, trim y límites del motivo.
-- Envelopes, permiso y actor de las tres rutas.
-- Autorregistro: ficha inactiva al iniciar; ficha inactiva o ya vinculada al confirmar; vinculación condicionada sin filas.
+- Envelopes, permiso y actor de las tres rutas; impacto con `desde` (fecha del centro y tres condiciones); `GET /api/alumnos/[id]` con `historial_estados`; `verificar-codigo` (200, 400, 404, 409 `CUENTA_YA_EXISTE` y `TRANSACCION_OCUPADA`, 422).
+- Server Action con permiso verificado antes de validar, con `verificarPermiso` real y roles distintos.
+- Autorregistro: ficha inactiva por DNI y por email al iniciar; relectura dentro de la transacción de la alta directa y de la confirmación; vinculación condicionada sin filas.
+- Componentes: diálogo M-21 (singular y plural, lista, motivo obligatorio y tope de 300, rechazo dentro del diálogo, doble envío con dos clics en su propio `act`, aviso de no restauración, reactivación) e historial de estados.
 
 ### API / Postman
 
-Colección en `docs/testing/Modulo B/hu-b-07/HU-B-07.postman_collection.json`, con assertions de status, envelope y código para éxito y cada error. Su presencia no acredita ejecución.
+Colección en `docs/testing/Modulo B/hu-b-07/HU-B-07.postman_collection.json`: 29 solicitudes con assertions de status, envelope y código para éxito y cada error, más la ficha con `historial_estados` y su permiso. Ejecutada contra la aplicación con una base descartable (ver evidencia).
 
 ### PostgreSQL
 
-`src/server/alumnos/alumno.estado.pg.test.ts` cubre los casos 3 a 7 de §3.17 y la matriz de `alumnos:cambiar_estado` del caso 6. Resultado en `docs/testing/Modulo B/hu-b-07/HU-B-07-evidencia.md`.
+`src/server/alumnos/alumno.estado.pg.test.ts` cubre los casos 3 a 7 de §3.17, el historial después del commit (fallo antes y después del commit), el filtro de clases futuras, el autorregistro con ficha inactiva y la concurrencia con intercalado forzado en dos conexiones. `src/server/alumnos/alumno.estado.permisos.pg.test.ts` ejecuta las rutas con `withPermission` real para los cuatro roles y compara la matriz de `rol_permiso` antes y después del seed completo. `HU-B-07.sql` asierta el estado de la base después de la baja y de la reactivación. Resultados en `docs/testing/Modulo B/hu-b-07/HU-B-07-evidencia.md`.
 
 ### UI manual
 
-Pendiente de recorrido autenticado para impacto, doble envío, error dentro del modal, recarga e historial.
+⏳ Pendiente de recorrido autenticado para impacto, doble envío, error dentro del modal, recarga e historial.
 
 ## 6. Definition of Done
 
@@ -67,20 +69,24 @@ Pendiente de recorrido autenticado para impacto, doble envío, error dentro del 
 - [x] Servicio, rutas, actions y schemas implementados.
 - [x] Baja lógica sin `DELETE`, pagos intactos y cuenta integrada.
 - [x] UI, textos, historial y DESIGN actualizados.
-- [x] Corrección de autorregistro implementada, también en la confirmación del código.
-- [x] PostgreSQL descartable aprobado (14/14).
-- [ ] Postman ejecutado.
-- [ ] Recorrido UI manual aprobado.
-- [x] TypeScript, lint focal y suite Vitest completa aprobados (ver evidencia).
-- [ ] Commit de las correcciones, revisión e integración.
+- [x] Autorregistro con ficha inactiva por DNI y por email de contacto, también al confirmar el código.
+- [x] PostgreSQL descartable aprobado (`alumno.estado.pg` 38/38 y `alumno.estado.permisos.pg` 2/2).
+- [x] Postman ejecutado (29 solicitudes, 104 aserciones) y SQL con aserciones ejecutado.
+- [ ] ⏳ Recorrido UI manual aprobado.
+- [x] TypeScript, lint, suite Vitest completa y build aprobados (ver evidencia).
+- [ ] ⏳ CI sobre el SHA del PR, revisión e integración.
 
-## 7. Correcciones de auditoría
+## 7. Decisiones y ajustes de cierre
 
-| Hallazgo | Corrección |
+| Tema | Decisión |
 |---|---|
-| P1-01 | `confirmarCodigoAutorregistro` corre en `transaccion`, bloquea la ficha, relee `activoAlumno`/`usuarioId` y vincula con `updateMany` condicionado; `verificar-codigo` responde `409 CUENTA_YA_EXISTE`. |
-| P2-01 | `alumnoTieneRegistros` (C) compara contra la hora local del centro (`horaLocal`). |
-| P2-02 | PG de §3.17, Postman con assertions, SQL y evidencia. |
-| P3-04 | El aviso de no restauración se muestra al terminar la reactivación. |
-| P3-06 | JSDoc de `crearAlumno` restituido a su función. |
-| Observaciones | Singular «1 clase futura» y fecha dd/mm/aaaa en M-21. |
+| Autorregistro con ficha inactiva | Rige el criterio 5 del Excel: el DNI y el email de contacto de una ficha inactiva siguen contando para la unicidad, tenga o no cuenta; no se crea ni se vincula ninguna. La spec B §3.14 se alinea con una nota de sincronización. |
+| Confirmación del código | `confirmarCodigoAutorregistro` corre en `transaccion`, bloquea la ficha, relee `activoAlumno` y `usuarioId` y vincula con `updateMany` condicionado; `verificar-codigo` responde `409 CUENTA_YA_EXISTE` y `409 TRANSACCION_OCUPADA`. |
+| Serialización contra la baja | La alta directa relee las fichas con el mismo email con `SELECT … FOR SHARE` dentro de su transacción. `bloquear()` no bloquea por email y la baja no toma un bloqueo asesor. |
+| Registros del alumno | `alumnoTieneRegistros` (C) compara contra la hora local del centro. |
+| Clases pasadas | La baja filtra por inicio posterior al momento actual antes de bloquear y de marcar reservas vencidas; la regla de C-24 se mantiene para las clases que toca. |
+| Impacto | `listarInscripcionesDeAlumno(id, { desde })` con las tres condiciones; la paridad impacto y baja está probada con clases pasadas y en curso. |
+| Alumno inactivo desde mesa de entrada | Se conserva `ALUMNO_NO_DISPONIBLE` (contrato previo de C-04); el autoservicio, C-18 y «Registrar pago» usan `ALUMNO_INACTIVO`. Queda registrado en la nota de sincronización de la spec B. |
+| `historial_estados` en la API | Lo arma el servicio y la ruta y la página usan la misma función. |
+| Aviso de no restauración | Se informa en la confirmación de la baja y al terminar la reactivación (§2.11). |
+| Textos | Singular «1 clase futura», fecha dd/mm/aaaa y «Sin profesor» desde el catálogo de textos. |

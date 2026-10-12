@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
           { status: 404 },
         );
       }
-      if (error.code === "CUENTA_YA_EXISTE") {
+      if (error.code === "CUENTA_YA_EXISTE" || error.code === "TRANSACCION_OCUPADA") {
         return NextResponse.json(
           { data: null, error: { code: error.code, message: error.message } },
           { status: 409 },

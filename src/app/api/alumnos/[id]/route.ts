@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withPermission } from "@/server/shared/with-permission";
 import { construirModificarAlumnoSchema } from "@/server/alumnos/alumno.schema";
 import { modificarAlumno, obtenerCuentaDeAlumno, obtenerDetalleAlumno } from "@/server/alumnos/alumno.service";
+import { obtenerHistorialEstadosAlumno } from "@/server/alumnos/alumno.estado.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 
@@ -11,9 +12,11 @@ export const GET = withPermission("alumnos:leer", async (_req, ctx) => {
 
   try {
     const detalle = await obtenerDetalleAlumno(id);
-    // HU-A-06 (spec_modulo_B.md §2.12): campo extra `cuenta` (estado, email y
-    // rol; nunca el hash). Los campos de Sprint 1 y 2 no cambian.
-    const data = { ...detalle, cuenta: await obtenerCuentaDeAlumno(id) };
+    // spec_modulo_B.md §2.12: campos extra `cuenta` (HU-A-06: estado, email y
+    // rol; nunca el hash) e `historial_estados` (HU-B-07). Los campos de
+    // Sprint 1 y 2 no cambian.
+    const [cuenta, historial_estados] = await Promise.all([obtenerCuentaDeAlumno(id), obtenerHistorialEstadosAlumno(id)]);
+    const data = { ...detalle, cuenta, historial_estados };
     return NextResponse.json({ data, error: null });
   } catch (error) {
     if (error instanceof ServiceError) {

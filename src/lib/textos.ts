@@ -1079,6 +1079,7 @@ export const TEXTOS = {
   "ui.alumnos.estado.baja": "Desactivación",
   "ui.alumnos.estado.alta": "Reactivación",
   "ui.alumnos.estado.usuario": "Usuario",
+  "ui.alumnos.estado.sinProfesor": "Sin profesor",
 
   "ui.alumnos.alta.email": "Email",
   "ui.alumnos.alta.emailAyuda": "Ingresá el email: con él se crea la cuenta de acceso",

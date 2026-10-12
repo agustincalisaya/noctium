@@ -2,7 +2,7 @@
   "info": {
     "name": "HU-B-07 — Desactivar y reactivar alumno",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Ejecutar solo contra un servidor conectado a una base noctium_pruebas_<8 hex> con el seed aplicado. Iniciar sesión real con cada rol y copiar el encabezado Cookie en cookie_mesa, cookie_gerente, cookie_profesor y cookie_alumno sin exportar sus valores; el jar está deshabilitado. Preparar con HU-B-07.sql: alumno_registros (activo, con una clase pasada o un pago, y al menos una inscripción vigente a una clase futura) y alumno_inexistente. Ejecutar en orden: el GET de impacto guarda la versión que usan los POST siguientes. La concurrencia, la sesión revocada y los rollbacks se verifican en alumno.estado.pg.test.ts."
+    "description": "Ejecutar solo contra un servidor conectado a una base noctium_pruebas_<8 hex> con el seed aplicado. Iniciar sesión real con cada rol y copiar el encabezado Cookie en cookie_mesa, cookie_gerente, cookie_profesor y cookie_alumno sin exportar sus valores; el jar está deshabilitado. Preparar con HU-B-07.sql: alumno_registros (activo, con una clase pasada o un pago, y al menos una inscripción vigente a una clase futura) y alumno_inexistente. Ejecutar en orden: el GET de impacto guarda la versión que usan los POST siguientes. La concurrencia, la sesión revocada y los rollbacks se verifican en alumno.estado.pg.test.ts. Tras «Desactivar — 200» y tras «Reactivar — 200» se ejecutan los dos bloques de aserciones de HU-B-07.sql (reemplazando los valores entre < >). Las solicitudes de ficha comprueban historial_estados en GET /api/alumnos/[id] (más reciente primero) y el permiso alumnos:leer (Mesa y Gerente 200; Profesor y Alumno 403)."
   },
   "variable": [
     {
@@ -986,6 +986,134 @@
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
               "pm.test(\"Código ALUMNO_YA_ACTIVO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_YA_ACTIVO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ficha con historial_estados tras la baja y la reactivación — 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"historial_estados del más reciente al más antiguo\", () => { const h = body.data.historial_estados; pm.expect(h).to.be.an(\"array\"); pm.expect(h.length).to.be.above(1); pm.expect(h[0].accion).to.eql(\"REACTIVAR\"); pm.expect(h[1].accion).to.eql(\"DESACTIVAR\"); pm.expect(Date.parse(h[0].fecha)).to.be.above(Date.parse(h[1].fecha) - 1); });",
+              "pm.test(\"Forma de cada registro\", () => body.data.historial_estados.forEach((e) => { pm.expect(e).to.have.all.keys(\"fecha\", \"accion\", \"usuario\", \"motivo\"); pm.expect(e.usuario).to.have.all.keys(\"id\", \"nombre_para_mostrar\"); }));",
+              "pm.test(\"Motivo de la baja\", () => pm.expect(body.data.historial_estados[1].motivo).to.eql(\"Se mudó\"));",
+              "pm.test(\"Cuenta y forma de pago preferida en la respuesta\", () => { pm.expect(body.data).to.have.property(\"cuenta\"); pm.expect(body.data.forma_pago_preferida_activa).to.be.a(\"boolean\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ficha como Gerente — 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"historial_estados del más reciente al más antiguo\", () => { const h = body.data.historial_estados; pm.expect(h).to.be.an(\"array\"); pm.expect(h.length).to.be.above(1); pm.expect(h[0].accion).to.eql(\"REACTIVAR\"); pm.expect(h[1].accion).to.eql(\"DESACTIVAR\"); pm.expect(Date.parse(h[0].fecha)).to.be.above(Date.parse(h[1].fecha) - 1); });",
+              "pm.test(\"Forma de cada registro\", () => body.data.historial_estados.forEach((e) => { pm.expect(e).to.have.all.keys(\"fecha\", \"accion\", \"usuario\", \"motivo\"); pm.expect(e.usuario).to.have.all.keys(\"id\", \"nombre_para_mostrar\"); }));",
+              "pm.test(\"Motivo de la baja\", () => pm.expect(body.data.historial_estados[1].motivo).to.eql(\"Se mudó\"));",
+              "pm.test(\"Cuenta y forma de pago preferida en la respuesta\", () => { pm.expect(body.data).to.have.property(\"cuenta\"); pm.expect(body.data.forma_pago_preferida_activa).to.be.a(\"boolean\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ficha como Profesor — 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ficha como Alumno — 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
             ]
           }
         }

@@ -100,6 +100,14 @@ export type ImpactoBajaAlumno = {
 };
 
 export type EstadoAlumnoCambiado = { id: string; activo: boolean; version: number; inscripciones_quitadas?: number };
+
+/** Entrada de `historial_estados` del detalle del alumno (spec_modulo_B.md 2.12); `fecha` en ISO 8601 con el offset del centro. */
+export type HistorialEstadoAlumno = {
+  fecha: string;
+  accion: "DESACTIVAR" | "REACTIVAR";
+  usuario: { id: string; nombre_para_mostrar: string | null } | null;
+  motivo: string | null;
+};
 export type ResultadoAccionAlumno<T> =
   | { data: T; error: null }
   | { data: null; error: { code: string; message: string; detalles?: Record<string, string[]> } };

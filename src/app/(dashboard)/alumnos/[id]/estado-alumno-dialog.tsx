@@ -57,7 +57,7 @@ export function EstadoAlumnoDialog({ alumno }: { alumno: { id: string; nombre: s
           <div className="mt-4 space-y-3">
             {impacto?.inscripciones_futuras.length ? (
               <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-sm">
-                {impacto.inscripciones_futuras.map((item) => <li key={item.inscripcion_id}>{fechaCorta(item.fecha)} · {item.hora_inicio} · {item.materia.nombre} · {item.profesor?.nombre_para_mostrar ?? "Sin profesor"}</li>)}
+                {impacto.inscripciones_futuras.map((item) => <li key={item.inscripcion_id}>{fechaCorta(item.fecha)} · {item.hora_inicio} · {item.materia.nombre} · {item.profesor?.nombre_para_mostrar ?? texto("ui.alumnos.estado.sinProfesor")}</li>)}
               </ul>
             ) : null}
             <label htmlFor="motivo-baja-alumno" className="block text-sm font-medium">{texto("ui.alumnos.estado.motivo")}</label>

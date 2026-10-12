@@ -466,14 +466,16 @@ export async function darDeBajaInscripcionesDeAlumno(
   datos: { alumnoId: string; actor: ActorDominio },
 ): Promise<{ quitadas: { inscripcion_id: string; turno_id: string }[]; reservas_vencidas_marcadas: number }> {
   const momento = ahora();
-  const candidatas = await tx.turnoAlumno.findMany({
+  // Solo clases que empiezan después de `momento`: las pasadas y en curso no se
+  // bloquean ni se tocan (sus reservas vencidas sin marcar quedan como están).
+  const candidatas = (await tx.turnoAlumno.findMany({
     where: {
       alumnoId: datos.alumnoId,
       vigencia: "VIGENTE",
       turno: { estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } },
     },
-    select: { idInscripcion: true, turnoId: true },
-  });
+    select: { idInscripcion: true, turnoId: true, turno: { select: { fechaTurno: true, horaInicioTurno: true } } },
+  })).filter((fila) => inicioDeTurno(fila.turno).getTime() > momento.getTime());
   const clases = [...new Set(candidatas.map((fila) => fila.turnoId))].sort();
   const inscripciones = candidatas.map((fila) => fila.idInscripcion).sort();
   if (clases.length === 0) return { quitadas: [], reservas_vencidas_marcadas: 0 };

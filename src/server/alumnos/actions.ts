@@ -175,12 +175,13 @@ async function cambiarEstadoAlumno(
   input: unknown,
   activo: boolean,
 ): Promise<ResultadoAccionAlumno<EstadoAlumnoCambiado>> {
-  const parsed = (activo ? ReactivarAlumnoSchema : DesactivarAlumnoSchema).safeParse(input);
-  if (!parsed.success) {
-    return { data: null, error: { code: "VALIDATION_ERROR", message: "Revisá los datos ingresados", detalles: flattenError(parsed.error).fieldErrors } };
-  }
   try {
+    // El permiso va antes que la validación: sin permiso no se revela nada del payload.
     const usuario = await verificarPermiso("alumnos:cambiar_estado");
+    const parsed = (activo ? ReactivarAlumnoSchema : DesactivarAlumnoSchema).safeParse(input);
+    if (!parsed.success) {
+      return { data: null, error: { code: "VALIDATION_ERROR", message: "Revisá los datos ingresados", detalles: flattenError(parsed.error).fieldErrors } };
+    }
     const resultado = activo
       ? await reactivarAlumnoEnServicio(id, ReactivarAlumnoSchema.parse(parsed.data), actorUsuario(usuario.id))
       : await desactivarAlumnoEnServicio(id, DesactivarAlumnoSchema.parse(parsed.data), actorUsuario(usuario.id));

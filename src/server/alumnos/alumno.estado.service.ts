@@ -15,8 +15,8 @@ import {
 } from "@/server/turnos/inscripcion.publico";
 import { desactivarCuenta, reactivarCuenta } from "@/server/usuarios/cuenta.service";
 import type { DesactivarAlumnoInput, ReactivarAlumnoInput } from "@/server/alumnos/alumno.schema";
-import type { ImpactoBajaAlumno } from "@/types/alumno.types";
-import { instanteCentro } from "@/server/shared/fechas-centro";
+import type { HistorialEstadoAlumno, ImpactoBajaAlumno } from "@/types/alumno.types";
+import { fechaCentro, instanteCentro, isoCentro } from "@/server/shared/fechas-centro";
 
 async function ficha(id: string, db: Tx = prisma) {
   const alumno = await db.alumno.findUnique({ where: { idAlumno: id } });
@@ -35,7 +35,7 @@ export async function obtenerImpactoBajaAlumno(id: string): Promise<ImpactoBajaA
   if (!alumno.activoAlumno) throw new ErrorDeDominio("errores.alumno.yaInactivo");
   const momento = ahora();
   const [inscripciones, motivoObligatorio] = await Promise.all([
-    listarInscripcionesDeAlumno(id),
+    listarInscripcionesDeAlumno(id, { desde: fechaCentro(momento).toISOString().slice(0, 10) }),
     tieneRegistrosAlumno(id),
   ]);
   const futuras = inscripciones
@@ -105,9 +105,20 @@ export async function reactivarAlumno(id: string, input: ReactivarAlumnoInput, a
   });
 }
 
-export async function obtenerHistorialEstadosAlumno(id: string) {
+/**
+ * `historial_estados` de la ficha (spec_modulo_B.md 2.12): del más reciente al
+ * más antiguo, con el usuario resuelto en lote (`null` si fue el proceso
+ * automático o la cuenta ya no tiene ficha de personal). Lo usan la API y la
+ * página de la ficha.
+ */
+export async function obtenerHistorialEstadosAlumno(id: string): Promise<HistorialEstadoAlumno[]> {
   const historial = await listarHistorialEstados("ALUMNO", id);
   const nombres = await obtenerNombresPersonal(historial.flatMap((item) => item.usuario_id ? [item.usuario_id] : []));
   const porId = new Map(nombres.map((item) => [item.usuario_id, item.nombre_completo]));
-  return historial.map((item) => ({ ...item, usuario_nombre: item.usuario_id ? porId.get(item.usuario_id) ?? null : null }));
+  return historial.map((item) => ({
+    fecha: isoCentro(item.fecha),
+    accion: item.accion,
+    usuario: item.usuario_id ? { id: item.usuario_id, nombre_para_mostrar: porId.get(item.usuario_id) ?? null } : null,
+    motivo: item.motivo,
+  }));
 }
