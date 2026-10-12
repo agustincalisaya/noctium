@@ -26,6 +26,9 @@ export function TurnoClaseCard({ turno, puedeRegistrarClase, onRegistrada, asist
   const elegible = turno.acciones_habilitadas.includes("registrar_clase");
   const presentes = asistencias.filter(({ estado }) => estado === "PRESENTE").length;
   const ausentes = asistencias.length - presentes;
+  const diaSemana = new Intl.DateTimeFormat("es-AR", { weekday: "long", timeZone: "UTC" })
+    .format(new Date(`${turno.fecha}T00:00:00Z`));
+  const fechaConfirmacion = `${diaSemana} ${Number(turno.fecha.slice(8, 10))}/${Number(turno.fecha.slice(5, 7))}`;
   const estadoConfirmado = turno.estado === "DISPONIBLE" || turno.estado === "COMPLETO";
   const confirmar = async () => {
     setProcesando(true);
@@ -69,9 +72,13 @@ export function TurnoClaseCard({ turno, puedeRegistrarClase, onRegistrada, asist
         {puedeRegistrarClase && <>
           <Button type="button" variant="outline" disabled={!elegible || procesando} onClick={() => setAbierto(true)}>{texto(procesando ? "ui.historial.asistencia.registrando" : "ui.historial.asistencia.registrar")}</Button>
           <ConfirmarAccionDialog abierto={abierto} onCerrar={() => setAbierto(false)}
-            titulo={texto("ui.historial.asistencia.confirmar", { materia: turno.materia, fecha: fechaCorta(turno.fecha) })}
-            detalle={texto("ui.historial.asistencia.confirmacion", { horaInicio: turno.hora_inicio, horaFin: turno.hora_fin, presentes, ausentes })}
-            textoConfirmar={texto("ui.historial.asistencia.registrar")} irreversible onConfirmar={confirmar}
+            titulo={texto("ui.historial.asistencia.confirmar", { materia: turno.materia, fecha: fechaConfirmacion, hora: turno.hora_inicio,
+              asistencia: texto("ui.historial.asistencia.confirmacion", {
+                presentes: texto(presentes === 1 ? "ui.historial.asistencia.cantidadPresente" : "ui.historial.asistencia.cantidadPresentes", { cantidad: presentes }),
+                ausentes: texto(ausentes === 1 ? "ui.historial.asistencia.cantidadAusente" : "ui.historial.asistencia.cantidadAusentes", { cantidad: ausentes }),
+              }),
+            })}
+            textoConfirmar={texto("ui.historial.asistencia.registrar")} onConfirmar={confirmar}
             onExito={() => { toast.success(texto("ui.historial.asistencia.guardada")); void onRegistrada(); }} />
         </>}
       </>}

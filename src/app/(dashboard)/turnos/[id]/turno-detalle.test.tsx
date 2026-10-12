@@ -581,6 +581,20 @@ describe("HU-E-09 asistencia dentro de alumnos", () => {
     expect(texto()).toContain("Marcar todos presentes");
     expect(container.querySelector('[aria-labelledby="inscripciones-titulo"]')?.textContent).toContain("Registrar clase dictada");
   });
+  it.each([
+    [2, 0, "2 presentes · 0 ausentes"],
+    [0, 2, "0 presentes · 2 ausentes"],
+  ])("totales con %i presentes y %i ausentes conservan el plural", async (presentes, ausentes, esperado) => {
+    fetch.mockImplementation(async (url: string) => {
+      if (url.endsWith("clase-dictada")) return respuesta({
+        id: "clase-1", registrada_en: "2026-10-06T20:05:00Z", con_control_asistencia: true,
+        alumnos: [], totales: { presentes, ausentes },
+      });
+      return respuesta(detalle({ clase_dictada: { id: "clase-1", registrada_en: "2026-10-06T20:05:00Z" } }));
+    });
+    await montar(); await esperar();
+    expect(texto()).toContain(esperado);
+  });
   it("confirmación envía estados y muestra persistencia sin tarjeta aparte", async () => {
     const sinRegistro = detalle({ clase_dictada: null, acciones_habilitadas: ["registrar_clase"] });
     const registrada = detalle({ clase_dictada: { id: "clase-1", registrada_en: "2026-10-06T20:05:00Z" }, acciones_habilitadas: [] });
@@ -596,12 +610,15 @@ describe("HU-E-09 asistencia dentro de alumnos", () => {
     await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.click());
     await esperar();
     const dialogo = document.querySelector('[role="alertdialog"]')!;
-    expect(dialogo.textContent).toContain("Presentes: 1. Ausentes: 1.");
+    expect(dialogo.textContent).toContain("¿Estás seguro de que querés registrar la clase dictada de Matemática del martes 6/10 a las 16:00, con 1 presente y 1 ausente?");
+    expect(dialogo.textContent).toContain("con 1 presente y 1 ausente?");
+    expect(dialogo.textContent).not.toContain("Esta acción no se puede deshacer.");
+    expect([...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.className).not.toContain("bg-destructive");
     await act(async () => [...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Registrar clase dictada")!.click());
     await esperar(); await esperar();
     const peticion = fetch.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(JSON.parse(peticion[1].body)).toEqual({ asistencias: [{ alumno_id: "alumno-1", estado: "AUSENTE" }, { alumno_id: "alumno-2", estado: "PRESENTE" }] });
-    expect(texto()).toContain("1 presentes · 1 ausentes");
+    expect(texto()).toContain("1 presente · 1 ausente");
     expect(container.querySelectorAll('[aria-pressed]')).toHaveLength(0);
   });
 });

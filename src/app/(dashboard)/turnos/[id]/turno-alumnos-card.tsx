@@ -156,7 +156,10 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
     </div>}
     {cargandoAsistencia && <p role="status" className="text-sm text-muted-foreground">{texto("ui.historial.asistencia.cargando")}</p>}
     {errorAsistencia && <div role="alert" className="space-y-2 text-sm text-destructive"><p>{errorAsistencia}</p><Button variant="outline" onClick={() => void cargarAsistencia()}>{textoC19("ui.formasPago.reintentar")}</Button></div>}
-    {!corrigiendo && registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", registro.totales) : textoC19("ui.clases.interfaz.claseSinControlDeAsistencia")}</p>}
+    {!corrigiendo && registroId && registro?.id === registroId && <p role="status" className="text-sm font-medium">{registro.totales ? texto("ui.historial.asistencia.totales", {
+      presentes: texto(registro.totales.presentes === 1 ? "ui.historial.asistencia.cantidadPresente" : "ui.historial.asistencia.cantidadPresentes", { cantidad: registro.totales.presentes }),
+      ausentes: texto(registro.totales.ausentes === 1 ? "ui.historial.asistencia.cantidadAusente" : "ui.historial.asistencia.cantidadAusentes", { cantidad: registro.totales.ausentes }),
+    }) : textoC19("ui.clases.interfaz.claseSinControlDeAsistencia")}</p>}
     {!corrigiendo && puedeRegistrarIndicacion && registroVisible && <div className="space-y-3 rounded-md border border-border bg-background p-3">
       <h3 className="text-sm font-semibold">{textoC19("ui.clases.interfaz.indicacionesAcademicasDeEstaClase")}</h3>
       <ul className="divide-y divide-border" aria-label={textoC19("ui.clases.interfaz.alumnosDeLaClaseDictadaParaRegistrarIndicaciones")}>
