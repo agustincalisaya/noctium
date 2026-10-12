@@ -5,6 +5,9 @@ import { PrismaClient, type EstadoTurno } from "@prisma/client";
 import { diaSemanaDeFecha } from "@/lib/horario-atencion";
 import { GenerarTurnosSchema } from "./turno.generacion.schema";
 import { confirmarGeneracion, vistaPreviaGeneracion } from "./turno.generacion.service";
+import { aulasLibresEnFechas } from "./turno.generacion.aulas";
+import { aulaConTurnoSuperpuesto } from "./turno.disponibilidad";
+import { listarAulasActivasParaTurno } from "@/server/aulas/aula.publico";
 
 vi.mock("@/server/shared/with-permission", () => ({
   withPermission: (_accion: string, handler: (req: NextRequest, ctx: { params: Promise<unknown> }) => Promise<Response>) =>
@@ -121,7 +124,7 @@ describe.skipIf(!habilitada)("HU-C-17 Fase 3: PostgreSQL temporal aislado", () =
     const reservasAntes = await db!.reservaTurno.count({ where: { recursoId: { in: [fixture.profesorId, fixture.aulaId] } } });
     const eventosAntes = await db!.eventoTurno.count();
     await expect(confirmarGeneracion(entrada(3), fixture.usuarioId)).rejects.toMatchObject({
-      code: "GENERACION_CON_CONFLICTOS", detalles: { cantidad: 3, fechas: expect.arrayContaining([{ fecha: iso(lunesN(indice)), estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] }]) },
+      code: "GENERACION_CON_CONFLICTOS", detalles: { cantidad: 3, fechas: expect.arrayContaining([expect.objectContaining({ fecha: iso(lunesN(indice)), estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] })]) },
     });
     await ningunaEscrituraGenerada(reservasAntes);
     expect(await db!.eventoTurno.count()).toBe(eventosAntes);
@@ -131,7 +134,7 @@ describe.skipIf(!habilitada)("HU-C-17 Fase 3: PostgreSQL temporal aislado", () =
     const input = entrada(2);
     expect((await vistaPreviaGeneracion(input)).hay_conflictos).toBe(false);
     await crearTurnoExistente(1, "DISPONIBLE");
-    await expect(confirmarGeneracion(input, fixture.usuarioId)).rejects.toMatchObject({ code: "GENERACION_CON_CONFLICTOS", detalles: { fechas: expect.arrayContaining([{ fecha: iso(lunesN(1)), estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] }]) } });
+    await expect(confirmarGeneracion(input, fixture.usuarioId)).rejects.toMatchObject({ code: "GENERACION_CON_CONFLICTOS", detalles: { fechas: expect.arrayContaining([expect.objectContaining({ fecha: iso(lunesN(1)), estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] })]) } });
     expect(await db!.turno.count({ where: { creadoPorUsuarioId: fixture.usuarioId } })).toBe(0);
   });
 
@@ -242,5 +245,164 @@ describe.skipIf(!habilitada)("HU-C-17 Fase 3: PostgreSQL temporal aislado", () =
       await db!.$executeRawUnsafe(`DROP TRIGGER c17_fallar_evento ON "eventos_turno"`);
       await db!.$executeRawUnsafe(`DROP FUNCTION c17_fallar_evento()`);
     }
+  });
+});
+
+describe.skipIf(!habilitada)("HU-C-21 Fase 2: PostgreSQL temporal aislado", () => {
+  beforeEach(async () => { fixture = await crearFixture(); });
+
+  it("la lectura agrupada de aulas libres coincide con aulaConTurnoSuperpuesto", async () => {
+    const martes = new Date(lunesN(4).getTime() + 86400000);
+    await crearTurnoExistente(0, "DISPONIBLE", { inicio: "11:00" }); // superpuesto: ocupa
+    await crearTurnoExistente(1, "DISPONIBLE", { inicio: "12:00" }); // contiguo después: no ocupa
+    await crearTurnoExistente(1, "COMPLETO", { inicio: "08:00" }); // contiguo antes: no ocupa
+    await crearTurnoExistente(2, "PENDIENTE"); // no reserva el aula
+    await crearTurnoExistente(2, "COMPLETO", { aulaId: fixture.otraAulaId, materiaId: fixture.otraMateriaId }); // ocupa la otra aula
+    await crearTurnoExistente(3, "CANCELADO");
+    await db!.turno.create({ data: { // otra fecha, mismo horario y aula
+      fechaTurno: martes, horaInicioTurno: hora("10:00"), duracionMinutosTurno: 120, cupoMaximoTurno: 17,
+      materiaId: fixture.materiaId, profesorId: fixture.profesorId, aulaId: fixture.aulaId, estadoTurno: "DISPONIBLE", creadoPorUsuarioId: "fixture",
+    } });
+
+    const fechas = [0, 1, 2, 3, 4].map(lunesN);
+    const libres = await aulasLibresEnFechas(db!, fechas, "10:00", 120);
+    const activas = await listarAulasActivasParaTurno(1);
+    expect(activas.map(({ id }) => id)).toEqual(expect.arrayContaining([fixture.aulaId, fixture.otraAulaId]));
+    for (const fechaTurno of fechas) {
+      const turno = { fechaTurno, horaInicioTurno: hora("10:00"), duracionMinutosTurno: 120 };
+      for (const aula of activas) {
+        const ocupada = await aulaConTurnoSuperpuesto(db!, turno, aula.id);
+        expect(libres.get(iso(fechaTurno))!.some(({ id }) => id === aula.id), `${iso(fechaTurno)} ${aula.nombre}`).toBe(!ocupada);
+      }
+    }
+    const libre = (n: number, aulaId: string) => libres.get(iso(lunesN(n)))!.some(({ id }) => id === aulaId);
+    expect([0, 1, 2, 3, 4].map((n) => libre(n, fixture.aulaId))).toEqual([false, true, true, true, true]);
+    expect([0, 1, 2, 3, 4].map((n) => libre(n, fixture.otraAulaId))).toEqual([true, true, false, true, true]);
+  });
+
+  it("la vista previa usa el aula y el cupo de cada fecha y no consulta las excluidas", async () => {
+    await crearTurnoExistente(1, "DISPONIBLE", { profesorId: fixture.otroProfesorId, materiaId: fixture.otraMateriaId });
+    const sinCambios = await vistaPreviaGeneracion(entrada(3));
+    expect(sinCambios.fechas[1]).toMatchObject({ estado: "CONFLICTO", motivos: ["AULA_OCUPADA"], solo_excluible: false, sin_aulas_libres: false });
+
+    const input = GenerarTurnosSchema.parse({
+      materia_id: fixture.materiaId, profesor_id: fixture.profesorId, horario_id: fixture.horarioId,
+      duracion_min: 120, hora_inicio: "10:00", aula_id: fixture.aulaId,
+      fecha_desde: iso(lunesN(0)), fecha_hasta: iso(lunesN(2)),
+      aulas_por_fecha: [{ fecha: iso(lunesN(1)), aula_id: fixture.otraAulaId }], fechas_excluidas: [iso(lunesN(2))],
+    });
+    const resultado = await vistaPreviaGeneracion(input);
+    expect(resultado).toMatchObject({ cantidad: 3, cantidad_incluida: 2, con_aula_cambiada: 1, excluidas: 1, hay_conflictos: false });
+    expect(resultado.fechas[0]).toMatchObject({ aula: { id: fixture.aulaId }, aula_cambiada: false, cupo: 17, cupo_aula_por_defecto: 17 });
+    expect(resultado.fechas[1]).toMatchObject({ estado: "OK", aula: { id: fixture.otraAulaId }, aula_cambiada: true, cupo: 19, cupo_aula_por_defecto: 17 });
+    expect(resultado.fechas[2]).toMatchObject({ estado: "OK", motivos: [], excluida: true });
+  });
+});
+
+describe.skipIf(!habilitada)("HU-C-21 Fase 3: confirmación con aula por fecha (PostgreSQL)", () => {
+  beforeEach(async () => { fixture = await crearFixture(); });
+
+  // Lunes 0 y 3 con el aula por defecto (17), lunes 1 con la otra aula (19) y lunes 2 excluido.
+  const conListas = () => GenerarTurnosSchema.parse({
+    materia_id: fixture.materiaId, profesor_id: fixture.profesorId, horario_id: fixture.horarioId,
+    duracion_min: 120, hora_inicio: "10:00", aula_id: fixture.aulaId,
+    fecha_desde: iso(lunesN(0)), fecha_hasta: iso(lunesN(3)),
+    aulas_por_fecha: [{ fecha: iso(lunesN(1)), aula_id: fixture.otraAulaId }], fechas_excluidas: [iso(lunesN(2))],
+  });
+  const reservasDeLasAulas = () => db!.reservaTurno.count({ where: { recursoId: { in: [fixture.profesorId, fixture.aulaId, fixture.otraAulaId] } } });
+
+  it("crea cada clase con su aula y su cupo, no crea las excluidas y reserva el aula de cada fecha (puntos 1 a 4)", async () => {
+    await crearTurnoExistente(1, "DISPONIBLE", { profesorId: fixture.otroProfesorId, materiaId: fixture.otraMateriaId }); // ocupa el aula por defecto el lunes 1
+    const resultado = await confirmarGeneracion(conListas(), fixture.usuarioId);
+    expect(resultado).toMatchObject({ cantidad: 3, aulas_cambiadas: 1, fechas_excluidas: 1 });
+
+    const turnos = await db!.turno.findMany({ where: { creadoPorUsuarioId: fixture.usuarioId }, orderBy: { fechaTurno: "asc" }, include: { alumnos: true, reservas: true } });
+    expect(turnos.map(({ idTurno }) => idTurno).sort()).toEqual([...resultado.turno_ids].sort());
+    expect(turnos.map((turno) => [iso(turno.fechaTurno), turno.aulaId, turno.cupoMaximoTurno, turno.estadoTurno])).toEqual([
+      [iso(lunesN(0)), fixture.aulaId, 17, "DISPONIBLE"],
+      [iso(lunesN(1)), fixture.otraAulaId, 19, "DISPONIBLE"],
+      [iso(lunesN(3)), fixture.aulaId, 17, "DISPONIBLE"],
+    ]);
+    for (const turno of turnos) {
+      expect(turno.alumnos).toEqual([]);
+      expect(turno.reservas.map(({ tipoRecurso, recursoId }) => [tipoRecurso, recursoId]).sort()).toEqual([["AULA", turno.aulaId], ["PROFESOR", fixture.profesorId]]);
+    }
+    // Punto 2: la fecha excluida no tiene clase ni reservas propias.
+    expect(await db!.turno.count({ where: { creadoPorUsuarioId: fixture.usuarioId, fechaTurno: lunesN(2) } })).toBe(0);
+    expect(await db!.reservaTurno.count({ where: { recursoId: { in: [fixture.profesorId, fixture.aulaId, fixture.otraAulaId] }, turno: { fechaTurno: lunesN(2) } } })).toBe(0);
+
+    // Puntos 1 y 4: mismo generacion_id y eventos con el aula y el cupo de cada clase.
+    const eventos = await db!.eventoTurno.findMany({ where: { turnoId: { in: resultado.turno_ids } } });
+    expect(eventos).toHaveLength(9);
+    for (const turno of turnos) {
+      const payload = (tipo: string) => eventos.find((evento) => evento.turnoId === turno.idTurno && evento.tipoEvento === tipo)?.payloadEvento;
+      expect(payload("turno:configurado")).toMatchObject({ generacion_id: resultado.generacion_id });
+      expect(payload("turno:aula_asignada")).toMatchObject({ aula_id: turno.aulaId, cupo_maximo: turno.cupoMaximoTurno });
+      expect(payload("turno:disponibilizado")).toMatchObject({ aula_id: turno.aulaId, alumno_ids: [] });
+    }
+  });
+
+  it("un aula elegida ocupada al confirmar no inserta nada (punto 5)", async () => {
+    await crearTurnoExistente(1, "DISPONIBLE", { profesorId: fixture.otroProfesorId, materiaId: fixture.otraMateriaId, aulaId: fixture.otraAulaId });
+    const reservasAntes = await reservasDeLasAulas();
+    const eventosAntes = await db!.eventoTurno.count();
+    await expect(confirmarGeneracion(conListas(), fixture.usuarioId)).rejects.toMatchObject({
+      code: "GENERACION_CON_CONFLICTOS",
+      detalles: { hay_conflictos: true, fechas: expect.arrayContaining([expect.objectContaining({ fecha: iso(lunesN(1)), motivos: ["AULA_OCUPADA"], aula_cambiada: true })]) },
+    });
+    expect(await db!.turno.count({ where: { creadoPorUsuarioId: fixture.usuarioId } })).toBe(0);
+    expect(await reservasDeLasAulas()).toBe(reservasAntes);
+    expect(await db!.eventoTurno.count()).toBe(eventosAntes);
+  });
+
+  it("carrera real sobre un aula elegida: 23P01 → 409 sin filas nuevas (punto 6)", async () => {
+    let avisarInsercion!: (pid: number) => void;
+    let liberarBloqueo!: () => void;
+    const insertado = new Promise<number>((resolver) => { avisarInsercion = resolver; });
+    const bloqueo = new Promise<void>((resolver) => { liberarBloqueo = resolver; });
+    const bloqueador = db!.$transaction(async (tx) => {
+      const [{ pid }] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+      await tx.turno.create({ data: {
+        fechaTurno: lunesN(1), horaInicioTurno: hora("10:00"), duracionMinutosTurno: 120,
+        cupoMaximoTurno: 19, materiaId: fixture.otraMateriaId, profesorId: fixture.otroProfesorId,
+        aulaId: fixture.otraAulaId, estadoTurno: "DISPONIBLE", creadoPorUsuarioId: "bloqueador",
+      } });
+      avisarInsercion(pid);
+      await bloqueo;
+    }, { timeout: 15_000 });
+    const pidBloqueador = await insertado;
+    const respuestaPendiente = confirmarPorHttp(new NextRequest("http://localhost/api/turnos/generacion", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        materia_id: fixture.materiaId, profesor_id: fixture.profesorId, horario_id: fixture.horarioId,
+        duracion_min: 120, hora_inicio: "10:00", aula_id: fixture.aulaId,
+        fecha_desde: iso(lunesN(0)), fecha_hasta: iso(lunesN(3)),
+        aulas_por_fecha: [{ fecha: iso(lunesN(1)), aula_id: fixture.otraAulaId }], fechas_excluidas: [iso(lunesN(2))],
+      }),
+    }), { params: Promise.resolve({}) });
+    try {
+      const limite = Date.now() + 8_000;
+      let esperando = false;
+      while (Date.now() < limite) {
+        const [fila] = await db!.$queryRaw<{ total: bigint }[]>`
+          SELECT count(*) AS total FROM pg_stat_activity
+          WHERE datname = current_database() AND pid <> ${pidBloqueador}
+            AND wait_event_type = 'Lock' AND query ILIKE '%turnos%'
+        `;
+        if (fila!.total > 0n) { esperando = true; break; }
+        await new Promise((resolver) => setTimeout(resolver, 30));
+      }
+      expect(esperando).toBe(true);
+    } finally {
+      liberarBloqueo();
+    }
+    await bloqueador;
+    const respuesta = await respuestaPendiente;
+    expect(respuesta.status).toBe(409);
+    expect(await respuesta.json()).toMatchObject({ data: null, error: { code: "GENERACION_CON_CONFLICTOS" } });
+    expect(await db!.turno.count({ where: { creadoPorUsuarioId: "usuario-http", materiaId: fixture.materiaId } })).toBe(0);
+    expect(await db!.reservaTurno.count({ where: { recursoId: fixture.profesorId } })).toBe(0);
+    expect(await db!.reservaTurno.count({ where: { recursoId: fixture.aulaId } })).toBe(0);
+    expect(await db!.reservaTurno.count({ where: { recursoId: fixture.otraAulaId } })).toBe(1);
   });
 });

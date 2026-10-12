@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { horaAMinutos, intervalosSeSuperponen, minutosAHora } from "@/lib/horario-atencion";
 import { verificarMateriaActiva } from "@/server/materias/materia.service";
 import { obtenerOpcionProfesorActivo, obtenerHorarioDeProfesor, profesorActivoDictaMateria } from "@/server/profesores/profesor.publico";
-import { existeAula, hayAulasActivas, verificarAulaActiva } from "@/server/aulas/aula.publico";
+import { existeAula, hayAulasActivas, obtenerNombreAula, verificarAulaActiva } from "@/server/aulas/aula.publico";
 import { obtenerParametrosHorarioOperativo } from "@/server/shared/parametros";
 import { ServiceError } from "@/server/shared/service-error";
 import { esDuracionPermitida } from "./turno.schema";
@@ -14,8 +14,9 @@ import { aulaConTurnoSuperpuesto, intervaloTurno, profesoresConTurnoSuperpuesto 
 import { horaLocal } from "./turno.validaciones";
 import { esConflictoDeReserva } from "./turno.reserva-error";
 import { emitirEventosTurno, type EventoTurnoPendiente } from "./turno.publico";
-import { calcularOcurrencias, contarOcurrenciasDentroDelMaximo, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
-import type { GenerarTurnosInput, ResultadoGeneracion, VistaPreviaGeneracion } from "./turno.generacion.schema";
+import { aulasLibresEnFechas } from "./turno.generacion.aulas";
+import { calcularOcurrencias, contarOcurrenciasDentroDelMaximo, esSoloExcluible, fechaAjenaALaGeneracion, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
+import type { FechaVistaPrevia, GenerarTurnosInput, ResultadoGeneracion, VistaPreviaGeneracion, VistaPreviaGeneracionInput } from "./turno.generacion.schema";
 
 const CLAVES_LIMITE = ["generacion_maxima_meses", "generacion_maxima_turnos"] as const;
 
@@ -31,6 +32,43 @@ async function limitesGeneracion(db: Prisma.TransactionClient) {
     return numero;
   };
   return { meses: leer("generacion_maxima_meses"), turnos: leer("generacion_maxima_turnos") };
+}
+
+const iso = (fecha: Date) => fecha.toISOString().slice(0, 10);
+
+/** HU-C-21 (4.1): las listas solo nombran fechas calculadas y un aula distinta de la por defecto. */
+function validarListasDeFechas(input: GenerarTurnosInput, fechas: Date[]) {
+  const ajena = fechaAjenaALaGeneracion(
+    fechas.map(iso),
+    (input.aulas_por_fecha ?? []).map(({ fecha }) => ({ fecha: iso(fecha) })),
+    (input.fechas_excluidas ?? []).map(iso),
+  );
+  if (ajena) {
+    throw new ServiceError("VALIDATION_ERROR", textoC19("ui.clases.generacion.errores.fechaNoPertenece"), { campo: ajena.campo, fecha: ajena.fecha });
+  }
+  const igualALaPorDefecto = input.aulas_por_fecha?.find(({ aula_id }) => aula_id === input.aula_id);
+  if (igualALaPorDefecto) {
+    throw new ServiceError("VALIDATION_ERROR", textoC19("ui.clases.generacion.errores.aulaIgualALaElegida"), { campo: "aulas_por_fecha", fecha: iso(igualALaPorDefecto.fecha) });
+  }
+}
+
+type AulaDeFecha = { id: string; nombre: string; capacidad: number };
+
+/** HU-C-21 (4.2 paso 2): cada aula elegida se valida como la por defecto, una lectura por aula distinta. */
+async function aulasElegidas(input: GenerarTurnosInput, db: Prisma.TransactionClient): Promise<Map<string, AulaDeFecha>> {
+  const aulas = new Map<string, AulaDeFecha>();
+  for (const { fecha, aula_id } of input.aulas_por_fecha ?? []) {
+    if (aulas.has(aula_id)) continue;
+    const activa = await verificarAulaActiva(aula_id, db);
+    const nombre = activa ? await obtenerNombreAula(aula_id, db) : null;
+    if (!activa || !nombre) {
+      const detalles = { campo: "aulas_por_fecha", fecha: iso(fecha), aula_id };
+      if (await existeAula(aula_id, db)) throw new ServiceError("AULA_INACTIVA", textoC19("ui.clases.generacion.errores.aulaDeLaFechaInactiva"), detalles);
+      throw new ServiceError("AULA_NO_ENCONTRADA", textoC19("ui.clases.generacion.errores.aulaDeLaFechaNoEncontrada"), detalles);
+    }
+    aulas.set(aula_id, { id: aula_id, nombre: nombre.nombre, capacidad: activa.capacidadAula });
+  }
+  return aulas;
 }
 
 /** Núcleo compartido; en confirmación todas las lecturas usan el mismo tx. */
@@ -52,6 +90,9 @@ async function calcularGeneracion(input: GenerarTurnosInput, db: Prisma.Transact
     if (await existeAula(input.aula_id, db)) throw new ServiceError("AULA_INACTIVA", "El aula seleccionada está inactiva");
     throw new ServiceError("AULA_NO_ENCONTRADA", "No se encontró el aula seleccionada");
   }
+  const nombreAula = await obtenerNombreAula(input.aula_id, db);
+  if (!nombreAula) throw new ServiceError("AULA_NO_ENCONTRADA", "No se encontró el aula seleccionada");
+  const aulaPorDefecto: AulaDeFecha = { id: input.aula_id, nombre: nombreAula.nombre, capacidad: aula.capacidadAula };
 
   const [limites, horarioOperativo] = await Promise.all([limitesGeneracion(db), obtenerParametrosHorarioOperativo(db)]);
   if (!esDuracionPermitida(input.duracion_min) || !validarEncajeEnFranja(franja, input.hora_inicio, input.duracion_min, horarioOperativo.granularidadMinutos)) {
@@ -71,10 +112,28 @@ async function calcularGeneracion(input: GenerarTurnosInput, db: Prisma.Transact
     throw new ServiceError("RANGO_EXCEDIDO", textoC19("ui.clases.errores.laGeneracionNoPuedeSuperarClases", { valor1: limites.turnos }));
   }
   if (fechas.length === 0) throw new ServiceError("SIN_FECHAS_EN_RANGO", "No hay fechas para generar en el rango elegido");
+  validarListasDeFechas(input, fechas);
+  const elegidas = await aulasElegidas(input, db);
+  const aulaDeFecha = new Map((input.aulas_por_fecha ?? []).map(({ fecha, aula_id }) => [iso(fecha), elegidas.get(aula_id)!]));
+  const excluidas = new Set((input.fechas_excluidas ?? []).map(iso));
+  if (fechas.every((fecha) => excluidas.has(iso(fecha)))) {
+    throw new ServiceError("SIN_FECHAS_EN_RANGO", textoC19("ui.clases.generacion.errores.todasLasFechasExcluidas"));
+  }
 
   const horaInicioTurno = new Date(`1970-01-01T${input.hora_inicio}:00.000Z`);
-  const ocurrencias: VistaPreviaGeneracion["fechas"] = [];
+  const ocurrencias: FechaVistaPrevia[] = [];
   for (const fechaTurno of fechas) {
+    const fecha = iso(fechaTurno);
+    const aulaFecha = aulaDeFecha.get(fecha) ?? aulaPorDefecto;
+    const fila = {
+      aula: { id: aulaFecha.id, nombre: aulaFecha.nombre }, aula_cambiada: aulaFecha.id !== aulaPorDefecto.id,
+      cupo: aulaFecha.capacidad, cupo_aula_por_defecto: aulaPorDefecto.capacidad, sin_aulas_libres: false,
+    };
+    // Una fecha excluida no se genera: no consulta disponibilidad.
+    if (excluidas.has(fecha)) {
+      ocurrencias.push({ fecha, estado: "OK", motivos: [], ...fila, excluida: true, solo_excluible: false });
+      continue;
+    }
     const turno = { fechaTurno, horaInicioTurno, duracionMinutosTurno: input.duracion_min };
     const otrosMismaMateria = await db.turno.findMany({
       where: { fechaTurno, profesorId: input.profesor_id, materiaId: input.materia_id, estadoTurno: { not: "CANCELADO" } },
@@ -83,45 +142,68 @@ async function calcularGeneracion(input: GenerarTurnosInput, db: Prisma.Transact
     const intervalo = intervaloTurno(turno);
     const duplicado = otrosMismaMateria.some((otro) => intervalosSeSuperponen(intervalo, intervaloTurno(otro)));
     const [aulaOcupada, profesorOcupado] = duplicado ? [false, false] : await Promise.all([
-      aulaConTurnoSuperpuesto(db, turno, input.aula_id),
+      aulaConTurnoSuperpuesto(db, turno, aulaFecha.id),
       profesoresConTurnoSuperpuesto(db, turno, [input.profesor_id]).then((ocupados) => ocupados.has(input.profesor_id)),
     ]);
     const motivos = motivosConflictoGeneracion(duplicado, aulaOcupada, profesorOcupado);
-    ocurrencias.push({ fecha: fechaTurno.toISOString().slice(0, 10), estado: motivos.length ? "CONFLICTO" : "OK", motivos });
+    ocurrencias.push({ fecha, estado: motivos.length ? "CONFLICTO" : "OK", motivos, ...fila, excluida: false, solo_excluible: esSoloExcluible(motivos) });
   }
-  const vistaPrevia: VistaPreviaGeneracion = { cantidad: ocurrencias.length, fechas: ocurrencias, hay_conflictos: ocurrencias.some(({ estado }) => estado === "CONFLICTO"), fechas_omitidas_vencidas: fechasOmitidasVencidas };
-  return { vistaPrevia, capacidadAula: aula.capacidadAula };
+
+  // Criterio 4, solo en la vista previa: la fachada de K no corre dentro de la transacción (R2).
+  if (!enTransaccion) {
+    const cambiables = ocurrencias.filter((o) => o.motivos.includes("AULA_OCUPADA") && !o.solo_excluible);
+    if (cambiables.length > 0) {
+      const libres = await aulasLibresEnFechas(db, cambiables.map(({ fecha }) => new Date(`${fecha}T00:00:00.000Z`)), input.hora_inicio, input.duracion_min);
+      for (const ocurrencia of cambiables) ocurrencia.sin_aulas_libres = (libres.get(ocurrencia.fecha) ?? []).length === 0;
+    }
+  }
+
+  const incluidas = ocurrencias.filter(({ excluida }) => !excluida);
+  const vistaPrevia: VistaPreviaGeneracion = {
+    cantidad: ocurrencias.length,
+    cantidad_incluida: incluidas.length,
+    con_aula_cambiada: incluidas.filter(({ aula_cambiada }) => aula_cambiada).length,
+    excluidas: ocurrencias.length - incluidas.length,
+    fechas: ocurrencias,
+    hay_conflictos: incluidas.some(({ estado }) => estado === "CONFLICTO"),
+    fechas_omitidas_vencidas: fechasOmitidasVencidas,
+  };
+  return { vistaPrevia };
 }
 
 /** Vista informativa: consultas de solo lectura, sin reservar recursos. */
-export async function vistaPreviaGeneracion(input: GenerarTurnosInput, ahora: Date = new Date()): Promise<VistaPreviaGeneracion> {
+export async function vistaPreviaGeneracion(input: VistaPreviaGeneracionInput, ahora: Date = new Date()): Promise<VistaPreviaGeneracion> {
   return (await calcularGeneracion(input, prisma, ahora, false)).vistaPrevia;
 }
 
 /** Revalida y crea el lote dentro de un único commit; los eventos se emiten después. */
 export async function confirmarGeneracion(input: GenerarTurnosInput, usuarioId: string, ahora: Date = new Date()): Promise<ResultadoGeneracion> {
-  let creados: { idTurno: string; fecha: string }[];
-  let capacidadAula: number;
+  type Creado = { idTurno: string; fecha: string; aulaId: string; cupo: number };
+  let creados: Creado[];
+  let resumen: { aulasCambiadas: number; fechasExcluidas: number };
   try {
-    ({ creados, capacidadAula } = await transaccion(async (tx) => {
+    ({ creados, resumen } = await transaccion(async (tx) => {
       await bloquear(tx, { recursos: { profesores: [input.profesor_id] } });
+      // Mismo cálculo que la vista previa: revalida cada aula elegida y al profesor en cada fecha incluida (criterio 7).
       const calculo = await calcularGeneracion(input, tx, ahora, true);
       if (calculo.vistaPrevia.hay_conflictos) {
         throw new ServiceError("GENERACION_CON_CONFLICTOS", "La generación tiene fechas en conflicto", { ...calculo.vistaPrevia });
       }
-      const nuevos: { idTurno: string; fecha: string }[] = [];
+      const nuevos: Creado[] = [];
       const horaInicioTurno = new Date(`1970-01-01T${input.hora_inicio}:00.000Z`);
       for (const ocurrencia of calculo.vistaPrevia.fechas) {
+        if (ocurrencia.excluida) continue;
+        // Cada clase con el aula y el cupo de su fecha (criterio 6); la exclusión GiST defiende el aula.
         const turno = await tx.turno.create({ data: {
           fechaTurno: new Date(`${ocurrencia.fecha}T00:00:00.000Z`),
           horaInicioTurno, duracionMinutosTurno: input.duracion_min,
-          materiaId: input.materia_id, profesorId: input.profesor_id, aulaId: input.aula_id,
+          materiaId: input.materia_id, profesorId: input.profesor_id, aulaId: ocurrencia.aula.id,
           estadoTurno: "DISPONIBLE", prioridadTurno: "NORMAL",
-          cupoMaximoTurno: calculo.capacidadAula, creadoPorUsuarioId: usuarioId,
+          cupoMaximoTurno: ocurrencia.cupo, creadoPorUsuarioId: usuarioId,
         } });
-        nuevos.push({ idTurno: turno.idTurno, fecha: ocurrencia.fecha });
+        nuevos.push({ idTurno: turno.idTurno, fecha: ocurrencia.fecha, aulaId: ocurrencia.aula.id, cupo: ocurrencia.cupo });
       }
-      return { creados: nuevos, capacidadAula: calculo.capacidadAula };
+      return { creados: nuevos, resumen: { aulasCambiadas: calculo.vistaPrevia.con_aula_cambiada, fechasExcluidas: calculo.vistaPrevia.excluidas } };
     }));
   } catch (error) {
     if (esConflictoDeReserva(error)) {
@@ -133,22 +215,25 @@ export async function confirmarGeneracion(input: GenerarTurnosInput, usuarioId: 
   // Todo lote tiene al menos una fecha; el primer id de Turno es un CUID estable del lote.
   const generacionId = creados[0]!.idTurno;
   const horaFin = minutosAHora(horaAMinutos(input.hora_inicio) + input.duracion_min);
-  const eventos: EventoTurnoPendiente[] = creados.flatMap(({ idTurno, fecha }) => [
+  const eventos: EventoTurnoPendiente[] = creados.flatMap(({ idTurno, fecha, aulaId, cupo }) => [
     { tipoEvento: "turno:configurado", turnoId: idTurno, payloadEvento: {
       turno_id: idTurno, fecha, hora_inicio: input.hora_inicio, hora_fin: horaFin,
       duracion_min: input.duracion_min, materia_id: input.materia_id, profesor_id: input.profesor_id,
       generacion_id: generacionId, usuario_id: usuarioId,
     } },
     { tipoEvento: "turno:aula_asignada", turnoId: idTurno, payloadEvento: {
-      turno_id: idTurno, aula_id: input.aula_id, cupo_maximo: capacidadAula, usuario_id: usuarioId,
+      turno_id: idTurno, aula_id: aulaId, cupo_maximo: cupo, usuario_id: usuarioId,
     } },
     { tipoEvento: "turno:disponibilizado", turnoId: idTurno, payloadEvento: {
       turno_id: idTurno, fecha, hora_inicio: input.hora_inicio, hora_fin: horaFin,
-      alumno_ids: [], profesor_id: input.profesor_id, aula_id: input.aula_id,
+      alumno_ids: [], profesor_id: input.profesor_id, aula_id: aulaId,
       materia_id: input.materia_id, usuario_id: usuarioId,
     } },
   ]);
   // La arquitectura del módulo emite tras el COMMIT. Un fallo de eventos no revierte el lote.
   await emitirEventosTurno(eventos);
-  return { generacion_id: generacionId, cantidad: creados.length, turno_ids: creados.map(({ idTurno }) => idTurno) };
+  return {
+    generacion_id: generacionId, cantidad: creados.length, turno_ids: creados.map(({ idTurno }) => idTurno),
+    aulas_cambiadas: resumen.aulasCambiadas, fechas_excluidas: resumen.fechasExcluidas,
+  };
 }

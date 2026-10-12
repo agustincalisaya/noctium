@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GenerarTurnosSchema } from "./turno.generacion.schema";
 
-const { materiaActiva, profesorActivo, dictaMateria, horario, aulasActivas, aulaActiva, existeAula,
+const { materiaActiva, profesorActivo, dictaMateria, horario, aulasActivas, aulaActiva, existeAula, nombreAula, listarAulas,
   parametrosHorario, parametros, buscarTurnos, crearTurno, actualizarTurno, borrarTurno, crearEvento } = vi.hoisted(() => ({
   materiaActiva: vi.fn(), profesorActivo: vi.fn(), dictaMateria: vi.fn(), horario: vi.fn(),
-  aulasActivas: vi.fn(), aulaActiva: vi.fn(), existeAula: vi.fn(), parametrosHorario: vi.fn(),
+  aulasActivas: vi.fn(), aulaActiva: vi.fn(), existeAula: vi.fn(),
+  nombreAula: vi.fn(async (id: string) => ({ id, nombre: "Aula por defecto" })), listarAulas: vi.fn(async () => []), parametrosHorario: vi.fn(),
   parametros: vi.fn(), buscarTurnos: vi.fn(), crearTurno: vi.fn(), actualizarTurno: vi.fn(), borrarTurno: vi.fn(), crearEvento: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
@@ -18,6 +19,7 @@ vi.mock("@/server/profesores/profesor.publico", () => ({
 }));
 vi.mock("@/server/aulas/aula.publico", () => ({
   hayAulasActivas: aulasActivas, verificarAulaActiva: aulaActiva, existeAula,
+  obtenerNombreAula: nombreAula, listarAulasActivasParaTurno: listarAulas,
 }));
 vi.mock("@/server/shared/parametros", () => ({ obtenerParametrosHorarioOperativo: parametrosHorario }));
 
@@ -68,7 +70,7 @@ beforeEach(() => {
 
 describe("vistaPreviaGeneracion", () => {
   it("devuelve todas las fechas sin escrituras ni eventos", async () => {
-    await expect(vistaPreviaGeneracion(entrada(), ahora)).resolves.toEqual({
+    await expect(vistaPreviaGeneracion(entrada(), ahora)).resolves.toMatchObject({
       cantidad: 3, fechas: ["2026-10-05", "2026-10-12", "2026-10-19"].map((fecha) => ({ fecha, estado: "OK", motivos: [] })),
       hay_conflictos: false, fechas_omitidas_vencidas: 0,
     });
@@ -90,7 +92,7 @@ describe("vistaPreviaGeneracion", () => {
   it("detecta TURNO_EXISTENTE aun si está PENDIENTE y lo prioriza", async () => {
     turnos.push(guardado("2026-10-05", "10:00", "PENDIENTE"));
     const resultado = await vistaPreviaGeneracion(entrada({ fecha_hasta: "2026-10-05" }), ahora);
-    expect(resultado.fechas).toEqual([{ fecha: "2026-10-05", estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] }]);
+    expect(resultado.fechas).toMatchObject([{ fecha: "2026-10-05", estado: "CONFLICTO", motivos: ["TURNO_EXISTENTE"] }]);
   });
 
   it.each(["DISPONIBLE", "COMPLETO"] as const)("detecta ocupación del profesor en estado %s", async (estado) => {
@@ -181,5 +183,225 @@ describe("vistaPreviaGeneracion", () => {
     aulaActiva.mockResolvedValueOnce(null);
     existeAula.mockResolvedValueOnce(true);
     await expect(vistaPreviaGeneracion(entrada(), ahora)).rejects.toMatchObject({ code: "AULA_INACTIVA" });
+  });
+});
+
+describe("HU-C-21: validaciones de las listas en el servicio", () => {
+  const otraAula = "ckaula00000000000000002";
+  const conListas = (cambios: Record<string, unknown>) => GenerarTurnosSchema.parse({ ...base, ...cambios });
+
+  it.each([
+    ["aulas_por_fecha", { aulas_por_fecha: [{ fecha: "2026-10-06", aula_id: otraAula }] }, "2026-10-06"],
+    ["fechas_excluidas", { fechas_excluidas: ["2026-10-26"] }, "2026-10-26"],
+  ] as const)("una fecha de %s fuera de las calculadas es VALIDATION_ERROR sin consultar disponibilidad", async (campo, cambios, fecha) => {
+    await expect(vistaPreviaGeneracion(conListas(cambios), ahora)).rejects.toMatchObject({ code: "VALIDATION_ERROR", detalles: { campo, fecha } });
+    expect(buscarTurnos).not.toHaveBeenCalled();
+  });
+
+  it("una fecha de hoy ya vencida no pertenece a las calculadas", async () => {
+    horario.mockResolvedValue({ dia_semana: "MIERCOLES", hora_inicio: "08:00", hora_fin: "20:00" });
+    const tarde = new Date("2026-09-30T15:00:00.000Z");
+    await expect(vistaPreviaGeneracion(conListas({ fecha_desde: "2026-09-30", fecha_hasta: "2026-10-07", fechas_excluidas: ["2026-09-30"] }), tarde))
+      .rejects.toMatchObject({ code: "VALIDATION_ERROR", detalles: { campo: "fechas_excluidas", fecha: "2026-09-30" } });
+  });
+
+  it("el aula de una fecha igual al aula por defecto es VALIDATION_ERROR (D10)", async () => {
+    await expect(vistaPreviaGeneracion(conListas({ aulas_por_fecha: [{ fecha: "2026-10-12", aula_id: base.aula_id }] }), ahora))
+      .rejects.toMatchObject({ code: "VALIDATION_ERROR", detalles: { campo: "aulas_por_fecha", fecha: "2026-10-12" } });
+    expect(buscarTurnos).not.toHaveBeenCalled();
+  });
+
+  it("los errores de Sprint 2 conservan su precedencia sobre las listas", async () => {
+    await expect(vistaPreviaGeneracion(conListas({ hora_inicio: "08:15", fechas_excluidas: ["2026-10-26"] }), ahora)).rejects.toMatchObject({ code: "FUERA_DE_FRANJA" });
+  });
+});
+
+describe("HU-C-21: aula por fecha, exclusión, cupo y sin aulas libres", () => {
+  const otraAula = "ckaula00000000000000002";
+  const terceraAula = "ckaula00000000000000003";
+  const conListas = (cambios: Record<string, unknown>) => GenerarTurnosSchema.parse({ ...base, ...cambios });
+  const capacidades: Record<string, number> = { [base.aula_id]: 20, [otraAula]: 8, [terceraAula]: 30 };
+  const nombres: Record<string, string> = { [base.aula_id]: "Aula 1", [otraAula]: "Aula 2", [terceraAula]: "Aula 3" };
+
+  beforeEach(() => {
+    aulaActiva.mockImplementation(async (id: string) => capacidades[id] ? { idAula: id, capacidadAula: capacidades[id] } : null);
+    nombreAula.mockImplementation(async (id: string) => nombres[id] ? { id, nombre: nombres[id] } : null);
+    listarAulas.mockResolvedValue(Object.keys(capacidades).map((id) => ({ id, nombre: nombres[id], capacidad: capacidades[id] })));
+    // La lectura agrupada de aulas libres filtra con `in`; la validación por fecha, con valores simples.
+    const porFecha = buscarTurnos.getMockImplementation()!;
+    buscarTurnos.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      const fechas = where.fechaTurno as Date | { in: Date[] };
+      if (fechas instanceof Date) return porFecha({ where });
+      const aulas = (where.aulaId as { in: string[] }).in;
+      return turnos.filter((turno) => fechas.in.some((fecha) => fecha.getTime() === turno.fechaTurno.getTime())
+        && aulas.includes(turno.aulaId) && ["DISPONIBLE", "COMPLETO"].includes(turno.estadoTurno));
+    });
+  });
+
+  it("un pedido de Sprint 2 suma los campos nuevos con el aula por defecto", async () => {
+    const resultado = await vistaPreviaGeneracion(entrada(), ahora);
+    expect(resultado).toEqual({
+      cantidad: 3, cantidad_incluida: 3, con_aula_cambiada: 0, excluidas: 0, hay_conflictos: false, fechas_omitidas_vencidas: 0,
+      fechas: ["2026-10-05", "2026-10-12", "2026-10-19"].map((fecha) => ({
+        fecha, estado: "OK", motivos: [], aula: { id: base.aula_id, nombre: "Aula 1" }, aula_cambiada: false,
+        cupo: 20, cupo_aula_por_defecto: 20, excluida: false, sin_aulas_libres: false, solo_excluible: false,
+      })),
+    });
+    expect(listarAulas).not.toHaveBeenCalled();
+  });
+
+  it("el aula de una fecha cambia solo esa fecha, con su cupo; cada aula distinta se lee una vez", async () => {
+    turnos.push(guardado("2026-10-12", "10:00", "DISPONIBLE", { materiaId: "otra-materia", profesorId: "otro-profesor" }));
+    const resultado = await vistaPreviaGeneracion(conListas({ aulas_por_fecha: [{ fecha: "2026-10-12", aula_id: otraAula }, { fecha: "2026-10-19", aula_id: otraAula }] }), ahora);
+    expect(resultado).toMatchObject({ cantidad: 3, cantidad_incluida: 3, con_aula_cambiada: 2, excluidas: 0, hay_conflictos: false });
+    expect(resultado.fechas[0]).toMatchObject({ aula: { id: base.aula_id, nombre: "Aula 1" }, aula_cambiada: false, cupo: 20 });
+    expect(resultado.fechas[1]).toMatchObject({ estado: "OK", motivos: [], aula: { id: otraAula, nombre: "Aula 2" }, aula_cambiada: true, cupo: 8, cupo_aula_por_defecto: 20 });
+    expect(aulaActiva.mock.calls.map(([id]) => id)).toEqual([base.aula_id, otraAula]);
+  });
+
+  it("un aula elegida que está ocupada marca AULA_OCUPADA en esa fecha y sigue como cambiada", async () => {
+    turnos.push(guardado("2026-10-12", "11:00", "COMPLETO", { materiaId: "otra-materia", profesorId: "otro-profesor", aulaId: otraAula }));
+    const resultado = await vistaPreviaGeneracion(conListas({ aulas_por_fecha: [{ fecha: "2026-10-12", aula_id: otraAula }] }), ahora);
+    expect(resultado.hay_conflictos).toBe(true);
+    expect(resultado.fechas[1]).toMatchObject({ estado: "CONFLICTO", motivos: ["AULA_OCUPADA"], aula_cambiada: true, solo_excluible: false, sin_aulas_libres: false });
+  });
+
+  it.each([
+    ["inexistente", false, "AULA_NO_ENCONTRADA"],
+    ["inactiva", true, "AULA_INACTIVA"],
+  ] as const)("un aula de fecha %s responde %s con la fecha en detalles", async (_caso, existe, codigo) => {
+    const ausente = "ckaula00000000000000009";
+    existeAula.mockResolvedValueOnce(existe);
+    await expect(vistaPreviaGeneracion(conListas({ aulas_por_fecha: [{ fecha: "2026-10-12", aula_id: ausente }] }), ahora))
+      .rejects.toMatchObject({ code: codigo, detalles: { campo: "aulas_por_fecha", fecha: "2026-10-12", aula_id: ausente } });
+    expect(buscarTurnos).not.toHaveBeenCalled();
+  });
+
+  it("una fecha excluida vuelve sin consultar disponibilidad y no cuenta para los conflictos", async () => {
+    turnos.push(guardado("2026-10-12", "10:00", "PENDIENTE"));
+    const resultado = await vistaPreviaGeneracion(conListas({ fechas_excluidas: ["2026-10-12"] }), ahora);
+    expect(resultado).toMatchObject({ cantidad: 3, cantidad_incluida: 2, excluidas: 1, con_aula_cambiada: 0, hay_conflictos: false });
+    expect(resultado.fechas[1]).toEqual({
+      fecha: "2026-10-12", estado: "OK", motivos: [], aula: { id: base.aula_id, nombre: "Aula 1" }, aula_cambiada: false,
+      cupo: 20, cupo_aula_por_defecto: 20, excluida: true, sin_aulas_libres: false, solo_excluible: false,
+    });
+    const fechasConsultadas = buscarTurnos.mock.calls.map(([{ where }]) => (where.fechaTurno as Date).toISOString().slice(0, 10));
+    expect(fechasConsultadas).not.toContain("2026-10-12");
+    expect(buscarTurnos).toHaveBeenCalledTimes(6);
+  });
+
+  it("todas las fechas excluidas → SIN_FECHAS_EN_RANGO; el tope sigue contando las calculadas", async () => {
+    await expect(vistaPreviaGeneracion(conListas({ fechas_excluidas: ["2026-10-05", "2026-10-12", "2026-10-19"] }), ahora))
+      .rejects.toMatchObject({ code: "SIN_FECHAS_EN_RANGO", message: "Tiene que quedar al menos una fecha para generar." });
+    parametros.mockResolvedValueOnce([{ clave: "generacion_maxima_meses", valor: "6" }, { clave: "generacion_maxima_turnos", valor: "2" }]);
+    await expect(vistaPreviaGeneracion(conListas({ fechas_excluidas: ["2026-10-05"] }), ahora)).rejects.toMatchObject({ code: "RANGO_EXCEDIDO" });
+  });
+
+  it.each([
+    [["PROFESOR_OCUPADO"], { materiaId: "otra-materia", aulaId: otraAula }],
+    [["TURNO_EXISTENTE"], {}],
+    [["AULA_OCUPADA", "PROFESOR_OCUPADO"], { materiaId: "otra-materia" }],
+  ] as const)("motivos %j → solo_excluible, sin calcular aulas libres", async (motivos, cambios) => {
+    turnos.push(guardado("2026-10-05", "10:00", "DISPONIBLE", cambios));
+    const resultado = await vistaPreviaGeneracion(entrada({ fecha_hasta: "2026-10-05" }), ahora);
+    expect(resultado.fechas[0]).toMatchObject({ motivos, solo_excluible: true, sin_aulas_libres: false });
+    expect(listarAulas).not.toHaveBeenCalled();
+  });
+
+  it("sin_aulas_libres solo con AULA_OCUPADA: false si queda alguna libre, true si no", async () => {
+    turnos.push(guardado("2026-10-05", "10:00", "DISPONIBLE", { materiaId: "otra-materia", profesorId: "otro-profesor" }));
+    turnos.push(guardado("2026-10-12", "10:00", "DISPONIBLE", { materiaId: "otra-materia", profesorId: "otro-profesor" }));
+    for (const [aulaId, profesorId] of [[otraAula, "p2"], [terceraAula, "p3"]]) {
+      turnos.push(guardado("2026-10-12", "11:00", "COMPLETO", { materiaId: "otra-materia", profesorId, aulaId }));
+    }
+    const resultado = await vistaPreviaGeneracion(entrada(), ahora);
+    expect(resultado.fechas.map(({ motivos, sin_aulas_libres }) => [motivos, sin_aulas_libres])).toEqual([
+      [["AULA_OCUPADA"], false], [["AULA_OCUPADA"], true], [[], false],
+    ]);
+    expect(listarAulas).toHaveBeenCalledOnce();
+  });
+});
+
+describe("HU-C-21: confirmación con aula y cupo por clase", () => {
+  const otraAula = "ckaula00000000000000002";
+  const capacidades: Record<string, number> = { [base.aula_id]: 20, [otraAula]: 8 };
+  const nombres: Record<string, string> = { [base.aula_id]: "Aula 1", [otraAula]: "Aula 2" };
+  const orden: string[] = [];
+  const emitir = vi.fn(async () => { orden.push("eventos"); });
+  let confirmarGeneracion: typeof import("./turno.generacion.service").confirmarGeneracion;
+
+  beforeAll(async () => {
+    // Solo para este bloque: transacción y bloqueo en memoria; el resto de los mocks del archivo no cambia.
+    const tx = { parametroSistema: { findMany: parametros }, turno: { findMany: buscarTurnos, create: crearTurno } };
+    vi.doMock("@/server/shared/transaccion", () => ({
+      transaccion: async (tarea: (cliente: typeof tx) => Promise<unknown>) => {
+        const resultado = await tarea(tx);
+        orden.push("commit");
+        return resultado;
+      },
+    }));
+    vi.doMock("@/server/shared/bloquear", () => ({ bloquear: async () => { orden.push("bloqueo"); return {}; } }));
+    vi.doMock("./turno.publico", () => ({ emitirEventosTurno: emitir }));
+    vi.resetModules();
+    ({ confirmarGeneracion } = await import("./turno.generacion.service"));
+  });
+  afterAll(() => {
+    vi.doUnmock("@/server/shared/transaccion");
+    vi.doUnmock("@/server/shared/bloquear");
+    vi.doUnmock("./turno.publico");
+    vi.resetModules();
+  });
+  beforeEach(() => {
+    orden.length = 0;
+    aulaActiva.mockImplementation(async (id: string) => capacidades[id] ? { idAula: id, capacidadAula: capacidades[id] } : null);
+    nombreAula.mockImplementation(async (id: string) => nombres[id] ? { id, nombre: nombres[id] } : null);
+    let secuencia = 0;
+    crearTurno.mockImplementation(async () => { orden.push("insert"); return { idTurno: `cturno${++secuencia}` }; });
+  });
+  const conListas = () => GenerarTurnosSchema.parse({
+    ...base, aulas_por_fecha: [{ fecha: "2026-10-12", aula_id: otraAula }], fechas_excluidas: ["2026-10-19"],
+  });
+
+  it("crea cada clase incluida con el aula y el cupo de su fecha y no crea las excluidas", async () => {
+    const resultado = await confirmarGeneracion(conListas(), "usuario-1", ahora);
+    expect(resultado).toEqual({ generacion_id: "cturno1", cantidad: 2, turno_ids: ["cturno1", "cturno2"], aulas_cambiadas: 1, fechas_excluidas: 1 });
+    expect(crearTurno.mock.calls.map(([{ data }]) => [data.fechaTurno.toISOString().slice(0, 10), data.aulaId, data.cupoMaximoTurno, data.estadoTurno])).toEqual([
+      ["2026-10-05", base.aula_id, 20, "DISPONIBLE"],
+      ["2026-10-12", otraAula, 8, "DISPONIBLE"],
+    ]);
+  });
+
+  it("un pedido de Sprint 2 informa 0 aulas cambiadas y 0 fechas excluidas", async () => {
+    await expect(confirmarGeneracion(entrada(), "usuario-1", ahora)).resolves.toMatchObject({ cantidad: 3, aulas_cambiadas: 0, fechas_excluidas: 0 });
+    expect(crearTurno.mock.calls.every(([{ data }]) => data.aulaId === base.aula_id && data.cupoMaximoTurno === 20)).toBe(true);
+  });
+
+  it("los eventos llevan el aula y el cupo de cada clase y se emiten después del commit", async () => {
+    await confirmarGeneracion(conListas(), "usuario-1", ahora);
+    expect(orden).toEqual(["bloqueo", "insert", "insert", "commit", "eventos"]);
+    const eventos = emitir.mock.calls[0]![0] as { tipoEvento: string; turnoId: string; payloadEvento: Record<string, unknown> }[];
+    const payload = (turnoId: string, tipo: string) => eventos.find((evento) => evento.turnoId === turnoId && evento.tipoEvento === tipo)?.payloadEvento;
+    expect(payload("cturno1", "turno:aula_asignada")).toMatchObject({ aula_id: base.aula_id, cupo_maximo: 20 });
+    expect(payload("cturno2", "turno:aula_asignada")).toMatchObject({ aula_id: otraAula, cupo_maximo: 8 });
+    expect(payload("cturno1", "turno:disponibilizado")).toMatchObject({ aula_id: base.aula_id });
+    expect(payload("cturno2", "turno:disponibilizado")).toMatchObject({ aula_id: otraAula });
+    expect(payload("cturno2", "turno:configurado")).toMatchObject({ generacion_id: "cturno1" });
+    expect(eventos).toHaveLength(6);
+  });
+
+  it("un conflicto en una fecha incluida no crea nada, no emite eventos y no calcula aulas libres", async () => {
+    turnos.push(guardado("2026-10-12", "10:00", "DISPONIBLE", { materiaId: "otra-materia", profesorId: "otro-profesor", aulaId: otraAula }));
+    await expect(confirmarGeneracion(conListas(), "usuario-1", ahora)).rejects.toMatchObject({
+      code: "GENERACION_CON_CONFLICTOS",
+      detalles: { hay_conflictos: true, fechas: [{ estado: "OK" }, { motivos: ["AULA_OCUPADA"], aula_cambiada: true, sin_aulas_libres: false }, { excluida: true }] },
+    });
+    expect(crearTurno).not.toHaveBeenCalled();
+    expect(emitir).not.toHaveBeenCalled();
+    expect(listarAulas).not.toHaveBeenCalled();
+  });
+
+  it("un conflicto en una fecha excluida no impide confirmar", async () => {
+    turnos.push(guardado("2026-10-19", "10:00", "PENDIENTE"));
+    await expect(confirmarGeneracion(conListas(), "usuario-1", ahora)).resolves.toMatchObject({ cantidad: 2, fechas_excluidas: 1 });
   });
 });

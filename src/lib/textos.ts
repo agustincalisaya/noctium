@@ -483,6 +483,15 @@ export const TEXTOS = {
   "ui.clases.interfaz.prioridadActualizada": "Prioridad actualizada",
   "ui.clases.interfaz.altaYUrgenteSeMarcanEnElListadoYEnElCalendario": "Alta y Urgente se marcan en el listado y en el calendario. No cambia el orden del listado ni envía notificaciones.",
   "ui.clases.interfaz.prioridadDeLaClase": "Prioridad de la clase",
+  // HU-C-21: aula por fecha y exclusión al generar varias clases.
+  "ui.clases.generacion.errores.parametrosInvalidos": "Parámetros inválidos",
+  "ui.clases.generacion.errores.fechaRepetida": "La fecha está repetida",
+  "ui.clases.generacion.errores.fechaExcluidaConAula": "Una fecha excluida no puede tener otra aula",
+  "ui.clases.generacion.errores.fechaNoPertenece": "La fecha no pertenece a las fechas a generar",
+  "ui.clases.generacion.errores.aulaIgualALaElegida": "El aula de la fecha debe ser distinta del aula elegida",
+  "ui.clases.generacion.errores.aulaDeLaFechaInactiva": "El aula elegida para una de las fechas está inactiva",
+  "ui.clases.generacion.errores.aulaDeLaFechaNoEncontrada": "No se encontró el aula elegida para una de las fechas",
+  "ui.clases.generacion.errores.todasLasFechasExcluidas": "Tiene que quedar al menos una fecha para generar.",
 
   "ui.profesores.estado.menu": "Profesores",
   "ui.profesores.estado.listado": "Listado",

@@ -1,6 +1,6 @@
 import { diaSemanaDeFecha, horaAMinutos, type DiaSemanaValor } from "@/lib/horario-atencion";
 import { iniciosPosibles } from "./turno.disponibilidad";
-import type { MotivoConflictoGeneracion } from "./turno.generacion.schema";
+import type { AulaLibre, MotivoConflictoGeneracion } from "./turno.generacion.schema";
 
 /** Suma meses de calendario y conserva el día, o el último del mes destino. */
 export function sumarMesesCalendario(fecha: Date, meses: number): Date {
@@ -61,4 +61,29 @@ export function motivosConflictoGeneracion(
   if (aulaOcupada) motivos.push("AULA_OCUPADA");
   if (profesorOcupado) motivos.push("PROFESOR_OCUPADO");
   return motivos;
+}
+
+/** HU-C-21: primera fecha de las listas que no está entre las calculadas del rango. */
+export function fechaAjenaALaGeneracion(
+  calculadas: readonly string[],
+  aulasPorFecha: readonly { fecha: string }[],
+  fechasExcluidas: readonly string[],
+): { campo: "aulas_por_fecha" | "fechas_excluidas"; fecha: string } | null {
+  const validas = new Set(calculadas);
+  const conAula = aulasPorFecha.find(({ fecha }) => !validas.has(fecha));
+  if (conAula) return { campo: "aulas_por_fecha", fecha: conAula.fecha };
+  const excluida = fechasExcluidas.find((fecha) => !validas.has(fecha));
+  return excluida ? { campo: "fechas_excluidas", fecha: excluida } : null;
+}
+
+/** HU-C-21 (D1): con el profesor ocupado o la clase duplicada, cambiar el aula no resuelve la fecha. */
+export function esSoloExcluible(motivos: readonly MotivoConflictoGeneracion[]): boolean {
+  return motivos.includes("PROFESOR_OCUPADO") || motivos.includes("TURNO_EXISTENTE");
+}
+
+/** HU-C-21 (4.4): capacidad ascendente, después nombre y por último id, para un orden determinista. */
+export function compararAulasPorCapacidad(a: AulaLibre, b: AulaLibre): number {
+  return a.capacidad - b.capacidad
+    || a.nombre.localeCompare(b.nombre, "es", { numeric: true })
+    || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
