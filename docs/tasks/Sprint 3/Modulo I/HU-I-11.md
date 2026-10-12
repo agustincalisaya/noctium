@@ -293,16 +293,16 @@ No aplica en el sentido clásico (esta task no escribe en la base). Verificar en
 
 ## 7. Checklist de Definition of Done
 
-- [ ] Relevamiento previo (sección 0) confirmado antes de implementar, incluyendo las 14 decisiones de 0.4 (1 a 9 del borrador original, 10 a 14 agregadas tras el relevamiento de Claude Code).
-- [ ] `leerComprobante`, `leerComprobanteDeAlumno`, `comprobanteDelPagoEnOperacion` (movida sin reescribir) y `comprobanteDelPago` (wrapper async nuevo) implementados en `comprobante.lectura.ts`; ninguno reimplementa lógica que ya resuelven `pago.vigente.ts` o `pago.publico.ts`.
-- [ ] Los tres Route Handlers responden `{ data, error }` con los status codes de 2.9.5, reusando `respuestaDeError`.
-- [ ] Entradas `comprobantes: ["MESA_ENTRADA", "GERENTE"]` y `"mis-pagos": ["ALUMNO"]` agregadas a `rutas-por-rol.ts`.
-- [ ] `TurnoPagoCard` y el banner de éxito de HU-I-10 wireados con el link al comprobante, sin tocar nada más de esos archivos.
-- [ ] `PagoDeTurno`/`PagoRegistradoTurno` extendidos con `comprobante`, sin romper los consumidores existentes de `listarPagosDeTurno` — correr sus tests, no solo los nuevos.
-- [ ] Textos nuevos agregados a `textos.ts`, ninguno hardcodeado en componentes.
-- [ ] Botón "Imprimir" funcional: solo el comprobante se ve al imprimir, sin librería de PDF.
-- [ ] Ningún cambio en `comprobante.service.ts`, `comprobante.schema.ts`, `operacion.service.ts`, `errores-dominio.ts` ni `prisma/seed.ts`.
-- [ ] Ningún link agregado hacia el historial del alumno (HU-I-02) ni "Mis pagos" (HU-I-05): esas pantallas no existen todavía.
-- [ ] Ningún botón "Corregir"/"Anular" agregado (HU-I-06, fuera de alcance).
-- [ ] Tests de los 3 niveles en verde, con evidencia.
+- [x] Relevamiento previo (sección 0) confirmado antes de implementar, incluyendo las 14 decisiones de 0.4 (1 a 9 del borrador original, 10 a 14 agregadas tras el relevamiento de Claude Code).
+- [x] `leerComprobante`, `leerComprobanteDeAlumno`, `comprobanteDelPagoEnOperacion` (movida sin reescribir) y `comprobanteDelPago` (wrapper async nuevo) implementados en `comprobante.lectura.ts`; ninguno reimplementa lógica que ya resuelven `pago.vigente.ts` o `pago.publico.ts`.
+- [x] Los tres Route Handlers responden `{ data, error }` con los status codes de 2.9.5, reusando `respuestaDeError`.
+- [x] Entradas `comprobantes: ["MESA_ENTRADA", "GERENTE"]` y `"mis-pagos": ["ALUMNO"]` agregadas a `rutas-por-rol.ts`.
+- [x] `TurnoPagoCard` y el banner de éxito de HU-I-10 wireados con el link al comprobante, sin tocar nada más de esos archivos.
+- [x] `PagoDeTurno`/`PagoRegistradoTurno` extendidos con `comprobante`, sin romper los consumidores existentes de `listarPagosDeTurno` — correr sus tests, no solo los nuevos.
+- [x] Textos nuevos agregados a `textos.ts`, ninguno hardcodeado en componentes.
+- [x] Botón "Imprimir" funcional: solo el comprobante se ve al imprimir, sin librería de PDF. (Verificado manualmente — se detectó y corrigió un bug de especificidad CSS en `globals.css` que dejaba la hoja de impresión en blanco.)
+- [x] Ningún cambio en `comprobante.service.ts`, `comprobante.schema.ts`, `operacion.service.ts`, `errores-dominio.ts` ni `prisma/seed.ts`.
+- [x] Ningún link agregado hacia el historial del alumno (HU-I-02) ni "Mis pagos" (HU-I-05): esas pantallas no existen todavía.
+- [x] Ningún botón "Corregir"/"Anular" agregado (HU-I-06, fuera de alcance).
+- [x] Tests de los 3 niveles en verde, con evidencia: unitarios/integración (3161 tests) y Postgres real en verde; Nivel 2 (Postman) y verificación visual de los dos flujos y RBAC, hechos a mano; Nivel 3 cubierto por test automático (renombrar forma de pago no cambia el comprobante emitido).
 - [ ] PR con diff acotado exclusivamente a esta HU.
