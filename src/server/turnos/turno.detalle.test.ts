@@ -252,6 +252,16 @@ describe("HU-C-24 reservas pendientes (C §2.18.4)", () => {
     expect((await ok()).alumnos[0]).toMatchObject({ puede_registrar_pago: false });
   });
 
+  it("una reserva de una clase cancelada se informa como «Pago sin registrar» y sin vencimiento (C §2.18.6)", async () => {
+    turno.findFirst.mockResolvedValue(registro({ estado: "CANCELADO" }));
+    turnoAlumno.findMany.mockResolvedValue([RESERVADA, PAGADA]);
+    const { alumnos } = await ok();
+    expect(alumnos[0]).toMatchObject({ inscripcion: { id: "insc-0", estado_pago: "PAGO_SIN_REGISTRAR", precio: 24000 }, puede_registrar_pago: false });
+    expect(alumnos[0]!.inscripcion).not.toHaveProperty("vence_el");
+    // Una inscripción pagada conserva su estado.
+    expect(alumnos[1]).toMatchObject({ inscripcion: { estado_pago: "PAGADA" } });
+  });
+
   it("el Gerente ve la reserva en modo consulta: sin permiso de cobro no hay acceso a «Registrar pago»", async () => {
     turnoAlumno.findMany.mockResolvedValue([RESERVADA]);
     expect((await ok(GERENTE, CAPACIDADES_GERENTE)).alumnos[0]).toMatchObject({ inscripcion: { estado_pago: "RESERVADA" }, puede_registrar_pago: false });

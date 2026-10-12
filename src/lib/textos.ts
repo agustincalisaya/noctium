@@ -748,6 +748,8 @@ export const TEXTOS = {
   "ui.historial.examen.errorOperacion": "No se pudo completar la operación. Intentá nuevamente.",
   // HU-C-25 criterio 2 / HU-C-24: inscribir a un alumno desde el centro (C §2.18.3).
   "confirmaciones.inscripcion.centro": "¿Estás seguro de que querés inscribir a {alumno} en {materia} del {fecha} a las {hora}?",
+  // HU-C-25 criterio 4 / HU-C-24: quitar a un alumno de la clase desde el centro (C §2.5, §2.20).
+  "confirmaciones.inscripcion.quitar": "¿Estás seguro de que querés quitar a {alumno} de {materia} del {fecha} a las {hora}?",
   "confirmaciones.examen.corregir": "¿Corregir el resultado de {materia}?",
   "confirmaciones.examen.anular": "¿Anular el resultado de {materia} del {fecha}?",
   "ui.indicadores.panel.ausentes": "Ausentes",

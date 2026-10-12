@@ -57,6 +57,9 @@ export async function obtenerDetalleTurno(
     && inicioClase.getTime() > ahora.getTime();
   const alumnos = await Promise.all(turno.alumnos.map(async (alumno) => {
     const fila = inscripciones?.get(alumno.id);
+    // Las reservas de una clase cancelada dejan de vencer (C §2.18.6): se informan
+    // como «Pago sin registrar» y sin vencimiento (C §2.17.4).
+    const sinVencer = fila?.estadoPago === "RESERVADA" && turno.estado === "CANCELADO";
     return {
       ...alumno,
       puede_ver_historial: capacidades.verHistorial && (usuario.rol !== "PROFESOR"
@@ -66,8 +69,8 @@ export async function obtenerDetalleTurno(
         ))),
       ...(fila ? {
         inscripcion: {
-          id: fila.idInscripcion, estado_pago: fila.estadoPago,
-          ...(fila.estadoPago === "RESERVADA" && fila.venceEl ? { vence_el: isoCentro(fila.venceEl) } : {}),
+          id: fila.idInscripcion, estado_pago: sinVencer ? "PAGO_SIN_REGISTRAR" as const : fila.estadoPago,
+          ...(fila.estadoPago === "RESERVADA" && !sinVencer && fila.venceEl ? { vence_el: isoCentro(fila.venceEl) } : {}),
           precio: fila.precio,
         },
         puede_registrar_pago: cobrable && fila.estadoPago !== "PAGADA",
