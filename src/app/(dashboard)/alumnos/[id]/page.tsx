@@ -12,6 +12,9 @@ import { FichaEncabezado } from "./ficha-encabezado";
 import { FichaContacto } from "./ficha-contacto";
 import { FichaAltaPago } from "./ficha-alta-pago";
 import { CuentaAccesoCard } from "@/components/shared/cuenta-acceso-card";
+import { EstadoAlumnoDialog } from "./estado-alumno-dialog";
+import { HistorialEstadosAlumno } from "./historial-estados-alumno";
+import { obtenerHistorialEstadosAlumno } from "@/server/alumnos/alumno.estado.service";
 
 async function permisoOpcional(accion: string) {
   try {
@@ -32,10 +35,11 @@ export default async function AlumnoDetallePage({
 }) {
   const { id } = await params;
   const { pagina, q, tab, volver, materia_id } = await searchParams;
-  const [usuarioFicha, usuarioHistorial, usuarioEditar, usuarioRegistrarExamen, usuarioRegistrarIndicacion] = await Promise.all([
+  const [usuarioFicha, usuarioHistorial, usuarioEditar, usuarioCambiarEstado, usuarioRegistrarExamen, usuarioRegistrarIndicacion] = await Promise.all([
     permisoOpcional("alumnos:leer"),
     permisoOpcional("historial:leer"),
     permisoOpcional("alumnos:editar"),
+    permisoOpcional("alumnos:cambiar_estado"),
     permisoOpcional("examenes:registrar"),
     permisoOpcional("indicaciones:registrar"),
   ]);
@@ -95,6 +99,11 @@ export default async function AlumnoDetallePage({
             puedeEditar={!mostrarHistorial && !mostrarClases && !gerente && usuarioEditar !== null}
             modoHistorial={mostrarHistorial || mostrarClases}
           />
+          {!mostrarHistorial && !mostrarClases && usuarioCambiarEstado && (
+            <div className="flex justify-end">
+              <EstadoAlumnoDialog alumno={{ id: alumno.id, nombre: alumno.nombre, apellido: alumno.apellido, activo: alumno.is_active, version: alumno.version }} />
+            </div>
+          )}
           {gerente && <p className="text-xs text-muted-foreground">{texto("ui.historial.clasesAlumno.consulta")}</p>}
           <nav className="flex gap-5 border-b border-border" aria-label={textoC19("ui.clases.interfaz.seccionesDeLaFicha")}>
             <Link
@@ -137,8 +146,10 @@ export default async function AlumnoDetallePage({
             formaPagoPreferidaActiva={alumno.forma_pago_preferida_activa}
             puedeEditar={!gerente && usuarioEditar !== null}
           />
-          {/* HU-A-06 criterio 5: estado de la cuenta; una ficha anterior muestra «Sin cuenta». */}
-          <CuentaAccesoCard cuenta={await obtenerCuentaDeAlumno(alumno.id)} />
+          <div className="grid items-start gap-5 md:grid-cols-2">
+            <CuentaAccesoCard cuenta={await obtenerCuentaDeAlumno(alumno.id)} />
+            <HistorialEstadosAlumno historial={await obtenerHistorialEstadosAlumno(alumno.id)} />
+          </div>
         </>
       )}
     </div>

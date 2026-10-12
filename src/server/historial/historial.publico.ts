@@ -9,6 +9,16 @@ import { sqlAsistenciaVigente, sqlClaseDictadaVigente, sqlConControlVigente } fr
 
 type Db = Prisma.TransactionClient;
 
+/** `true` si el alumno tiene clases dictadas, resultados de examen o indicaciones, incluso anulados (motivo obligatorio de la baja, HU-B-07). */
+export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  const [clase, examen, indicacion] = await Promise.all([
+    db.claseDictadaAlumno.findFirst({ where: { alumnoId }, select: { alumnoId: true } }),
+    db.resultadoExamen.findFirst({ where: { alumnoId }, select: { idResultadoExamen: true } }),
+    db.indicacion.findFirst({ where: { alumnoId }, select: { idIndicacion: true } }),
+  ]);
+  return clase !== null || examen !== null || indicacion !== null;
+}
+
 /** Contratos públicos de Historial para los módulos consumidores. */
 export async function obtenerClaseDictadaDeTurno(
   turnoId: string,

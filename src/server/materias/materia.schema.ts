@@ -60,3 +60,16 @@ export const CambiarTarifaSchema = z.object({
   tarifa_actual: TarifaHoraSchema.nullable(),
 }).strict();
 export type CambiarTarifaInput = z.infer<typeof CambiarTarifaSchema>;
+
+export const CambiarTarifasMasivoSchema = z.object({
+  tarifa_hora: TarifaHoraSchema,
+  materias: z.array(z.object({
+    id: z.string().cuid(),
+    tarifa_actual: TarifaHoraSchema.nullable(),
+  }).strict())
+    .min(1, { error: texto("errores.materias.tarifaSeleccion") })
+    .max(200, { error: texto("errores.materias.tarifaSeleccion") })
+    .refine((materias) => new Set(materias.map(({ id }) => id)).size === materias.length,
+      { error: texto("errores.materias.tarifaSeleccion") }),
+}).strict();
+export type CambiarTarifasMasivoInput = z.infer<typeof CambiarTarifasMasivoSchema>;

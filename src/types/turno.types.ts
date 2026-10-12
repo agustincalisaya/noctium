@@ -9,6 +9,7 @@ export type InscripcionPropia = {
   situacion: SituacionInscripcionPropia;
   vence_el: string | null;
   precio: number;
+  cancelacion: "PERMITIDA" | "FUERA_DE_PLAZO" | "NO_APLICA";
 };
 
 /** Resumen informativo previo al POST (C §2.17.1); no reserva ni fija tarifa. */

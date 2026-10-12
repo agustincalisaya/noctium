@@ -42,6 +42,8 @@ export type HistorialTarifaMateria = {
   masivo: boolean;
 };
 export type CambioTarifaMateria = { id: string; tarifa_hora: number; tarifa_anterior: number | null };
+export type MateriaConTarifa = { id: string; nombre: string; codigo: string | null; tarifa_hora: number | null };
+export type CambioTarifasMasivo = { tarifa_hora: number; actualizadas: number; sin_cambio: number };
 export type ResultadoCambiarTarifaMateria =
   | { data: CambioTarifaMateria; error: null }
   | { data: null; error: { code: string; message: string; detalles?: unknown } };

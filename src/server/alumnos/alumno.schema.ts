@@ -150,6 +150,17 @@ export function construirModificarAlumnoSchema(dniLongitudMin: number, dniLongit
 }
 export type ModificarAlumnoInput = z.infer<ReturnType<typeof construirModificarAlumnoSchema>>;
 
+export const DesactivarAlumnoSchema = z.object({
+  motivo: z.string().trim().max(300).optional().transform((valor) => valor || undefined),
+  version: z.number().int().nonnegative(),
+}).strict();
+export type DesactivarAlumnoInput = z.infer<typeof DesactivarAlumnoSchema>;
+
+export const ReactivarAlumnoSchema = z.object({
+  version: z.number().int().nonnegative(),
+}).strict();
+export type ReactivarAlumnoInput = z.infer<typeof ReactivarAlumnoSchema>;
+
 /**
  * Autorregistro del alumno (HU-B-08, `spec_modulo_B.md` §2.6). Factory por
  * el mismo motivo que `crearIdentidadAlumnoSchema`/`construirModificarAlumnoSchema`

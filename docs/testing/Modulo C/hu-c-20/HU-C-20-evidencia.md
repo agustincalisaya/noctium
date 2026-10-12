@@ -23,7 +23,7 @@ No staging, commit, push ni merge.
 |---|---|---|---|
 | 1 — Inscribirme abre resumen sin alta y muestra datos | Directa: componente real jsdom `Inscribirme pide GET sin POST`; servicio `datos completos`; PG `GET ... ninguna mutación` con snapshot persistido. Indirecta: route con wrapper simulado | Aprobada en niveles 1, 2 y 3 y en navegador (A1, A9, C1, C2) | — |
 | 2 — precio y leyenda literal | Directa: precios 60/120/180 en unit/PG; leyenda en componente real; PG `tarifa nueva` comprueba precio de confirmación y estabilidad posterior | Aprobada con la decisión de alcance de la HU; no garantiza importe mostrado ante cambio previo | Decisión aceptada por Tomás el 09/10/2026: el precio mostrado en el GET puede diferir del guardado por el POST si la tarifa cambia entre ambos; el importe queda fijo desde el alta. |
-| 3 — plazo, cancelación y límite | Directa parcial: null del interino, campos de límite y offset calculados por servidor; componente verifica ausencia de leyendas diferidas | Parcial: contrato interino aprobado, CA3 completo NO cumplido | Plazo/vencimiento C-22 (Tomás); reglas C-14 (Tomás); valor configurable N-01 (responsable del sprint), condiciones/pasos en task §1 |
+| 3 — plazo, cancelación y límite | Directa: campos de límite y offset calculados por servidor; componente real jsdom compara el párrafo literal completo con límite vigente y con límite pasado, ausencia sin plazo y orden después de la leyenda del plazo (ver «Criterio 3: leyenda de cancelación (12/10/2026)») | Aprobada: leyendas de plazo y de cancelación implementadas en el resumen | Verificación de la regla de cancelación C-14 (Tomás) y del valor configurable N-01 (responsable del sprint), condiciones en task §1 |
 | 4 — Confirmar reserva/Volver conserva elección | Directa: componente real conserva tres radios y pide nuevo resumen al reabrir; confirma id del DTO, doble clic, bloqueo y navegación | Aprobada en jsdom y en navegador (C1, C2, C4 emulado, teclado físico) | — |
 | 5 — cupo/superposición revalidados y sin alta ante rechazo | Directa: PG GET→cambio→servicio real C-12, snapshot antes/después del rechazo; carrera por último lugar. Componente muestra motivos en diálogo conservando selección. Indirecta: route simulado | Aprobada en servicio/PG/componente, HTTP autenticado (A7) y navegador (C3) | — |
 
@@ -276,3 +276,59 @@ inestable.
 
 Estado de git al cerrar: `git status --short` con 17 entradas, igual que al
 inicio; staging vacío.
+
+## Criterio 3: leyenda de cancelación (12/10/2026)
+
+Cambio de pantalla en `solicitar-turno.tsx`: las dos oraciones del criterio 3
+forman un solo párrafo debajo de la leyenda del plazo y dependen de
+`vence_pago_el`. Textos existentes `ui.turnos.resumen.cancelacionReserva`,
+`ui.turnos.resumen.cancelacionPagada` y
+`ui.turnos.resumen.cancelacionPagadaVencida`, idénticos al literal del
+criterio. Sin cambios de backend ni de `textos.ts`.
+
+Pruebas de componente en `solicitar-turno.test.tsx` (jsdom, API simulada):
+
+| Caso | Comprobación |
+|---|---|
+| Límite vigente | Párrafo literal completo con «sábado 10 de octubre de 2026 a las 12:00» y «lunes 12 de octubre de 2026 a las 16:00» |
+| Límite pasado | Primera oración más «Si ya pagaste, ya no vas a poder cancelar en línea; comunicate con el centro.»; no aparece «podés cancelar en línea hasta» |
+| Sin plazo (`vence_pago_el: null`) | No aparece ninguna de las dos oraciones |
+| Orden | El párrafo de cancelación sigue al del plazo en el DOM |
+
+| Comando | Exit code | Resultado |
+|---|---|---|
+| `node node_modules/typescript/bin/tsc --noEmit --incremental false` | 0 | Sin errores |
+| `npx eslint --max-warnings 0` sobre `solicitar-turno.tsx` y `solicitar-turno.test.tsx` | 0 | 0 errores, 0 advertencias |
+| `node scripts/verificar-claves-textos.ts` | 0 | «Claves de textos verificadas.» (aviso MODULE_TYPELESS_PACKAGE_JSON) |
+| `npx vitest run --no-cache "src/app/(dashboard)/alumno" src/server/turnos/turno.resumen-inscripcion.service.test.ts` | 0 | 14 archivos, 120 pruebas aprobadas |
+| `git diff --check` | 0 | Sin errores de espacios |
+
+Sensibilidad (componente modificado sobre una copia y restaurado idéntico,
+`npx vitest run --no-cache` sobre la carpeta de la pantalla, 14 pruebas):
+
+| Mutación | Pruebas fallidas |
+|---|---|
+| Se quita el párrafo de la leyenda | 3 (límite vigente, límite pasado, orden) |
+| Se ignora `limite_cancelacion_pasado` | 1 (límite pasado) |
+| Se usa `vence_pago_el` en lugar de `limite_cancelacion_en_linea` | 1 (límite vigente) |
+
+Recorrido en navegador: ejecutado el 12/10/2026 con `next dev` en el puerto
+3100 sobre una base descartable con el seed, sesión de `alumno01`, en
+«Solicitar clase» → «Inscribirme» → «Volver». Log del servidor: 0 POST de
+inscripción y 2 GET del resumen con 200.
+
+| Caso | Clase | Texto visible debajo de la leyenda del plazo |
+|---|---|---|
+| Más de 24 h de anticipación | Matemática, jueves 15/10/2026 08:00 | «Si todavía no pagaste, podés cancelar la reserva hasta el martes 13 de octubre de 2026 a las 11:08; después de cancelarla, solo vas a poder volver a inscribirte en esta clase en el centro. Si ya pagaste, podés cancelar en línea hasta el miércoles 14 de octubre de 2026 a las 08:00.» |
+| Dentro de las próximas 24 h | Inglés Técnico, lunes 12/10/2026 16:00 | «Si todavía no pagaste, podés cancelar la reserva hasta el lunes 12 de octubre de 2026 a las 16:00; después de cancelarla, solo vas a poder volver a inscribirte en esta clase en el centro. Si ya pagaste, ya no vas a poder cancelar en línea; comunicate con el centro.» |
+
+En los dos casos el texto se muestra como un solo párrafo, inmediatamente
+debajo de la leyenda del plazo, y el resto del diálogo no cambia.
+
+Comparación con la captura previa del mismo diálogo (Matemática, jueves
+15/10/2026 08:00): antes la leyenda de cancelación no aparecía y el diálogo
+terminaba con la leyenda del plazo; ahora aparece debajo de ella. La captura
+de referencia «Revisá tu reserva» corresponde a otro diseño visual del
+diálogo (tarjetas, plazo destacado y fechas abreviadas); coincide en el
+contenido y en la ubicación de la leyenda, y su estilo queda fuera del
+alcance de esta HU.

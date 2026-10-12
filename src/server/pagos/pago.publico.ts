@@ -17,6 +17,11 @@ import {
   type OperacionConVigente,
 } from "@/server/pagos/pago.vigente";
 
+/** `true` si el alumno tiene algún pago registrado, vigente o anulado (motivo obligatorio de la baja, HU-B-07). */
+export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  return (await db.pago.findFirst({ where: { alumnoId }, select: { idPago: true } })) !== null;
+}
+
 /**
  * Contrato público de pagos del Módulo I (spec_modulo_I.md §2.3, Regla N.° 3):
  * otros módulos leen los pagos por acá y no consultan `pagos` directamente.

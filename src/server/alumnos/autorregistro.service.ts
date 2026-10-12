@@ -5,6 +5,8 @@ import { normalizarTexto } from "@/lib/normalizar-texto";
 import { hashPassword } from "@/lib/password";
 import { emailSenderConsola } from "@/lib/email";
 import { ServiceError } from "@/server/shared/service-error";
+import { bloquear } from "@/server/shared/bloquear";
+import { transaccion } from "@/server/shared/transaccion";
 import { getParametroNumerico, getParametroTexto } from "@/server/shared/parametros";
 import { crearCuentaConCredenciales } from "@/server/usuarios/usuario.service";
 import type {
@@ -159,10 +161,25 @@ export async function iniciarAutorregistro(
     throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
   }
 
+  // HU-B-07 criterio 5: el email de contacto de una ficha inactiva sigue
+  // contando para la unicidad, tenga o no cuenta y sea cual sea el DNI
+  // tipeado. Mismo error y mismo cuerpo que la rama (c): no se genera código,
+  // no se envía nada y no se crea ficha ni cuenta.
+  const fichasInactivasConEmail = await prisma.alumno.count({
+    where: { activoAlumno: false, emailAlumno: { equals: input.email, mode: "insensitive" } },
+  });
+  if (fichasInactivasConEmail > 0) {
+    throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+  }
+
   const alumno = await prisma.alumno.findFirst({
     where: { dniAlumno: input.dni },
-    select: { idAlumno: true, usuarioId: true, emailAlumno: true },
+    select: { idAlumno: true, usuarioId: true, emailAlumno: true, activoAlumno: true },
   });
+
+  if (alumno?.activoAlumno === false) {
+    throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+  }
 
   // Rama (a): no existe ninguna ficha — alta directa de Alumno + Usuario.
   if (!alumno) {
@@ -172,6 +189,14 @@ export async function iniciarAutorregistro(
     let usuario: { id: string };
     try {
       usuario = await prisma.$transaction(async (tx) => {
+        // Se repite la comprobación de arriba con las fichas de ese email
+        // tomadas `FOR SHARE`: una baja concurrente (que las toma `FOR UPDATE`)
+        // termina antes de decidir, o espera a que esta alta confirme.
+        const fichasConEmail = await tx.$queryRaw<{ activoAlumno: boolean }[]>(Prisma.sql`
+          SELECT "activoAlumno" FROM "alumnos" WHERE lower("emailAlumno") = lower(${input.email}) FOR SHARE`);
+        if (fichasConEmail.some((ficha) => !ficha.activoAlumno)) {
+          throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+        }
         const nuevoUsuario = await crearCuentaConCredenciales(
           { email: input.email, passwordHash, rol: "ALUMNO" },
           tx,
@@ -359,7 +384,15 @@ export async function confirmarCodigoAutorregistro(
 
   const terminosVersion = await getParametroTexto("terminos_version_vigente", "1.0");
 
-  const resultado = await prisma.$transaction(async (tx) => {
+  const resultado = await transaccion(async (tx) => {
+    await bloquear(tx, { recursos: { alumnos: [solicitud.alumnoId] } });
+    const ficha = await tx.alumno.findUnique({
+      where: { idAlumno: solicitud.alumnoId },
+      select: { activoAlumno: true, usuarioId: true },
+    });
+    if (!ficha?.activoAlumno || ficha.usuarioId) {
+      throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+    }
     // emailDestino: el email de contacto que estaba vigente cuando se
     // GENERÓ el código (congelado en SolicitudAutorregistro), no un fetch
     // fresco de Alumno.emailAlumno — si el email cambió entre que se generó
@@ -370,14 +403,17 @@ export async function confirmarCodigoAutorregistro(
       { email: solicitud.emailDestino, passwordHash: solicitud.passwordHash, rol: "ALUMNO" },
       tx,
     );
-    await tx.alumno.update({
-      where: { idAlumno: solicitud.alumnoId },
+    const vinculada = await tx.alumno.updateMany({
+      where: { idAlumno: solicitud.alumnoId, activoAlumno: true, usuarioId: null },
       data: {
         usuarioId: usuario.id,
         terminosAceptadosEn: new Date(),
         versionTerminosAceptada: terminosVersion,
       },
     });
+    if (vinculada.count === 0) {
+      throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+    }
     await tx.solicitudAutorregistro.update({
       where: { idSolicitud: solicitudId },
       data: { confirmadaEn: new Date() },
