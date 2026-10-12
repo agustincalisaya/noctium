@@ -4,8 +4,8 @@ import { texto as textoC19 } from "@/lib/textos";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
 import { useDirtyState } from "@/components/sesion/dirty-state-context";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
 import { ETIQUETA_DIA, horaAMinutos, minutosAHora, type DiaSemanaValor } from "@/lib/horario-atencion";
@@ -13,12 +13,13 @@ import { iniciosPosibles } from "@/server/turnos/turno.disponibilidad";
 import { type MateriaOpcionTurno } from "../paso-materia-turno";
 import { type ProfesorOpcionTurno } from "../paso-profesor-turno";
 import { type AulaOpcion } from "../seccion-aula-turno";
+import { candidatasResolverTodas, TablaVistaPreviaGeneracion, type VistaPreviaGeneracion as VistaPrevia } from "./tabla-vista-previa-generacion";
 
 type Franja = { horario_id: string; dia_semana: DiaSemanaValor; hora_inicio: string; hora_fin: string };
 type Payload = { materia_id: string; profesor_id: string; horario_id: string; duracion_min: number; hora_inicio: string; aula_id: string; fecha_desde: string; fecha_hasta: string };
-type Motivo = "TURNO_EXISTENTE" | "AULA_OCUPADA" | "PROFESOR_OCUPADO";
-type VistaPrevia = { cantidad: number; fechas: { fecha: string; estado: "OK" | "CONFLICTO"; motivos: Motivo[] }[]; hay_conflictos: boolean; fechas_omitidas_vencidas: number };
-type Resultado = { generacion_id: string; cantidad: number; turno_ids: string[] };
+type Resultado = { generacion_id: string; cantidad: number; turno_ids: string[]; aulas_cambiadas: number; fechas_excluidas: number };
+/** HU-C-21: elecciones de la corrida. Se vacían con cualquier cambio del formulario (D9). */
+type Listas = { aulasPorFecha: Record<string, string>; fechasExcluidas: string[] };
 type Consulta<T> = { estado: "cargando" | "listas" | "error" | "sinAulas"; opciones: T[]; mensaje: string };
 
 type Props = {
@@ -31,11 +32,6 @@ type Props = {
   onBusyChange: (busy: boolean) => void;
 };
 
-const MENSAJES_CONFLICTO: Record<Motivo, string> = {
-  TURNO_EXISTENTE: textoC19("ui.clases.interfaz.profesorConOtraClase"),
-  AULA_OCUPADA: textoC19("ui.clases.interfaz.aulaOcupada"),
-  PROFESOR_OCUPADO: textoC19("ui.clases.interfaz.profesorConOtraClase"),
-};
 const ORDEN_DIAS: DiaSemanaValor[] = ["LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO"];
 
 function hoyDelCentro() {
@@ -44,47 +40,42 @@ function hoyDelCentro() {
   return `${valor("year")}-${valor("month")}-${valor("day")}`;
 }
 
-function fechaCompacta(fecha: string) {
-  const dia = new Intl.DateTimeFormat("es-AR", { weekday: "short", timeZone: "UTC" })
-    .format(new Date(`${fecha}T00:00:00.000Z`)).replace(".", "");
-  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
+/** Detalle de la confirmación (HU-C-25): «x con el aula cambiada · y fechas excluidas», sin las partes en 0. */
+function detalleConfirmacion(vista: VistaPrevia) {
+  const partes = [
+    vista.con_aula_cambiada === 1 ? textoC19("ui.clases.generacion.confirmacion.unaConAulaCambiada")
+      : vista.con_aula_cambiada > 1 ? textoC19("ui.clases.generacion.confirmacion.conAulaCambiada", { cantidad: vista.con_aula_cambiada }) : null,
+    vista.excluidas === 1 ? textoC19("ui.clases.generacion.confirmacion.unaFechaExcluida")
+      : vista.excluidas > 1 ? textoC19("ui.clases.generacion.confirmacion.fechasExcluidas", { cantidad: vista.excluidas }) : null,
+  ].filter(Boolean);
+  return partes.length ? <p>{partes.join(" · ")}</p> : undefined;
 }
 
-function TablaVistaPrevia({ vista, horaInicio, duracionMin, diaSemana, aulaNombre, materiaNombre, profesorNombre }: {
-  vista: VistaPrevia; horaInicio: string; duracionMin: number; diaSemana: DiaSemanaValor;
-  aulaNombre: string; materiaNombre: string; profesorNombre: string;
-}) {
-  const cantidadConflictos = vista.fechas.filter(({ estado }) => estado === "CONFLICTO").length;
-  const horario = `${horaInicio}–${minutosAHora(horaAMinutos(horaInicio) + duracionMin)}`;
-  return <div className="space-y-4">
-    <p className="text-sm leading-6 text-muted-foreground">
-      <strong className="text-foreground">{vista.cantidad} {vista.cantidad === 1 ? textoC19("ui.clases.interfaz.clase") : textoC19("ui.indicadores.clases.unidad")}</strong>
-      {(" " + textoC19("ui.clases.interfaz.conEstadoInicialDisponibleNumeroCeroAlumnos", { valor1: ETIQUETA_DIA[diaSemana].toLocaleLowerCase("es-AR"), valor2: horario, valor3: aulaNombre, valor4: materiaNombre, valor5: profesorNombre }))}
-    </p>
-    {vista.fechas_omitidas_vencidas > 0 && <p role="status" className="rounded-md bg-warning p-3 text-sm text-warning-foreground">{vista.fechas_omitidas_vencidas} {vista.fechas_omitidas_vencidas === 1 ? textoC19("ui.clases.interfaz.fechaDeHoyVencidaFueOmitida") : textoC19("ui.clases.interfaz.fechasVencidasFueronOmitidas")}.</p>}
-    {vista.hay_conflictos && <div role="status" className="flex gap-3 rounded-md bg-warning px-4 py-3 text-sm text-warning-foreground">
-      <CircleAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
-      <p><strong>{cantidadConflictos} {cantidadConflictos === 1 ? textoC19("ui.clases.interfaz.fechaTiene") : textoC19("ui.clases.interfaz.fechasTienen")}{(" " + textoC19("ui.clases.interfaz.conflicto"))}</strong>{(" " + textoC19("ui.clases.interfaz.elegiOtraAulaParaTodoElRangoOAcotaLasFechasY"))}</p>
-    </div>}
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full min-w-[620px] border-collapse text-left text-sm" aria-label={textoC19("ui.clases.interfaz.fechasDeLaVistaPrevia")}>
-        <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground"><tr>
-          <th scope="col" className="px-3 py-3 font-medium">{textoC19("ui.clases.interfaz.fechaNumeroDos")}</th>
-          <th scope="col" className="px-3 py-3 font-medium">{textoC19("ui.clases.interfaz.horario")}</th>
-          <th scope="col" className="px-3 py-3 font-medium">{textoC19("ui.clases.interfaz.aula")}</th>
-          <th scope="col" className="px-3 py-3 font-medium">{textoC19("ui.clases.interfaz.disponibilidad")}</th>
-        </tr></thead>
-        <tbody>{vista.fechas.map((ocurrencia) => <tr key={ocurrencia.fecha} className={`border-b border-border last:border-b-0 ${ocurrencia.estado === "CONFLICTO" ? "bg-warning/20" : "bg-card"}`}>
-          <td className="whitespace-nowrap px-3 py-3 font-medium"><time dateTime={ocurrencia.fecha}>{fechaCompacta(ocurrencia.fecha)}</time></td>
-          <td className="whitespace-nowrap px-3 py-3 tabular-nums">{horario}</td>
-          <td className="px-3 py-3">{aulaNombre}</td>
-          <td className="px-3 py-3"><div className="flex flex-wrap gap-1.5">{ocurrencia.estado === "OK"
-            ? <span className="rounded-full bg-success px-2.5 py-1 text-xs font-medium text-success-foreground">{textoC19("ui.clases.interfaz.libre")}</span>
-            : ocurrencia.motivos.map((motivo) => <span key={motivo} className="rounded-full border border-destructive/50 bg-card px-2.5 py-1 text-xs font-medium text-destructive">{MENSAJES_CONFLICTO[motivo]}</span>)}</div></td>
-        </tr>)}</tbody>
-      </table>
-    </div>
-  </div>;
+/** Banner de «Resolver todas»: todas, algunas o ninguna, en singular y plural. */
+function mensajeResolverTodas({ total, resueltas }: { total: number; resueltas: number }) {
+  if (resueltas === total) return resueltas === 1 ? textoC19("ui.clases.generacion.resolver.todasUna") : textoC19("ui.clases.generacion.resolver.todas", { cantidad: resueltas });
+  if (resueltas > 0) return resueltas === 1 ? textoC19("ui.clases.generacion.resolver.algunasUna", { total }) : textoC19("ui.clases.generacion.resolver.algunas", { resueltas, total });
+  return total === 1 ? textoC19("ui.clases.generacion.resolver.ningunaUna") : textoC19("ui.clases.generacion.resolver.ninguna");
+}
+
+const LISTAS_VACIAS: Listas = { aulasPorFecha: {}, fechasExcluidas: [] };
+
+/** Pedido a la API: los campos de HU-C-21 solo viajan si tienen algo (el pedido de Sprint 2 queda idéntico). */
+function pedidoDe(base: Payload, listas: Listas) {
+  const aulas = Object.entries(listas.aulasPorFecha).sort(([a], [b]) => a.localeCompare(b));
+  return {
+    ...base,
+    ...(aulas.length ? { aulas_por_fecha: aulas.map(([fecha, aula_id]) => ({ fecha, aula_id })) } : {}),
+    ...(listas.fechasExcluidas.length ? { fechas_excluidas: [...listas.fechasExcluidas].sort() } : {}),
+  };
+}
+
+/** §5.2: las listas se reconstruyen desde lo que validó el servidor. */
+function listasDesdeRespuesta(vista: VistaPrevia): Listas {
+  return {
+    aulasPorFecha: Object.fromEntries(vista.fechas.filter(({ excluida, aula_cambiada }) => !excluida && aula_cambiada).map(({ fecha, aula }) => [fecha, aula.id])),
+    fechasExcluidas: vista.fechas.filter(({ excluida }) => excluida).map(({ fecha }) => fecha),
+  };
 }
 
 export function TurnoRecurrente(props: Props) {
@@ -100,13 +91,18 @@ export function TurnoRecurrente(props: Props) {
   const [aulaId, setAulaId] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
-  const [preview, setPreview] = useState<{ clave: string; payload: Payload; data: VistaPrevia } | null>(null);
-  const [conflictosRecalculados, setConflictosRecalculados] = useState<VistaPrevia | null>(null);
+  const [listas, setListas] = useState<Listas>(LISTAS_VACIAS);
+  const [preview, setPreview] = useState<{ clave: string; listas: Listas; data: VistaPrevia } | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const [aviso, setAviso] = useState("");
+  /** Resultado de «Resolver todas» (D3: banner, no toast); desaparece con la acción siguiente. */
+  const [resueltas, setResueltas] = useState<{ total: number; resueltas: number } | null>(null);
   const [solicitando, setSolicitando] = useState<"preview" | "confirmacion" | null>(null);
   const [error, setError] = useState("");
   const solicitudRef = useRef(false);
   const claveActualRef = useRef("");
+  const confirmacionRef = useRef<{ resultado: Resultado | null; conflicto: Listas | null }>({ resultado: null, conflicto: null });
   const hoy = hoyDelCentro();
 
   const materia = props.materias.find(({ id }) => id === props.materiaId);
@@ -120,8 +116,10 @@ export function TurnoRecurrente(props: Props) {
   const payload: Payload | null = materia && profesor && franja && duracionMin && inicios.includes(horaInicio) && aula && fechaDesde && fechaHasta
     ? { materia_id: materia.id, profesor_id: profesor.id, horario_id: franja.horario_id, duracion_min: duracionMin, hora_inicio: horaInicio, aula_id: aula.id, fecha_desde: fechaDesde, fecha_hasta: fechaHasta } : null;
   const clave = payload ? JSON.stringify(payload) : "";
-  const vistaActual = preview?.clave === clave ? preview : null;
-  const puedeConfirmar = Boolean(vistaActual && vistaActual.data.cantidad > 0 && !vistaActual.data.hay_conflictos && !solicitando && !resultado);
+  // La vista previa vigente es la pedida con estos datos del formulario y estas listas (§5.1).
+  const claveCompleta = payload ? JSON.stringify(pedidoDe(payload, listas)) : "";
+  const vistaActual = preview?.clave === claveCompleta ? preview : null;
+  const puedeConfirmar = Boolean(vistaActual && vistaActual.data.cantidad_incluida > 0 && !vistaActual.data.hay_conflictos && !solicitando && !resultado);
 
   useEffect(() => {
     setDirty(!resultado && Boolean(props.materiaId || props.profesorId || franjaId || duracionMin || horaInicio || aulaId || fechaDesde || fechaHasta));
@@ -140,7 +138,7 @@ export function TurnoRecurrente(props: Props) {
         if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudieronCargarLasFranjasDelProfesor"));
         if (controlador.signal.aborted) return;
         const opciones = valor.data as Franja[];
-        if (franjaId && !opciones.some(({ horario_id }) => horario_id === franjaId)) { setFranjaId(""); setHoraInicio(""); setPreview(null); }
+        if (franjaId && !opciones.some(({ horario_id }) => horario_id === franjaId)) { setFranjaId(""); setHoraInicio(""); setPreview(null); setListas(LISTAS_VACIAS); }
         setConsultaFranjas({ estado: "listas", opciones, mensaje: "" });
       } catch (causa) {
         if (!controlador.signal.aborted) setConsultaFranjas({ estado: "error", opciones: [], mensaje: causa instanceof Error ? causa.message : textoC19("ui.clases.interfaz.noSePudieronCargarLasFranjasDelProfesor") });
@@ -160,10 +158,10 @@ export function TurnoRecurrente(props: Props) {
         const respuesta = await fetchAutenticado("/api/turnos/aula/opciones", { cache: "no-store", signal: controlador.signal });
         const valor = await respuesta.json().catch(() => null);
         if (controlador.signal.aborted) return;
-        if (valor?.error?.code === "SIN_AULAS_ACTIVAS") { setConsultaAulas({ estado: "sinAulas", opciones: [], mensaje: "" }); setAulaId(""); setPreview(null); return; }
+        if (valor?.error?.code === "SIN_AULAS_ACTIVAS") { setConsultaAulas({ estado: "sinAulas", opciones: [], mensaje: "" }); setAulaId(""); setPreview(null); setListas(LISTAS_VACIAS); return; }
         if (!respuesta.ok || !Array.isArray(valor?.data)) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudieronCargarLasAulas"));
         const opciones = valor.data as AulaOpcion[];
-        if (aulaId && !opciones.some(({ id }) => id === aulaId)) { setAulaId(""); setPreview(null); }
+        if (aulaId && !opciones.some(({ id }) => id === aulaId)) { setAulaId(""); setPreview(null); setListas(LISTAS_VACIAS); }
         setConsultaAulas({ estado: "listas", opciones, mensaje: "" });
       } catch (causa) {
         if (!controlador.signal.aborted) setConsultaAulas({ estado: "error", opciones: [], mensaje: causa instanceof Error ? causa.message : textoC19("ui.clases.interfaz.noSePudieronCargarLasAulas") });
@@ -175,7 +173,7 @@ export function TurnoRecurrente(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reintentoAulas]);
 
-  const invalidarPreview = () => { setPreview(null); setConflictosRecalculados(null); setError(""); };
+  const invalidarPreview = () => { setPreview(null); setListas(LISTAS_VACIAS); setError(""); setAviso(""); setResueltas(null); };
   const limpiarDesdeFranja = () => { setFranjaId(""); setDuracionMin(null); setHoraInicio(""); setAulaId(""); setFechaDesde(""); setFechaHasta(""); setConsultaFranjas(null); invalidarPreview(); };
   const elegirMateria = (id: string) => {
     if (id === props.materiaId || solicitudRef.current) return;
@@ -185,35 +183,73 @@ export function TurnoRecurrente(props: Props) {
     if (id === props.profesorId || solicitudRef.current) return;
     limpiarDesdeFranja(); props.onSeleccionarProfesor(id);
   };
-  const generarPreview = async () => {
-    if (!payload || solicitudRef.current || resultado) return;
+  /** §5.2: toda acción pide una vista previa nueva; si falla, las listas no cambian y queda la anterior. */
+  const solicitarVistaPrevia = async (listasPedido: Listas, opciones: { aviso?: string; resolver?: boolean } = {}): Promise<VistaPrevia | null> => {
+    if (!payload || solicitudRef.current || resultado) return null;
     const claveSolicitud = clave;
-    solicitudRef.current = true; props.onBusyChange(true); setSolicitando("preview"); setError(""); setConflictosRecalculados(null);
+    const base = payload;
+    solicitudRef.current = true; props.onBusyChange(true); setSolicitando("preview"); setError(""); setAviso(opciones.aviso ?? ""); setResueltas(null);
     try {
-      const respuesta = await fetchAutenticado("/api/turnos/generacion/vista-previa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), cache: "no-store" });
+      const respuesta = await fetchAutenticado("/api/turnos/generacion/vista-previa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...pedidoDe(base, listasPedido), ...(opciones.resolver ? { resolver_automaticamente: true } : {}) }), cache: "no-store" });
       const valor = await respuesta.json().catch(() => null);
       if (!respuesta.ok || !Array.isArray(valor?.data?.fechas)) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoGenerarLaVistaPrevia"));
-      if (claveActualRef.current === claveSolicitud) setPreview({ clave: claveSolicitud, payload, data: valor.data as VistaPrevia });
+      if (claveActualRef.current !== claveSolicitud) return null;
+      const data = valor.data as VistaPrevia;
+      const nuevas = listasDesdeRespuesta(data);
+      setListas(nuevas);
+      // La clave vigente usa las listas derivadas (sin el flag): una vista previa resuelta se puede confirmar.
+      setPreview({ clave: JSON.stringify(pedidoDe(base, nuevas)), listas: nuevas, data });
+      return data;
     } catch (causa) { if (claveActualRef.current === claveSolicitud) setError(causa instanceof Error ? causa.message : textoC19("ui.clases.interfaz.noSePudoGenerarLaVistaPrevia")); }
     finally { solicitudRef.current = false; props.onBusyChange(false); setSolicitando(null); }
+    return null;
+  };
+  const generarPreview = () => solicitarVistaPrevia(listas);
+  const cambiarListas = (cambio: (actuales: Listas) => Listas) => { void solicitarVistaPrevia(cambio(listas)); };
+  const sinFecha = (aulas: Record<string, string>, fecha: string) => Object.fromEntries(Object.entries(aulas).filter(([otra]) => otra !== fecha));
+  const deshacer = (fecha: string) => cambiarListas((l) => ({ ...l, aulasPorFecha: sinFecha(l.aulasPorFecha, fecha) }));
+  // Elegir el aula por defecto equivale a «Deshacer»: nunca se envía como aula de la fecha (D10).
+  const cambiarAula = (fecha: string, aulaId: string) => aulaId === payload?.aula_id
+    ? deshacer(fecha)
+    : cambiarListas((l) => ({ ...l, aulasPorFecha: { ...l.aulasPorFecha, [fecha]: aulaId } }));
+  const excluir = (fecha: string) => cambiarListas((l) => ({ aulasPorFecha: sinFecha(l.aulasPorFecha, fecha), fechasExcluidas: [...l.fechasExcluidas, fecha] }));
+  const incluir = (fecha: string) => cambiarListas((l) => ({ ...l, fechasExcluidas: l.fechasExcluidas.filter((otra) => otra !== fecha) }));
+
+  /** «Resolver todas» (§5.5, separable): m = candidatas antes del pedido; r = las que volvieron libres con otra aula. */
+  const resolverTodas = async () => {
+    if (!vistaActual) return;
+    const candidatas = candidatasResolverTodas(vistaActual.data);
+    const data = await solicitarVistaPrevia(listas, { resolver: true });
+    if (!data) return;
+    const resueltasAhora = data.fechas.filter(({ fecha, estado, aula_cambiada }) => candidatas.includes(fecha) && estado === "OK" && aula_cambiada).length;
+    setResueltas({ total: candidatas.length, resueltas: resueltasAhora });
   };
 
+  /** §5.6: un 409 GENERACION_CON_CONFLICTOS no es un error del modal; lo resuelve `despuesDeConfirmar` (§5.7). */
   const confirmar = async () => {
-    if (!puedeConfirmar || !vistaActual || solicitudRef.current) return;
-    solicitudRef.current = true; props.onBusyChange(true); setSolicitando("confirmacion"); setError("");
+    if (!vistaActual || solicitudRef.current) return;
+    confirmacionRef.current = { resultado: null, conflicto: null };
+    solicitudRef.current = true; props.onBusyChange(true); setSolicitando("confirmacion"); setError(""); setAviso("");
     try {
-      const respuesta = await fetchAutenticado("/api/turnos/generacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vistaActual.payload), cache: "no-store" });
+      const respuesta = await fetchAutenticado("/api/turnos/generacion", { method: "POST", headers: { "Content-Type": "application/json" }, body: vistaActual.clave, cache: "no-store" });
       const valor = await respuesta.json().catch(() => null);
       if (respuesta.status === 409 && valor?.error?.code === "GENERACION_CON_CONFLICTOS") {
-        setPreview(null);
-        setError(textoC19("ui.clases.interfaz.laDisponibilidadCambioDesdeLaVistaPreviaGeneraUnaNuevaAntesDe"));
-        if (Array.isArray(valor?.error?.detalles?.fechas)) setConflictosRecalculados(valor.error.detalles as VistaPrevia);
+        confirmacionRef.current.conflicto = vistaActual.listas;
         return;
       }
       if (!respuesta.ok || !valor?.data?.generacion_id || !Array.isArray(valor?.data?.turno_ids)) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudieronGenerarLasClases"));
-      setResultado(valor.data as Resultado);
-    } catch (causa) { setError(causa instanceof Error ? causa.message : textoC19("ui.clases.interfaz.noSePudieronGenerarLasClases")); }
-    finally { solicitudRef.current = false; props.onBusyChange(false); setSolicitando(null); }
+      confirmacionRef.current.resultado = valor.data as Resultado;
+    } finally { solicitudRef.current = false; props.onBusyChange(false); setSolicitando(null); }
+  };
+  const despuesDeConfirmar = () => {
+    const { resultado: generado, conflicto } = confirmacionRef.current;
+    if (conflicto) {
+      // §5.7: la disponibilidad cambió; vista previa nueva con las mismas elecciones y con sus acciones.
+      setPreview(null);
+      void solicitarVistaPrevia(conflicto, { aviso: textoC19("ui.clases.interfaz.laDisponibilidadCambioDesdeLaVistaPreviaGeneraUnaNuevaAntesDe") });
+      return;
+    }
+    if (generado) setResultado(generado);
   };
 
   const bloqueado = Boolean(solicitando || resultado);
@@ -264,7 +300,7 @@ export function TurnoRecurrente(props: Props) {
       <hr className="border-border" />
       <section aria-labelledby="titulo-aula-fechas" className="space-y-4">
         <h2 id="titulo-aula-fechas" className="text-sm font-semibold tracking-wide text-muted-foreground">{textoC19("ui.clases.interfaz.aulaYFechas")}</h2>
-        <div className="space-y-2"><label htmlFor="aula-recurrente" className="text-sm font-medium">{textoC19("ui.turnos.resumen.aula")}</label><p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.seUsaLaMismaAulaEnTodasLasFechas")}</p>
+        <div className="space-y-2"><label htmlFor="aula-recurrente" className="text-sm font-medium">{textoC19("ui.turnos.resumen.aula")}</label><p className="text-sm text-muted-foreground">{textoC19("ui.clases.generacion.ayudaAula")}</p>
           <select id="aula-recurrente" className={campo} value={aulaId} disabled={bloqueado || consultaAulas?.estado !== "listas"} onChange={(e) => { if (aulaId === e.target.value) return; setAulaId(e.target.value); invalidarPreview(); }}><option value="">{textoC19("ui.clases.interfaz.seleccionaUnAula")}</option>{aulas.map((a) => <option key={a.id} value={a.id}>{a.nombre}{(" " + textoC19("ui.clases.interfaz.capacidad") + " ")}{a.capacidad}</option>)}</select>
           {(!consultaAulas || consultaAulas.estado === "cargando") && <p role="status">{textoC19("ui.clases.interfaz.cargandoAulasActivas")}</p>}
           {consultaAulas?.estado === "sinAulas" && <p role="status">{textoC19("ui.clases.interfaz.noHayAulasActivasRegistradas")}</p>}
@@ -280,14 +316,33 @@ export function TurnoRecurrente(props: Props) {
     </section>
     <aside data-testid="vista-previa-recurrente" aria-labelledby="titulo-vista-recurrente" className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
       <h2 id="titulo-vista-recurrente" className="text-xl font-semibold">{textoC19("ui.clases.interfaz.vistaPrevia")}</h2>
-      {resultado ? <div role="status" className="mt-5 space-y-3 rounded-md bg-success p-5 text-success-foreground"><h3 className="text-lg font-semibold">{textoC19("ui.clases.interfaz.clasesGenerados")}</h3><p>{(textoC19("ui.clases.interfaz.se") + " ")}{resultado.cantidad === 1 ? textoC19("ui.clases.interfaz.generoNumeroUnoClase") : textoC19("ui.clases.interfaz.generaronClases", { valor1: resultado.cantidad })}{(" " + textoC19("ui.clases.interfaz.correctamente"))}</p><p>{textoC19("ui.clases.interfaz.estadoInicialDisponibleNumeroCeroAlumnosPorClase")}</p><Link href="/turnos" className="inline-block text-sm font-semibold underline underline-offset-2">{textoC19("ui.clases.interfaz.verClases")}</Link></div> :
+      {resultado ? <div role="status" className="mt-5 space-y-3 rounded-md bg-success p-5 text-success-foreground">
+        <h3 className="text-lg font-semibold">{textoC19("ui.clases.interfaz.clasesGenerados")}</h3>
+        <p>{(textoC19("ui.clases.interfaz.se") + " ")}{resultado.cantidad === 1 ? textoC19("ui.clases.interfaz.generoNumeroUnoClase") : textoC19("ui.clases.interfaz.generaronClases", { valor1: resultado.cantidad })}{(" " + textoC19("ui.clases.interfaz.correctamente"))}</p>
+        <p>{resultado.aulas_cambiadas === 0 ? textoC19("ui.clases.generacion.exito.ningunaAulaCambiada") : resultado.aulas_cambiadas === 1 ? textoC19("ui.clases.generacion.exito.unaAulaCambiada") : textoC19("ui.clases.generacion.exito.aulasCambiadas", { cantidad: resultado.aulas_cambiadas })}</p>
+        <p>{resultado.fechas_excluidas === 0 ? textoC19("ui.clases.generacion.exito.ningunaExcluida") : resultado.fechas_excluidas === 1 ? textoC19("ui.clases.generacion.exito.unaExcluida") : textoC19("ui.clases.generacion.exito.excluidas", { cantidad: resultado.fechas_excluidas })}</p>
+        <p>{textoC19("ui.clases.interfaz.estadoInicialDisponibleNumeroCeroAlumnosPorClase")}</p>
+        <Link href="/turnos" className="inline-block text-sm font-semibold underline underline-offset-2">{textoC19("ui.clases.interfaz.verClases")}</Link>
+      </div> :
         <div className="mt-5 space-y-5">
-          {vistaActual ? <><TablaVistaPrevia vista={vistaActual.data} {...datosTabla} />
+          {aviso && <p role="status" className="rounded-md bg-warning px-4 py-3 text-sm text-warning-foreground">{aviso}</p>}
+          {resueltas && <p role="status" data-resultado-resolver className={`rounded-md px-4 py-3 text-sm ${resueltas.resueltas === resueltas.total ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"}`}>{mensajeResolverTodas(resueltas)}</p>}
+          {vistaActual ? <><TablaVistaPreviaGeneracion vista={vistaActual.data} {...datosTabla} deshabilitada={Boolean(solicitando) || confirmando}
+            onCambiarAula={cambiarAula} onDeshacer={deshacer} onExcluir={excluir} onIncluir={incluir} onSinAulasLibres={() => void generarPreview()} onResolverTodas={() => void resolverTodas()} />
             <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
               {vistaActual.data.hay_conflictos && <p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.resolveLosConflictosParaHabilitarLaGeneracion")}</p>}
-              <Button type="button" className="sm:ml-auto" disabled={!puedeConfirmar} onClick={() => void confirmar()}>{solicitando === "confirmacion" ? textoC19("ui.clases.interfaz.generandoClases") : textoC19("ui.clases.interfaz.confirmarGeneracion", { valor1: vistaActual.data.cantidad, valor2: vistaActual.data.cantidad === 1 ? textoC19("ui.clases.interfaz.clase") : textoC19("ui.pagos.resumen.clases").toLowerCase() })}</Button>
-            </div></> :
-            conflictosRecalculados ? <div className="space-y-3"><h3 className="font-semibold">{textoC19("ui.clases.interfaz.conflictosRecalculadosAlConfirmar")}</h3><TablaVistaPrevia vista={conflictosRecalculados} {...datosTabla} /></div> :
+              <Button type="button" className="sm:ml-auto" disabled={!puedeConfirmar || confirmando} onClick={() => { setResueltas(null); setConfirmando(true); }}>{solicitando === "confirmacion" ? textoC19("ui.clases.interfaz.generandoClases") : textoC19("ui.clases.interfaz.confirmarGeneracion", { valor1: vistaActual.data.cantidad_incluida, valor2: vistaActual.data.cantidad_incluida === 1 ? textoC19("ui.clases.interfaz.clase") : textoC19("ui.pagos.resumen.clases").toLowerCase() })}</Button>
+            </div>
+            <ConfirmarAccionDialog
+              abierto={confirmando}
+              titulo={textoC19("confirmaciones.clases.generar", { cantidad: vistaActual.data.cantidad_incluida === 1 ? textoC19("ui.clases.generacion.confirmacion.unaClase") : textoC19("ui.clases.generacion.confirmacion.clases", { cantidad: vistaActual.data.cantidad_incluida }), materia: datosTabla.materiaNombre, profesor: datosTabla.profesorNombre })}
+              detalle={detalleConfirmacion(vistaActual.data)}
+              textoConfirmar={textoC19("ui.clases.generacion.confirmacion.boton")}
+              onConfirmar={confirmar}
+              onExito={despuesDeConfirmar}
+              onCerrar={() => setConfirmando(false)}
+            /></> :
+            solicitando === "preview" ? <p role="status" className="rounded-lg border border-dashed border-border bg-muted/30 px-5 py-10 text-center text-sm leading-6 text-muted-foreground">{textoC19("ui.clases.interfaz.generandoVistaPrevia")}</p> :
             <p className="rounded-lg border border-dashed border-border bg-muted/30 px-5 py-10 text-center text-sm leading-6 text-muted-foreground">{textoC19("ui.clases.interfaz.completaLaConfiguracionYTocaVerVistaPreviaParaVerLasFechas")}</p>}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         </div>}

@@ -121,3 +121,42 @@ describe("POST confirmación", () => {
     expect(await respuesta.json()).toEqual({ data: null, error: { code: codigo, message: "Mensaje" } });
   });
 });
+
+describe("HU-C-21: campos nuevos y VALIDATION_ERROR del servicio", () => {
+  const listas = { aulas_por_fecha: [{ fecha: "2026-10-08", aula_id: "ckaula00000000000000002" }], fechas_excluidas: ["2026-10-15"] };
+
+  it.each(rutas)("%s: VALIDATION_ERROR del servicio responde 400 con detalles", async (_nombre, post, segmento) => {
+    const servicio = segmento ? calcular : generar;
+    servicio.mockRejectedValueOnce(new ServiceError("VALIDATION_ERROR", "La fecha no pertenece a las fechas a generar", { campo: "fechas_excluidas", fecha: "2026-10-16" }));
+    const respuesta = await enviar(post, segmento, { ...valido, fechas_excluidas: ["2026-10-16"] });
+    expect(respuesta.status).toBe(400);
+    expect(await respuesta.json()).toEqual({ data: null, error: { code: "VALIDATION_ERROR", message: "La fecha no pertenece a las fechas a generar", detalles: { campo: "fechas_excluidas", fecha: "2026-10-16" } } });
+  });
+
+  it.each(rutas)("%s: pasa las listas al servicio como fechas", async (_nombre, post, segmento) => {
+    const respuesta = await enviar(post, segmento, { ...valido, ...listas });
+    expect(respuesta.status).toBe(segmento ? 200 : 201);
+    const servicio = segmento ? calcular : generar;
+    expect(servicio.mock.calls[0]?.[0]).toMatchObject({
+      aulas_por_fecha: [{ fecha: new Date("2026-10-08T00:00:00.000Z"), aula_id: "ckaula00000000000000002" }],
+      fechas_excluidas: [new Date("2026-10-15T00:00:00.000Z")],
+    });
+  });
+
+  it.each(rutas)("%s: rechaza listas inválidas con 400 VALIDATION_ERROR y detalles de Zod", async (_nombre, post, segmento) => {
+    const respuesta = await enviar(post, segmento, { ...valido, fechas_excluidas: ["2026-10-15", "2026-10-15"] });
+    expect(respuesta.status).toBe(400);
+    expect(await respuesta.json()).toMatchObject({ data: null, error: { code: "VALIDATION_ERROR", detalles: { fieldErrors: expect.any(Object) } } });
+    expect(calcular).not.toHaveBeenCalled();
+    expect(generar).not.toHaveBeenCalled();
+  });
+
+  it("resolver_automaticamente: la vista previa lo acepta y la confirmación responde 400", async () => {
+    expect((await enviar(vistaPrevia, "vista-previa", { ...valido, resolver_automaticamente: true })).status).toBe(200);
+    expect(calcular.mock.calls[0]?.[0]).toMatchObject({ resolver_automaticamente: true });
+    const respuesta = await enviar(confirmar, "", { ...valido, resolver_automaticamente: true });
+    expect(respuesta.status).toBe(400);
+    expect(await respuesta.json()).toMatchObject({ data: null, error: { code: "VALIDATION_ERROR" } });
+    expect(generar).not.toHaveBeenCalled();
+  });
+});

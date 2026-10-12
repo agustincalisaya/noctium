@@ -13,7 +13,7 @@ export const POST = withPermission("turnos:crear", async (req) => {
     return NextResponse.json({ data: await confirmarGeneracion(parsed.data, req.auth!.user.id), error: null }, { status: 201 });
   } catch (error) {
     if (error instanceof ServiceError) {
-      const status = ["FUERA_DE_FRANJA", "RANGO_EXCEDIDO", "SIN_FECHAS_EN_RANGO"].includes(error.code) ? 400
+      const status = ["VALIDATION_ERROR", "FUERA_DE_FRANJA", "RANGO_EXCEDIDO", "SIN_FECHAS_EN_RANGO"].includes(error.code) ? 400
         : ["PROFESOR_NO_ENCONTRADO", "HORARIO_NO_ENCONTRADO", "SIN_AULAS_ACTIVAS", "AULA_NO_ENCONTRADA"].includes(error.code) ? 404
           : error.code === "CONFIGURACION_GENERACION_INCOMPLETA" ? 503 : 409;
       return NextResponse.json({ data: null, error: { code: error.code, message: error.message, ...(error.detalles ? { detalles: error.detalles } : {}) } }, { status });

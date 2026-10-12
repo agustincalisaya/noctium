@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularOcurrencias, contarOcurrenciasDentroDelMaximo, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
+import { calcularOcurrencias, compararAulasPorCapacidad, contarOcurrenciasDentroDelMaximo, elegirAulaParaResolver, esSoloExcluible, fechaAjenaALaGeneracion, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
 
 const fecha = (valor: string) => new Date(`${valor}T00:00:00.000Z`);
 const hoy = { fecha: "2026-09-30", hora: "09:00" };
@@ -70,5 +70,49 @@ describe("precedencia de conflictos C-17", () => {
   });
   it("el duplicado prevalece sobre cualquier choque físico", () => {
     expect(motivosConflictoGeneracion(true, true, true)).toEqual(["TURNO_EXISTENTE"]);
+  });
+});
+
+describe("HU-C-21: pertenencia de las listas a las fechas calculadas", () => {
+  const calculadas = ["2026-10-05", "2026-10-12", "2026-10-19"];
+  it("acepta listas vacías o con fechas calculadas", () => {
+    expect(fechaAjenaALaGeneracion(calculadas, [], [])).toBeNull();
+    expect(fechaAjenaALaGeneracion(calculadas, [{ fecha: "2026-10-12" }], ["2026-10-19"])).toBeNull();
+  });
+  it("informa la primera fecha ajena de aulas_por_fecha antes que la de fechas_excluidas", () => {
+    expect(fechaAjenaALaGeneracion(calculadas, [{ fecha: "2026-10-13" }], ["2026-10-20"])).toEqual({ campo: "aulas_por_fecha", fecha: "2026-10-13" });
+    expect(fechaAjenaALaGeneracion(calculadas, [], ["2026-10-05", "2026-10-20"])).toEqual({ campo: "fechas_excluidas", fecha: "2026-10-20" });
+  });
+});
+
+describe("HU-C-21: solo_excluible y orden de aulas", () => {
+  it.each([
+    [[], false], [["AULA_OCUPADA"], false], [["PROFESOR_OCUPADO"], true], [["TURNO_EXISTENTE"], true],
+    [["AULA_OCUPADA", "PROFESOR_OCUPADO"], true],
+  ] as const)("motivos %j → solo_excluible %s", (motivos, esperado) => {
+    expect(esSoloExcluible(motivos)).toBe(esperado);
+  });
+
+  it("ordena por capacidad ascendente, después nombre natural y por último id", () => {
+    const aulas = [
+      { id: "b", nombre: "Aula 10", capacidad: 20 }, { id: "z", nombre: "Aula 2", capacidad: 20 },
+      { id: "a", nombre: "Aula 2", capacidad: 20 }, { id: "c", nombre: "Sala", capacidad: 6 },
+    ];
+    expect([...aulas].sort(compararAulasPorCapacidad).map(({ id }) => id)).toEqual(["c", "a", "z", "b"]);
+  });
+});
+
+describe("HU-C-21: aula que elige «Resolver todas»", () => {
+  const aula = (id: string, nombre: string, capacidad: number) => ({ id, nombre, capacidad });
+  it("toma la de menor capacidad que alcanza la del aula por defecto", () => {
+    expect(elegirAulaParaResolver([aula("a", "Aula 30", 30), aula("b", "Aula 8", 8), aula("c", "Aula 25", 25)], 20)?.id).toBe("c");
+  });
+  it("con la misma capacidad desempata por nombre y después por id", () => {
+    expect(elegirAulaParaResolver([aula("z", "Aula 2", 20), aula("y", "Aula 10", 20), aula("x", "Aula 2", 20)], 20)?.id).toBe("x");
+  });
+  it("acepta la capacidad igual y nunca elige una más chica", () => {
+    expect(elegirAulaParaResolver([aula("a", "Aula 1", 19), aula("b", "Aula 2", 20)], 20)?.id).toBe("b");
+    expect(elegirAulaParaResolver([aula("a", "Aula 1", 19), aula("b", "Aula 2", 5)], 20)).toBeNull();
+    expect(elegirAulaParaResolver([], 1)).toBeNull();
   });
 });
