@@ -184,4 +184,16 @@ describe("HU-I-10 paso 3: forma de pago y confirmación", () => {
     expect(container.querySelector("#registrar-pago-buscador")).not.toBeNull();
     expect(replace).toHaveBeenCalledWith("/pagos/registrar");
   });
+  it("HU-I-11: el banner de éxito enlaza al comprobante de la operación", async () => {
+    rutas = (url) => url.startsWith("/api/pagos/pendientes") ? respuesta(pendientes())
+      : url === "/api/pagos/operaciones"
+        ? { ok: true, status: 201, json: async () => ({ data: { pagos: [{ id: "p1" }], comprobante: { id: "comp-7", numero: "0001-00000007" } }, error: null }) }
+        : undefined;
+    await irAlPaso3();
+    await pulsar(boton("Confirmar pago"));
+    await pulsar(boton("Registrar pago"));
+    const link = container.querySelector('[role="status"] a');
+    expect(link?.textContent).toBe("Ver comprobante");
+    expect(link?.getAttribute("href")).toBe("/comprobantes/comp-7");
+  });
 });
