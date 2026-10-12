@@ -68,6 +68,8 @@ export type PagoRegistradoTurno = {
   /** `YYYY-MM-DD`. */
   fecha_pago: string;
   registrado_en: string;
+  /** Comprobante vigente del pago (HU-I-11); enlaza a `/comprobantes/[id]`. */
+  comprobante: { id: string; numero: string } | null;
 };
 
 /**

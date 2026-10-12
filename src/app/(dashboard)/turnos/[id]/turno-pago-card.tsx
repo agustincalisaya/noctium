@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { texto } from "@/lib/textos";
 import { fechaCorta, monto } from "@/lib/turno-detalle";
 import type { PagoRegistradoTurno } from "@/types/turno.types";
 
@@ -29,6 +31,12 @@ export function TurnoPagoCard({ pagos, accion }: { pagos: PagoRegistradoTurno[];
                 <div className="min-w-0">
                   <p className="break-words text-[13px] font-medium">{pago.alumno.nombre_completo}</p>
                   <p className="text-[11px] leading-4 text-muted-foreground">{fechaCorta(pago.fecha_pago)} · {pago.forma_pago.nombre}</p>
+                  {pago.comprobante && (
+                    <Link href={`/comprobantes/${pago.comprobante.id}`}
+                      className="text-[11px] leading-4 text-primary underline underline-offset-2 hover:text-primary/80 focus-visible:outline-2 focus-visible:outline-ring">
+                      {texto("ui.pagos.comprobanteNumero", { numero: pago.comprobante.numero })}
+                    </Link>
+                  )}
                 </div>
                 <span className="whitespace-nowrap text-right font-mono text-xs tabular-nums">{monto(pago.monto)}</span>
               </li>
