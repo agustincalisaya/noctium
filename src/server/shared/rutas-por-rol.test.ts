@@ -70,3 +70,25 @@ describe("HU-A-05 rutas públicas de la recuperación", () => {
     expect(rutaAdmiteMarca(ruta)).toBe(false);
   });
 });
+
+// HU-I-11 (spec_modulo_I.md §2.9.3): el comprobante, para mesa de entrada y
+// gerente (`comprobantes:leer`); el del alumno, bajo /mis-pagos.
+describe("HU-I-11 comprobantes", () => {
+  it("/comprobantes: mesa de entrada y gerente; ni profesor ni alumno", () => {
+    expect(rolPuedeAccederRuta("MESA_ENTRADA", "/comprobantes/c1")).toBe(true);
+    expect(rolPuedeAccederRuta("GERENTE", "/comprobantes/c1")).toBe(true);
+    expect(rolPuedeAccederRuta("PROFESOR", "/comprobantes/c1")).toBe(false);
+    expect(rolPuedeAccederRuta("ALUMNO", "/comprobantes/c1")).toBe(false);
+  });
+
+  it("/mis-pagos: solo el alumno", () => {
+    expect(rolPuedeAccederRuta("ALUMNO", "/mis-pagos/p1/comprobante")).toBe(true);
+    for (const rol of ["MESA_ENTRADA", "GERENTE", "PROFESOR"] as const) {
+      expect(rolPuedeAccederRuta(rol, "/mis-pagos/p1/comprobante")).toBe(false);
+    }
+  });
+
+  it("/pagos sigue solo para mesa de entrada", () => {
+    expect(rolPuedeAccederRuta("GERENTE", "/pagos/registrar")).toBe(false);
+  });
+});

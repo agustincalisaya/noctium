@@ -53,10 +53,11 @@ const PUBLICOS = [
   },
   {
     ruta: "server/pagos/pago.publico.ts",
-    // PR 0: valor vigente y contrato del comprobante, del propio módulo I (2.13).
+    // PR 0: valor vigente, del propio módulo I (2.13). HU-I-11: el comprobante
+    // vigente de cada pago se resuelve en la lectura de comprobantes, también de I.
     permitidos: [
       "@prisma/client", "@/lib/prisma", "@/server/alumnos/alumno.publico",
-      "@/server/pagos/comprobante.schema", "@/server/pagos/pago.vigente",
+      "@/server/pagos/comprobante.lectura", "@/server/pagos/pago.vigente",
     ],
   },
   // PR 0 (Sprint 3): fachadas nuevas.

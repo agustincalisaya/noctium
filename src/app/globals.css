@@ -157,3 +157,32 @@
     @apply font-sans;
   }
 }
+/*
+ * Impresión del comprobante de pago (HU-I-11, spec_modulo_I.md §2.9.3): solo
+ * en la página que contiene `[data-comprobante]` (ComprobanteCard). Oculta
+ * sidebar, navbar y el resto de la pantalla, y libera el alto fijo y el
+ * overflow del layout del dashboard para que la tarjeta no salga recortada.
+ * La impresión de cualquier otra pantalla no cambia.
+ */
+@media print {
+  body:has([data-comprobante]) {
+    background: var(--card);
+  }
+  body:has([data-comprobante]) * {
+    visibility: hidden;
+  }
+  body:has([data-comprobante]) div:has([data-comprobante]),
+  body:has([data-comprobante]) main:has([data-comprobante]) {
+    height: auto;
+    overflow: visible;
+  }
+  /* Misma especificidad que la regla que oculta todo, para que esta le gane por orden. */
+  body:has([data-comprobante]) [data-comprobante],
+  body:has([data-comprobante]) [data-comprobante] * {
+    visibility: visible;
+  }
+  [data-comprobante] {
+    position: absolute;
+    inset: 0 0 auto 0;
+  }
+}

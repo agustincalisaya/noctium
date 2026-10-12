@@ -71,13 +71,31 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
         id: "pago-2", alumno: { id: "alumno-b", nombre_completo: "Gómez, Lucía" }, monto: "12000.00",
         forma_pago: { id: "fp-transferencia", nombre: "Transferencia" }, fecha_pago: "2026-09-28",
         registrado_en: "2026-09-28T15:00:00.000Z",
+        comprobante: null,
       },
       {
         id: "pago-1", alumno: { id: "alumno-a", nombre_completo: "Pérez, Ana" }, monto: "15000.50",
         forma_pago: { id: "fp-transferencia", nombre: "Transferencia" }, fecha_pago: "2026-09-27",
         registrado_en: "2026-09-27T13:30:00.000Z",
+        comprobante: null,
       },
     ]);
+  });
+
+  it("suma el comprobante vigente de cada pago (HU-I-11): el que nadie reemplazó, con el número visible", async () => {
+    const conComprobantes = {
+      ...fila("pago-1", "alumno-a", "100", "2026-09-27", "2026-09-27T13:30:00.000Z"),
+      comprobantes: [
+        { idComprobante: "comp-2", numero: 124, datos: { clases: [{ pago_id: "pago-1" }] }, reemplazadoPor: null },
+        { idComprobante: "comp-1", numero: 123, datos: { clases: [{ pago_id: "pago-1" }] }, reemplazadoPor: { idComprobante: "comp-2" } },
+      ],
+    };
+    db.operacionPago.findMany.mockResolvedValue([conComprobantes]);
+    obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana")]);
+
+    const [pago] = await listarPagosDeTurno("turno-1");
+
+    expect(pago?.comprobante).toEqual({ id: "comp-2", numero: "0001-00000124" });
   });
 
   it("resuelve los nombres en una sola consulta en lote, aunque un alumno tenga varios pagos", async () => {

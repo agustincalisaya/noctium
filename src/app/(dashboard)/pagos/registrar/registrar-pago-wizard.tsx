@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
@@ -42,6 +43,8 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
   const [formaPagoId, setFormaPagoId] = useState("");
   const [fechaPago, setFechaPago] = useState(hoy);
   const [registradas, setRegistradas] = useState<number | null>(null);
+  // Comprobante de la última operación registrada (HU-I-11): el banner enlaza a él.
+  const [comprobanteId, setComprobanteId] = useState<string | null>(null);
   const resultado = useRef<OperacionDePagoRegistrada | null>(null);
 
   useEffect(() => {
@@ -111,6 +114,7 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
   };
   const registrado = () => {
     setRegistradas(resultado.current?.pagos.length ?? elegidas.length);
+    setComprobanteId(resultado.current?.comprobante?.id ?? null);
     volverAlPaso1();
     if (alumnoInicialId) router.replace("/pagos/registrar");
     window.scrollTo({ top: 0 });
@@ -124,6 +128,12 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
         <p className="flex-1 font-medium">
           {registradas === 1 ? texto("ui.pagos.registrado.una") : texto("ui.pagos.registrado.varias", { n: registradas })}
         </p>
+        {comprobanteId && (
+          <Link href={`/comprobantes/${comprobanteId}`}
+            className="font-medium underline underline-offset-2 hover:text-success-foreground/80 focus-visible:outline-2 focus-visible:outline-ring">
+            {texto("ui.pagos.verComprobante")}
+          </Link>
+        )}
         <button type="button" className="rounded-sm p-1 hover:bg-success-foreground/10 focus-visible:outline-2 focus-visible:outline-ring"
           aria-label={texto("ui.pagos.registrado.cerrar")} onClick={() => setRegistradas(null)}>
           <X className="size-4" aria-hidden />

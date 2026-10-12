@@ -102,10 +102,14 @@ describe.skipIf(!habilitada)("pago.publico: PostgreSQL real aislado", () => {
       {
         id: id("p2"), alumno: { id: id("s2"), nombre_completo: "Gómez, Ana" }, monto: "12000.00",
         forma_pago: { id: id("fi"), nombre: id("fi") }, fecha_pago: "2026-09-21", registrado_en: "2026-09-21T13:00:00.000Z",
+        // Pagos insertados directo, sin operación cobrada: no tienen comprobante (HU-I-11).
+        comprobante: null,
       },
       {
         id: id("p1"), alumno: { id: id("s1"), nombre_completo: "Pérez, Ana" }, monto: "15000.50",
         forma_pago: { id: id("fa"), nombre: id("fa") }, fecha_pago: "2026-09-20", registrado_en: "2026-09-20T13:00:00.000Z",
+        // Pagos insertados directo, sin operación cobrada: no tienen comprobante (HU-I-11).
+        comprobante: null,
       },
     ]);
   });
