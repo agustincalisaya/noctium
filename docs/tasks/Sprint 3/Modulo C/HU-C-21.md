@@ -424,19 +424,47 @@ Recorrido en `noctium_dev` con un escenario equivalente al del prototipo: una ma
 6. Evidencia y cierre documental en esta task.
 
 **Definition of Done:**
-- [ ] Relevamiento (§0, R1 a R7) presentado y confirmado antes de implementar.
-- [ ] Pedido sin campos nuevos idéntico a Sprint 2; tests de HU-C-17 en verde con sus valores esperados de Sprint 2 intactos (solo los ajustes mecánicos de 0.5).
-- [ ] Test PostgreSQL de equivalencia entre la lectura agrupada de aulas libres y `aulaConTurnoSuperpuesto`.
-- [ ] Ruta GET de aulas libres con `turnos:crear`, solo lectura y sin tocar el Módulo K.
-- [ ] Aula por fecha, exclusión, cupo por aula, `solo_excluible` y `sin_aulas_libres` según 4.2.
-- [ ] «Resolver todas» según 4.3, separable (flag, función y botón propios).
-- [ ] Confirmación todo o nada sobre las incluidas, con revalidación dentro de la transacción y defensa GiST; nunca resuelve por su cuenta.
-- [ ] Respuesta `201` con `aulas_cambiadas` y `fechas_excluidas`; eventos con el aula y el cupo de cada clase, después del commit.
-- [ ] `VALIDATION_ERROR` del servicio → 400 en las dos rutas; ningún otro status cambia.
-- [ ] UI conforme a §5 y a las decisiones D1 a D12; banner (no toast); confirmación de HU-C-25; resumen del criterio 8.
-- [ ] Textos en `src/lib/textos.ts` bajo `ui.clases.generacion.*` / `confirmaciones.clases.generar`; ninguno dice «turno»; `claves-textos.test.ts` en verde.
-- [ ] Sin `DELETE` físico, sin cambios de `schema.prisma`, sin migraciones y sin `migrate reset` sobre base compartida.
+- [x] Relevamiento (§0, R1 a R7) presentado y confirmado antes de implementar.
+- [x] Pedido sin campos nuevos idéntico a Sprint 2; tests de HU-C-17 en verde con sus valores esperados de Sprint 2 intactos (solo los ajustes mecánicos de 0.5).
+- [x] Test PostgreSQL de equivalencia entre la lectura agrupada de aulas libres y `aulaConTurnoSuperpuesto`.
+- [x] Ruta GET de aulas libres con `turnos:crear`, solo lectura y sin tocar el Módulo K.
+- [x] Aula por fecha, exclusión, cupo por aula, `solo_excluible` y `sin_aulas_libres` según 4.2.
+- [x] «Resolver todas» según 4.3, separable (flag, función y botón propios).
+- [x] Confirmación todo o nada sobre las incluidas, con revalidación dentro de la transacción y defensa GiST; nunca resuelve por su cuenta.
+- [x] Respuesta `201` con `aulas_cambiadas` y `fechas_excluidas`; eventos con el aula y el cupo de cada clase, después del commit.
+- [x] `VALIDATION_ERROR` del servicio → 400 en las dos rutas; ningún otro status cambia.
+- [x] UI conforme a §5 y a las decisiones D1 a D12; banner (no toast); confirmación de HU-C-25; resumen del criterio 8.
+- [x] Textos en `src/lib/textos.ts` bajo `ui.clases.generacion.*` / `confirmaciones.clases.generar`; ninguno dice «turno»; `claves-textos.test.ts` en verde.
+- [x] Sin `DELETE` físico, sin cambios de `schema.prisma`, sin migraciones y sin `migrate reset` sobre base compartida.
 - [ ] Tests de los tres niveles + frontend; `tsc --noEmit`, lint, build y suite completa en verde.
-- [ ] Evidencia en `docs/testing/Modulo C/hu-c-21/`.
+- [x] Evidencia en `docs/testing/Modulo C/hu-c-21/`.
 - [ ] Diff acotado a esta HU. La corrección de la cita en `spec_modulo_C.md` §2.9.1 queda como el único cambio de spec, separado del funcional.
 - [ ] El PO da la HU por Terminada después del recorrido sobre la rama.
+
+---
+
+## 8. Evidencia de cierre técnico
+
+**Las seis fases de §7 están implementadas** sobre `feature/HU-C-21`. Un pedido sin los campos nuevos responde lo mismo que en Sprint 2 más los campos aditivos; «Resolver todas» quedó separable (flag, función y botón propios). Evidencia completa: [`docs/testing/Modulo C/hu-c-21/`](../../../testing/Modulo%20C/hu-c-21/HU-C-21-evidencia.md).
+
+| Fase | Implementación comprobada | Tests y verificación |
+|---|---|---|
+| 1. Schema, validaciones y rutas | `turno.generacion.schema.ts`: campos de `GenerarTurnosSchema` + `VistaPreviaGeneracionSchema` (con `resolver_automaticamente`), los dos `.strict().superRefine(validar)`; `aulas_por_fecha` y `fechas_excluidas` opcionales, tope 40. Servicio: pertenencia a las fechas calculadas y D10 → `VALIDATION_ERROR`. Rutas: `VALIDATION_ERROR` → 400 y `detalles` en la vista previa; el resto del mapeo, igual | `turno.generacion.schema.test.ts`, `turno.generacion.calculo.test.ts`, `turno.generacion.service.test.ts`, `generacion/route.test.ts` |
+| 2. Cálculo, aulas libres y `sin_aulas_libres` | `calcularGeneracion`: aula y cupo por fecha, aulas elegidas validadas una vez por aula, exclusión sin consultas, todas excluidas → `SIN_FECHAS_EN_RANGO`, `solo_excluible`, `sin_aulas_libres` solo en la vista previa. `turno.generacion.aulas.ts`: lectura agrupada (una llamada a K y un `findMany`). `GET /api/turnos/generacion/aulas-libres` con `turnos:crear` | `turno.generacion.aulas.test.ts`, `aulas-libres/route.test.ts`, servicio; PG: equivalencia contra `aulaConTurnoSuperpuesto` y vista previa real |
+| 3. Confirmación | Cada clase incluida con el aula y el cupo de su fecha; excluidas no se crean; `aulas_cambiadas` y `fechas_excluidas` en el 201; eventos `turno:aula_asignada` y `turno:disponibilizado` por clase, después del commit; bloqueo solo del profesor y defensa GiST | `turno.generacion.confirmacion.test.ts`; PG nivel 3 puntos 1 a 6, incluida la carrera `23P01` sobre un aula elegida |
+| 4. UI | `tabla-vista-previa-generacion.tsx` (filas de §5.3, selector en la fila, exclusión, última fecha) y `turno-recurrente.tsx` (listas, clave vigente, pedidos, D9, `ConfirmarAccionDialog`, 409 → vista previa nueva, resumen con los tres números). Textos en `ui.clases.generacion.*` y `confirmaciones.clases.generar`; se borraron las tres claves aprobadas en 0.5 | `turno-recurrente.test.tsx` (8 de HU-C-17 con los ajustes de R3 + 15 nuevos); capturas contra el prototipo y en 390 px |
+| 5. «Resolver todas» | `elegirAulaParaResolver` (pura) y `resolverTodas` (servicio, solo en la vista previa, sobre la misma lectura agrupada); botón con ayuda y banner de tres variantes | Cálculo, servicio, PG (resuelve una, deja otra y confirma con las aulas derivadas) y 7 de frontend; capturas antes y después |
+| 6. Evidencia | Verificación final, recorrido confirmado en `noctium_dev`, Postman ejecutado, SQL y capturas | `HU-C-21-evidencia.md`, `HU-C-21.postman_collection.json`, `HU-C-21.sql` y 14 capturas |
+
+**Totales (12/10/2026).**
+- Tests de la HU (unitarios, API y frontend): 9 archivos, **197 aprobados**, de los cuales 95 son de HU-C-21.
+- PostgreSQL de generación (`npm run test:pg`, pasada C-17/C-21): **22/22** (16 de HU-C-17 + 6 de HU-C-21).
+- Colección Postman: 11/11 casos ejecutados aprobados (el caso 02 no se ejecutó: requiere todas las aulas ocupadas; lo cubre `aulas-libres/route.test.ts`).
+- `HU-C-21.sql` sobre el lote del recorrido: todas las columnas de control en `true`.
+- `npx tsc --noEmit`, `npm run build` y `npx tsx scripts/verificar-claves-textos.ts`: correctos. `npm run lint`: 0 errores, 1 warning preexistente fuera de esta HU.
+- Suite completa (`npm test`): 3.172 aprobadas, **3 fallidas**: las tres de `claves-textos.test.ts`, por el límite de 60 s con toda la suite en paralelo (corrido solo: 36/36).
+- `npm run test:pg` completo: fallos ajenos a esta HU. Los que cortaron por tiempo con la máquina cargada pasaron sin carga; `cancelaciones.service.pg.test.ts` falla en el seed («Fixture E02 sin inscripción inicial», depende de la fecha real), sin relación con el diff de esta HU y sin comprobar contra `develop`.
+
+**Recorrido manual en `noctium_dev`.** Lote `cmv5hggrr0007uwwsfs2xyalz` (Martín Rossi, Programación I, jueves 04/02 a 25/02/2027): el 11/02, con Aula 2 ocupada, se cambió a Laboratorio (cupo 15 en lugar de 20) y se excluyó el 18/02. El banner informó «Se generaron 3 clases correctamente. En 1 se cambió el aula. Se excluyó 1 fecha.», el listado mostró cada clase con su aula y `HU-C-21.sql` confirmó aula, cupo, reservas y eventos por clase. Los ids de todas las clases creadas (incluidas la que ocupa el aula y la del caso 12 de Postman) están en la evidencia.
+
+**Pendiente, fuera de esta sesión.** La suite completa en verde (los 3 tiempos de `claves-textos` se tratan aparte, por decisión del PO); la separación de la corrección de spec en su propio commit (hoy está en `16a2889`, junto con la fase 3); la revisión del PR y la aceptación del PO.

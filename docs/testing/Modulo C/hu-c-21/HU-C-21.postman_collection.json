@@ -1,0 +1,432 @@
+{
+  "info": {
+    "name": "HU-C-21 — Aula por fecha y exclusión al generar varias clases",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Nivel 2 de la §6 de docs/tasks/Sprint 3/Modulo C/HU-C-21.md. Sesión de Mesa de entrada por login real (Cookie Jar fuera de la colección; no exportar cookies ni contraseñas). Completar las variables con datos de la base: una materia que dicte el profesor, su franja (horario_id), una hora que encaje y fechas de ese día de la semana. `fecha_conflicto` es una fecha del rango en la que `aula_ocupada_id` tiene otra clase agendada a la misma hora. `fecha_excluida` es otra fecha del rango y `fecha_ajena` una fecha que NO está entre las calculadas. El caso 12 (201) crea clases y va último: si corre antes, el 11 vería TURNO_EXISTENTE en lugar de AULA_OCUPADA. Correrlo en fechas lejanas y anotar el generacion_id. Los casos 01 a 11 no escriben. El caso 02 (GET sin aulas libres) requiere preparar todas las aulas activas ocupadas en ese horario; está cubierto también por src/app/api/turnos/generacion/aulas-libres/route.test.ts."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "materia_id",
+      "value": ""
+    },
+    {
+      "key": "profesor_id",
+      "value": ""
+    },
+    {
+      "key": "horario_id",
+      "value": ""
+    },
+    {
+      "key": "hora_inicio",
+      "value": "10:00"
+    },
+    {
+      "key": "aula_id",
+      "value": ""
+    },
+    {
+      "key": "aula_cambiada_id",
+      "value": ""
+    },
+    {
+      "key": "aula_ocupada_id",
+      "value": ""
+    },
+    {
+      "key": "fecha_desde",
+      "value": ""
+    },
+    {
+      "key": "fecha_hasta",
+      "value": ""
+    },
+    {
+      "key": "fecha_conflicto",
+      "value": ""
+    },
+    {
+      "key": "fecha_excluida",
+      "value": ""
+    },
+    {
+      "key": "fecha_ajena",
+      "value": ""
+    },
+    {
+      "key": "fecha_sin_aulas",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 GET aulas libres — 200 ordenadas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/generacion/aulas-libres?fecha={{fecha_desde}}&hora_inicio={{hora_inicio}}&duracion_min=60",
+        "description": "Aulas activas libres en esa fecha y horario, por capacidad ascendente, nombre e id."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lista con id, nombre y capacidad\", () => { pm.expect(b.data).to.be.an(\"array\"); b.data.forEach((a) => pm.expect(a).to.have.keys(\"id\", \"nombre\", \"capacidad\")); });",
+              "pm.test(\"Orden por capacidad ascendente\", () => { const c = b.data.map((a) => a.capacidad); pm.expect(c).to.eql([...c].sort((x, y) => x - y)); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 GET aulas libres — 200 [] sin aulas libres",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/generacion/aulas-libres?fecha={{fecha_sin_aulas}}&hora_inicio={{hora_inicio}}&duracion_min=60",
+        "description": "Preparación: todas las aulas activas ocupadas en ese horario. No es error: 200 con lista vacía."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lista vacía\", () => pm.expect(b.data).to.eql([]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 GET aulas libres — 400 query inválida",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/generacion/aulas-libres?fecha=2026-02-30&hora_inicio={{hora_inicio}}&duracion_min=90",
+        "description": "Fecha inexistente y duración no permitida."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"error.code VALIDATION_ERROR\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"VALIDATION_ERROR\"); });",
+              "pm.test(\"Detalles de Zod\", () => pm.expect(b.error.detalles).to.be.an(\"object\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 GET aulas libres — 403 sin permiso",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/turnos/generacion/aulas-libres?fecha={{fecha_desde}}&hora_inicio={{hora_inicio}}&duracion_min=60",
+        "description": "Con sesión de un rol sin turnos:crear (por ejemplo PROFESOR)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"error.code SIN_PERMISO\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 POST vista previa — 200 pedido de Sprint 2",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion/vista-previa",
+        "description": "Sin campos nuevos: misma respuesta de Sprint 2 más los campos de HU-C-21. No escribe.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Resumen de Sprint 2 + conteos nuevos\", () => pm.expect(b.data).to.include.keys(\"cantidad\", \"fechas\", \"hay_conflictos\", \"fechas_omitidas_vencidas\", \"cantidad_incluida\", \"con_aula_cambiada\", \"excluidas\"));",
+              "pm.test(\"Cada fecha suma los campos de HU-C-21\", () => b.data.fechas.forEach((f) => pm.expect(f).to.include.keys(\"fecha\", \"estado\", \"motivos\", \"aula\", \"aula_cambiada\", \"cupo\", \"cupo_aula_por_defecto\", \"excluida\", \"sin_aulas_libres\", \"solo_excluible\")));",
+              "pm.test(\"Sin elecciones: ninguna cambiada ni excluida\", () => { pm.expect(b.data.con_aula_cambiada).to.eql(0); pm.expect(b.data.excluidas).to.eql(0); pm.expect(b.data.cantidad_incluida).to.eql(b.data.cantidad); });",
+              "pm.test(\"La fecha con el aula ocupada tiene AULA_OCUPADA\", () => pm.expect(b.data.fechas.find((f) => f.fecha === pm.variables.get(\"fecha_conflicto\")).motivos).to.include(\"AULA_OCUPADA\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 POST vista previa — 200 con aula por fecha y exclusión",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion/vista-previa",
+        "description": "aulas_por_fecha resuelve la fecha ocupada; fechas_excluidas saca otra. No escribe.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"aulas_por_fecha\": [\n    {\n      \"fecha\": \"{{fecha_conflicto}}\",\n      \"aula_id\": \"{{aula_cambiada_id}}\"\n    }\n  ],\n  \"fechas_excluidas\": [\n    \"{{fecha_excluida}}\"\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Cada fecha suma los campos de HU-C-21\", () => b.data.fechas.forEach((f) => pm.expect(f).to.include.keys(\"fecha\", \"estado\", \"motivos\", \"aula\", \"aula_cambiada\", \"cupo\", \"cupo_aula_por_defecto\", \"excluida\", \"sin_aulas_libres\", \"solo_excluible\")));",
+              "const cambiada = b.data.fechas.find((f) => f.fecha === pm.variables.get(\"fecha_conflicto\"));",
+              "const excluida = b.data.fechas.find((f) => f.fecha === pm.variables.get(\"fecha_excluida\"));",
+              "pm.test(\"Fecha cambiada: OK con el aula y el cupo nuevos\", () => { pm.expect(cambiada.estado).to.eql(\"OK\"); pm.expect(cambiada.aula_cambiada).to.eql(true); pm.expect(cambiada.aula.id).to.eql(pm.variables.get(\"aula_cambiada_id\")); });",
+              "pm.test(\"Fecha excluida: OK, sin motivos\", () => { pm.expect(excluida.excluida).to.eql(true); pm.expect(excluida.estado).to.eql(\"OK\"); pm.expect(excluida.motivos).to.eql([]); });",
+              "pm.test(\"Resumen\", () => { pm.expect(b.data.con_aula_cambiada).to.eql(1); pm.expect(b.data.excluidas).to.eql(1); pm.expect(b.data.cantidad_incluida).to.eql(b.data.cantidad - 1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 POST vista previa — 200 con «Resolver todas»",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion/vista-previa",
+        "description": "resolver_automaticamente: true. La fecha ocupada pasa a OK con el aula libre de menor capacidad igual o mayor a la del aula por defecto. No escribe.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"resolver_automaticamente\": true\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Cada fecha suma los campos de HU-C-21\", () => b.data.fechas.forEach((f) => pm.expect(f).to.include.keys(\"fecha\", \"estado\", \"motivos\", \"aula\", \"aula_cambiada\", \"cupo\", \"cupo_aula_por_defecto\", \"excluida\", \"sin_aulas_libres\", \"solo_excluible\")));",
+              "const resuelta = b.data.fechas.find((f) => f.fecha === pm.variables.get(\"fecha_conflicto\"));",
+              "pm.test(\"Fecha ocupada resuelta\", () => { pm.expect(resuelta.estado).to.eql(\"OK\"); pm.expect(resuelta.aula_cambiada).to.eql(true); });",
+              "pm.test(\"Nunca un aula más chica\", () => pm.expect(resuelta.cupo).to.be.at.least(resuelta.cupo_aula_por_defecto));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 POST confirmación — 400 con resolver_automaticamente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion",
+        "description": "La confirmación nunca resuelve: el schema estricto rechaza el flag.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"resolver_automaticamente\": true\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"error.code VALIDATION_ERROR\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"VALIDATION_ERROR\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 POST confirmación — 400 con fecha ajena al rango",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion",
+        "description": "Una fecha de las listas que no está entre las calculadas.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"fechas_excluidas\": [\n    \"{{fecha_ajena}}\"\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"error.code VALIDATION_ERROR\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"VALIDATION_ERROR\"); });",
+              "pm.test(\"Detalles con campo y fecha\", () => pm.expect(b.error.detalles).to.eql({ campo: \"fechas_excluidas\", fecha: pm.variables.get(\"fecha_ajena\") }));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 POST confirmación — 400 con aula de fecha igual a la por defecto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion",
+        "description": "D10: defensivo, la UI nunca lo envía.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"aulas_por_fecha\": [\n    {\n      \"fecha\": \"{{fecha_conflicto}}\",\n      \"aula_id\": \"{{aula_id}}\"\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"error.code VALIDATION_ERROR\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"VALIDATION_ERROR\"); });",
+              "pm.test(\"Detalles con la fecha\", () => pm.expect(b.error.detalles).to.eql({ campo: \"aulas_por_fecha\", fecha: pm.variables.get(\"fecha_conflicto\") }));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 POST confirmación — 409 con un aula elegida ocupada",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion",
+        "description": "El aula elegida para una fecha está ocupada: 409 con la vista previa recalculada en detalles y ninguna clase creada.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"aulas_por_fecha\": [\n    {\n      \"fecha\": \"{{fecha_conflicto}}\",\n      \"aula_id\": \"{{aula_ocupada_id}}\"\n    }\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"error.code GENERACION_CON_CONFLICTOS\", () => { pm.expect(b.data).to.eql(null); pm.expect(b.error.code).to.eql(\"GENERACION_CON_CONFLICTOS\"); });",
+              "pm.test(\"Detalle con AULA_OCUPADA en el aula elegida\", () => { const f = b.error.detalles.fechas.find((x) => x.fecha === pm.variables.get(\"fecha_conflicto\")); pm.expect(f.motivos).to.include(\"AULA_OCUPADA\"); pm.expect(f.aula_cambiada).to.eql(true); pm.expect(f.aula.id).to.eql(pm.variables.get(\"aula_ocupada_id\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 POST confirmación — 201 con aula por fecha y exclusión",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/turnos/generacion",
+        "description": "CREA CLASES. Cada clase con el aula y el cupo de su fecha; la excluida no se crea. Anotar generacion_id y correr HU-C-21.sql.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"materia_id\": \"{{materia_id}}\",\n  \"profesor_id\": \"{{profesor_id}}\",\n  \"horario_id\": \"{{horario_id}}\",\n  \"duracion_min\": 60,\n  \"hora_inicio\": \"{{hora_inicio}}\",\n  \"aula_id\": \"{{aula_id}}\",\n  \"fecha_desde\": \"{{fecha_desde}}\",\n  \"fecha_hasta\": \"{{fecha_hasta}}\",\n  \"aulas_por_fecha\": [\n    {\n      \"fecha\": \"{{fecha_conflicto}}\",\n      \"aula_id\": \"{{aula_cambiada_id}}\"\n    }\n  ],\n  \"fechas_excluidas\": [\n    \"{{fecha_excluida}}\"\n  ]\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const b = pm.response.json();",
+              "pm.test(\"Envelope {data, error}\", () => pm.expect(b).to.have.keys(\"data\", \"error\"));",
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Conteos del criterio 8\", () => { pm.expect(b.data.aulas_cambiadas).to.eql(1); pm.expect(b.data.fechas_excluidas).to.eql(1); pm.expect(b.data.turno_ids).to.have.lengthOf(b.data.cantidad); });",
+              "pm.test(\"generacion_id es la primera clase\", () => pm.expect(b.data.generacion_id).to.eql(b.data.turno_ids[0]));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
