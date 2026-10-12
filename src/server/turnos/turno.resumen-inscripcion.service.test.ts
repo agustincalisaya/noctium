@@ -12,6 +12,7 @@ vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerNombresProfesore
 vi.mock("@/server/aulas/aula.publico", () => ({ obtenerNombreAula: aula }));
 vi.mock("@/server/shared/parametros-vigentes", () => ({ parametrosVigentes: parametros }));
 const { obtenerResumenInscripcion } = await import("@/server/turnos/turno.resumen-inscripcion.service");
+const { evaluarCancelacion } = await import("@/server/turnos/turno.cancelacion-propia");
 const momento = new Date("2026-10-09T18:00:00Z");
 const turno = {
   idTurno: "t1", estadoTurno: "DISPONIBLE", materiaId: "m1", profesorId: "p1", aulaId: "a1",
@@ -64,6 +65,16 @@ describe("C-20 resumen informativo", () => {
     expect(await consultar()).toMatchObject({ limite_cancelacion_en_linea: "2026-10-09T15:00:00-03:00", limite_cancelacion_pasado: false });
     parametros.mockResolvedValue({ plazoPagoHoras: 24, cancelacionAnticipacionHoras: 96 });
     expect(await consultar()).toMatchObject({ limite_cancelacion_pasado: false });
+  });
+  it("comparte la regla del límite con la cancelación propia (C-14) en el borde exacto: pasado ⇔ FUERA_DE_PLAZO", async () => {
+    const limite = new Date("2026-10-12T19:00:00.000Z"); // inicio 13/10 16:00 del centro (19:00Z) − 24 h
+    const pagada = { vigencia: "VIGENTE" as const, estadoPago: "PAGADA" as const, venceEl: null };
+    for (const [instante, pasado] of [[limite.getTime() - 1, false], [limite.getTime(), false], [limite.getTime() + 1, true]] as const) {
+      const resumen = await conReloj(new Date(instante), () => obtenerResumenInscripcion("t1", "u1"));
+      expect(resumen).toMatchObject({ limite_cancelacion_en_linea: "2026-10-12T16:00:00-03:00", limite_cancelacion_pasado: pasado });
+      expect(evaluarCancelacion(pagada, turno, new Date(instante), { cancelacionAnticipacionHoras: 24 }).estado)
+        .toBe(pasado ? "FUERA_DE_PLAZO" : "PERMITIDA");
+    }
   });
   it("rechaza ausencia de ficha", async () => {
     alumno.mockResolvedValue(null);

@@ -8,7 +8,7 @@
 
 ## 0. Relevamiento previo a implementación
 
-Confirmado por el usuario el 11/10/2026 sobre `feature/hu-restantes`, HEAD `f49a35746377e127a59022c005e4bc5963c26137`, con árbol limpio. El relevamiento autorizó el núcleo compartido, servicio transaccional, Route Handler, diálogo en Mis clases, leyendas diferidas de C-20, pruebas y evidencia. No se autorizaron migraciones, dependencias, commit ni push.
+Confirmado por el usuario el 11/10/2026 sobre `feature/hu-restantes`, HEAD `f49a35746377e127a59022c005e4bc5963c26137`, con árbol limpio. El relevamiento autorizó el núcleo compartido, servicio transaccional, Route Handler, diálogo en Mis clases, leyendas diferidas de C-20, pruebas y evidencia. No se autorizaron migraciones ni dependencias.
 
 ## 1. Nota de alcance
 
@@ -41,7 +41,7 @@ No hay body ni identidad aportada por el cliente. El id proviene del segmento de
 
 ### 4.2. Servicio
 
-`cancelarInscripcionPropia(turnoId, usuarioId)` resuelve la ficha, lee la inscripción más reciente, bloquea clase e inscripción, marca reservas vencidas, relee y revalida estado, pago, plazo y parámetro vigente, y finaliza como `CANCELADA_ALUMNO`. Conserva pagos y devuelve `con_pagos`.
+`cancelarInscripcionPropia(turnoId, usuarioId)` resuelve la ficha, lee la inscripción más reciente, bloquea clase e inscripción, marca reservas vencidas, relee y revalida con el orden de la spec C §2.19 (clase cancelada, clase vencida, inscripción no vigente, anticipación mínima), y finaliza como `CANCELADA_ALUMNO`. Conserva pagos y devuelve `con_pagos`. El límite sale de una única función pura (`limiteCancelacionEnLinea`) que usan también el resumen de C-20 y el listado; el borde es inclusivo (el instante exacto del límite sigue permitido). `alumnos_inscriptos` sale de la regla de ocupación.
 
 ### 4.3. Route Handler
 
@@ -53,7 +53,7 @@ No aplica.
 
 ### 4.5. Trazabilidad
 
-`finalizarInscripcion` conserva fecha, actor y estado en la inscripción y encola el historial para después del commit. El servicio emite `turno:inscripcion_cancelada` (`turno_id, alumno_id, inscripcion_id, estado_pago, usuario_id`) y, si corresponde, `turno:disponible_nuevamente` (`turno_id, alumno_id_liberado, usuario_id`) después de resolver la transacción (spec C §4).
+`finalizarInscripcion` conserva fecha, actor y estado en la inscripción y encola el historial para después del commit. El servicio encola `turno:inscripcion_cancelada` (`turno_id, alumno_id, inscripcion_id, estado_pago, usuario_id`) y, si corresponde, `turno:disponible_nuevamente` (`turno_id, alumno_id_liberado, usuario_id`) con el historial compartido (spec C §4): se escriben después del commit, con reintentos y registro del error, y una falla del escritor no convierte en error una cancelación ya confirmada.
 
 ## 5. Frontend
 
@@ -63,15 +63,15 @@ No aplica.
 
 ### Nivel 1 — Unitario y componente
 
-Límites inclusivos, excepción de reserva, estados no cancelables, contrato HTTP, confirmación, rechazo interno, envío compartido y leyendas C-20.
+Límites inclusivos y borde exacto de la anticipación, excepción de reserva, estados no cancelables, contrato HTTP con un caso por cada código de error, confirmación, rechazo interno, doble envío con dos clics en su propio `act`, estados de la acción en «Mis clases» (habilitada, deshabilitada con la leyenda, sin acción) y leyendas de C-20 con la misma regla del límite.
 
 ### Nivel 2 — API / Postman
 
-Colección en `docs/testing/Modulo C/hu-c-14/HU-C-14.postman_collection.json`, con assertions de status, envelope y código para el éxito y cada error (401, 403, 404, 409). Su presencia no acredita ejecución.
+Colección en `docs/testing/Modulo C/hu-c-14/HU-C-14.postman_collection.json`: 10 solicitudes con assertions de status, envelope y código para el éxito y cada error (401, 403 sin permiso y sin ficha, 404 de clase e inscripción, 409 fuera de plazo, clase cancelada, clase vencida e inscripción no vigente). Ejecutada contra la aplicación con una base descartable (ver evidencia).
 
 ### Nivel 3 — PostgreSQL
 
-Consultas en `docs/testing/Modulo C/hu-c-14/HU-C-14.sql`. Tests descartables en `src/server/turnos/turno.cancelacion-propia.pg.test.ts`, que verifican también los payloads de los eventos. Las verificaciones ejecutadas y pendientes se registran en la evidencia.
+Consultas con aserciones en `docs/testing/Modulo C/hu-c-14/HU-C-14.sql` (fila `CANCELADA_ALUMNO` con fecha y actor, historial, pagos intactos, cupo liberado y eventos). Tests descartables en `src/server/turnos/turno.cancelacion-propia.pg.test.ts` (35): borde exacto con reloj controlado, concurrencia con intercalado forzado (pago de I-10, doble cancelación, alta de otro alumno, baja de B-07, vencimiento de C-24), rechazos en el orden de la spec, IDOR, historial y eventos después del commit. Las verificaciones ejecutadas y pendientes se registran en la evidencia.
 
 ## 7. Checklist de Definition of Done
 
@@ -81,17 +81,20 @@ Consultas en `docs/testing/Modulo C/hu-c-14/HU-C-14.sql`. Tests descartables en 
 - [x] Identidad derivada de la sesión y permiso granular.
 - [x] Confirmación C-25 y textos centralizados.
 - [x] Pruebas focales documentadas.
-- [x] PostgreSQL descartable: 7/7 (`turno.cancelacion-propia.pg.test.ts`, ver evidencia).
-- [ ] Postman, navegador y CI: ver evidencia.
-- [x] Commit de la implementación: 28165e3.
-- [ ] Commit de las correcciones de auditoría, push, PR e integración: manuales, no autorizados.
+- [x] PostgreSQL descartable: 35/35 (`turno.cancelacion-propia.pg.test.ts`, ver evidencia).
+- [x] Postman ejecutado (10 solicitudes, 53 aserciones) y SQL con aserciones ejecutado.
+- [ ] ⏳ Recorrido de navegador de «Mis clases» y CI sobre el SHA del PR: ver evidencia.
+- [ ] ⏳ Revisión e integración del PR.
 
-## 8. Correcciones de auditoría
+## 8. Decisiones y ajustes de cierre
 
-| Hallazgo | Corrección |
+| Tema | Decisión |
 |---|---|
-| P2-03 | `cancelacion` usa `NO_APLICA` como la spec C §2.17.4 (antes `NO_DISPONIBLE`). |
-| P3-01 | Payloads de eventos completos según spec C §4. |
-| P3-02 | Acción «Cancelar mi inscripción»; fuera de plazo, deshabilitada con la leyenda. |
-| P3-03 | El aviso de reintegro también se decide con `con_pagos` de la respuesta. |
-| P3-05 | Evidencia y task actualizadas con la corrida PG real y la colección con assertions. |
+| Orden de la revalidación | Clase cancelada, clase vencida, inscripción no vigente y anticipación mínima (spec C §2.19 paso 3); un `NO_APLICA` residual se informa con su motivo real (`TURNO_PENDIENTE` o `INSCRIPCION_NO_VIGENTE`). |
+| Estado de la acción | `cancelacion` usa `NO_APLICA` como la spec C §2.17.4. |
+| Límite de anticipación | Una sola función (`limiteCancelacionEnLinea`) para la cancelación y para C-20; el instante exacto del límite sigue permitido. |
+| Eventos | Payloads completos según la spec C §4, encolados con el historial compartido: se escriben después del commit, con reintentos y registro del error. |
+| Acción en «Mis clases» | «Cancelar mi inscripción»; fuera de plazo, deshabilitada con la leyenda. |
+| Aviso de reintegro | También se decide con `con_pagos` de la respuesta. |
+| `alumnos_inscriptos` | Sale de la regla de ocupación, no de un conteo de vigencia. |
+| `limite_cancelacion_en_linea` | Se eliminó del objeto `inscripcion` de «Mis turnos»: ningún consumidor lo usaba. El resumen de C-20 conserva el suyo. |

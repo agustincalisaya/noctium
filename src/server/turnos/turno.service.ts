@@ -174,7 +174,6 @@ function presentarInscripcionPropia(
     vence_el: fila.venceEl ? isoCentro(fila.venceEl) : null,
     precio: fila.precio,
     cancelacion: cancelacion.estado,
-    limite_cancelacion_en_linea: cancelacion.limite ? isoCentro(cancelacion.limite) : null,
   };
 }
 

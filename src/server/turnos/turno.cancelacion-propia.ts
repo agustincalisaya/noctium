@@ -20,6 +20,20 @@ type TurnoCancelable = {
   horaInicioTurno: Date;
 };
 
+/**
+ * Último instante en que se puede cancelar en línea una inscripción que no es
+ * una reserva sin pagar: inicio de la clase − anticipación mínima (C §2.19).
+ * Única fórmula del límite: la usan `evaluarCancelacion` y el resumen de C-20.
+ */
+export function limiteCancelacionEnLinea(inicio: Date, anticipacionHoras: number): Date {
+  return new Date(inicio.getTime() - anticipacionHoras * 3_600_000);
+}
+
+/** `true` si `momento` pasó el límite; el instante exacto del límite todavía es válido (inclusive). */
+export function superoElLimiteDeCancelacion(momento: Date, limite: Date): boolean {
+  return momento.getTime() > limite.getTime();
+}
+
 export function evaluarCancelacion(
   inscripcion: InscripcionCancelable,
   turno: TurnoCancelable,
@@ -36,6 +50,6 @@ export function evaluarCancelacion(
     }
     return { estado: "PERMITIDA", limite: inscripcion.venceEl };
   }
-  const limite = new Date(inicio.getTime() - parametros.cancelacionAnticipacionHoras * 3_600_000);
-  return { estado: momento.getTime() <= limite.getTime() ? "PERMITIDA" : "FUERA_DE_PLAZO", limite };
+  const limite = limiteCancelacionEnLinea(inicio, parametros.cancelacionAnticipacionHoras);
+  return { estado: superoElLimiteDeCancelacion(momento, limite) ? "FUERA_DE_PLAZO" : "PERMITIDA", limite };
 }

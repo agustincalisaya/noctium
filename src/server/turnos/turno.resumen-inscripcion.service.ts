@@ -12,6 +12,7 @@ import { parametrosVigentes } from "@/server/shared/parametros-vigentes";
 import { precioClase } from "@/server/shared/precio-clase";
 import { ahora } from "@/server/shared/reloj";
 import { calcularVencimiento, inscripcionesVigentes, ocupacion } from "@/server/turnos/inscripcion.vigencia";
+import { limiteCancelacionEnLinea, superoElLimiteDeCancelacion } from "@/server/turnos/turno.cancelacion-propia";
 import type { ResumenInscripcion } from "@/types/turno.types";
 
 /** C §2.17.1: lectura informativa; el POST vigente revalida y calcula su precio. */
@@ -48,7 +49,7 @@ export async function obtenerResumenInscripcion(
   const materia = materias[0];
   const nombreProfesor = profesores[turno.profesorId];
   if (!materia || !nombreProfesor || !aula) throw new Error("Resumen: referencias de la clase incompletas");
-  const limite = new Date(inicio.getTime() - parametros.cancelacionAnticipacionHoras * 3_600_000);
+  const limite = limiteCancelacionEnLinea(inicio, parametros.cancelacionAnticipacionHoras);
   const fin = new Date(turno.horaInicioTurno.getTime() + turno.duracionMinutosTurno * 60_000);
   return {
     turno_id: turno.idTurno,
@@ -62,6 +63,6 @@ export async function obtenerResumenInscripcion(
     plazo_pago_horas: parametros.plazoPagoHoras,
     vence_pago_el: isoCentro(calcularVencimiento(momento, inicio, parametros.plazoPagoHoras).venceEl),
     limite_cancelacion_en_linea: isoCentro(limite),
-    limite_cancelacion_pasado: momento.getTime() > limite.getTime(),
+    limite_cancelacion_pasado: superoElLimiteDeCancelacion(momento, limite),
   };
 }
