@@ -92,3 +92,13 @@ describe("HU-I-11 comprobantes", () => {
     expect(rolPuedeAccederRuta("GERENTE", "/pagos/registrar")).toBe(false);
   });
 });
+
+// HU-I-10 (criterio 9): «Solo mesa de entrada registra pagos».
+describe("HU-I-10 pagos", () => {
+  it("/pagos/registrar: solo mesa de entrada", () => {
+    expect(rolPuedeAccederRuta("MESA_ENTRADA", "/pagos/registrar")).toBe(true);
+    for (const rol of ["GERENTE", "PROFESOR", "ALUMNO"] as const) {
+      expect(rolPuedeAccederRuta(rol, "/pagos/registrar")).toBe(false);
+    }
+  });
+});

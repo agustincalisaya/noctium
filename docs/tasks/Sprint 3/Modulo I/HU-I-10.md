@@ -326,3 +326,13 @@ Los literales de error de 2.7.6 (`TURNO_YA_EMPEZO`, etc.) **ya están** en `text
 - [ ] Tests de los 3 niveles en verde, con evidencia.
 - [x] Ambigüedades de la sección 0.4 y de la nota del mock del atajo (sección 5) comunicadas al PO/equipo, no resueltas por inferencia propia.
 - [ ] PR con diff acotado exclusivamente a esta HU (más la extensión puntual de C que pide DEC-23).
+
+---
+
+## 8. Correcciones post-validación
+
+### Bug B-2 (PO): `/pagos/registrar` no verificaba el permiso
+
+- **Síntoma:** gerente, profesor o alumno podían entrar por URL y veían el stepper y el buscador (los endpoints ya respondían `403`, así que no se exponían datos). Incumplía el criterio 9 («Solo mesa de entrada registra pagos») y la regla de `docs/RULES.md` «Aplicación HU-A-06: Toda pantalla nueva llama a exigirPermiso».
+- **Causa:** `src/app/(dashboard)/pagos/registrar/page.tsx` no llamaba a `exigirPermiso`, y `src/proxy.ts` no incluía `/pagos/:path*` en el `matcher`, por lo que la entrada `pagos: ["MESA_ENTRADA"]` de `rutas-por-rol.ts` nunca se aplicaba.
+- **Arreglo:** la página llama a `await exigirPermiso("pagos:crear")` antes de leer `searchParams`, y `/pagos/:path*` se agregó al `matcher` del proxy. Tests: `src/app/(dashboard)/pagos/registrar/page.test.tsx` (nuevo) y el `describe("HU-I-10 pagos")` de `rutas-por-rol.test.ts`.
