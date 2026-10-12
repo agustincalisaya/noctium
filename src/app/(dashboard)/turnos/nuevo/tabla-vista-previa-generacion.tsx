@@ -43,6 +43,13 @@ function fechaLarga(fecha: string) {
   return `${dia} ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`;
 }
 
+/** HU-C-21 «Resolver todas»: fechas incluidas con el aula ocupada, que no son solo excluibles y sin aula elegida (§5.5). */
+export function candidatasResolverTodas(vista: VistaPreviaGeneracion): string[] {
+  return vista.fechas
+    .filter((o) => !o.excluida && o.motivos.includes("AULA_OCUPADA") && !o.solo_excluible && !o.aula_cambiada)
+    .map(({ fecha }) => fecha);
+}
+
 /** Badges sin repetir texto: PROFESOR_OCUPADO y TURNO_EXISTENTE comparten «Profesor con otra clase». */
 function badgesDeConflicto(motivos: MotivoGeneracion[]) {
   return [...new Set(motivos.map((motivo) => MENSAJES_CONFLICTO[motivo]))];
@@ -60,11 +67,13 @@ type Props = {
   onIncluir: (fecha: string) => void;
   /** «Cambiar aula» devolvió una lista vacía: pedir una vista previa nueva. */
   onSinAulasLibres: () => void;
+  /** «Resolver todas» (separable, §1.4): sin esta prop no se muestra el botón. */
+  onResolverTodas?: () => void;
 };
 
 /** HU-C-21: tabla de la vista previa con las acciones por fila (§5.3 a §5.4 de la task). */
 export function TablaVistaPreviaGeneracion({ vista, horaInicio, duracionMin, diaSemana, aulaNombre, materiaNombre, profesorNombre,
-  deshabilitada, onCambiarAula, onDeshacer, onExcluir, onIncluir, onSinAulasLibres }: Props) {
+  deshabilitada, onCambiarAula, onDeshacer, onExcluir, onIncluir, onSinAulasLibres, onResolverTodas }: Props) {
   const [selector, setSelector] = useState<Selector | null>(null);
   const [reintento, setReintento] = useState(0);
   const solicitudRef = useRef(0);
@@ -115,6 +124,10 @@ export function TablaVistaPreviaGeneracion({ vista, horaInicio, duracionMin, dia
     {vista.hay_conflictos && <div role="status" className="flex gap-3 rounded-md bg-warning px-4 py-3 text-sm text-warning-foreground">
       <CircleAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
       <p><strong>{cantidadConflictos} {cantidadConflictos === 1 ? textoC19("ui.clases.interfaz.fechaTiene") : textoC19("ui.clases.interfaz.fechasTienen")}{(" " + textoC19("ui.clases.interfaz.conflicto"))}</strong>{(" " + textoC19("ui.clases.generacion.conflictos.ayuda"))}</p>
+    </div>}
+    {onResolverTodas && candidatasResolverTodas(vista).length > 0 && <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <Button type="button" variant="outline" size="sm" className="shrink-0" disabled={deshabilitada} aria-describedby="ayuda-resolver-todas" onClick={onResolverTodas}>{textoC19("ui.clases.generacion.resolver.boton")}</Button>
+      <p id="ayuda-resolver-todas" className="text-xs text-muted-foreground">{textoC19("ui.clases.generacion.resolver.ayuda")}</p>
     </div>}
     <div className="overflow-x-auto rounded-md border border-border">
       <table className="w-full min-w-[620px] border-collapse text-left text-sm" aria-label={textoC19("ui.clases.interfaz.fechasDeLaVistaPrevia")}>

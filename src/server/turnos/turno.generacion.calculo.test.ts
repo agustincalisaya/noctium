@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularOcurrencias, compararAulasPorCapacidad, contarOcurrenciasDentroDelMaximo, esSoloExcluible, fechaAjenaALaGeneracion, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
+import { calcularOcurrencias, compararAulasPorCapacidad, contarOcurrenciasDentroDelMaximo, elegirAulaParaResolver, esSoloExcluible, fechaAjenaALaGeneracion, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
 
 const fecha = (valor: string) => new Date(`${valor}T00:00:00.000Z`);
 const hoy = { fecha: "2026-09-30", hora: "09:00" };
@@ -99,5 +99,20 @@ describe("HU-C-21: solo_excluible y orden de aulas", () => {
       { id: "a", nombre: "Aula 2", capacidad: 20 }, { id: "c", nombre: "Sala", capacidad: 6 },
     ];
     expect([...aulas].sort(compararAulasPorCapacidad).map(({ id }) => id)).toEqual(["c", "a", "z", "b"]);
+  });
+});
+
+describe("HU-C-21: aula que elige «Resolver todas»", () => {
+  const aula = (id: string, nombre: string, capacidad: number) => ({ id, nombre, capacidad });
+  it("toma la de menor capacidad que alcanza la del aula por defecto", () => {
+    expect(elegirAulaParaResolver([aula("a", "Aula 30", 30), aula("b", "Aula 8", 8), aula("c", "Aula 25", 25)], 20)?.id).toBe("c");
+  });
+  it("con la misma capacidad desempata por nombre y después por id", () => {
+    expect(elegirAulaParaResolver([aula("z", "Aula 2", 20), aula("y", "Aula 10", 20), aula("x", "Aula 2", 20)], 20)?.id).toBe("x");
+  });
+  it("acepta la capacidad igual y nunca elige una más chica", () => {
+    expect(elegirAulaParaResolver([aula("a", "Aula 1", 19), aula("b", "Aula 2", 20)], 20)?.id).toBe("b");
+    expect(elegirAulaParaResolver([aula("a", "Aula 1", 19), aula("b", "Aula 2", 5)], 20)).toBeNull();
+    expect(elegirAulaParaResolver([], 1)).toBeNull();
   });
 });

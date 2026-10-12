@@ -526,3 +526,139 @@ describe("HU-C-21: acciones por fila de la vista previa", () => {
     expect(textos).not.toMatch(/\bturnos?\b/i);
   });
 });
+
+describe("HU-C-21: «Resolver todas»", () => {
+  const tercera = martesFuturo(3);
+  const aulasDelCentro: Record<string, { nombre: string; capacidad: number }> = {
+    "aula-1": { nombre: "Aula 1", capacidad: 20 }, "aula-2": { nombre: "Aula 2", capacidad: 30 },
+    "aula-3": { nombre: "Aula 3", capacidad: 8 }, "aula-4": { nombre: "Aula 4", capacidad: 25 },
+  };
+  type Pedido = { aula_id: string; aulas_por_fecha?: { fecha: string; aula_id: string }[]; fechas_excluidas?: string[]; resolver_automaticamente?: boolean };
+  let ocupadas: Record<string, string[]>;
+  let profesorOcupado: string[];
+  const libresDe = (fecha: string) => Object.entries(aulasDelCentro).filter(([id]) => !(ocupadas[fecha] ?? []).includes(id));
+  // Servidor simulado con la regla de §4.3: la menor capacidad que alcanza la del aula por defecto, nunca una más chica.
+  const servidor = (pedido: Pedido) => vistaDe([desde, hasta, tercera].map((fecha) => {
+    const elegida = pedido.aulas_por_fecha?.find((item) => item.fecha === fecha)?.aula_id;
+    const porDefecto = aulasDelCentro[pedido.aula_id]!;
+    const armar = (aulaId: string, cambiada: boolean) => ({ aula: { id: aulaId, nombre: aulasDelCentro[aulaId]!.nombre }, aula_cambiada: cambiada, cupo: aulasDelCentro[aulaId]!.capacidad, cupo_aula_por_defecto: porDefecto.capacidad });
+    const aulaId = elegida ?? pedido.aula_id;
+    if (pedido.fechas_excluidas?.includes(fecha)) return fila(fecha, { ...armar(aulaId, Boolean(elegida)), excluida: true });
+    const motivos = [...((ocupadas[fecha] ?? []).includes(aulaId) ? ["AULA_OCUPADA"] : []), ...(profesorOcupado.includes(fecha) ? ["PROFESOR_OCUPADO"] : [])];
+    const soloExcluible = motivos.includes("PROFESOR_OCUPADO");
+    if (pedido.resolver_automaticamente && !elegida && motivos.includes("AULA_OCUPADA") && !soloExcluible) {
+      const candidata = libresDe(fecha).filter(([, aula]) => aula.capacidad >= porDefecto.capacidad).sort(([, a], [, b]) => a.capacidad - b.capacidad)[0];
+      if (candidata) return fila(fecha, armar(candidata[0], true));
+    }
+    return fila(fecha, { ...armar(aulaId, Boolean(elegida)), estado: motivos.length ? "CONFLICTO" : "OK", motivos, solo_excluible: soloExcluible,
+      sin_aulas_libres: motivos.includes("AULA_OCUPADA") && !soloExcluible && libresDe(fecha).length === 0 });
+  }));
+  const pedidos = () => llamadas("POST", "/api/turnos/generacion/vista-previa").map(([, init]) => JSON.parse(String(init?.body)) as Pedido & Record<string, unknown>);
+  const filaDe = (fecha: string) => container.querySelector<HTMLTableRowElement>(`tr[data-fecha="${fecha}"]`)!;
+  const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll("[data-badges] span")].map((badge) => badge.textContent);
+  const banner = () => container.querySelector('[data-testid="vista-previa-recurrente"] [data-resultado-resolver]');
+  const verVistaPrevia = async () => { await configurar(); await seleccionarFecha("Hasta", tercera); await pulsar(boton("Ver vista previa")); await esperar(); };
+  const resolver = async () => { await pulsar(boton("Resolver todas")); await esperar(); };
+
+  beforeEach(() => {
+    ocupadas = {};
+    profesorOcupado = [];
+    rutas = (url, init) => url === "/api/turnos/generacion/vista-previa" ? respuesta(servidor(JSON.parse(String(init?.body)))) : undefined;
+  });
+
+  it("el botón aparece solo con candidatas, con su ayuda, y desaparece después de resolver", async () => {
+    profesorOcupado = [desde];
+    ocupadas = { [desde]: ["aula-1"] };
+    await verVistaPrevia();
+    expect(boton("Resolver todas")).toBeUndefined();
+    profesorOcupado = [];
+    ocupadas = { [hasta]: ["aula-1"] };
+    await pulsar(boton("Ver vista previa")); await esperar();
+    const resolverTodas = boton("Resolver todas");
+    expect(resolverTodas).toBeDefined();
+    expect(document.getElementById(resolverTodas.getAttribute("aria-describedby")!)?.textContent).toBe("Asigna a cada fecha ocupada el aula libre de menor capacidad que sea igual o mayor a la original.");
+    await resolver();
+    expect(pedidos().at(-1)).toMatchObject({ resolver_automaticamente: true });
+    expect(boton("Resolver todas")).toBeUndefined();
+  });
+
+  it("«todas»: resuelve, deja la vista previa vigente y se puede confirmar con las aulas derivadas", async () => {
+    ocupadas = { [desde]: ["aula-1"], [hasta]: ["aula-1"] };
+    await verVistaPrevia();
+    expect(boton("Confirmar generación").disabled).toBe(true);
+    await resolver();
+    expect(banner()?.getAttribute("role")).toBe("status");
+    expect(banner()?.textContent).toBe("Se resolvieron 2 fechas.");
+    expect(badges(desde)).toEqual(["Libre · Aula 4 (cambiada)"]);
+    expect(filaDe(desde).textContent).toContain("cupo 25 en lugar de 20");
+    expect(boton("Confirmar generación").disabled).toBe(false);
+    rutas = (url) => url === "/api/turnos/generacion" ? respuesta({ generacion_id: "cgrupo", cantidad: 3, turno_ids: ["a", "b", "c"], aulas_cambiadas: 2, fechas_excluidas: 0 }, 201) : undefined;
+    await pulsar(boton("Confirmar generación"));
+    await pulsar(botonDialogo("Generar clases")); await esperar();
+    expect(pedidos()).toHaveLength(2);
+    const confirmado = JSON.parse(String(llamadas("POST", "/api/turnos/generacion")[0]?.[1]?.body));
+    expect(confirmado.aulas_por_fecha).toEqual([{ fecha: desde, aula_id: "aula-4" }, { fecha: hasta, aula_id: "aula-4" }]);
+    expect(confirmado).not.toHaveProperty("resolver_automaticamente");
+    expect(container.querySelector('[data-testid="vista-previa-recurrente"]')?.textContent).toContain("En 2 se cambió el aula.");
+  });
+
+  it("«todas» en singular", async () => {
+    ocupadas = { [desde]: ["aula-1"] };
+    await verVistaPrevia(); await resolver();
+    expect(banner()?.textContent).toBe("Se resolvió 1 fecha.");
+  });
+
+  it("«algunas»: la que no se puede resolver queda para elegir a mano", async () => {
+    ocupadas = { [desde]: ["aula-1"], [hasta]: ["aula-1", "aula-2", "aula-4"], [tercera]: ["aula-1"] };
+    await verVistaPrevia(); await resolver();
+    expect(banner()?.textContent).toBe("Se resolvieron 2 de 3 fechas. Las demás quedan para elegir el aula a mano o excluirlas.");
+    expect(badges(hasta)).toEqual(["Aula ocupada"]);
+    expect([...filaDe(hasta).querySelectorAll("[data-acciones] button")].map((b) => b.textContent)).toEqual(["Cambiar aula", "Excluir esta fecha"]);
+    expect(boton("Resolver todas")).toBeDefined();
+    expect(boton("Confirmar generación").disabled).toBe(true);
+    ocupadas[desde] = ["aula-1"];
+    ocupadas[tercera] = ["aula-1", "aula-2", "aula-4"];
+    await pulsar(filaDe(desde).querySelector('button[aria-label^="Deshacer"]')!); await esperar();
+    await resolver();
+    expect(banner()?.textContent).toBe("Se resolvió 1 de 2 fechas. Las demás quedan para elegir el aula a mano o excluirlas.");
+  });
+
+  it("«ninguna», en plural y en singular", async () => {
+    ocupadas = { [desde]: ["aula-1", "aula-2", "aula-4"], [hasta]: ["aula-1", "aula-2", "aula-4"] };
+    await verVistaPrevia(); await resolver();
+    expect(banner()?.textContent).toBe("No se pudo resolver ninguna fecha automáticamente. Elegí el aula a mano o excluí las fechas.");
+    expect(banner()?.className).toContain("bg-warning");
+    await pulsar(filaDe(hasta).querySelector('button[aria-label^="Excluir la fecha"]')!); await esperar();
+    await resolver();
+    expect(banner()?.textContent).toBe("No se pudo resolver la fecha automáticamente. Elegí el aula a mano o excluila.");
+  });
+
+  it("no pisa elecciones hechas a mano ni toca las excluidas, y manda las listas actuales", async () => {
+    ocupadas = { [desde]: ["aula-1"], [hasta]: ["aula-1"], [tercera]: ["aula-1"] };
+    await verVistaPrevia();
+    await pulsar(filaDe(tercera).querySelector('button[aria-label^="Excluir la fecha"]')!); await esperar();
+    rutas = (url, init) => url === "/api/turnos/generacion/vista-previa" ? respuesta(servidor(JSON.parse(String(init?.body))))
+      : url.startsWith("/api/turnos/generacion/aulas-libres?") ? respuesta([{ id: "aula-3", nombre: "Aula 3", capacidad: 8 }]) : undefined;
+    await pulsar(filaDe(desde).querySelector('button[aria-label^="Cambiar el aula"]')!); await esperar();
+    await pulsar(filaDe(desde).querySelector("[data-selector-aulas] li button")!); await esperar();
+    await resolver();
+    expect(pedidos().at(-1)).toEqual(expect.objectContaining({ aulas_por_fecha: [{ fecha: desde, aula_id: "aula-3" }], fechas_excluidas: [tercera], resolver_automaticamente: true }));
+    expect(badges(desde)).toEqual(["Libre · Aula 3 (cambiada)"]);
+    expect(badges(hasta)).toEqual(["Libre · Aula 4 (cambiada)"]);
+    expect(badges(tercera)).toEqual(["Excluida"]);
+    expect(banner()?.textContent).toBe("Se resolvió 1 fecha.");
+  });
+
+  it("el banner desaparece con la acción siguiente", async () => {
+    ocupadas = { [desde]: ["aula-1"] };
+    await verVistaPrevia(); await resolver();
+    expect(banner()).not.toBeNull();
+    await pulsar(filaDe(hasta).querySelector('button[aria-label^="Excluir la fecha"]')!); await esperar();
+    expect(banner()).toBeNull();
+    await pulsar(filaDe(desde).querySelector('button[aria-label^="Deshacer"]')!); await esperar();
+    await resolver();
+    expect(banner()).not.toBeNull();
+    await seleccionar("hora-recurrente", "16:30");
+    expect(banner()).toBeNull();
+  });
+});

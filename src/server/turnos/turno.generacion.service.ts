@@ -15,8 +15,8 @@ import { horaLocal } from "./turno.validaciones";
 import { esConflictoDeReserva } from "./turno.reserva-error";
 import { emitirEventosTurno, type EventoTurnoPendiente } from "./turno.publico";
 import { aulasLibresEnFechas } from "./turno.generacion.aulas";
-import { calcularOcurrencias, contarOcurrenciasDentroDelMaximo, esSoloExcluible, fechaAjenaALaGeneracion, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
-import type { FechaVistaPrevia, GenerarTurnosInput, ResultadoGeneracion, VistaPreviaGeneracion, VistaPreviaGeneracionInput } from "./turno.generacion.schema";
+import { calcularOcurrencias, contarOcurrenciasDentroDelMaximo, elegirAulaParaResolver, esSoloExcluible, fechaAjenaALaGeneracion, motivosConflictoGeneracion, sumarMesesCalendario, validarEncajeEnFranja } from "./turno.generacion.calculo";
+import type { AulaLibre, FechaVistaPrevia, GenerarTurnosInput, ResultadoGeneracion, VistaPreviaGeneracion, VistaPreviaGeneracionInput } from "./turno.generacion.schema";
 
 const CLAVES_LIMITE = ["generacion_maxima_meses", "generacion_maxima_turnos"] as const;
 
@@ -150,16 +150,22 @@ async function calcularGeneracion(input: GenerarTurnosInput, db: Prisma.Transact
   }
 
   // Criterio 4, solo en la vista previa: la fachada de K no corre dentro de la transacción (R2).
+  // La misma lectura agrupada sirve después a «Resolver todas».
+  let aulasLibres = new Map<string, AulaLibre[]>();
   if (!enTransaccion) {
     const cambiables = ocurrencias.filter((o) => o.motivos.includes("AULA_OCUPADA") && !o.solo_excluible);
     if (cambiables.length > 0) {
-      const libres = await aulasLibresEnFechas(db, cambiables.map(({ fecha }) => new Date(`${fecha}T00:00:00.000Z`)), input.hora_inicio, input.duracion_min);
-      for (const ocurrencia of cambiables) ocurrencia.sin_aulas_libres = (libres.get(ocurrencia.fecha) ?? []).length === 0;
+      aulasLibres = await aulasLibresEnFechas(db, cambiables.map(({ fecha }) => new Date(`${fecha}T00:00:00.000Z`)), input.hora_inicio, input.duracion_min);
+      for (const ocurrencia of cambiables) ocurrencia.sin_aulas_libres = (aulasLibres.get(ocurrencia.fecha) ?? []).length === 0;
     }
   }
+  return { vistaPrevia: resumirVistaPrevia(ocurrencias, fechasOmitidasVencidas), aulasLibres };
+}
 
+/** Totales de la vista previa (4.2 paso 9); los conflictos cuentan solo sobre las fechas incluidas. */
+function resumirVistaPrevia(ocurrencias: FechaVistaPrevia[], fechasOmitidasVencidas: number): VistaPreviaGeneracion {
   const incluidas = ocurrencias.filter(({ excluida }) => !excluida);
-  const vistaPrevia: VistaPreviaGeneracion = {
+  return {
     cantidad: ocurrencias.length,
     cantidad_incluida: incluidas.length,
     con_aula_cambiada: incluidas.filter(({ aula_cambiada }) => aula_cambiada).length,
@@ -168,12 +174,28 @@ async function calcularGeneracion(input: GenerarTurnosInput, db: Prisma.Transact
     hay_conflictos: incluidas.some(({ estado }) => estado === "CONFLICTO"),
     fechas_omitidas_vencidas: fechasOmitidasVencidas,
   };
-  return { vistaPrevia };
+}
+
+/**
+ * HU-C-21 «Resolver todas» (4.3; separable por el plan de recorte). Solo en la
+ * vista previa. Candidatas: incluidas, con AULA_OCUPADA, sin solo_excluible y
+ * sin aula elegida a mano. Usa las aulas libres de la misma lectura agrupada:
+ * el aula elegida es libre por construcción y no se vuelve a consultar.
+ */
+function resolverTodas(vista: VistaPreviaGeneracion, aulasLibres: Map<string, AulaLibre[]>): VistaPreviaGeneracion {
+  const fechas = vista.fechas.map((ocurrencia): FechaVistaPrevia => {
+    const candidata = !ocurrencia.excluida && ocurrencia.motivos.includes("AULA_OCUPADA") && !ocurrencia.solo_excluible && !ocurrencia.aula_cambiada;
+    const aula = candidata ? elegirAulaParaResolver(aulasLibres.get(ocurrencia.fecha) ?? [], ocurrencia.cupo_aula_por_defecto) : null;
+    if (!aula) return ocurrencia;
+    return { ...ocurrencia, estado: "OK", motivos: [], aula: { id: aula.id, nombre: aula.nombre }, aula_cambiada: true, cupo: aula.capacidad, sin_aulas_libres: false };
+  });
+  return resumirVistaPrevia(fechas, vista.fechas_omitidas_vencidas);
 }
 
 /** Vista informativa: consultas de solo lectura, sin reservar recursos. */
 export async function vistaPreviaGeneracion(input: VistaPreviaGeneracionInput, ahora: Date = new Date()): Promise<VistaPreviaGeneracion> {
-  return (await calcularGeneracion(input, prisma, ahora, false)).vistaPrevia;
+  const { vistaPrevia, aulasLibres } = await calcularGeneracion(input, prisma, ahora, false);
+  return input.resolver_automaticamente ? resolverTodas(vistaPrevia, aulasLibres) : vistaPrevia;
 }
 
 /** Revalida y crea el lote dentro de un único commit; los eventos se emiten después. */

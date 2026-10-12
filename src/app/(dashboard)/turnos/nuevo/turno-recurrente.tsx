@@ -13,7 +13,7 @@ import { iniciosPosibles } from "@/server/turnos/turno.disponibilidad";
 import { type MateriaOpcionTurno } from "../paso-materia-turno";
 import { type ProfesorOpcionTurno } from "../paso-profesor-turno";
 import { type AulaOpcion } from "../seccion-aula-turno";
-import { TablaVistaPreviaGeneracion, type VistaPreviaGeneracion as VistaPrevia } from "./tabla-vista-previa-generacion";
+import { candidatasResolverTodas, TablaVistaPreviaGeneracion, type VistaPreviaGeneracion as VistaPrevia } from "./tabla-vista-previa-generacion";
 
 type Franja = { horario_id: string; dia_semana: DiaSemanaValor; hora_inicio: string; hora_fin: string };
 type Payload = { materia_id: string; profesor_id: string; horario_id: string; duracion_min: number; hora_inicio: string; aula_id: string; fecha_desde: string; fecha_hasta: string };
@@ -49,6 +49,13 @@ function detalleConfirmacion(vista: VistaPrevia) {
       : vista.excluidas > 1 ? textoC19("ui.clases.generacion.confirmacion.fechasExcluidas", { cantidad: vista.excluidas }) : null,
   ].filter(Boolean);
   return partes.length ? <p>{partes.join(" · ")}</p> : undefined;
+}
+
+/** Banner de «Resolver todas»: todas, algunas o ninguna, en singular y plural. */
+function mensajeResolverTodas({ total, resueltas }: { total: number; resueltas: number }) {
+  if (resueltas === total) return resueltas === 1 ? textoC19("ui.clases.generacion.resolver.todasUna") : textoC19("ui.clases.generacion.resolver.todas", { cantidad: resueltas });
+  if (resueltas > 0) return resueltas === 1 ? textoC19("ui.clases.generacion.resolver.algunasUna", { total }) : textoC19("ui.clases.generacion.resolver.algunas", { resueltas, total });
+  return total === 1 ? textoC19("ui.clases.generacion.resolver.ningunaUna") : textoC19("ui.clases.generacion.resolver.ninguna");
 }
 
 const LISTAS_VACIAS: Listas = { aulasPorFecha: {}, fechasExcluidas: [] };
@@ -89,6 +96,8 @@ export function TurnoRecurrente(props: Props) {
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [aviso, setAviso] = useState("");
+  /** Resultado de «Resolver todas» (D3: banner, no toast); desaparece con la acción siguiente. */
+  const [resueltas, setResueltas] = useState<{ total: number; resueltas: number } | null>(null);
   const [solicitando, setSolicitando] = useState<"preview" | "confirmacion" | null>(null);
   const [error, setError] = useState("");
   const solicitudRef = useRef(false);
@@ -164,7 +173,7 @@ export function TurnoRecurrente(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reintentoAulas]);
 
-  const invalidarPreview = () => { setPreview(null); setListas(LISTAS_VACIAS); setError(""); setAviso(""); };
+  const invalidarPreview = () => { setPreview(null); setListas(LISTAS_VACIAS); setError(""); setAviso(""); setResueltas(null); };
   const limpiarDesdeFranja = () => { setFranjaId(""); setDuracionMin(null); setHoraInicio(""); setAulaId(""); setFechaDesde(""); setFechaHasta(""); setConsultaFranjas(null); invalidarPreview(); };
   const elegirMateria = (id: string) => {
     if (id === props.materiaId || solicitudRef.current) return;
@@ -175,22 +184,25 @@ export function TurnoRecurrente(props: Props) {
     limpiarDesdeFranja(); props.onSeleccionarProfesor(id);
   };
   /** §5.2: toda acción pide una vista previa nueva; si falla, las listas no cambian y queda la anterior. */
-  const solicitarVistaPrevia = async (listasPedido: Listas, avisoTrasPedido = "") => {
-    if (!payload || solicitudRef.current || resultado) return;
+  const solicitarVistaPrevia = async (listasPedido: Listas, opciones: { aviso?: string; resolver?: boolean } = {}): Promise<VistaPrevia | null> => {
+    if (!payload || solicitudRef.current || resultado) return null;
     const claveSolicitud = clave;
     const base = payload;
-    solicitudRef.current = true; props.onBusyChange(true); setSolicitando("preview"); setError(""); setAviso(avisoTrasPedido);
+    solicitudRef.current = true; props.onBusyChange(true); setSolicitando("preview"); setError(""); setAviso(opciones.aviso ?? ""); setResueltas(null);
     try {
-      const respuesta = await fetchAutenticado("/api/turnos/generacion/vista-previa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pedidoDe(base, listasPedido)), cache: "no-store" });
+      const respuesta = await fetchAutenticado("/api/turnos/generacion/vista-previa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...pedidoDe(base, listasPedido), ...(opciones.resolver ? { resolver_automaticamente: true } : {}) }), cache: "no-store" });
       const valor = await respuesta.json().catch(() => null);
       if (!respuesta.ok || !Array.isArray(valor?.data?.fechas)) throw new Error(valor?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoGenerarLaVistaPrevia"));
-      if (claveActualRef.current !== claveSolicitud) return;
+      if (claveActualRef.current !== claveSolicitud) return null;
       const data = valor.data as VistaPrevia;
       const nuevas = listasDesdeRespuesta(data);
       setListas(nuevas);
+      // La clave vigente usa las listas derivadas (sin el flag): una vista previa resuelta se puede confirmar.
       setPreview({ clave: JSON.stringify(pedidoDe(base, nuevas)), listas: nuevas, data });
+      return data;
     } catch (causa) { if (claveActualRef.current === claveSolicitud) setError(causa instanceof Error ? causa.message : textoC19("ui.clases.interfaz.noSePudoGenerarLaVistaPrevia")); }
     finally { solicitudRef.current = false; props.onBusyChange(false); setSolicitando(null); }
+    return null;
   };
   const generarPreview = () => solicitarVistaPrevia(listas);
   const cambiarListas = (cambio: (actuales: Listas) => Listas) => { void solicitarVistaPrevia(cambio(listas)); };
@@ -202,6 +214,16 @@ export function TurnoRecurrente(props: Props) {
     : cambiarListas((l) => ({ ...l, aulasPorFecha: { ...l.aulasPorFecha, [fecha]: aulaId } }));
   const excluir = (fecha: string) => cambiarListas((l) => ({ aulasPorFecha: sinFecha(l.aulasPorFecha, fecha), fechasExcluidas: [...l.fechasExcluidas, fecha] }));
   const incluir = (fecha: string) => cambiarListas((l) => ({ ...l, fechasExcluidas: l.fechasExcluidas.filter((otra) => otra !== fecha) }));
+
+  /** «Resolver todas» (§5.5, separable): m = candidatas antes del pedido; r = las que volvieron libres con otra aula. */
+  const resolverTodas = async () => {
+    if (!vistaActual) return;
+    const candidatas = candidatasResolverTodas(vistaActual.data);
+    const data = await solicitarVistaPrevia(listas, { resolver: true });
+    if (!data) return;
+    const resueltasAhora = data.fechas.filter(({ fecha, estado, aula_cambiada }) => candidatas.includes(fecha) && estado === "OK" && aula_cambiada).length;
+    setResueltas({ total: candidatas.length, resueltas: resueltasAhora });
+  };
 
   /** §5.6: un 409 GENERACION_CON_CONFLICTOS no es un error del modal; lo resuelve `despuesDeConfirmar` (§5.7). */
   const confirmar = async () => {
@@ -224,7 +246,7 @@ export function TurnoRecurrente(props: Props) {
     if (conflicto) {
       // §5.7: la disponibilidad cambió; vista previa nueva con las mismas elecciones y con sus acciones.
       setPreview(null);
-      void solicitarVistaPrevia(conflicto, textoC19("ui.clases.interfaz.laDisponibilidadCambioDesdeLaVistaPreviaGeneraUnaNuevaAntesDe"));
+      void solicitarVistaPrevia(conflicto, { aviso: textoC19("ui.clases.interfaz.laDisponibilidadCambioDesdeLaVistaPreviaGeneraUnaNuevaAntesDe") });
       return;
     }
     if (generado) setResultado(generado);
@@ -304,11 +326,12 @@ export function TurnoRecurrente(props: Props) {
       </div> :
         <div className="mt-5 space-y-5">
           {aviso && <p role="status" className="rounded-md bg-warning px-4 py-3 text-sm text-warning-foreground">{aviso}</p>}
+          {resueltas && <p role="status" data-resultado-resolver className={`rounded-md px-4 py-3 text-sm ${resueltas.resueltas === resueltas.total ? "bg-success text-success-foreground" : "bg-warning text-warning-foreground"}`}>{mensajeResolverTodas(resueltas)}</p>}
           {vistaActual ? <><TablaVistaPreviaGeneracion vista={vistaActual.data} {...datosTabla} deshabilitada={Boolean(solicitando) || confirmando}
-            onCambiarAula={cambiarAula} onDeshacer={deshacer} onExcluir={excluir} onIncluir={incluir} onSinAulasLibres={() => void generarPreview()} />
+            onCambiarAula={cambiarAula} onDeshacer={deshacer} onExcluir={excluir} onIncluir={incluir} onSinAulasLibres={() => void generarPreview()} onResolverTodas={() => void resolverTodas()} />
             <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
               {vistaActual.data.hay_conflictos && <p className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.resolveLosConflictosParaHabilitarLaGeneracion")}</p>}
-              <Button type="button" className="sm:ml-auto" disabled={!puedeConfirmar || confirmando} onClick={() => setConfirmando(true)}>{solicitando === "confirmacion" ? textoC19("ui.clases.interfaz.generandoClases") : textoC19("ui.clases.interfaz.confirmarGeneracion", { valor1: vistaActual.data.cantidad_incluida, valor2: vistaActual.data.cantidad_incluida === 1 ? textoC19("ui.clases.interfaz.clase") : textoC19("ui.pagos.resumen.clases").toLowerCase() })}</Button>
+              <Button type="button" className="sm:ml-auto" disabled={!puedeConfirmar || confirmando} onClick={() => { setResueltas(null); setConfirmando(true); }}>{solicitando === "confirmacion" ? textoC19("ui.clases.interfaz.generandoClases") : textoC19("ui.clases.interfaz.confirmarGeneracion", { valor1: vistaActual.data.cantidad_incluida, valor2: vistaActual.data.cantidad_incluida === 1 ? textoC19("ui.clases.interfaz.clase") : textoC19("ui.pagos.resumen.clases").toLowerCase() })}</Button>
             </div>
             <ConfirmarAccionDialog
               abierto={confirmando}

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GenerarTurnosSchema } from "./turno.generacion.schema";
+import { GenerarTurnosSchema, VistaPreviaGeneracionSchema } from "./turno.generacion.schema";
 
 const { materiaActiva, profesorActivo, dictaMateria, horario, aulasActivas, aulaActiva, existeAula, nombreAula, listarAulas,
   parametrosHorario, parametros, buscarTurnos, crearTurno, actualizarTurno, borrarTurno, crearEvento } = vi.hoisted(() => ({
@@ -319,5 +319,80 @@ describe("HU-C-21: aula por fecha, exclusión, cupo y sin aulas libres", () => {
       [["AULA_OCUPADA"], false], [["AULA_OCUPADA"], true], [[], false],
     ]);
     expect(listarAulas).toHaveBeenCalledOnce();
+  });
+});
+
+describe("HU-C-21: «Resolver todas» en la vista previa", () => {
+  const aulas = {
+    [base.aula_id]: { nombre: "Aula 1", capacidad: 20 },
+    ckaulachica000000000000001: { nombre: "Aula chica", capacidad: 8 },
+    ckaula20b0000000000000001: { nombre: "Aula 20 B", capacidad: 20 },
+    ckaula20a0000000000000001: { nombre: "Aula 20 A", capacidad: 20 },
+    ckaulagrande00000000000001: { nombre: "Aula grande", capacidad: 40 },
+  } as Record<string, { nombre: string; capacidad: number }>;
+  const resolver = (cambios: Record<string, unknown> = {}) => VistaPreviaGeneracionSchema.parse({ ...base, resolver_automaticamente: true, ...cambios });
+  const ocupar = (fecha: string, aulaId: string, cambios: Partial<TurnoGuardado> = {}) =>
+    turnos.push(guardado(fecha, "10:00", "DISPONIBLE", { materiaId: "otra-materia", profesorId: `otro-${aulaId}`, aulaId, ...cambios }));
+
+  beforeEach(() => {
+    aulaActiva.mockImplementation(async (id: string) => aulas[id] ? { idAula: id, capacidadAula: aulas[id]!.capacidad } : null);
+    nombreAula.mockImplementation(async (id: string) => aulas[id] ? { id, nombre: aulas[id]!.nombre } : null);
+    listarAulas.mockResolvedValue(Object.entries(aulas).map(([id, { nombre, capacidad }]) => ({ id, nombre, capacidad })));
+    const porFecha = buscarTurnos.getMockImplementation()!;
+    buscarTurnos.mockImplementation(async ({ where }: { where: Record<string, unknown> }) => {
+      const fechas = where.fechaTurno as Date | { in: Date[] };
+      if (fechas instanceof Date) return porFecha({ where });
+      const ids = (where.aulaId as { in: string[] }).in;
+      return turnos.filter((turno) => fechas.in.some((fecha) => fecha.getTime() === turno.fechaTurno.getTime())
+        && ids.includes(turno.aulaId) && ["DISPONIBLE", "COMPLETO"].includes(turno.estadoTurno));
+    });
+  });
+
+  it("resuelve con la menor capacidad que alcanza, desempata por nombre y recalcula los totales", async () => {
+    ocupar("2026-10-05", base.aula_id);
+    ocupar("2026-10-12", base.aula_id);
+    ocupar("2026-10-12", "ckaula20a0000000000000001");
+    const resultado = await vistaPreviaGeneracion(resolver(), ahora);
+    expect(resultado.fechas[0]).toEqual({
+      fecha: "2026-10-05", estado: "OK", motivos: [], aula: { id: "ckaula20a0000000000000001", nombre: "Aula 20 A" }, aula_cambiada: true,
+      cupo: 20, cupo_aula_por_defecto: 20, excluida: false, sin_aulas_libres: false, solo_excluible: false,
+    });
+    expect(resultado.fechas[1]).toMatchObject({ estado: "OK", aula: { nombre: "Aula 20 B" }, cupo: 20 });
+    expect(resultado.fechas[2]).toMatchObject({ estado: "OK", aula_cambiada: false, aula: { id: base.aula_id } });
+    expect(resultado).toMatchObject({ con_aula_cambiada: 2, hay_conflictos: false, cantidad_incluida: 3 });
+    expect(listarAulas).toHaveBeenCalledOnce();
+  });
+
+  it("nunca elige una más chica: sin aula que alcance, la fecha queda en CONFLICTO para elegir a mano", async () => {
+    ocupar("2026-10-05", base.aula_id);
+    for (const id of ["ckaula20a0000000000000001", "ckaula20b0000000000000001", "ckaulagrande00000000000001"]) ocupar("2026-10-05", id);
+    const resultado = await vistaPreviaGeneracion(resolver({ fecha_hasta: "2026-10-05" }), ahora);
+    expect(resultado.fechas[0]).toMatchObject({ estado: "CONFLICTO", motivos: ["AULA_OCUPADA"], aula_cambiada: false, sin_aulas_libres: false });
+    expect(resultado).toMatchObject({ con_aula_cambiada: 0, hay_conflictos: true });
+  });
+
+  it("sin ninguna aula libre, queda en CONFLICTO con sin_aulas_libres", async () => {
+    for (const id of Object.keys(aulas)) ocupar("2026-10-05", id);
+    const resultado = await vistaPreviaGeneracion(resolver({ fecha_hasta: "2026-10-05" }), ahora);
+    expect(resultado.fechas[0]).toMatchObject({ estado: "CONFLICTO", sin_aulas_libres: true });
+  });
+
+  it("saltea solo_excluible, las fechas con aula elegida a mano y las excluidas", async () => {
+    ocupar("2026-10-05", base.aula_id, { profesorId: base.profesor_id }); // aula y profesor ocupados: solo excluible
+    ocupar("2026-10-12", "ckaulachica000000000000001"); // el aula elegida a mano está ocupada
+    ocupar("2026-10-19", base.aula_id); // ocupada, pero excluida
+    const resultado = await vistaPreviaGeneracion(resolver({
+      aulas_por_fecha: [{ fecha: "2026-10-12", aula_id: "ckaulachica000000000000001" }], fechas_excluidas: ["2026-10-19"],
+    }), ahora);
+    expect(resultado.fechas[0]).toMatchObject({ estado: "CONFLICTO", motivos: ["AULA_OCUPADA", "PROFESOR_OCUPADO"], solo_excluible: true, aula: { id: base.aula_id } });
+    expect(resultado.fechas[1]).toMatchObject({ estado: "CONFLICTO", motivos: ["AULA_OCUPADA"], aula: { id: "ckaulachica000000000000001" }, aula_cambiada: true });
+    expect(resultado.fechas[2]).toMatchObject({ excluida: true, estado: "OK", aula: { id: base.aula_id }, aula_cambiada: false });
+    expect(resultado).toMatchObject({ con_aula_cambiada: 1, excluidas: 1, hay_conflictos: true });
+  });
+
+  it("sin el flag, la vista previa no resuelve nada", async () => {
+    ocupar("2026-10-05", base.aula_id);
+    const resultado = await vistaPreviaGeneracion(resolver({ resolver_automaticamente: false }), ahora);
+    expect(resultado.fechas[0]).toMatchObject({ estado: "CONFLICTO", aula_cambiada: false });
   });
 });

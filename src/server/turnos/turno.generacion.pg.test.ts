@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { NextRequest } from "next/server";
 import { PrismaClient, type EstadoTurno } from "@prisma/client";
 import { diaSemanaDeFecha } from "@/lib/horario-atencion";
-import { GenerarTurnosSchema } from "./turno.generacion.schema";
+import { GenerarTurnosSchema, VistaPreviaGeneracionSchema } from "./turno.generacion.schema";
 import { confirmarGeneracion, vistaPreviaGeneracion } from "./turno.generacion.service";
 import { aulasLibresEnFechas } from "./turno.generacion.aulas";
 import { aulaConTurnoSuperpuesto } from "./turno.disponibilidad";
@@ -404,5 +404,43 @@ describe.skipIf(!habilitada)("HU-C-21 Fase 3: confirmación con aula por fecha (
     expect(await db!.reservaTurno.count({ where: { recursoId: fixture.profesorId } })).toBe(0);
     expect(await db!.reservaTurno.count({ where: { recursoId: fixture.aulaId } })).toBe(0);
     expect(await db!.reservaTurno.count({ where: { recursoId: fixture.otraAulaId } })).toBe(1);
+  });
+});
+
+describe.skipIf(!habilitada)("HU-C-21 Fase 5: «Resolver todas» (PostgreSQL)", () => {
+  beforeEach(async () => { fixture = await crearFixture(); });
+
+  it("resuelve una fecha, deja otra sin resolver y la confirmación con las aulas derivadas crea cada clase con su aula y su cupo", async () => {
+    // Capacidades que ninguna otra aula de la base temporal alcanza: la única candidata posible es la otra aula del fixture.
+    await db!.aula.update({ where: { idAula: fixture.aulaId }, data: { capacidadAula: 500 } });
+    await db!.aula.update({ where: { idAula: fixture.otraAulaId }, data: { capacidadAula: 600 } });
+    await crearTurnoExistente(0, "DISPONIBLE", { profesorId: fixture.otroProfesorId, materiaId: fixture.otraMateriaId });
+    // Lunes 1: las dos aulas del fixture ocupadas en tramos que pisan la clase (10 a 12) sin pisarse entre sí.
+    await crearTurnoExistente(1, "DISPONIBLE", { profesorId: fixture.otroProfesorId, materiaId: fixture.otraMateriaId, duracion: 60 });
+    await crearTurnoExistente(1, "DISPONIBLE", { profesorId: fixture.otroProfesorId, materiaId: fixture.otraMateriaId, aulaId: fixture.otraAulaId, inicio: "11:00", duracion: 60 });
+    const pedido = {
+      materia_id: fixture.materiaId, profesor_id: fixture.profesorId, horario_id: fixture.horarioId,
+      duracion_min: 120, hora_inicio: "10:00", aula_id: fixture.aulaId, fecha_desde: iso(lunesN(0)), fecha_hasta: iso(lunesN(2)),
+    };
+
+    const resuelta = await vistaPreviaGeneracion(VistaPreviaGeneracionSchema.parse({ ...pedido, resolver_automaticamente: true }));
+    expect(resuelta.fechas[0]).toMatchObject({ estado: "OK", motivos: [], aula: { id: fixture.otraAulaId }, aula_cambiada: true, cupo: 600, cupo_aula_por_defecto: 500, sin_aulas_libres: false });
+    // Hay aulas libres, pero ninguna alcanza la capacidad del aula por defecto: queda para elegir a mano.
+    expect(resuelta.fechas[1]).toMatchObject({ estado: "CONFLICTO", motivos: ["AULA_OCUPADA"], aula: { id: fixture.aulaId }, aula_cambiada: false, sin_aulas_libres: false });
+    expect(resuelta.fechas[2]).toMatchObject({ estado: "OK", aula_cambiada: false });
+    expect(resuelta).toMatchObject({ con_aula_cambiada: 1, hay_conflictos: true });
+
+    // El cliente deriva las aulas de la respuesta; la fecha sin resolver se excluye para poder confirmar.
+    const derivadas = resuelta.fechas.filter(({ aula_cambiada }) => aula_cambiada).map(({ fecha, aula }) => ({ fecha, aula_id: aula.id }));
+    const resultado = await confirmarGeneracion(GenerarTurnosSchema.parse({ ...pedido, aulas_por_fecha: derivadas, fechas_excluidas: [iso(lunesN(1))] }), fixture.usuarioId);
+    expect(resultado).toMatchObject({ cantidad: 2, aulas_cambiadas: 1, fechas_excluidas: 1 });
+    const turnos = await db!.turno.findMany({ where: { creadoPorUsuarioId: fixture.usuarioId }, orderBy: { fechaTurno: "asc" }, include: { reservas: true } });
+    expect(turnos.map((turno) => [iso(turno.fechaTurno), turno.aulaId, turno.cupoMaximoTurno])).toEqual([
+      [iso(lunesN(0)), fixture.otraAulaId, 600],
+      [iso(lunesN(2)), fixture.aulaId, 500],
+    ]);
+    for (const turno of turnos) {
+      expect(turno.reservas.map(({ tipoRecurso, recursoId }) => [tipoRecurso, recursoId]).sort()).toEqual([["AULA", turno.aulaId], ["PROFESOR", fixture.profesorId]]);
+    }
   });
 });

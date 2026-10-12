@@ -87,3 +87,12 @@ export function compararAulasPorCapacidad(a: AulaLibre, b: AulaLibre): number {
     || a.nombre.localeCompare(b.nombre, "es", { numeric: true })
     || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 }
+
+/**
+ * HU-C-21 «Resolver todas» (criterio 3): el aula libre de menor capacidad que
+ * alcance la del aula por defecto; empate por nombre y después por id. Nunca
+ * una más chica. `null` si ninguna alcanza.
+ */
+export function elegirAulaParaResolver(libres: readonly AulaLibre[], capacidadMinima: number): AulaLibre | null {
+  return libres.filter(({ capacidad }) => capacidad >= capacidadMinima).sort(compararAulasPorCapacidad)[0] ?? null;
+}
