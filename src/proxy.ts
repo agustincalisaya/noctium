@@ -62,7 +62,7 @@ export const config = {
     "/alumno/:path*",
     "/mi-historial/:path*",
     // HU-A-06: /home (destino del login, para que la marca no la saltee) y
-    // las dos pantallas de contraseña. /pagos y /formas-pago siguen fuera.
+    // las dos pantallas de contraseña. /formas-pago sigue fuera.
     "/home/:path*",
     "/primer-ingreso/:path*",
     "/mi-cuenta/:path*",
@@ -71,5 +71,7 @@ export const config = {
     // HU-I-11: comprobante de pago (mesa de entrada y gerente; el alumno, el suyo).
     "/comprobantes/:path*",
     "/mis-pagos/:path*",
+    // HU-I-10: registrar pago (solo mesa de entrada)
+    "/pagos/:path*",
   ],
 };
