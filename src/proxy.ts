@@ -68,6 +68,8 @@ export const config = {
     "/mi-cuenta/:path*",
     // HU-F-01: personal de mesa de entrada (solo Gerente).
     "/personal/:path*",
+    // HU-G-01: gerentes (solo Gerente).
+    "/gerentes/:path*",
     // HU-I-11: comprobante de pago (mesa de entrada y gerente; el alumno, el suyo).
     "/comprobantes/:path*",
     "/mis-pagos/:path*",

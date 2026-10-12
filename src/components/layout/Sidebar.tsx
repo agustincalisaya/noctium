@@ -14,6 +14,7 @@ import {
   Wallet,
   BarChart3,
   UserCog,
+  BriefcaseBusiness,
   type LucideIcon
 } from "lucide-react";
 import { texto } from "@/lib/textos";
@@ -156,6 +157,12 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       label: texto("ui.personal.menu"),
       icon: UserCog,
       items: [{ label: texto("ui.profesores.estado.listado"), href: "/personal", icon: ListOrdered }],
+    },
+    // HU-G-01: gerentes (gerentes:*, solo Gerente), con el mismo patrón que el personal.
+    {
+      label: texto("ui.gerentes.menu"),
+      icon: BriefcaseBusiness,
+      items: [{ label: texto("ui.profesores.estado.listado"), href: "/gerentes", icon: ListOrdered }],
     },
   ],
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al

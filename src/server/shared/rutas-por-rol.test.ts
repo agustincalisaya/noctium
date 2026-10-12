@@ -57,6 +57,27 @@ describe("HU-F-01 personal de mesa de entrada", () => {
   });
 });
 
+// HU-G-01 (spec_modulo_G.md §3.7, decisión 11 de la task): solo el Gerente
+// gestiona a los gerentes. `/gerentes` tiene su propia regla, distinta de la
+// de `/gerente` (el panel de indicadores).
+describe("HU-G-01 gerentes", () => {
+  it.each(["/gerentes", "/gerentes/nuevo", "/gerentes/x", "/gerentes/x/editar"])("GERENTE accede a %s", (ruta) => {
+    expect(rolPuedeAccederRuta("GERENTE", ruta)).toBe(true);
+  });
+
+  it.each(["MESA_ENTRADA", "PROFESOR", "ALUMNO"] as const)("%s no accede a /gerentes ni a sus subrutas", (rol) => {
+    expect(rolPuedeAccederRuta(rol, "/gerentes")).toBe(false);
+    expect(rolPuedeAccederRuta(rol, "/gerentes/nuevo")).toBe(false);
+    expect(rolPuedeAccederRuta(rol, "/gerentes/x/editar")).toBe(false);
+  });
+
+  it("la regla de /gerente (indicadores) no cambia y se compara por segmento completo", () => {
+    expect(rolPuedeAccederRuta("GERENTE", "/gerente")).toBe(true);
+    expect(rolPuedeAccederRuta("MESA_ENTRADA", "/gerente")).toBe(false);
+    expect(rolPuedeAccederRuta("ALUMNO", "/gerentesx")).toBe(true);
+  });
+});
+
 // HU-A-05 (spec_modulo_A.md §2.7, P-A11, decisión 12 de la task): las dos
 // pantallas de la recuperación son públicas. No están en el `matcher` del
 // proxy ni en el mapa de rutas: ningún rol queda afuera y la marca no las toca.
