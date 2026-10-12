@@ -2,12 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 const mocks = vi.hoisted(() => ({ permiso: vi.fn(), detalle: vi.fn() }));
 vi.mock("@/server/shared/with-permission", () => ({ verificarPermiso: mocks.permiso, PermisoError: class extends Error {} }));
-vi.mock("@/server/alumnos/alumno.service", () => ({ obtenerDetalleAlumno: mocks.detalle }));
+vi.mock("@/server/alumnos/alumno.service", () => ({ obtenerDetalleAlumno: mocks.detalle, obtenerCuentaDeAlumno: vi.fn() }));
+vi.mock("@/server/alumnos/alumno.estado.service", () => ({ obtenerHistorialEstadosAlumno: vi.fn().mockResolvedValue([]) }));
 vi.mock("next/navigation", () => ({ notFound: vi.fn(), redirect: vi.fn() }));
 vi.mock("./historial-academico", () => ({ HistorialAcademico: ({ materiaInicial }: { materiaInicial?: string }) => <div data-materia={materiaInicial ?? ""} /> }));
 vi.mock("./ficha-encabezado", () => ({ FichaEncabezado: () => null }));
 vi.mock("./ficha-contacto", () => ({ FichaContacto: () => null }));
 vi.mock("./ficha-alta-pago", () => ({ FichaAltaPago: () => null }));
+vi.mock("./estado-alumno-dialog", () => ({ EstadoAlumnoDialog: () => null }));
+vi.mock("./historial-estados-alumno", () => ({ HistorialEstadosAlumno: () => null }));
 // HU-A-06: la ficha suma la tarjeta «Cuenta de acceso»; se simula como las demás secciones.
 vi.mock("@/components/shared/cuenta-acceso-card", () => ({ CuentaAccesoCard: () => null }));
 import Page from "./page";

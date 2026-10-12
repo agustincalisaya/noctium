@@ -48,6 +48,12 @@ export const ERRORES_DE_DOMINIO = {
   "errores.inscripcion.cancelacionFueraDePlazo": { code: "CANCELACION_FUERA_DE_PLAZO", status: 409 },
   "errores.inscripcion.noEncontrada": { code: "INSCRIPCION_NO_ENCONTRADA", status: 404 },
 
+  // Módulo B (spec_modulo_B.md, HU-B-07).
+  "errores.alumno.yaInactivo": { code: "ALUMNO_YA_INACTIVO", status: 409 },
+  "errores.alumno.yaActivo": { code: "ALUMNO_YA_ACTIVO", status: 409 },
+  "errores.alumno.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
+  "errores.alumno.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
+
   // Módulo D (spec_modulo_D.md, HU-D-08).
   "errores.profesor.conClasesFuturas": { code: "PROFESOR_CON_CLASES_FUTURAS", status: 409 },
   "errores.profesor.yaInactivo": { code: "PROFESOR_YA_INACTIVO", status: 409 },

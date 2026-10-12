@@ -461,6 +461,48 @@ export async function finalizarInscripcion(
   return { inscripcionId: datos.inscripcionId, turnoId: fila.turnoId, alumnoId: fila.alumnoId, vigencia: datos.vigencia, estadoPago: fila.estadoPago, estadoTurno };
 }
 
+export async function darDeBajaInscripcionesDeAlumno(
+  tx: Tx,
+  datos: { alumnoId: string; actor: ActorDominio },
+): Promise<{ quitadas: { inscripcion_id: string; turno_id: string }[]; reservas_vencidas_marcadas: number }> {
+  const momento = ahora();
+  const candidatas = await tx.turnoAlumno.findMany({
+    where: {
+      alumnoId: datos.alumnoId,
+      vigencia: "VIGENTE",
+      turno: { estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } },
+    },
+    select: { idInscripcion: true, turnoId: true },
+  });
+  const clases = [...new Set(candidatas.map((fila) => fila.turnoId))].sort();
+  const inscripciones = candidatas.map((fila) => fila.idInscripcion).sort();
+  if (clases.length === 0) return { quitadas: [], reservas_vencidas_marcadas: 0 };
+
+  await bloquear(tx, { clases, inscripciones });
+  const reservasVencidasMarcadas = await marcarVencidasDelAlumno(tx, datos.alumnoId, { momento, clases });
+  const vigentes = await tx.turnoAlumno.findMany({
+    where: {
+      idInscripcion: { in: inscripciones },
+      alumnoId: datos.alumnoId,
+      vigencia: "VIGENTE",
+      turno: { estadoTurno: { in: ["DISPONIBLE", "COMPLETO"] } },
+    },
+    select: {
+      idInscripcion: true,
+      turnoId: true,
+      turno: { select: { fechaTurno: true, horaInicioTurno: true } },
+    },
+    orderBy: { idInscripcion: "asc" },
+  });
+  const quitadas: { inscripcion_id: string; turno_id: string }[] = [];
+  for (const fila of vigentes) {
+    if (inicioDeTurno(fila.turno).getTime() <= momento.getTime()) continue;
+    await finalizarInscripcion(tx, { inscripcionId: fila.idInscripcion, vigencia: "BAJA_ALUMNO", actor: datos.actor, fecha: momento });
+    quitadas.push({ inscripcion_id: fila.idInscripcion, turno_id: fila.turnoId });
+  }
+  return { quitadas, reservas_vencidas_marcadas: reservasVencidasMarcadas };
+}
+
 // ---------------------------------------------------------------------------
 // Estado de pago (lo llama el servicio de pagos con el conteo que calcula: Regla N.° 3)
 // ---------------------------------------------------------------------------

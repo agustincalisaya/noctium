@@ -8,6 +8,7 @@ export {
   crearInscripcion,
   exigeInscripcionConPago,
   finalizarInscripcion,
+  darDeBajaInscripcionesDeAlumno,
   marcarPagada,
   recalcularEstadoPago,
   recalcularVencimientos,
@@ -42,6 +43,7 @@ export {
 } from "@/server/turnos/inscripcion.vigencia";
 export {
   listarInscripcionesDeAlumno,
+  alumnoTieneRegistros,
   listarInscripcionesPendientesDePagoDeAlumno,
   existeInscripcionVigenteConProfesor,
   contarInscripcionesPorMes,

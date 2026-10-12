@@ -46,6 +46,7 @@ export type InscripcionDeAlumno = {
   materia: { id: string; nombre: string };
   /** «Apellido, Nombre», o `null` si la clase no tiene profesor. */
   profesor: string | null;
+  profesor_id?: string | null;
   aula: string | null;
   vigencia: VigenciaInscripcion;
   /** `esVigenteEn(inscripcion, ahora())`. */
@@ -84,7 +85,7 @@ export async function listarInscripcionesDeAlumno(
         select: {
           idTurno: true, fechaTurno: true, horaInicioTurno: true, duracionMinutosTurno: true, estadoTurno: true,
           materia: { select: { idMateria: true, nombreMateria: true } },
-          profesor: { select: { nombreProfesor: true, apellidoProfesor: true } },
+          profesor: { select: { idProfesor: true, nombreProfesor: true, apellidoProfesor: true } },
           aula: { select: { nombreAula: true } },
         },
       },
@@ -111,6 +112,7 @@ export async function listarInscripcionesDeAlumno(
         estado_clase: f.turno.estadoTurno,
         materia: { id: f.turno.materia.idMateria, nombre: f.turno.materia.nombreMateria },
         profesor: f.turno.profesor ? `${f.turno.profesor.apellidoProfesor}, ${f.turno.profesor.nombreProfesor}` : null,
+        profesor_id: f.turno.profesor?.idProfesor ?? null,
         aula: f.turno.aula?.nombreAula ?? null,
         vigencia: f.vigencia,
         vigente_ahora: esVigenteEn({ ...f, estadoClase: f.turno.estadoTurno }, momento),
@@ -121,6 +123,17 @@ export async function listarInscripcionesDeAlumno(
       };
     })
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora_inicio.localeCompare(a.hora_inicio) || b.inscripcion_id.localeCompare(a.inscripcion_id));
+}
+
+export async function alumnoTieneRegistros(alumnoId: string, db: Db = prisma): Promise<boolean> {
+  const [fila] = await db.$queryRaw<{ existe: boolean }[]>(Prisma.sql`
+    SELECT EXISTS (
+      SELECT 1 FROM "turno_alumno" ta
+      JOIN "turnos" t ON t."idTurno" = ta."turnoId"
+      WHERE ta."alumnoId" = ${alumnoId}
+        AND t."fechaTurno" + t."horaInicioTurno" <= ${sqlInstante(ahora())}
+    ) AS existe`);
+  return Boolean(fila?.existe);
 }
 
 export type InscripcionPendienteDePago = {

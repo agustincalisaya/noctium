@@ -161,8 +161,12 @@ export async function iniciarAutorregistro(
 
   const alumno = await prisma.alumno.findFirst({
     where: { dniAlumno: input.dni },
-    select: { idAlumno: true, usuarioId: true, emailAlumno: true },
+    select: { idAlumno: true, usuarioId: true, emailAlumno: true, activoAlumno: true },
   });
+
+  if (alumno?.activoAlumno === false) {
+    throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+  }
 
   // Rama (a): no existe ninguna ficha — alta directa de Alumno + Usuario.
   if (!alumno) {

@@ -113,6 +113,10 @@ Los indicadores componen exclusivamente lecturas de las fachadas públicas de lo
 - Datos sensibles: ni el token, ni el enlace, ni las contraseñas, ni los hashes van en eventos, logs ni respuestas. El enlace solo aparece en el texto plano del email del simulador, fuera de producción. Un error al armar o enviar el email (incluida la falta de `NEXTAUTH_URL`/`AUTH_URL`) invalida el enlace recién creado y registra `RECUPERACION_ENVIO_FALLIDO`.
 - Encabezados: `next.config.ts` fija `Referrer-Policy: no-referrer` en `/restablecer-contrasena` y `Cache-Control: no-store, must-revalidate` en las dos pantallas; las dos rutas de API lo fijan en cada respuesta.
 
+## Aplicación HU-B-07 — Estado del alumno
+
+La baja y reactivación toman primero el bloqueo canónico del alumno y validan estado y versión. La baja marca reservas vencidas, bloquea clases e inscripciones candidatas, finaliza solo inscripciones vigentes futuras con `BAJA_ALUMNO`, conserva pagos y hechos académicos, desactiva la cuenta y revoca sesiones en la misma transacción. La reactivación no restaura inscripciones ni sesiones. El historial de estado se encola para después del commit. El motivo es obligatorio si C, I o E informan registros previos mediante sus fachadas públicas.
+
 ## Aplicación HU-D-08 — Estado del profesor
 
 El permiso `profesores:cambiar_estado` se comprueba en las rutas y actions. Baja/reactivación bloquean al profesor y validan versión y estado; la ficha y su cuenta cambian en la misma transacción. C toma ese mismo recurso antes de crear, confirmar, generar o reprogramar clases y vuelve a comprobar actividad. Los lotes usan una transacción por clase, conservan pagos e inscripciones y reportan fallos por fila. El historial de estados se encola después del commit. La revocación de A conserva milisegundos y el guard compara `iat_sesion` sin truncar; renovar no cambia ese inicio y reactivar no borra el umbral.

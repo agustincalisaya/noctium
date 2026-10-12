@@ -262,6 +262,19 @@ describe("iniciarAutorregistro — rama (c): ficha con cuenta ya vinculada", () 
     expect(errorRamaC.code).toBe("CUENTA_YA_EXISTE");
     expect(errorRamaC.message).toBe(errorPaso2.message);
   });
+
+  it("trata una ficha inactiva sin cuenta como cuenta existente", async () => {
+    vi.mocked(prisma.alumno.findFirst).mockResolvedValue({
+      idAlumno: ALUMNO,
+      usuarioId: null,
+      emailAlumno: inputBase.email,
+      activoAlumno: false,
+    } as never);
+
+    await expect(iniciarAutorregistro(inputBase, IP)).rejects.toMatchObject({ code: "CUENTA_YA_EXISTE" });
+    expect(tx.solicitudAutorregistro.create).not.toHaveBeenCalled();
+    expect(enviarEmail).not.toHaveBeenCalled();
+  });
 });
 
 // ------------------------------------------------------------

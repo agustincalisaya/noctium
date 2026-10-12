@@ -27,6 +27,10 @@ import {
  * usan una sola implementación del valor vigente (`pago.vigente.ts`, R3-PR0-I11).
  */
 
+export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  return (await db.pago.findFirst({ where: { alumnoId }, select: { idPago: true } })) !== null;
+}
+
 /** Un pago registrado de un turno, tal como lo muestra el detalle (spec_modulo_C.md §2.4). */
 export type PagoDeTurno = {
   id: string;

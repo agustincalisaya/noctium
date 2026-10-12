@@ -8,6 +8,8 @@ import {
   FormaPagoPreferidaSchema,
   construirModificarAlumnoSchema,
   construirRegistrarAlumnoSchema,
+  DesactivarAlumnoSchema,
+  ReactivarAlumnoSchema,
 } from "@/server/alumnos/alumno.schema";
 import {
   actualizarContactoAlumno as actualizarContactoAlumnoEnServicio,
@@ -22,7 +24,10 @@ import { ServiceError } from "@/server/shared/service-error";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { obtenerIp } from "@/auth";
 import { texto } from "@/lib/textos";
-import type { ResultadoContactoAlumno, ResultadoModificarAlumno } from "@/types/alumno.types";
+import type { EstadoAlumnoCambiado, ResultadoAccionAlumno, ResultadoContactoAlumno, ResultadoModificarAlumno } from "@/types/alumno.types";
+import { desactivarAlumno as desactivarAlumnoEnServicio, reactivarAlumno as reactivarAlumnoEnServicio } from "@/server/alumnos/alumno.estado.service";
+import { actorUsuario } from "@/server/shared/historial";
+import { ErrorDeDominio } from "@/server/shared/error-dominio";
 
 const MENSAJE_ERROR_COMUNICACION = "No se pudo conectar. Intentá nuevamente";
 
@@ -179,6 +184,39 @@ export async function actualizarFormaPagoPreferida(
  * con `email` el servicio crea la ficha y la cuenta juntas. La IP va al
  * evento CUENTA_CREADA. La respuesta suma `cuenta` (nunca la contraseña).
  */
+async function cambiarEstadoAlumno(
+  id: string,
+  input: unknown,
+  activo: boolean,
+): Promise<ResultadoAccionAlumno<EstadoAlumnoCambiado>> {
+  const parsed = (activo ? ReactivarAlumnoSchema : DesactivarAlumnoSchema).safeParse(input);
+  if (!parsed.success) {
+    return { data: null, error: { code: "VALIDATION_ERROR", message: "Revisá los datos ingresados", detalles: flattenError(parsed.error).fieldErrors } };
+  }
+  try {
+    const usuario = await verificarPermiso("alumnos:cambiar_estado");
+    const resultado = activo
+      ? await reactivarAlumnoEnServicio(id, ReactivarAlumnoSchema.parse(parsed.data), actorUsuario(usuario.id))
+      : await desactivarAlumnoEnServicio(id, DesactivarAlumnoSchema.parse(parsed.data), actorUsuario(usuario.id));
+    revalidatePath("/alumnos");
+    revalidatePath(`/alumnos/${id}`);
+    return { data: resultado, error: null };
+  } catch (error) {
+    if (error instanceof PermisoError || error instanceof ErrorDeDominio) {
+      return { data: null, error: { code: error.code, message: error.message } };
+    }
+    throw error;
+  }
+}
+
+export async function desactivarAlumno(id: string, input: unknown) {
+  return cambiarEstadoAlumno(id, input, false);
+}
+
+export async function reactivarAlumno(id: string, input: unknown) {
+  return cambiarEstadoAlumno(id, input, true);
+}
+
 export async function crearAlumno(input: unknown): Promise<ResultadoCrearAlumno> {
   const [dniLongitudMin, dniLongitudMax] = await Promise.all([
     getParametroNumerico("dni_longitud_min", 7),

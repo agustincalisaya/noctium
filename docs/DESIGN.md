@@ -244,6 +244,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Cambiar tarifas de varias materias (HU-L-07, P-43/M-41) | `Dialog` de selección y vista previa; `ConfirmarAccionDialog` con detalle y cantidad de materias que cambian. Rechazos dentro de la confirmación; recarga y nueva previa ante conflicto | Toast «Se actualizó la tarifa de N materias» (singular para una). Si ninguna cambia, aviso «Las materias seleccionadas ya tienen esa tarifa» dentro de la previa, sin envío ni confirmación de cero materias |
 | Editar forma de pago (HU-I-07) | `Dialog` y confirmación C-25 | Toast «Forma de pago actualizada correctamente» |
 | Desactivar/reactivar forma de pago (HU-I-07) | `ConfirmarAccionDialog` reversible | Toast «Forma de pago desactivada» / «Forma de pago reactivada» |
+| Desactivar/reactivar alumno (HU-B-07, M-21) | `ConfirmarAccionDialog` reversible; la baja lista inscripciones futuras, explica que no se restauran y pide motivo cuando corresponde | Toast «Alumno desactivado correctamente» / «Alumno reactivado correctamente» y recarga de la ficha |
 | Registrar clase dictada (HU-E-01) | `AlertDialog` (confirmación simple) | Toast |
 | Registrar resultado de examen (HU-E-06) | `Dialog` | Toast |
 | Registrar observaciones de clase (HU-E-07) | `Dialog` con campos y confirmación `AlertDialog` de C-25 | Toast «Observaciones registradas correctamente» |
