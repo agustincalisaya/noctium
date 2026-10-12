@@ -268,6 +268,10 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Desactivar integrante con la caja abierta (HU-F-05 c2, HU-I-12 c10) | `Dialog` informativo de una acción rechazada (6.3), en lugar de la confirmación: «No se puede desactivar al integrante», el texto de `CAJA_ABIERTA` y un único botón «Cerrar» (y la X). Se abre al tocar «Desactivar» cuando la ficha ya indica la caja abierta; si la caja se abre después de cargar la ficha, el rechazo aparece dentro del modal de confirmación. Sin enlace a «Cierres de caja» mientras esa pantalla (HU-I-12) no exista | Ninguno: no modifica datos |
 | Reactivar integrante de mesa de entrada (HU-F-05) | `ConfirmarAccionDialog` sin motivo, con el aviso de que las sesiones cerradas en la baja no se restauran | Toast «Integrante reactivado correctamente» y `router.refresh()` |
 | Historial de estados del integrante (HU-F-05, figura 93) | Sección de la ficha, de solo lectura: cada baja o reactivación con la acción, la fecha y hora en la zona del centro, quien la hizo y el motivo, del más reciente al más antiguo (mismo formato de fecha y hora que «Registro» en la misma ficha) | Ninguno; sin entradas muestra «Sin bajas ni reactivaciones.» |
+| Listado mínimo de gerentes (HU-G-01, P-47, `/gerentes`) | Página completa, sin acciones propias que modifiquen datos, sin búsqueda ni paginación (las suma HU-G-03); se entra desde la sección desplegable «Gerentes» del menú del Gerente, con su ítem «Listado» (activo también en el alta, la ficha y la edición; «Indicadores», `/gerente`, no queda activo en `/gerentes/…`). Sin estado vacío: siempre figura al menos el gerente autenticado | Ninguno propio («Nuevo gerente» y cada fila navegan) |
+| Alta de gerente con cuenta (HU-G-01 con HU-A-06, P-48 alta, `/gerentes/nuevo`) | Página completa + `ConfirmarAccionDialog` («Registrar gerente») | Navegación a la ficha `/gerentes/[id]?creado=1` con banner inline «Gerente registrado correctamente. Se creó su cuenta: ingresa con su email y su DNI como contraseña, y la cambia en el primer ingreso.» |
+| Edición de gerente (HU-G-01, P-48 edición, `/gerentes/[id]/editar`) | Página completa + `ConfirmarAccionDialog` siempre («Guardar cambios»), con el aviso de que cambia el usuario de ingreso si cambia el email; si la ficha es la del propio gerente, el aviso dice que su sesión actual sigue abierta y que la próxima vez ingresa con el email nuevo (DEC-44) | Navegación a la ficha `/gerentes/[id]?actualizada=1` con banner inline «Gerente actualizado correctamente» |
+| Ficha del gerente (HU-G-01, P-48 consulta, `/gerentes/[id]`) | Página completa de solo lectura, con «Editar» solo con `gerentes:editar` y «Cuenta de acceso» debajo de «Registro». Sin «Desactivar», «Reactivar» ni historial de estados (los suma HU-G-05) | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
@@ -482,6 +486,16 @@ sus consumidores, sin editar sus fuentes.
   informativo de 6.3, con «Cerrar»), de reactivar y del historial de
   estados. El éxito se informa con toast, como la baja de profesor y de
   formas de pago.
+- **12/10/2026:** HU-G-01 agrega en 6.4 las filas de los gerentes: el listado
+  mínimo (P-47, sin acciones propias, sin búsqueda ni paginación), el alta
+  (confirmación de C-25 «Registrar gerente» y navegación a la ficha con el
+  banner que informa la cuenta creada), la edición (confirma siempre, con el
+  aviso del email; si el gerente cambia su propio email, el aviso dice que su
+  sesión sigue abierta, DEC-44) y la ficha de consulta (P-48, con «Cuenta de
+  acceso» y sin «Desactivar» ni «Reactivar», que suma HU-G-05). Mismo patrón
+  que el personal de mesa de entrada: «Cancelar» y el botón de guardar arriba
+  a la derecha (figura 95) y una sección desplegable «Gerentes» con el ítem
+  «Listado» en el menú del Gerente.
 
 ## Selección de asistencia (HU-E-11)
 
