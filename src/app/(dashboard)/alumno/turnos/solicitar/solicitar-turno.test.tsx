@@ -26,7 +26,13 @@ const elegir = async (name: string, value: string) => act(async () => { (contain
 const click = async (label: string) => act(async () => { boton(label).click(); });
 const montar = async () => act(async () => { root.render(<SolicitarTurno />); });
 const seleccionar = async () => { await montar(); await elegir("materia", "m1"); await elegir("profesor", "p1"); await elegir("horario", "turno-seleccion"); };
-const posts = () => request.mock.calls.filter(([, init]) => init?.method === "POST");
+const parrafo = (inicio: string) => [...dialogo()!.querySelectorAll("p")].find((p) => p.textContent!.startsWith(inicio)) ?? null;
+const abrirCon = async (cambios: Partial<ResumenInscripcion>) => {
+  const base = request.getMockImplementation()!;
+  request.mockImplementation(async (url: string, init?: RequestInit) => url.endsWith("/resumen") ? respuesta({ ...resumen, ...cambios }) : base(url, init));
+  await seleccionar(); await click("Inscribirme");
+};
+const posts = () =>request.mock.calls.filter(([, init]) => init?.method === "POST");
 const seleccionActual = () => [...container.querySelectorAll<HTMLInputElement>("input:checked")].map((input) => input.value);
 function pendiente<T>() { let resolve!: (v: T) => void; const promise = new Promise<T>((r) => { resolve = r; }); return { promise, resolve }; }
 beforeEach(() => {
@@ -54,9 +60,24 @@ describe("C-20 componente y diálogo reales (jsdom, API simulada)", () => {
     const content = dialogo()!.textContent!;
     for (const valor of ["Física I", "Pérez, Ana", "Martes 13 de octubre de 2026", "16:00–18:00", "120 minutos", "Aula 2", "3", "$ 24.000", texto("ui.turnos.resumen.precioFijo"), "Confirmar reserva", "Volver"]) expect(content).toContain(valor);
     expect(content).toContain("Reservás tu lugar y tenés que pagarlo en el centro antes del sábado 10 de octubre de 2026 a las 12:00. Si no lo pagás, la reserva se cancela sola.");
-    expect(content).toContain("Si todavía no pagaste, podés cancelar la reserva hasta el sábado 10 de octubre de 2026 a las 12:00");
-    expect(content).toContain("Si ya pagaste, podés cancelar en línea hasta el lunes 12 de octubre de 2026 a las 16:00.");
+    expect(parrafo("Si todavía no pagaste")!.textContent).toBe("Si todavía no pagaste, podés cancelar la reserva hasta el sábado 10 de octubre de 2026 a las 12:00; después de cancelarla, solo vas a poder volver a inscribirte en esta clase en el centro. Si ya pagaste, podés cancelar en línea hasta el lunes 12 de octubre de 2026 a las 16:00.");
     expect(push).not.toHaveBeenCalled();
+  });
+  it("límite de cancelación pasado: conserva la primera oración y reemplaza la última", async () => {
+    await abrirCon({ limite_cancelacion_pasado: true });
+    expect(parrafo("Si todavía no pagaste")!.textContent).toBe("Si todavía no pagaste, podés cancelar la reserva hasta el sábado 10 de octubre de 2026 a las 12:00; después de cancelarla, solo vas a poder volver a inscribirte en esta clase en el centro. Si ya pagaste, ya no vas a poder cancelar en línea; comunicate con el centro.");
+    expect(dialogo()!.textContent).not.toContain("podés cancelar en línea hasta");
+  });
+  it("sin plazo de pago no muestra la leyenda de cancelación", async () => {
+    await abrirCon({ plazo_pago_horas: null, vence_pago_el: null });
+    const content = dialogo()!.textContent!;
+    expect(content).not.toContain("Si todavía no pagaste");
+    expect(content).not.toContain("Si ya pagaste");
+  });
+  it("la leyenda de cancelación va después de la del plazo de pago", async () => {
+    await abrirCon({});
+    const plazo = parrafo("Reservás tu lugar")!; const cancelacion = parrafo("Si todavía no pagaste")!;
+    expect(plazo.compareDocumentPosition(cancelacion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
   it("Volver conserva materia, profesor y horario; reabrir pide un resumen nuevo", async () => {
     await seleccionar(); await click("Inscribirme"); await click("Volver");

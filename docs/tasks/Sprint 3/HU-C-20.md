@@ -75,7 +75,7 @@ correcciones de C-25, dependencias, esquema, migraciones y permisos.
 | Diferida y responsable | Condición de integración | Verificación que debe realizar su HU |
 |---|---|---|
 | Plazo/vencimiento de CA3 — Tomás, C-22 | Integrar estado RESERVADA, vencimiento y ampliar resumen/confirmación conforme C §2.17.2–3 | GET muestra plazo y vencimiento estimado; POST informa definitivo; comprobar límites y texto con reloj del centro; C-22 acredita su parte de CA3 |
-| Reglas/leyendas de cancelación de CA3 — Tomás, C-14 | Integrar cancelación propia y la excepción de reserva sin pago, después de C-22 | Casos antes/después del límite y reserva sin pago; cambio vigente al cancelar; rechazo sin mutación |
+| Verificación de la regla de cancelación de CA3 — Tomás, C-14 | Cancelación propia y excepción de reserva sin pago integradas; la leyenda de CA3 ya se muestra en el resumen (C-20) | Casos antes/después del límite y reserva sin pago; cambio vigente al cancelar; rechazo sin mutación |
 | Valor configurable de CA3 — responsable de N-01, carril 1 (asignación personal no encontrada; coordinar con SM) | Integrar gestión N-01 sin cambiar los contratos de parámetros PR 0 | Cambiar anticipación en entorno aislado; nuevo GET refleja valor; cancelar toma valor vigente; verificar conservación del vencimiento ya guardado |
 
 **Evidencia de la parte habilitada por C-22 (09/10/2026):** el resumen ahora
@@ -88,6 +88,17 @@ límites en `docs/testing/hu-c-22/HU-C-22-evidencia.md`. Se conservan los
 resultados históricos de C-20. **Integración C-14 (11/10/2026):** las leyendas
 y la regla de cancelación de CA3 quedaron implementadas y cubiertas por la
 suite focal de C-14. La gestión configurable de N-01 permanece pendiente.
+
+**Leyenda de cancelación de CA3 (12/10/2026):** el resumen muestra las dos
+oraciones del criterio 3 en un solo párrafo, inmediatamente debajo de la
+leyenda del plazo, con `vence_pago_el` y `limite_cancelacion_en_linea`
+formateados como la leyenda del plazo. Si `limite_cancelacion_pasado` es
+`true`, la última oración se reemplaza por el texto del criterio. Sin
+`vence_pago_el` no se muestra ninguna de las dos oraciones. Textos en
+`ui.turnos.resumen.cancelacionReserva`, `ui.turnos.resumen.cancelacionPagada`
+y `ui.turnos.resumen.cancelacionPagadaVencida`. CA3 queda implementado; solo
+siguen diferidas la verificación de la regla de cancelación (C-14) y la del
+valor configurable (N-01).
 
 ## 2. Historia de Usuario
 
@@ -239,7 +250,8 @@ límites y pasos de navegador/GitHub; no se duplican aquí.
 - [x] GET fallido.
 - [x] Recorrido de navegador con foco/teclado: verificado por Tomás con teclado físico el 09/10/2026 (ver evidencia).
 - [ ] Pendiente: run de GitHub y PR con diff exclusivo de esta HU; publicación/merge no autorizados.
-- [ ] Pendiente: CA3 integrado, diferido a C-22, C-14 y N-01, no cumplido por C-20.
+- [x] CA3: leyendas de plazo y de cancelación implementadas en el resumen (ver evidencia).
+- [ ] Pendiente: verificación de la regla de cancelación de CA3 (C-14) y del valor configurable (N-01).
 
 **Contraste con template:** secciones 0–7 y 4.1–4.5 presentes, historia y CA
 literales, testing en tres niveles y DoD. No falta sección; los ítems abiertos

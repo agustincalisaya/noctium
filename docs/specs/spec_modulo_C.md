@@ -1490,6 +1490,14 @@ La superposición con otras clases del alumno y la regla de re-reserva (2.17.2) 
 
 **Errores esperados:** `403 SIN_PERMISO` (falta `turnos:solicitar_propio` o la cuenta no tiene ficha de alumno) · `404 TURNO_NO_ENCONTRADO` · `409 TURNO_NO_DISPONIBLE` · `409 TURNO_VENCIDO` · `409 CUPO_INSUFICIENTE` · `409 ALUMNO_INACTIVO` · `409 ALUMNO_YA_ASIGNADO` · `422 MATERIA_SIN_TARIFA`.
 
+**Sincronización HU-C-20 (12/10/2026).** Desde HU-C-22, el resumen muestra
+la leyenda del criterio 3 de HU-C-20 debajo de la del plazo de pago, en un
+solo párrafo: la oración de cancelación sin pago con `vence_pago_el` y la de
+cancelación en línea con `limite_cancelacion_en_linea`; si
+`limite_cancelacion_pasado` es `true`, la última oración se reemplaza por el
+texto del criterio. Usa los campos que ya devuelve el `GET`, sin cálculos en
+el cliente. Sin `vence_pago_el` no se muestra ninguna de las dos oraciones.
+
 #### 2.17.2. Confirmar la reserva — `POST /api/turnos/[id]/inscripcion` (HU-C-22)
 
 **Contrato de Sprint 2 sin cambios:** sin body; respuesta `200 OK` con `{ id, alumnos_inscriptos, estado }`; las condiciones y los `code` de 2.14.2 se conservan, con la misma traducción a segunda persona.

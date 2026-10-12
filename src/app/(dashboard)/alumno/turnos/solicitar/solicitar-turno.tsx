@@ -281,21 +281,20 @@ export function SolicitarTurno() {
                 hora: resumenInscripcion.vence_pago_el.slice(11, 16),
               }),
             })}</p>
-            <p>{texto("ui.turnos.resumen.cancelacionReserva", {
+            <p>{`${texto("ui.turnos.resumen.cancelacionReserva", {
               vencimiento: texto("ui.turnos.reserva.fechaHora", {
                 dia: fechaLarga(resumenInscripcion.vence_pago_el.slice(0, 10)).toLocaleLowerCase("es-AR"),
                 hora: resumenInscripcion.vence_pago_el.slice(11, 16),
               }),
-            })}</p>
+            })} ${resumenInscripcion.limite_cancelacion_pasado
+              ? texto("ui.turnos.resumen.cancelacionPagadaVencida")
+              : texto("ui.turnos.resumen.cancelacionPagada", {
+                limite: texto("ui.turnos.reserva.fechaHora", {
+                  dia: fechaLarga(resumenInscripcion.limite_cancelacion_en_linea.slice(0, 10)).toLocaleLowerCase("es-AR"),
+                  hora: resumenInscripcion.limite_cancelacion_en_linea.slice(11, 16),
+                }),
+              })}`}</p>
           </>}
-          <p>{resumenInscripcion.limite_cancelacion_pasado
-            ? texto("ui.turnos.resumen.cancelacionPagadaVencida")
-            : texto("ui.turnos.resumen.cancelacionPagada", {
-              limite: texto("ui.turnos.reserva.fechaHora", {
-                dia: fechaLarga(resumenInscripcion.limite_cancelacion_en_linea.slice(0, 10)).toLocaleLowerCase("es-AR"),
-                hora: resumenInscripcion.limite_cancelacion_en_linea.slice(11, 16),
-              }),
-            })}</p>
         </div>}
       />
     </div>
