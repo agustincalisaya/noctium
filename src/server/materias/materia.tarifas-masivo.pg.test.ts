@@ -46,6 +46,46 @@ describe.skipIf(!basePgHabilitada)("HU-L-07: PostgreSQL descartable", () => {
     expect(await cambiarTarifasMasivo(lote(antesNoop.materias), gerente, { db })).toEqual({ tarifa_hora: 15000, actualizadas: 0, sin_cambio: 3 });
     expect(await estado(filas.map((f) => f.idMateria))).toEqual(antesNoop);
   });
+  describe("materias sin tarifa (null) frente a la guarda de la tarifa mostrada", () => {
+    it("tarifa_actual null sobre una materia sin tarifa la define y deja historial con tarifaAnterior null", async () => {
+      const sinTarifa = await crearMateriaDePrueba(db, { tarifaHora: null });
+      const fecha = new Date("2026-10-11T13:00:00.000Z");
+      expect(await conReloj(fecha, () => cambiarTarifasMasivo(lote([sinTarifa]), gerente, { db }))).toEqual({ tarifa_hora: 15000, actualizadas: 1, sin_cambio: 0 });
+      const despues = await estado([sinTarifa.idMateria]);
+      expect(despues.materias[0]).toMatchObject({ tarifaHoraMateria: 15000, modificadoPorUsuarioId: gerente });
+      expect(despues.historial).toHaveLength(1);
+      expect(despues.historial[0]).toMatchObject({ tarifaAnterior: null, tarifaNueva: 15000, usuarioId: gerente, masivo: true, fecha });
+    });
+    it("tarifa_actual distinta de null sobre una materia sin tarifa es conflicto y no escribe", async () => {
+      const sinTarifa = await crearMateriaDePrueba(db, { tarifaHora: null });
+      const antes = await estado([sinTarifa.idMateria]);
+      await expect(cambiarTarifasMasivo({ tarifa_hora: 15000, materias: [{ id: sinTarifa.idMateria, tarifa_actual: 12000 }] }, gerente, { db }))
+        .rejects.toMatchObject({ code: "CONFLICTO_EDICION_CONCURRENTE" });
+      expect(await estado([sinTarifa.idMateria])).toEqual(antes);
+    });
+    it("tarifa_actual null sobre una materia que ya tiene tarifa es conflicto y no escribe", async () => {
+      const conTarifa = await crearMateriaDePrueba(db, { tarifaHora: 12000 });
+      const antes = await estado([conTarifa.idMateria]);
+      await expect(cambiarTarifasMasivo({ tarifa_hora: 15000, materias: [{ id: conTarifa.idMateria, tarifa_actual: null }] }, gerente, { db }))
+        .rejects.toMatchObject({ code: "CONFLICTO_EDICION_CONCURRENTE" });
+      expect(await estado([conTarifa.idMateria])).toEqual(antes);
+    });
+    it("un pedido con materias con y sin tarifa cambia todas las que difieren y una sola guarda desactualizada anula el pedido completo", async () => {
+      const filas = await Promise.all([null, 12000, 15000].map((tarifaHora) => crearMateriaDePrueba(db, { tarifaHora })));
+      const ids = filas.map((f) => f.idMateria);
+      const antes = await estado(ids);
+      const desactualizado = lote(filas);
+      desactualizado.materias[0].tarifa_actual = 9000; // la materia sin tarifa se mostró con un valor que ya no es el real
+      await expect(cambiarTarifasMasivo(desactualizado, gerente, { db })).rejects.toMatchObject({ code: "CONFLICTO_EDICION_CONCURRENTE" });
+      expect(await estado(ids)).toEqual(antes);
+      expect(await cambiarTarifasMasivo(lote(filas), gerente, { db })).toEqual({ tarifa_hora: 15000, actualizadas: 2, sin_cambio: 1 });
+      const despues = await estado(ids);
+      expect(despues.materias.map((m) => m.tarifaHoraMateria)).toEqual(ids.map(() => 15000));
+      expect(despues.historial.map((h) => h.materiaId).sort()).toEqual([ids[0], ids[1]].sort());
+      expect(despues.historial.find((h) => h.materiaId === ids[0])!.tarifaAnterior).toBeNull();
+      expect(despues.historial.find((h) => h.materiaId === ids[1])!.tarifaAnterior).toBe(12000);
+    });
+  });
   it.each(["faltante", "inactiva", "conflicto"] as const)("rechazo %s no escribe ninguna fila ni historial", async (caso) => {
     const filas = await Promise.all([12000, 15000].map((tarifaHora) => crearMateriaDePrueba(db, { tarifaHora })));
     const input = lote(filas);
@@ -69,10 +109,12 @@ describe.skipIf(!basePgHabilitada)("HU-L-07: PostgreSQL descartable", () => {
     await expect(cambiarTarifasMasivo(lote(filas), gerente, { db: fallando as unknown as PrismaClient })).rejects.toThrow("segundo historial falló");
     expect(inserciones).toBe(2); expect(await estado(ids)).toEqual(antes);
   });
-  it.each([false, true])("ids cruzados sin deadlock; ganador retenido antes de lectura (inverso=%s)", async (inverso) => {
+  it.each([false, true])("dos cambios masivos con los mismos ids en orden cruzado se serializan: gana el que retiene los bloqueos y el otro recibe CONFLICTO_EDICION_CONCURRENTE (inverso=%s)", async (inverso) => {
     const filas = await Promise.all([0, 1].map(() => crearMateriaDePrueba(db)));
     const bloqueado = senal(); const liberar = senal(); const segundoIniciado = senal();
-    // findMany se ejecuta después del FOR UPDATE: el ganador retiene ambos locks.
+    // findMany se ejecuta después del FOR UPDATE: el primero retiene ambos locks y el segundo espera
+    // en su propio bloqueo; al liberarse relee la tarifa nueva y su guarda la rechaza. Prueba la
+    // serialización de dos lotes con ids invertidos, no el orden interno de adquisición de bloqueos.
     const primeroDb = db.$extends({ query: { materia: { findMany: async ({ args, query }) => {
       bloqueado.resolver(); await liberar.promesa; return query(args);
     } } } });

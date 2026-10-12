@@ -1,75 +1,65 @@
 # HU-L-07 — Evidencia del cambio masivo de tarifas
 
-Implementada y verificada localmente; commit f49a357 en feature/hu-restantes; pendiente revisión e integración. Fuentes: Excel oficial filas 90–98 y Cierre de pendientes, spec L §2.9 y sincronización L-06, PR-0 y DESIGN. No hay diferidos propios de producto.
+## Resultado
 
-## Matriz de aceptación
+HU-L-07 está implementada y verificada localmente en `feature/hu-restantes`: los nueve criterios del Excel (filas 90 a 98) cumplen con las pruebas de las secciones siguientes. Fuentes: Excel oficial, spec L §2.9 y sus notas de sincronización, PR-0 y DESIGN. No hay diferidos propios de producto. Quedan pendientes ⏳ el recorrido de navegador del modal M-41 sobre el árbol final y el CI sobre el SHA del PR. SHA del PR: ⏳ se completa al abrirlo.
 
-| CA | Implementado | Verificación ejecutada y resultado |
+## Matriz de criterios
+
+| CA | Cumple | Evidencia |
 |---|---|---|
-| 1 | Sí: activas, casilla/nombre/código/tarifa, umbral dos, normalización, todas visibles, contador y selección persistente | ✅ Componentes y navegador real: Física buscada como FISICA, MAT por código, seleccionadas ocultas conservadas. GET real excluye inactiva y conserva null. Código nullable probado |
-| 2 | Sí: entero positivo/tope, error de campo, continuar por selección e importe | ✅ Schema límites 1/200, duplicados/campos ajenos/importes inválidos; UI cero/decimal/negativo/tope/vacío y 201 seleccionadas; navegador cero impide continuar |
-| 3 | Sí: previa de todas, anterior/nueva y Sin cambio | ✅ Componentes y navegador muestran mezcla $12.000/$15.000/null y todas las seleccionadas |
-| 4 | Sí: C-25, N de las que cambian, detalle y singular | ✅ Componentes sin POST previo; navegador confirma dos cambios con tres seleccionadas, luego tres tras recarga |
-| 5 | Sí: una transacción, conteo servidor y no-op | ✅ PG rollback tras primer historial y segunda tarifa; lotes cruzados en ambos órdenes, un ganador y un conflicto, sin deadlock. No-op conserva filas completas. UI no confirma cero; POST real no-op retorna ceros |
-| 6 | Sí: exclusión y rechazo servidor | ✅ PG y HTTP 422 para envío manual; lote sin escrituras, tarifa inactiva $8.000 conservada. Recarga obligatoria ante inactiva/faltante además del conflicto |
-| 7 | Sí: sin acceso a inscripciones desde L | ✅ PG: fila de inscripción anterior idéntica tras masivo; cobro conserva $12.000; nuevas reservas ALUMNO/CENTRO y nueva inscripción por cobro real usan $15.000 |
-| 8 | Sí: historial atómico por actualizada, marca y fecha común | ✅ PG actor/anterior/null/nueva/fecha/marca; sin cambio conserva metadata. Navegador ve Cambio masivo en ficha. SQL del recorrido deja cuatro historiales esperados |
-| 9 | Sí: mismo permiso granular en GET/POST y botón | ✅ Guard simulado en unitarios, matriz RolPermiso real solo GERENTE, login y GET/POST reales: 401 sin sesión; 403 Mesa/Profesor/Alumno; Gerente opera. Mesa/Profesor sin botón |
+| 1 | Sí (la interfaz, ⏳ en navegador) | `cambiar-tarifas-dialog.test.tsx` (23): casillas con nombre, código y tarifa; «Seleccionar todas (N)» sobre las visibles; contador; búsqueda por nombre y por código desde dos caracteres, sin mayúsculas ni acentos (10 casos); la selección sobrevive al cambiar la búsqueda. Postman: GET solo con activas, DTO `id, nombre, codigo, tarifa_hora`, sin repetidos, `codigo` y `tarifa_hora` nullables |
+| 2 | Sí | Schema estricto (`materia.tarifas-masivo.test.ts`, 23, y `tarifas/route.test.ts`, 14): entero positivo hasta $1.000.000, 1 a 200 materias, sin repetidos, campos ajenos y JSON inválido. Componente: error junto al campo, «Continuar» deshabilitado sin selección o con importe inválido, aviso y bloqueo con más de 200 seleccionadas. Postman: 400 por lista vacía, cero, negativo, decimal, mayor al tope, campo ajeno, id no CUID, ids repetidos, más de 200 y cuerpo que no es JSON |
+| 3 | Sí (⏳ en navegador) | Componente: previa con todas las seleccionadas, tarifa actual y nueva, «Sin cambio» para las iguales. Unitarias del servicio: clasificación de actualizadas y sin cambio, con tarifa `null` |
+| 4 | Sí (⏳ en navegador) | Componente: confirmación de C-25 «¿Estás seguro de que querés cambiar la tarifa de N materias a $ 8.000 por hora?» con N = las que cambian, detalle y singular; ninguna escritura antes de confirmar |
+| 5 | Sí | PG: una transacción, el fallo después del primer historial revierte ambas tarifas e historiales; los rechazos faltante, inactiva y conflicto no escriben nada; materias con y sin tarifa en el mismo pedido. Postman: 200 con cambios (`actualizadas` y `sin_cambio` exactos y tarifas nuevas verificadas por GET) y 200 con `actualizadas: 0` cuando todas ya tenían la tarifa. Componente: sin POST ni confirmación cuando ninguna cambia y doble envío con dos clics en su propio `act` |
+| 6 | Sí | Postman: la inactiva no se lista, enviarla da 422 `MATERIA_INACTIVA` sin escribir nada y el GET posterior confirma que ninguna tarifa cambió. PG: la inactiva conserva su tarifa. SQL (A7): la inactiva conserva su tarifa y no tiene historial masivo |
+| 7 | Sí (A8 sin inscripciones previas en la base de Postman) | PG: la fila de una inscripción anterior queda idéntica después del cambio masivo, el cobro conserva el precio y las nuevas reservas de alumno y de centro y la nueva inscripción por cobro usan la tarifa nueva (con los servicios reales de C e I). SQL (A8): verifica las inscripciones previas que existan; en la base del recorrido había 0, por lo que esa aserción no aporta evidencia propia |
+| 8 | Sí | PG: una fila de `HistorialTarifa` por actualizada con actor, anterior (`null` incluida), nueva, fecha común y `masivo = true`; «Sin cambio» no deja fila y conserva su metadata. SQL (A1 a A6): historial masivo presente, una sola fecha, usuario y tarifa nueva por cambio, una fila por materia, cadena continua y tarifa vigente igual a la del último historial |
+| 9 | Sí | PG: matriz real de `RolPermiso` con `materias:cambiar_tarifa` solo para Gerente. Postman: 401 sin sesión y 403 de Mesa de Entrada, Profesor y Alumno en GET y POST con sesiones reales; Gerente opera. SQL (A9): el permiso pertenece solo a GERENTE. La visibilidad del botón por permiso: ⏳ en navegador |
 
-## Comandos y resultados
+## Verificaciones
 
-Todos se ejecutaron sobre el árbol de esta entrega, sin suites globales ni build global. Los ejecutables ya estaban instalados.
+Corridas del 12/10/2026 sobre el árbol final de la rama (cambios del delta desde `f7ff819` más el árbol de trabajo).
 
-| Comando | Exit code | Resultado |
-|---|---:|---|
-| `npx vitest run src/server/materias/materia.tarifas-masivo.test.ts src/app/api/materias/tarifas/route.test.ts src/server/materias/materia.tarifa.test.ts 'src/app/api/materias/[id]/tarifa/route.test.ts'` | 0 | 4 archivos, 65 casos |
-| `node node_modules/vitest/vitest.mjs run 'src/app/(dashboard)/materias/cambiar-tarifas-dialog.test.tsx' 'src/app/(dashboard)/materias/[id]/cambiar-tarifa-dialog.test.tsx'` | 0 | 2 archivos, 19 casos |
-| `node node_modules/typescript/bin/tsc --noEmit --incremental false` | 0 | Sin errores |
-| `npx eslint src/server/materias/materia.schema.ts src/server/materias/materia.service.ts src/types/materia.types.ts src/app/api/materias/tarifas/route.ts src/app/api/materias/tarifas/route.test.ts src/server/materias/materia.tarifas-masivo.test.ts src/server/materias/materia.tarifas-masivo.pg.test.ts` | 0 | Backend y pruebas sin hallazgos |
-| `node node_modules/eslint/bin/eslint.js 'src/app/(dashboard)/materias/page.tsx' 'src/app/(dashboard)/materias/cambiar-tarifas-dialog.tsx' 'src/app/(dashboard)/materias/cambiar-tarifas-dialog.test.tsx' src/lib/textos.ts` | 0 | UI/textos sin hallazgos |
-| `node scripts/verificar-claves-textos.ts` | 0 | Claves de textos verificadas; aviso de tipo de módulo de Node, sin cambio de configuración |
-| `npm run test:pg -- src/server/materias/materia.tarifas-masivo.pg.test.ts` | 0 | Versión final, 9 casos; bases `noctium_pruebas_1e43ebc9` y, después del ajuste de imports a aliases, `noctium_pruebas_d3afc6f3` |
-| `npm run test:pg -- src/server/materias/materia.tarifas-masivo.pg.test.ts src/server/materias/materia.tarifa.pg.test.ts` | 1 | L-07 9/9, L-06 4/5; fallo de inicio del subproceso seed |
-| `npm run test:pg -- src/server/materias/materia.tarifa.pg.test.ts` | 1 | Repetición focal: L-06 4/5; mismo error de entorno |
-| `node "$env:TEMP\noctium-l07-ui-verificacion.mjs"` | 0 | Preparación descartable, 25 controles HTTP/UI y comprobación de BD; servidor detenido y base eliminada |
+| # | Comando | Exit | Resultado |
+|---|---|---:|---|
+| 1 | `node node_modules/typescript/bin/tsc --noEmit --incremental false` | 0 | Sin errores |
+| 2 | `eslint` sobre los 59 `.ts/.tsx` añadidos o modificados desde `f7ff819` | 0 | 59 archivos analizados, 0 errores, 0 advertencias |
+| 3 | `node node_modules/vitest/vitest.mjs run --no-cache` sobre los archivos de B-07, C-13, C-14, C-20, C-24, L-06, L-07, D-08, B-08, ficha de alumno, aislamiento público e I-10 (32 archivos) | 0 | 477 aprobadas, 0 fallidas |
+| 4 | `node node_modules/vitest/vitest.mjs run --no-cache` (suite completa, sin base PG) | 0 | 258 archivos aprobados y 54 omitidos; 3298 pruebas aprobadas, 432 omitidas (las PG sin base) |
+| 5 | `node scripts/verificar-claves-textos.ts` | 0 | Claves de textos verificadas |
+| 6 | `git diff --check f7ff819` | 0 | Sin hallazgos |
+| 7 | `npm run test:pg -- <33 archivos PG de alumnos, materias, pagos, shared, usuarios, turnos (sin los tres con guarda de nombre fijo ni turno.generacion), profesor.estado y clases-alumno>` | 0 | 31 archivos y 286 pruebas en la base compartida; dos archivos con seed completo en base propia (2 y 5): 293 pruebas aprobadas. Bases `noctium_pruebas_<8 hex>` creadas, migradas y borradas por el ejecutor |
+| 7b | `npm run test:pg -- src/server/materias/materia.tarifas-masivo.pg.test.ts` | 0 | 13 aprobadas |
+| 8 | `npm run build` | 0 | Compilación de producción correcta |
+| 9 | Postman: `HU-L-07.postman_collection.json` con un ejecutor mínimo de Node (no hay `newman`), contra `next dev -p 3100` sobre una base descartable con migraciones y seed completo, sesiones obtenidas por el login real de los cuatro roles | 0 | 26 solicitudes, 115 aserciones, 0 fallidas (estado, envelope y `code` en cada una) |
+| 10 | SQL: `HU-L-07.sql` con `psql -v ON_ERROR_STOP=1` (`docker exec`) después del recorrido de Postman | 0 | A1 a A9 correctas (A8: 0 inscripciones previas verificadas). Con la tarifa de la inactiva alterada falla A7; con una tarifa vigente distinta de su último historial falla A6 |
+| 11 | Barrido de palabras de proceso sobre estos archivos | — | Sin coincidencias |
 
-Después de completar los imports de las pruebas con los aliases del proyecto se repitieron los 65 casos backend, los nueve PG, TypeScript y lint de todos los once archivos TypeScript de la entrega: exit 0. El JSON de la colección y la sintaxis de sus scripts también se comprobaron; son 23 requests. Esta comprobación no equivale a ejecutar las solicitudes desde Postman.
+Detalle de las pruebas de L-07 (aprobadas en las corridas 3 y 7): `materia.tarifas-masivo.test` 23, `api/materias/tarifas/route.test` 14, `cambiar-tarifas-dialog.test` 23 y `materia.tarifas-masivo.pg.test` 13. Regresión de L-06: `materia.tarifa.test` 17, `api/materias/[id]/tarifa/route.test` 11, `cambiar-tarifa-dialog.test` 5 y `materia.tarifa.pg.test` 5 (seed completo en base propia).
 
-✅ SQL auxiliar ejecutado mediante el cliente PostgreSQL contra la base nueva `noctium_pruebas_56c6ee3c`, con migraciones existentes: guarda de nombre y seis SELECT válidos, exit 0; base eliminada al finalizar. Esa comprobación verifica sintaxis y tablas; la evidencia de datos modificados corresponde a las pruebas PG y al recorrido HTTP descritos abajo. El script de conflicto de Postman elige una tarifa anterior válida diferente, incluso cuando la actual está en el tope; su comportamiento se comprobó con null, uno y un millón.
+## Pruebas nuevas y sensibilidad verificada
 
-El caso del seed repetido L-06 termina en `uv_os_get_passwd ENOMEM` desde `tsx/temporary-directory` antes de ejecutar el seed. No se altera la prueba ni la configuración para ocultarlo. Las cuatro pruebas PG de tarifa individual pasan; su helper y servicio no se modificaron.
+| Regla | Prueba | Mutación probada | Resultado |
+|---|---|---|---|
+| Guarda de la tarifa mostrada con `null` | PG, «materias sin tarifa (null) frente a la guarda» (4 casos) | Tratar `null` como comodín en la guarda | Falla 1 de las 13 |
+| Búsqueda por código | `cambiar-tarifas-dialog.test.tsx` | Quitar el código del filtro | Fallan 3 |
+| Umbral de dos caracteres | `cambiar-tarifas-dialog.test.tsx` | Bajar el umbral de 2 a 1 | Fallan 2 |
+| Aserciones SQL | `HU-L-07.sql` | Alterar la tarifa de la inactiva / alterar la tarifa vigente de una materia con historial | Falla A7 / falla A6 |
 
-Primer intento del test de doble click: ❌ una aserción buscaba el botón por su texto anterior después de cambiar a «Procesando…». Se conservó la referencia del botón y se repitieron los dos actos separados manteniendo el POST pendiente: ✅ un único envío, sin toast/refresh previo a la respuesta. No se cambió la guarda del producto por ese fallo de prueba.
+Casos agregados a PG: materia sin tarifa con `tarifa_actual: null` (la define y deja historial con `tarifaAnterior = null`), con `tarifa_actual` distinto de `null` (409), materia con tarifa mostrada como `null` (409) y mezcla de materias con y sin tarifa en un mismo pedido (una guarda desactualizada anula el pedido completo). El caso de lotes con los mismos ids en orden cruzado prueba la serialización de dos cambios masivos (gana el que retiene los bloqueos y el otro recibe `CONFLICTO_EDICION_CONCURRENTE`); no reproduce un ciclo de interbloqueo, que el servicio evita tomando todos los bloqueos en una sola llamada ordenada por id.
 
-## HTTP y recorrido de UI en PC
+## Límites
 
-✅ Chromium con Playwright instalado, Next dev puerto 3100, viewport 1366×900. Base nueva `noctium_pruebas_9a664fb1`, migraciones existentes aplicadas; cuentas y cuatro materias de prueba únicamente allí. Sesiones obtenidas desde el formulario de login real. No se fabricaron tokens ni se sustituyó el guard. El servidor se detuvo y la base se eliminó automáticamente al finalizar.
-
-25 comprobaciones aprobadas: GET/POST sin sesión 401; los tres roles ajenos 403; Mesa/Profesor sin botón; GET Gerente; validación lista vacía/decimal/tope/repetidos; inexistente/inactiva/conflicto; selección/filtro/persistencia/validación/previa; cambio HTTP mientras estaba abierta la confirmación; error dentro del diálogo, reintento bloqueado, recarga y nueva confirmación; éxito/toast; recarga de página; no-op en UI y HTTP; historial masivo en ficha.
-
-La primera preparación del recorrido pasó 18 controles HTTP, pero la UI no encontró Física al buscar FISICA: el transporte del script por stdin había convertido caracteres acentuados de los fixtures en signos de interrogación. Se corrigió la codificación del archivo temporal de verificación, sin cambiar el producto, y el recorrido completo posterior aprobó los 25 controles. Las dos bases se eliminaron.
-
-Reportes y tres capturas (previa, conflicto e historial) permanecen fuera del repositorio, en el directorio temporal del entorno. Se inspeccionaron visualmente previa y conflicto: tabla legible, tokens vigentes, datos concretos y rechazo dentro de la confirmación. No se afirma ejecución desde la aplicación Postman.
-
-Comprobación de BD del recorrido: tres activas a $15.000, inactiva a $8.000, cuatro historiales con `masivo=true`: uno del cambio concurrente y tres del cambio confirmado después de recargar. El no-op no agregó historial.
-
-## Seguridad de las bases y límites
-
-Se leyó `scripts/test-pg.mjs`: para estos archivos crea bases `noctium_pruebas_<8 hex>`, aplica migraciones existentes y elimina al finalizar. No se usaron los caminos especiales para nombres fijos, no se hizo migrate reset, no se editó `.env` ni se mutó la base habitual. La configuración local se consumió sin exponer sus valores.
-
-El precio se comprobó con los servicios reales `crearInscripcion` y `registrarOperacion`, con caja y forma de pago de prueba; no equivale a un recorrido completo de reserva/cobro desde pantallas C/I. El recorrido de navegador sí comprueba el cambio masivo de L y su historial.
+- El precio de las inscripciones se comprobó con los servicios reales `crearInscripcion` y `registrarOperacion`, con caja y forma de pago de prueba; no equivale a un recorrido completo de reserva y cobro desde las pantallas de C e I.
+- Los datos de Postman y SQL (materias con tarifa igual a la nueva, sin tarifa y distinta) se prepararon directamente en la base descartable.
+- El timeout de bloqueos y el rollback inyectado se verifican en PG; Postman no los provoca.
+- El seed completo termina con el reloj fijado en el 11/10/2026 (`SEED_FECHA_HOY=2026-10-11`). Con el reloj real del 12/10/2026 el fixture de HU-E-02 del seed falla con «Fixture E02 sin inscripción inicial», después de crear los datos base; es ajeno a esta HU.
+- Una comprobación pendiente no se considera aprobada.
 
 ## Pendientes y diferidos
 
-- ⏳ Seed repetido de L-06, bloqueado por inicio de subproceso descrito arriba; responsable de verificación: quien prepare revisión/CI.
-- ⏳ Ejecutar la colección entregada desde Postman; los HTTP equivalentes ya fueron ejercitados en navegador para los casos indicados.
-- ✅ Commit: f49a357.
-- ⏳ Controles globales de CI, revisión e integración.
-- ✅ L-06 CA4 y CA6: verificación diferida de cambio masivo cerrada con flujo real de C/I y detalle de L.
-- L-07 no tiene diferidos propios de producto. C-14/B-07 permanecen para entregas posteriores.
-
-La task distingue lista para commit de Terminada; el cierre definitivo exige integración y controles pendientes. El diff se mantiene acotado a los archivos del relevamiento confirmado.
-
-## Controles de cierre
-
-✅ `git diff --check`: exit 0. Seis archivos existentes modificados y diez nuevos, todos incluidos en el relevamiento confirmado. Los cambios funcionales se limitan a L; las fachadas C/I solo se consumen desde las pruebas. Ningún cambio en tests anteriores, migraciones, lockfile, CI ni configuración personal. Las comprobaciones focales finales de TypeScript, lint, backend, PG y auxiliares se describen arriba.
+- ⏳ Recorrido de navegador en PC del modal M-41 (búsqueda, previa, confirmación, conflicto con recarga, éxito y no-op) sobre el árbol final: a cargo de Tomás.
+- ⏳ CI sobre el SHA del PR.
+- L-07 no tiene diferidos propios de producto. La verificación diferida de L-06 (criterios 4 y 6) quedó cubierta con los servicios reales de C e I y el detalle de L.

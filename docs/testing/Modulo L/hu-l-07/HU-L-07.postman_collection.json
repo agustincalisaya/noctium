@@ -2,7 +2,7 @@
   "info": {
     "name": "HU-L-07 — Cambio masivo de tarifas",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Ejecutar solo contra un servidor conectado a una base nueva noctium_pruebas_<8 hex>. Iniciar sesión real con cada rol y configurar cookie_gerente/mesa/profesor/alumno con el encabezado Cookie del entorno local, sin exportar sus valores. El jar de cookies está deshabilitado en los requests para separar roles y anonimato. Preparar tres activas (tarifas distinta, igual y null) y una inactiva mediante datos de prueba; configurar materiaInactivaId y nuevaTarifa. GET prepara hasta tres seleccionadas sin asumir IDs ni tarifas anteriores. Ejecutar en orden; para repetir el éxito refrescar GET. El timeout y el rollback inyectado se verifican en pruebas PG, no se provocan sobre datos cotidianos."
+    "description": "Ejecutar solo contra un servidor conectado a una base nueva noctium_pruebas_<8 hex> (migraciones aplicadas y seed). Iniciar sesión real con cada rol (gerente, mesa de entrada, profesor y alumno) y configurar cookie_gerente/mesa/profesor/alumno con el encabezado Cookie del entorno local, sin exportar sus valores. El jar de cookies está deshabilitado en los requests para separar roles y anonimato. Precondiciones: al menos una materia activa y una materia INACTIVA cuyo id se carga en materiaInactivaId (el primer GET lo exige y verifica que no se liste). El GET toma las tres primeras materias activas y la colección calcula los conteos esperados a partir de sus tarifas reales; para ejercitar «Sin cambio» y la tarifa null, dejar entre ellas una con tarifa igual a nuevaTarifa y otra sin tarifa. Debe haber al menos una con tarifa distinta de nuevaTarifa. Ejecutar en orden: tras los rechazos (400, 404, 409, 422) un GET comprueba que no se modificó ninguna tarifa y tras el cambio masivo otro GET comprueba las nuevas tarifas; para repetir el éxito, cambiar nuevaTarifa o refrescar el GET. El timeout y el rollback inyectado se verifican en pruebas PG, no se provocan sobre datos cotidianos. HU-L-07.sql comprueba después el historial y la persistencia."
   },
   "variable": [
     {
@@ -46,6 +46,10 @@
       "value": "[]"
     },
     {
+      "key": "tarifasAntes",
+      "value": "{}"
+    },
+    {
       "key": "materiasNoop",
       "value": "[]"
     }
@@ -70,7 +74,8 @@
               "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });",
+              "pm.test(\"Mensaje de sesión\", () => pm.expect(body.error.message).to.eql(\"Tu sesión expiró. Iniciá sesión nuevamente\"));"
             ]
           }
         }
@@ -109,7 +114,8 @@
               "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });",
+              "pm.test(\"Mensaje de sesión\", () => pm.expect(body.error.message).to.eql(\"Tu sesión expiró. Iniciá sesión nuevamente\"));"
             ]
           }
         }
@@ -139,7 +145,8 @@
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });",
+              "pm.test(\"Mensaje de permiso\", () => pm.expect(body.error.message).to.eql(\"No tenés permisos para acceder a esta sección\"));"
             ]
           }
         }
@@ -182,7 +189,8 @@
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });",
+              "pm.test(\"Mensaje de permiso\", () => pm.expect(body.error.message).to.eql(\"No tenés permisos para acceder a esta sección\"));"
             ]
           }
         }
@@ -212,7 +220,8 @@
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });",
+              "pm.test(\"Mensaje de permiso\", () => pm.expect(body.error.message).to.eql(\"No tenés permisos para acceder a esta sección\"));"
             ]
           }
         }
@@ -255,7 +264,8 @@
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });",
+              "pm.test(\"Mensaje de permiso\", () => pm.expect(body.error.message).to.eql(\"No tenés permisos para acceder a esta sección\"));"
             ]
           }
         }
@@ -285,7 +295,8 @@
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });",
+              "pm.test(\"Mensaje de permiso\", () => pm.expect(body.error.message).to.eql(\"No tenés permisos para acceder a esta sección\"));"
             ]
           }
         }
@@ -328,7 +339,8 @@
               "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });",
+              "pm.test(\"Mensaje de permiso\", () => pm.expect(body.error.message).to.eql(\"No tenés permisos para acceder a esta sección\"));"
             ]
           }
         }
@@ -360,6 +372,12 @@
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
               "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
               "pm.test(\"Lista y DTO\", () => { pm.expect(body.data.items).to.be.an(\"array\"); body.data.items.forEach(x => { pm.expect(x).to.have.all.keys(\"id\",\"nombre\",\"codigo\",\"tarifa_hora\"); pm.expect(x.tarifa_hora === null || Number.isInteger(x.tarifa_hora)).to.eql(true); }); });",
+              "pm.test(\"Precondición: hay materias activas para seleccionar\", () => pm.expect(body.data.items.length).to.be.above(0));",
+              "const inactiva = pm.collectionVariables.get(\"materiaInactivaId\");",
+              "pm.test(\"Precondición: materiaInactivaId configurada con una materia inactiva real\", () => pm.expect(inactiva).to.be.a(\"string\").and.not.be.empty);",
+              "pm.test(\"Las materias inactivas no se listan (CA6)\", () => pm.expect(body.data.items.map(x => x.id)).to.not.include(inactiva));",
+              "pm.test(\"Sin materias repetidas\", () => pm.expect(new Set(body.data.items.map(x => x.id)).size).to.eql(body.data.items.length));",
+              "pm.collectionVariables.set(\"tarifasAntes\", JSON.stringify(Object.fromEntries(body.data.items.map(x => [x.id, x.tarifa_hora]))));",
               "if (body.data.items.length) { const elegidas = body.data.items.slice(0,3); pm.collectionVariables.set(\"materiaId\",elegidas[0].id); pm.collectionVariables.set(\"tarifaActual\",JSON.stringify(elegidas[0].tarifa_hora)); pm.collectionVariables.set(\"materias\",JSON.stringify(elegidas.map(x => ({id:x.id,tarifa_actual:x.tarifa_hora})))); }"
             ]
           }
@@ -403,7 +421,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -446,7 +465,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -489,7 +509,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -532,7 +553,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -575,7 +597,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -618,7 +641,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -661,7 +685,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -704,7 +729,8 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -756,7 +782,52 @@
               "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });"
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — cuerpo que no es JSON",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"tarifa_hora\":15000,\"materias\":[",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDACION\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDACION\"); });",
+              "pm.test(\"Mensaje y detalles de validación\", () => { pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty; pm.expect(body.error.detalles).to.be.an(\"object\"); });"
             ]
           }
         }
@@ -799,7 +870,8 @@
               "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código MATERIA_NO_ENCONTRADA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_NO_ENCONTRADA\"); });"
+              "pm.test(\"Código MATERIA_NO_ENCONTRADA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_NO_ENCONTRADA\"); });",
+              "pm.test(\"Mensaje legible\", () => pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty);"
             ]
           }
         }
@@ -842,7 +914,8 @@
               "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código MATERIA_INACTIVA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_INACTIVA\"); });"
+              "pm.test(\"Código MATERIA_INACTIVA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MATERIA_INACTIVA\"); });",
+              "pm.test(\"Mensaje legible\", () => pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty);"
             ]
           }
         }
@@ -894,7 +967,40 @@
               "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
-              "pm.test(\"Código CONFLICTO_EDICION_CONCURRENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CONFLICTO_EDICION_CONCURRENTE\"); });"
+              "pm.test(\"Código CONFLICTO_EDICION_CONCURRENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CONFLICTO_EDICION_CONCURRENTE\"); });",
+              "pm.test(\"Mensaje legible\", () => pm.expect(body.error.message).to.be.a(\"string\").and.not.be.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — GET, los rechazos no modificaron tarifas",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Las seleccionadas conservan la tarifa que tenían antes de los 400, 404, 409 y 422\", () => { const antes = JSON.parse(pm.collectionVariables.get(\"materias\")); pm.expect(antes.length).to.be.above(0); antes.forEach(a => { const ahora = body.data.items.find(x => x.id === a.id); pm.expect(ahora, a.id).to.be.an(\"object\"); pm.expect(ahora.tarifa_hora).to.eql(a.tarifa_actual); }); });",
+              "pm.test(\"Ninguna materia cambió de tarifa\", () => { const antes = JSON.parse(pm.collectionVariables.get(\"tarifasAntes\")); body.data.items.forEach(x => pm.expect(x.tarifa_hora, x.id).to.eql(antes[x.id])); });",
+              "pm.test(\"La inactiva sigue sin listarse\", () => pm.expect(body.data.items.map(x => x.id)).to.not.include(pm.collectionVariables.get(\"materiaInactivaId\")));"
             ]
           }
         }
@@ -938,8 +1044,44 @@
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
               "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Precondición: al menos una seleccionada con tarifa distinta de nuevaTarifa\", () => { const m = JSON.parse(pm.collectionVariables.get(\"materias\")); const nueva = Number(pm.collectionVariables.get(\"nuevaTarifa\")); pm.expect(m.filter(x => x.tarifa_actual !== nueva).length).to.be.above(0); });",
+              "pm.test(\"Forma de la respuesta\", () => { pm.expect(body.data).to.have.all.keys(\"tarifa_hora\", \"actualizadas\", \"sin_cambio\"); });",
+              "pm.test(\"Actualizadas + sin cambio = seleccionadas\", () => pm.expect(body.data.actualizadas + body.data.sin_cambio).to.eql(JSON.parse(pm.collectionVariables.get(\"materias\")).length));",
+              "pm.test(\"Hubo al menos una actualizada\", () => pm.expect(body.data.actualizadas).to.be.above(0));",
               "pm.test(\"Resultado masivo\",()=>{ const m=JSON.parse(pm.collectionVariables.get(\"materias\")); const nueva=Number(pm.collectionVariables.get(\"nuevaTarifa\")); pm.expect(body.data.tarifa_hora).to.eql(nueva); pm.expect(body.data.actualizadas).to.eql(m.filter(x=>x.tarifa_actual!==nueva).length); pm.expect(body.data.sin_cambio).to.eql(m.filter(x=>x.tarifa_actual===nueva).length); });",
               "if(body.data){ const m=JSON.parse(pm.collectionVariables.get(\"materias\")); pm.collectionVariables.set(\"materiasNoop\",JSON.stringify(m.map(x=>({id:x.id,tarifa_actual:body.data.tarifa_hora})))); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — GET, tarifas tras el cambio masivo",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/materias/tarifas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Todas las seleccionadas quedaron con la tarifa nueva\", () => { const nueva = Number(pm.collectionVariables.get(\"nuevaTarifa\")); const m = JSON.parse(pm.collectionVariables.get(\"materias\")); m.forEach(a => { const ahora = body.data.items.find(x => x.id === a.id); pm.expect(ahora, a.id).to.be.an(\"object\"); pm.expect(ahora.tarifa_hora).to.eql(nueva); }); });",
+              "pm.test(\"Las no seleccionadas conservan su tarifa\", () => { const antes = JSON.parse(pm.collectionVariables.get(\"tarifasAntes\")); const ids = JSON.parse(pm.collectionVariables.get(\"materias\")).map(x => x.id); body.data.items.filter(x => !ids.includes(x.id)).forEach(x => pm.expect(x.tarifa_hora, x.id).to.eql(antes[x.id])); });",
+              "pm.test(\"La inactiva sigue sin listarse\", () => pm.expect(body.data.items.map(x => x.id)).to.not.include(pm.collectionVariables.get(\"materiaInactivaId\")));"
             ]
           }
         }
@@ -983,7 +1125,8 @@
               "const body = pm.response.json();",
               "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
               "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
-              "pm.test(\"No-op sin actualizaciones\",()=>{pm.expect(body.data.actualizadas).to.eql(0); pm.expect(body.data.sin_cambio).to.eql(JSON.parse(pm.collectionVariables.get(\"materiasNoop\")).length);});"
+              "pm.test(\"No-op sin actualizaciones\",()=>{pm.expect(body.data.actualizadas).to.eql(0); pm.expect(body.data.sin_cambio).to.eql(JSON.parse(pm.collectionVariables.get(\"materiasNoop\")).length);});",
+              "pm.test(\"Forma de la respuesta y tarifa informada\", () => { pm.expect(body.data).to.have.all.keys(\"tarifa_hora\", \"actualizadas\", \"sin_cambio\"); pm.expect(body.data.tarifa_hora).to.eql(Number(pm.collectionVariables.get(\"nuevaTarifa\"))); });"
             ]
           }
         }

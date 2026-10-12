@@ -4,11 +4,11 @@
 **Contrato de referencia:** `docs/specs/spec_modulo_L.md` §2.9, reglas §3.6–3.12 y nota de sincronización de L-06; PR-0 §2.4/2.10.
 **RBAC:** `materias:cambiar_tarifa`, exclusivamente Gerente, ya migrado.
 **Schema:** completo desde PR-0; sin migraciones ni cambios de seed.
-**Estado:** implementada y verificada localmente; commit f49a357 en feature/hu-restantes; pendiente revisión e integración. No se declara Terminada antes de cumplir la convención 9 del backlog.
+**Estado:** implementada y verificada localmente en `feature/hu-restantes`; recorrido de navegador, CI sobre el SHA del PR e integración pendientes (ver evidencia). SHA del PR: ⏳ se completa al abrirlo. No se declara Terminada antes de cumplir la convención 9 del backlog.
 
 ## 0. Relevamiento previo a implementación
 
-Fuentes contrastadas: Excel oficial `docs/Historias_de_Usuario_Sprint_3.xlsx`, filas 90–98, convenciones y hoja «Cierre de pendientes»; backlog Markdown; spec L; PR-0; RULES; DESIGN; metodología SDD; templates; Nota para Tomás y PDF de reparto/dependencias. El prototipo sitúa P-43/P-44 en figuras 26–28, páginas 25–27. El mapa del Sprint 3 sigue ausente, como ya documenta L-06; los contratos y el prototipo permiten ubicar el modal M-41 en el listado existente.
+Fuentes contrastadas: Excel oficial del Sprint 3 (`docs/Historias_de_Usuario_Sprint_3.xlsx`, copia local no versionada), filas 90–98, convenciones y hoja «Cierre de pendientes»; backlog Markdown; spec L; PR-0; RULES; DESIGN; metodología SDD; templates; Nota para Tomás y PDF de reparto/dependencias. El prototipo sitúa P-43/P-44 en figuras 26–28, páginas 25–27. El mapa del Sprint 3 sigue ausente, como ya documenta L-06; los contratos y el prototipo permiten ubicar el modal M-41 en el listado existente.
 
 El relevamiento fue confirmado antes de implementar. L-06 aporta `TarifaHoraSchema`, tope $1.000.000, helper masivo, historial, bloqueo, permiso y detalle P-44; C-25 aporta la confirmación común. No falta ningún prerrequisito estructural.
 
@@ -102,21 +102,21 @@ Detalle de comandos, bases, resultados y límites en [evidencia](../../../testin
 
 ### Nivel 1 — Unitarios y componentes
 
-✅ Backend y regresión individual: 65 casos. ✅ Modal masivo y regresión modal individual: 19 casos. Se cubren schema, locks antes de leer, errores sin escritura, no-op, mezcla/null, fecha única, envelopes, filtros, selección oculta, validación, previa, confirmación, doble envío con promesa pendiente en dos actos separados, conflicto/recarga, red y singular.
+✅ Servicio, schema y ruta: `materia.tarifas-masivo.test` (23) y `tarifas/route.test` (14). ✅ Modal: `cambiar-tarifas-dialog.test` (23, con 10 casos de búsqueda por nombre y por código). Regresión de L-06: `materia.tarifa.test` (17), `[id]/tarifa/route.test` (11) y `cambiar-tarifa-dialog.test` (5). Se cubren schema, locks antes de leer, errores sin escritura, no-op, mezcla con `null`, fecha única, envelopes, filtros, selección oculta, validación, previa, confirmación, doble envío con promesa pendiente en dos actos separados, conflicto con recarga, red y singular.
 
 ### Nivel 2 — HTTP / Postman
 
-✅ HTTP y UI reales con Chromium en PC 1366×900, Next dev puerto 3100 y base nueva descartable: 25 comprobaciones. Sesiones obtenidas por login real de los cuatro roles; GET/POST 401 sin sesión, 403 para Mesa/Profesor/Alumno, 200 Gerente, errores 400/404/409/422, conflicto con confirmación abierta, recarga, éxito, no-op y detalle con historial masivo.
+✅ `HU-L-07.postman_collection.json`: 26 solicitudes y 115 aserciones ejecutadas contra la aplicación (`next dev`, puerto 3100) con una base descartable y sesiones reales de los cuatro roles: 401 sin sesión, 403 de Mesa de Entrada, Profesor y Alumno, 400 (lista vacía, cero, negativo, decimal, tope, campo ajeno, id no CUID, repetidos, más de 200, JSON inválido), 404, 422, 409, 200 con cambios y 200 sin cambios.
 
-⏳ Colección Postman entregada con assertions; no se ejecutó desde Postman. Los HTTP anteriores fueron ejecutados desde el navegador y su contexto autenticado.
+⏳ Recorrido de navegador del modal M-41 sobre el árbol final: a cargo de Tomás.
 
 ### Nivel 3 — BD / PostgreSQL
 
-✅ Nueve pruebas L-07 en bases nuevas `noctium_pruebas_<8 hex>`: metadata intacta, null, misma fecha, errores todo-o-nada, rollback tras escrituras reales, lotes cruzados coordinados en ambos órdenes sin deadlock, matriz real de permisos y precios mediante servicios C/I.
+✅ `materia.tarifas-masivo.pg.test.ts` (13) en bases `noctium_pruebas_<8 hex>`: metadata intacta, `null` en la guarda (4 casos), misma fecha, errores todo-o-nada, rollback tras escrituras reales, serialización de dos cambios masivos con los mismos ids en orden cruzado, matriz real de permisos y precios mediante servicios C/I.
 
-✅ Comprobación SQL después del recorrido HTTP: tres activas a $15.000, inactiva conserva $8.000, cuatro filas de historial masivo (una modificación concurrente y tres confirmadas desde UI). La base se eliminó y el servidor se detuvo.
+✅ `HU-L-07.sql` con aserciones A1 a A9 ejecutado después del recorrido de Postman: historial masivo con fecha, usuario y tarifa comunes, una fila por materia, «Sin cambio» sin fila, cadena de historial continua, tarifa vigente igual al último historial, inactiva intacta y permiso solo de Gerente (A8: 0 inscripciones previas en esa base).
 
-❌ Regresión PG L-06: cuatro de cinco pasan; el seed repetido falla antes de ejecutar su lógica con `uv_os_get_passwd ENOMEM` desde `tsx/temporary-directory`, reproducido en dos corridas. No se modificó ni debilitó esa prueba. Pendiente repetirla en un entorno donde el subproceso pueda iniciar; responsable de la verificación: quien prepare la revisión/CI.
+✅ Regresión PG de L-06: `materia.tarifa.pg.test.ts` 5/5 con seed completo en base propia.
 
 ## 7. Checklist de Definition of Done
 
@@ -127,9 +127,9 @@ Detalle de comandos, bases, resultados y límites en [evidencia](../../../testin
 - [x] Historial de negocio atómico, fecha común y no-op sin escritura.
 - [x] Diferidos de L-06 CA4/CA6 verificados desde el masivo con flujo real.
 - [x] Evidencia, colección y SQL entregados.
-- [ ] Seed repetido de L-06: bloqueo de entorno descrito arriba.
-- [ ] Ejecución de la colección desde Postman.
-- [x] Commit: f49a357.
-- [ ] Controles globales de CI, revisión e integración.
+- [x] Colección ejecutada (26 solicitudes, 115 aserciones) y SQL con aserciones ejecutado.
+- [x] Regresión PG de L-06 aprobada.
+- [ ] ⏳ Recorrido de navegador del modal M-41.
+- [ ] ⏳ Controles globales de CI, revisión e integración.
 
-L-07 no tiene diferidos propios de producto. C-14 y B-07 no se implementan en esta entrega.
+L-07 no tiene diferidos propios de producto.

@@ -68,6 +68,39 @@ describe("HU-L-07: selección y previa", () => {
     expect(document.body.textContent).toContain("Materias seleccionadas: 1");
     expect(envios()).toHaveLength(0);
   });
+  const nombresVisibles = () => [...document.querySelectorAll("tbody label")].map((l) => l.textContent);
+  it.each([
+    ["código exacto en minúsculas", "fis1", ["Física I"]],
+    ["código en mayúsculas con espacios alrededor", "  FIS1 ", ["Física I"]],
+    ["nombre sin acento", "matematica", ["Matemática"]],
+    ["nombre con acento y mayúsculas", "QUÍMICA", ["Química"]],
+    ["fragmento común a varios nombres", "ica", ["Física I", "Matemática", "Química"]],
+    ["justo dos caracteres ya filtra", "fi", ["Física I"]],
+    ["un solo carácter no filtra", "q", ["Física I", "Matemática", "Química"]],
+  ])("búsqueda por nombre o código: %s", async (_caso, consulta, esperadas) => {
+    await abrir(); await cambiar("tarifas-busqueda", consulta);
+    expect(nombresVisibles()).toEqual(esperadas);
+    expect(boton(texto("ui.materias.tarifas.todas", { cantidad: esperadas.length }))).toBeDefined();
+  });
+  it("búsqueda sin coincidencias avisa, deshabilita seleccionar todas y no altera la selección", async () => {
+    await abrir(); await marcar("Matemática"); await cambiar("tarifas-busqueda", "zzz");
+    expect(document.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
+    expect(document.body.textContent).toContain(texto("ui.materias.tarifas.sinResultados"));
+    expect(boton(texto("ui.materias.tarifas.todas", { cantidad: 0 })).disabled).toBe(true);
+    expect(document.body.textContent).toContain("Materias seleccionadas: 1");
+  });
+  it("seleccionar todas marca solo las visibles y la selección sobrevive al cambiar la búsqueda", async () => {
+    await abrir();
+    await cambiar("tarifas-busqueda", "fis1"); await click(texto("ui.materias.tarifas.todas", { cantidad: 1 }));
+    await cambiar("tarifas-busqueda", "quimica"); await click(texto("ui.materias.tarifas.todas", { cantidad: 1 }));
+    expect(document.body.textContent).toContain("Materias seleccionadas: 2");
+    await cambiar("tarifas-busqueda", "matematica");
+    expect([...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].map((i) => i.checked)).toEqual([false]);
+    expect(document.body.textContent).toContain("Materias seleccionadas: 2");
+    await cambiar("tarifas-busqueda", "");
+    expect([...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')].map((i) => i.checked)).toEqual([true, false, true]);
+    expect(envios()).toHaveLength(0);
+  });
   it.each(["0", "-1", "1.5", "1000001", ""])("importe %s inválido y error junto al campo", async (valor) => {
     await abrir(); await marcar("Física I"); await cambiar("tarifas-importe", valor);
     // El evento vacío puede no cambiar el estado inicial del input.
