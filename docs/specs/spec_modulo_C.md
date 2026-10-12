@@ -49,6 +49,7 @@
 | HU-C-22 — transición a HU-C-14 (09/10/2026) | §2.17.4 exige `cancelacion`, cuya funcionalidad se difiere en el Excel a HU-C-14 | Excepción interina autorizada por Tomás: Mis clases entrega `id`, `situacion`, `vence_el` y `precio` hasta integrar HU-C-14. Se conserva el contrato final; sin cambio en límites del resumen ni POST de reserva |
 | HU-C-24 | Sin contrato | Nueva sección 2.18: proceso de vencimiento, validación por fecha, inscripción desde el centro, reservas en el detalle, plazo nuevo tras anulación y clases canceladas |
 | HU-C-14 | Diferida desde Sprint 2 (criterio 6 de HU-C-05 y 5 de HU-C-13) | Nueva sección 2.19 |
+| HU-C-14 — sincronización local (11/10/2026) | §2.19 contractualizada y pendiente | Evaluador compartido, DTO de cancelación, servicio/POST transaccional, acción en Mis clases y leyendas diferidas de C-20 implementados; sin migraciones ni cambios de permisos |
 | HU-C-26 | Sin contrato | Nueva sección 2.20 |
 | HU-C-21 | Sin contrato; 2.9 exigía una sola aula para todo el rango | Nueva subsección 2.9.1 (al final de 2.9) |
 | HU-C-04 / HU-C-18 (2.2, 2.5) | Inscribían sin plazo de pago | Notas de Revisión 6; el cambio lo pide HU-C-24, criterio 3 (2.18.3) |
@@ -1750,6 +1751,38 @@ La interfaz informa «Cancelaste tu inscripción».
 | HU-C-14, 5 | «Después de cancelar» y 2.17.4 |
 | HU-C-14, 6 | Pasos 2 y 3: revalidación con la inscripción bloqueada |
 | HU-C-14, 7 | Paso 5. Verificación diferida: reintegro (HU-I-06) |
+
+**Sincronización HU-C-14 (11/10/2026).** Lo implementado concreta esta
+sección con los siguientes nombres y precisiones:
+
+- **Archivos y funciones.** `turno.cancelacion-propia.service.ts`
+  (`cancelarInscripcionPropia(turnoId, usuarioId)`) y
+  `turno.cancelacion-propia.ts`, que además de `evaluarCancelacion` exporta
+  `limiteCancelacionEnLinea(inicio, horas)` y
+  `superoElLimiteDeCancelacion(momento, limite)`. El resumen de HU-C-20 usa las
+  mismas dos funciones: `limite_cancelacion_pasado` es `true` solo si el
+  momento es **posterior** al límite, igual que `FUERA_DE_PLAZO`. En el
+  instante exacto del límite la cancelación sigue permitida.
+- **Orden de la revalidación (paso 3).** Con la clase y la inscripción
+  releídas bajo bloqueo: clase `CANCELADO` (`409 TURNO_CANCELADO`), clase que
+  ya empezó (`409 TURNO_VENCIDO`), inscripción no vigente (`409
+  INSCRIPCION_NO_VIGENTE`, incluida la reserva que venció mientras tanto) y
+  anticipación mínima (`409 CANCELACION_FUERA_DE_PLAZO`). Un resultado
+  `NO_APLICA` que llega hasta el final se informa con su motivo real: clase
+  sin confirmar (`409 TURNO_PENDIENTE`) o reserva sin vencimiento válido
+  (`409 INSCRIPCION_NO_VIGENTE`); nunca como `TURNO_VENCIDO`.
+- **Respuesta.** `alumnos_inscriptos` usa `ocupacion` (la regla única de 2.16.3),
+  no un conteo de la columna de vigencia.
+- **Eventos después del commit.** `turno:inscripcion_cancelada` y
+  `turno:disponible_nuevamente` se encolan con el historial compartido, que los
+  escribe después del `COMMIT`, reintenta hasta 3 veces con espera creciente y,
+  si agota los reintentos, registra el error sin convertir en error una
+  cancelación ya confirmada. Los demás servicios de clases siguen emitiendo
+  sus eventos sin reintento y propagan la falla; no se modificaron.
+- **«Mis turnos».** El objeto `inscripcion` agrega solo `cancelacion`. El campo
+  `limite_cancelacion_en_linea` no forma parte de ese objeto: lo entrega
+  únicamente el resumen de la clase (2.17.1).
+- **Permiso.** `turnos:cancelar_propia`, asignado a `ALUMNO`.
 
 ---
 

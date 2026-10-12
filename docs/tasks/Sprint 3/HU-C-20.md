@@ -85,8 +85,9 @@ instantes, el tope por inicio y el texto literal del resumen/confirmación.
 PostgreSQL focal: 27/27 pruebas aprobadas (tres archivos, exit 0); componentes
 de solicitud y Mis clases: 25/25 aprobadas (SSR/jsdom, exit 0). Matriz y
 límites en `docs/testing/hu-c-22/HU-C-22-evidencia.md`. Se conservan los
-resultados históricos de C-20. **CA3 sigue incompleto:** reglas/leyendas de
-cancelación pendientes de C-14 y gestión configurable pendiente de N-01.
+resultados históricos de C-20. **Integración C-14 (11/10/2026):** las leyendas
+y la regla de cancelación de CA3 quedaron implementadas y cubiertas por la
+suite focal de C-14. La gestión configurable de N-01 permanece pendiente.
 
 ## 2. Historia de Usuario
 

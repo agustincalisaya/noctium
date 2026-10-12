@@ -46,7 +46,7 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 
 describe("C-20 componente y diálogo reales (jsdom, API simulada)", () => {
-  it("Inscribirme pide GET sin POST y muestra todos los datos, precio y plazo estimado literal; cancelación sigue diferida", async () => {
+  it("Inscribirme pide GET sin POST y muestra datos, plazo y leyendas de cancelación", async () => {
     await seleccionar(); await click("Inscribirme");
     expect(request).toHaveBeenCalledWith("/api/turnos/turno-seleccion/inscripcion/resumen", expect.objectContaining({ cache: "no-store", signal: expect.any(AbortSignal) }));
     expect(posts()).toHaveLength(0);
@@ -54,7 +54,8 @@ describe("C-20 componente y diálogo reales (jsdom, API simulada)", () => {
     const content = dialogo()!.textContent!;
     for (const valor of ["Física I", "Pérez, Ana", "Martes 13 de octubre de 2026", "16:00–18:00", "120 minutos", "Aula 2", "3", "$ 24.000", texto("ui.turnos.resumen.precioFijo"), "Confirmar reserva", "Volver"]) expect(content).toContain(valor);
     expect(content).toContain("Reservás tu lugar y tenés que pagarlo en el centro antes del sábado 10 de octubre de 2026 a las 12:00. Si no lo pagás, la reserva se cancela sola.");
-    expect(content).not.toMatch(/Si todavía no pagaste|Si ya pagaste|12 de octubre/);
+    expect(content).toContain("Si todavía no pagaste, podés cancelar la reserva hasta el sábado 10 de octubre de 2026 a las 12:00");
+    expect(content).toContain("Si ya pagaste, podés cancelar en línea hasta el lunes 12 de octubre de 2026 a las 16:00.");
     expect(push).not.toHaveBeenCalled();
   });
   it("Volver conserva materia, profesor y horario; reabrir pide un resumen nuevo", async () => {

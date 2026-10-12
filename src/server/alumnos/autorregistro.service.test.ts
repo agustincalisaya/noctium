@@ -11,7 +11,9 @@ process.env.CODIGO_OTP_SECRET = "secreto-de-test-no-usar-en-produccion";
 const { tx, evento, crearCuenta, hashPassword, enviarEmail, getParametroNumerico, getParametroTexto } =
   vi.hoisted(() => ({
     tx: {
-      alumno: { create: vi.fn(), update: vi.fn() },
+      $executeRawUnsafe: vi.fn(),
+      $queryRaw: vi.fn(),
+      alumno: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
       solicitudAutorregistro: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
       codigoVerificacion: { create: vi.fn(), update: vi.fn() },
       reenvioCodigo: { create: vi.fn() },
@@ -27,7 +29,7 @@ const { tx, evento, crearCuenta, hashPassword, enviarEmail, getParametroNumerico
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     usuario: { findFirst: vi.fn() },
-    alumno: { findFirst: vi.fn() },
+    alumno: { findFirst: vi.fn(), count: vi.fn() },
     intentoRegistro: { count: vi.fn(), create: vi.fn() },
     eventoSeguridad: { create: evento },
     solicitudAutorregistro: { findUnique: vi.fn() },
@@ -40,6 +42,7 @@ vi.mock("@/lib/password", () => ({ hashPassword }));
 vi.mock("@/lib/email", () => ({ emailSenderConsola: { enviar: enviarEmail } }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ crearCuentaConCredenciales: crearCuenta }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico, getParametroTexto }));
+vi.mock("@/server/shared/bloquear", () => ({ bloquear: vi.fn() }));
 
 const { prisma } = await import("@/lib/prisma");
 const { iniciarAutorregistro, confirmarCodigoAutorregistro, reenviarCodigoAutorregistro } = await import(
@@ -90,8 +93,12 @@ beforeEach(() => {
   vi.mocked(prisma.intentoRegistro.create).mockResolvedValue({} as never);
   vi.mocked(prisma.usuario.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.alumno.findFirst).mockResolvedValue(null);
+  vi.mocked(prisma.alumno.count).mockResolvedValue(0);
+  tx.$queryRaw.mockResolvedValue([]);
   tx.alumno.create.mockResolvedValue({});
   tx.alumno.update.mockResolvedValue({});
+  tx.alumno.findUnique.mockResolvedValue({ activoAlumno: true, usuarioId: null });
+  tx.alumno.updateMany.mockResolvedValue({ count: 1 });
   tx.solicitudAutorregistro.findFirst.mockResolvedValue(null);
   tx.solicitudAutorregistro.create.mockResolvedValue({ idSolicitud: SOLICITUD });
   tx.solicitudAutorregistro.update.mockResolvedValue({});
@@ -262,6 +269,58 @@ describe("iniciarAutorregistro — rama (c): ficha con cuenta ya vinculada", () 
     expect(errorRamaC.code).toBe("CUENTA_YA_EXISTE");
     expect(errorRamaC.message).toBe(errorPaso2.message);
   });
+
+  it("trata una ficha inactiva sin cuenta como cuenta existente", async () => {
+    vi.mocked(prisma.alumno.findFirst).mockResolvedValue({
+      idAlumno: ALUMNO,
+      usuarioId: null,
+      emailAlumno: inputBase.email,
+      activoAlumno: false,
+    } as never);
+
+    await expect(iniciarAutorregistro(inputBase, IP)).rejects.toMatchObject({ code: "CUENTA_YA_EXISTE" });
+    expect(tx.solicitudAutorregistro.create).not.toHaveBeenCalled();
+    expect(enviarEmail).not.toHaveBeenCalled();
+  });
+});
+
+// ------------------------------------------------------------
+// iniciarAutorregistro — email de contacto de una ficha inactiva (HU-B-07, criterio 5)
+// ------------------------------------------------------------
+describe("iniciarAutorregistro — email de contacto de una ficha inactiva", () => {
+  it("con otro DNI: 409 CUENTA_YA_EXISTE con el mismo mensaje que la rama (c), sin código, sin email, sin ficha ni cuenta", async () => {
+    vi.mocked(prisma.alumno.count).mockResolvedValue(1);
+
+    const error = await iniciarAutorregistro({ ...inputBase, dni: "40111222" }, IP).catch((e) => e);
+
+    expect(error).toMatchObject({ code: "CUENTA_YA_EXISTE", message: "Ya existe una cuenta con esos datos. Iniciá sesión o solicitá asistencia en mesa de entrada." });
+    expect(prisma.alumno.count).toHaveBeenCalledWith({ where: { activoAlumno: false, emailAlumno: { equals: inputBase.email, mode: "insensitive" } } });
+    expect(prisma.alumno.findFirst).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(crearCuenta).not.toHaveBeenCalled();
+    expect(tx.alumno.create).not.toHaveBeenCalled();
+    expect(tx.codigoVerificacion.create).not.toHaveBeenCalled();
+    expect(enviarEmail).not.toHaveBeenCalled();
+    expect(evento).not.toHaveBeenCalled();
+  });
+
+  it("una baja concurrente entre la comprobación y la alta: la lectura dentro de la transacción la detecta y no se crea nada", async () => {
+    tx.$queryRaw.mockResolvedValue([{ activoAlumno: true }, { activoAlumno: false }]);
+
+    await expect(iniciarAutorregistro(inputBase, IP)).rejects.toMatchObject({ code: "CUENTA_YA_EXISTE" });
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(crearCuenta).not.toHaveBeenCalled();
+    expect(tx.alumno.create).not.toHaveBeenCalled();
+    expect(evento).not.toHaveBeenCalled();
+  });
+
+  it("si las fichas con ese email están activas la alta directa sigue como antes", async () => {
+    tx.$queryRaw.mockResolvedValue([{ activoAlumno: true }]);
+
+    await expect(iniciarAutorregistro(inputBase, IP)).resolves.toEqual({ via: "DIRECTO", email: inputBase.email });
+    expect(tx.alumno.create).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ------------------------------------------------------------
@@ -376,8 +435,8 @@ describe("confirmarCodigoAutorregistro", () => {
       { email: EMAIL_DESTINO, passwordHash: "hash-guardado", rol: "ALUMNO" },
       tx,
     );
-    expect(tx.alumno.update).toHaveBeenCalledWith({
-      where: { idAlumno: ALUMNO },
+    expect(tx.alumno.updateMany).toHaveBeenCalledWith({
+      where: { idAlumno: ALUMNO, activoAlumno: true, usuarioId: null },
       data: expect.objectContaining({ usuarioId: USUARIO, versionTerminosAceptada: "1.0" }),
     });
     expect(tx.solicitudAutorregistro.update).toHaveBeenCalledWith({
@@ -470,6 +529,28 @@ describe("confirmarCodigoAutorregistro", () => {
     vi.mocked(prisma.solicitudAutorregistro.findUnique).mockResolvedValue(null);
     const error = await confirmarCodigoAutorregistro("no-existe", CODIGO, IP).catch((e) => e);
     expect(error.code).toBe("SOLICITUD_NO_ENCONTRADA");
+  });
+
+  it.each([
+    ["inactiva", { activoAlumno: false, usuarioId: null }],
+    ["ya vinculada", { activoAlumno: true, usuarioId: USUARIO }],
+  ])("ficha %s al confirmar (releída bajo bloqueo) → CUENTA_YA_EXISTE sin crear cuenta", async (_caso, ficha) => {
+    vi.mocked(prisma.solicitudAutorregistro.findUnique).mockResolvedValue(solicitudBase() as never);
+    tx.alumno.findUnique.mockResolvedValue(ficha);
+
+    await expect(confirmarCodigoAutorregistro(SOLICITUD, CODIGO, IP)).rejects.toMatchObject({ code: "CUENTA_YA_EXISTE" });
+    expect(crearCuenta).not.toHaveBeenCalled();
+    expect(tx.alumno.updateMany).not.toHaveBeenCalled();
+    expect(evento).not.toHaveBeenCalled();
+  });
+
+  it("la vinculación condicionada no actualiza ninguna fila → CUENTA_YA_EXISTE", async () => {
+    vi.mocked(prisma.solicitudAutorregistro.findUnique).mockResolvedValue(solicitudBase() as never);
+    tx.alumno.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(confirmarCodigoAutorregistro(SOLICITUD, CODIGO, IP)).rejects.toMatchObject({ code: "CUENTA_YA_EXISTE" });
+    expect(tx.solicitudAutorregistro.update).not.toHaveBeenCalled();
+    expect(evento).not.toHaveBeenCalled();
   });
 });
 

@@ -581,3 +581,18 @@ El evento `materia:creada` es la notificación de dominio declarada para el alta
 ### Nota de sincronización HU-L-06 (11/10/2026)
 
 Implementación sobre PR-0 integrado: tarifa `tarifaHoraMateria`; bloqueo real `bloquear(tx, { recursos: { materias: [id] } })`. Gerente ve mediante `materias:cambiar_tarifa` y Mesa mediante `materias:ver_tarifa`; no se agrega un permiso nuevo. `obtenerNombresGerentes` todavía no existe: el historial reutiliza la fachada integrada `obtenerNombresPersonal` (F/G), con una llamada para los ids únicos; falta de ficha produce nombre null. Validación de la ruta/action nueva conserva `VALIDACION` (400), código de Materias existente, en lugar del nombre ilustrativo `VALIDATION_ERROR`. El usuario confirmó P-L3 (tope $1.000.000), P-L4 (inactiva rechazada) y P-L7 (comparación de tarifa mostrada). El historial queda en la misma transacción de negocio, excepción ya confirmada de PR-0 (P-L6). El mapa de pantallas citado no está disponible; se contrastan P-43/P-44/M-42 con figuras 26–28. El listado conserva su conteo de profesores y contratos anteriores; el botón masivo de figura 26 pertenece a L-07.
+
+### Nota de sincronización HU-L-07 (11/10/2026)
+
+Implementación sobre PR-0 integrado y sobre las piezas ya entregadas por L-06. Donde esta nota difiere de 2.9, rige lo que sigue:
+
+- **Bloqueo:** `bloquear(tx, { recursos: { materias: ids } })`, con los ids ordenados y una sola llamada (no la forma ilustrativa `recursos: ids.map((id) => ({ tipo: "materia", id }))`).
+- **Columna:** `tarifaHoraMateria` (no `tarifaHora`). Además de la tarifa se actualiza `modificadoPorUsuarioId`; `version` no cambia, porque protege nombre y código (L-03).
+- **Código de validación:** `VALIDACION` (400) con `detalles` igual al `flatten()` de Zod, en lugar del nombre ilustrativo `VALIDATION_ERROR`. Rige también para JSON inválido, campos ajenos, importes fuera de rango, `materias` vacío, con más de 200 elementos o con ids repetidos.
+- **Server Action:** no existe `cambiarTarifasMasivo` en `src/server/materias/actions.ts`. El modal consume `GET` y `POST /api/materias/tarifas` directamente, y la action del cambio individual de L-06 no se modifica. La línea «Server Action equivalente» de 2.9.2 queda sin objeto.
+- **Servicio:** `cambiarTarifasMasivo(input, actor, opciones?)` recibe las opciones de transacción como el resto de los servicios; si vence el tiempo de espera de bloqueos propaga `TRANSACCION_OCUPADA` del núcleo. `listarMateriasConTarifa(db?)` ordena por nombre normalizado y, ante empate, por id; `codigo` puede ser null.
+- **Escritura:** la función de escritura de tarifa e historial es interna al servicio y se invoca una sola vez con todas las materias que cambian (no una vez por materia): toma `ahora()` una única vez, escribe en orden de id y todas las filas de historial comparten `fecha`. Con cero modificaciones no se invoca ni se lee el reloj.
+- **Guarda de la tarifa mostrada:** alcanza a todas las seleccionadas, incluidas las «Sin cambio» y las que no tienen tarifa. Una diferencia en cualquier sentido (`null` mostrada contra valor real, o valor mostrado contra `null` real) es `409 CONFLICTO_EDICION_CONCURRENTE` y no escribe nada.
+- **Tope y límite:** el importe usa `TarifaHoraSchema` (entero positivo hasta $1.000.000, P-L3). La API rechaza más de 200 materias; la interfaz no recorta la selección: muestra el aviso y deshabilita «Continuar».
+- **Interfaz:** la confirmación usa el diálogo común de C-25; el N del mensaje cuenta solo las materias que cambian (DEC-42) y, si ninguna cambia, se informa «Las materias seleccionadas ya tienen esa tarifa» sin confirmar ni enviar.
+- **Sin cambios de permisos, seed ni migraciones:** el permiso es `materias:cambiar_tarifa`, ya existente y solo de Gerente.
