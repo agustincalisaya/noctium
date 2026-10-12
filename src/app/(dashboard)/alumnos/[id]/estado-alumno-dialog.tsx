@@ -9,6 +9,7 @@ import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dial
 import { desactivarAlumno, reactivarAlumno } from "@/server/alumnos/actions";
 import type { ImpactoBajaAlumno } from "@/types/alumno.types";
 import { texto } from "@/lib/textos";
+import { fechaCorta } from "@/lib/turno-detalle";
 
 export function EstadoAlumnoDialog({ alumno }: { alumno: { id: string; nombre: string; apellido: string; activo: boolean; version: number } }) {
   const router = useRouter();
@@ -47,8 +48,8 @@ export function EstadoAlumnoDialog({ alumno }: { alumno: { id: string; nombre: s
         abierto={abierto}
         titulo={texto(alumno.activo ? "ui.alumnos.estado.confirmarBaja" : "ui.alumnos.estado.confirmarReactivacion", { alumno: `${alumno.nombre} ${alumno.apellido}` })}
         detalle={alumno.activo
-          ? texto(impacto?.total ? "ui.alumnos.estado.impacto" : "ui.alumnos.estado.sinImpacto", { total: impacto?.total ?? 0 })
-          : texto("ui.alumnos.estado.noRestaurar")}
+          ? texto(!impacto?.total ? "ui.alumnos.estado.sinImpacto" : impacto.total === 1 ? "ui.alumnos.estado.impactoUna" : "ui.alumnos.estado.impacto", { total: impacto?.total ?? 0 })
+          : undefined}
         textoConfirmar={texto(alumno.activo ? "ui.alumnos.estado.desactivar" : "ui.alumnos.estado.reactivar")}
         destructiva={alumno.activo}
         confirmarDeshabilitado={alumno.activo && Boolean(impacto?.motivo_obligatorio) && !motivo.trim()}
@@ -56,7 +57,7 @@ export function EstadoAlumnoDialog({ alumno }: { alumno: { id: string; nombre: s
           <div className="mt-4 space-y-3">
             {impacto?.inscripciones_futuras.length ? (
               <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-sm">
-                {impacto.inscripciones_futuras.map((item) => <li key={item.inscripcion_id}>{item.fecha} · {item.hora_inicio} · {item.materia.nombre} · {item.profesor?.nombre_para_mostrar ?? "Sin profesor"}</li>)}
+                {impacto.inscripciones_futuras.map((item) => <li key={item.inscripcion_id}>{fechaCorta(item.fecha)} · {item.hora_inicio} · {item.materia.nombre} · {item.profesor?.nombre_para_mostrar ?? "Sin profesor"}</li>)}
               </ul>
             ) : null}
             <label htmlFor="motivo-baja-alumno" className="block text-sm font-medium">{texto("ui.alumnos.estado.motivo")}</label>
@@ -67,7 +68,8 @@ export function EstadoAlumnoDialog({ alumno }: { alumno: { id: string; nombre: s
         onCerrar={() => setAbierto(false)}
         onConfirmar={enviar}
         onExito={() => {
-          toast.success(texto(alumno.activo ? "ui.alumnos.estado.exitoBaja" : "ui.alumnos.estado.exitoReactivacion"));
+          if (alumno.activo) toast.success(texto("ui.alumnos.estado.exitoBaja"));
+          else toast.success(texto("ui.alumnos.estado.exitoReactivacion"), { description: texto("ui.alumnos.estado.noRestaurar") });
           setAbierto(false);
           router.refresh();
         }}

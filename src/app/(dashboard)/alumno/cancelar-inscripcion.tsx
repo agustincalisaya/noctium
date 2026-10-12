@@ -18,12 +18,17 @@ export function CancelarInscripcion({ turnoId, materia, fecha, hora, conPagos }:
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const envio = useRef<Promise<void> | null>(null);
+  const conPagosConfirmado = useRef(false);
   const cancelar = () => {
     if (envio.current) return envio.current;
     envio.current = fetchOLanzar(`/api/turnos/${encodeURIComponent(turnoId)}/inscripcion/cancelacion`, { method: "POST", cache: "no-store" })
-      .then(() => undefined)
+      .then((data) => { conPagosConfirmado.current = Boolean((data as { con_pagos?: boolean } | null)?.con_pagos); })
       .finally(() => { envio.current = null; });
     return envio.current;
+  };
+  const informarExito = () => {
+    if (conPagosConfirmado.current) toast.success(texto("ui.turnos.cancelacion.exito"), { description: texto("ui.turnos.cancelacion.reintegro") });
+    else toast.success(texto("ui.turnos.cancelacion.exito"));
   };
   const cerrar = () => { setAbierto(false); router.refresh(); };
   return <>
@@ -38,7 +43,7 @@ export function CancelarInscripcion({ turnoId, materia, fecha, hora, conPagos }:
       irreversible
       onCerrar={cerrar}
       onConfirmar={cancelar}
-      onExito={() => toast.success(texto("ui.turnos.cancelacion.exito"))}
+      onExito={informarExito}
     />
   </>;
 }

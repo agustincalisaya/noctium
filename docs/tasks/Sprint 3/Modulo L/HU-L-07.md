@@ -4,7 +4,7 @@
 **Contrato de referencia:** `docs/specs/spec_modulo_L.md` §2.9, reglas §3.6–3.12 y nota de sincronización de L-06; PR-0 §2.4/2.10.
 **RBAC:** `materias:cambiar_tarifa`, exclusivamente Gerente, ya migrado.
 **Schema:** completo desde PR-0; sin migraciones ni cambios de seed.
-**Estado:** implementada y verificada localmente; pendiente commit manual, revisión e integración. No se declara Terminada antes de cumplir la convención 9 del backlog.
+**Estado:** implementada y verificada localmente; commit f49a357 en feature/hu-restantes; pendiente revisión e integración. No se declara Terminada antes de cumplir la convención 9 del backlog.
 
 ## 0. Relevamiento previo a implementación
 
@@ -129,6 +129,7 @@ Detalle de comandos, bases, resultados y límites en [evidencia](../../../testin
 - [x] Evidencia, colección y SQL entregados.
 - [ ] Seed repetido de L-06: bloqueo de entorno descrito arriba.
 - [ ] Ejecución de la colección desde Postman.
-- [ ] Commit manual, controles globales de CI, revisión e integración.
+- [x] Commit: f49a357.
+- [ ] Controles globales de CI, revisión e integración.
 
 L-07 no tiene diferidos propios de producto. C-14 y B-07 no se implementan en esta entrega.

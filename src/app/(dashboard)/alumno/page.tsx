@@ -3,7 +3,7 @@ import { texto as textoUi } from "@/lib/textos";
 import type { ReactNode } from "react";
 import { CalendarPlus2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatearMonto } from "@/lib/moneda";
 import { fechaLarga, fechaHoraDeInstante } from "@/lib/turno-detalle";
@@ -177,7 +177,12 @@ function TarjetaTurno({ turno, vista }: { turno: TurnoPropio; vista: Vista }) {
         <p className="text-sm">{situacionInscripcion(turno.inscripcion)}</p>
         {inscripcionVigente(turno.inscripcion) && <p className="text-sm font-medium">{textoUi("ui.turnos.resumen.precio")}: {formatearMonto(turno.inscripcion.precio)}</p>}
         {vista === "proximos" && turno.inscripcion.cancelacion === "FUERA_DE_PLAZO" && (
-          <p className="text-sm text-muted-foreground">{textoUi("ui.turnos.cancelacion.fueraDePlazo")}</p>
+          <div className="space-y-1 pt-2">
+            <Button type="button" variant="outline" disabled aria-describedby={`cancelacion-${turno.turno_id}`}>
+              {textoUi("ui.turnos.cancelacion.accion")}
+            </Button>
+            <p id={`cancelacion-${turno.turno_id}`} className="text-sm text-muted-foreground">{textoUi("ui.turnos.cancelacion.fueraDePlazo")}</p>
+          </div>
         )}
         {vista === "proximos" && turno.inscripcion.cancelacion === "PERMITIDA" && (
           <div className="pt-2">

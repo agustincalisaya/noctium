@@ -5,6 +5,8 @@ import { normalizarTexto } from "@/lib/normalizar-texto";
 import { hashPassword } from "@/lib/password";
 import { emailSenderConsola } from "@/lib/email";
 import { ServiceError } from "@/server/shared/service-error";
+import { bloquear } from "@/server/shared/bloquear";
+import { transaccion } from "@/server/shared/transaccion";
 import { getParametroNumerico, getParametroTexto } from "@/server/shared/parametros";
 import { crearCuentaConCredenciales } from "@/server/usuarios/usuario.service";
 import type {
@@ -363,7 +365,15 @@ export async function confirmarCodigoAutorregistro(
 
   const terminosVersion = await getParametroTexto("terminos_version_vigente", "1.0");
 
-  const resultado = await prisma.$transaction(async (tx) => {
+  const resultado = await transaccion(async (tx) => {
+    await bloquear(tx, { recursos: { alumnos: [solicitud.alumnoId] } });
+    const ficha = await tx.alumno.findUnique({
+      where: { idAlumno: solicitud.alumnoId },
+      select: { activoAlumno: true, usuarioId: true },
+    });
+    if (!ficha?.activoAlumno || ficha.usuarioId) {
+      throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+    }
     // emailDestino: el email de contacto que estaba vigente cuando se
     // GENERÓ el código (congelado en SolicitudAutorregistro), no un fetch
     // fresco de Alumno.emailAlumno — si el email cambió entre que se generó
@@ -374,14 +384,17 @@ export async function confirmarCodigoAutorregistro(
       { email: solicitud.emailDestino, passwordHash: solicitud.passwordHash, rol: "ALUMNO" },
       tx,
     );
-    await tx.alumno.update({
-      where: { idAlumno: solicitud.alumnoId },
+    const vinculada = await tx.alumno.updateMany({
+      where: { idAlumno: solicitud.alumnoId, activoAlumno: true, usuarioId: null },
       data: {
         usuarioId: usuario.id,
         terminosAceptadosEn: new Date(),
         versionTerminosAceptada: terminosVersion,
       },
     });
+    if (vinculada.count === 0) {
+      throw new ServiceError("CUENTA_YA_EXISTE", MENSAJES.CUENTA_YA_EXISTE);
+    }
     await tx.solicitudAutorregistro.update({
       where: { idSolicitud: solicitudId },
       data: { confirmadaEn: new Date() },

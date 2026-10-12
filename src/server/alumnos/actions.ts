@@ -170,20 +170,6 @@ export async function actualizarFormaPagoPreferida(
   }
 }
 
-/**
- * Server Action equivalente a `POST /api/alumnos` (spec_modulo_B.md §2.1).
- * Movida acá desde `src/app/(dashboard)/alumnos/actions.ts` (deuda técnica
- * de HU-B-01, corregida como parte de HU-B-06 §1 punto 3: violaba la Regla
- * N.° 11 de `docs/RULES.md` — las Server Actions van en
- * `src/server/<modulo>/actions.ts`, nunca sueltas junto a una página). Mismo
- * contrato como objeto plano serializable (Regla N.° 5) — nunca una
- * instancia de `NextResponse`. Recibe el payload ya como objeto (no
- * `FormData`): el formulario de alta arma el objeto antes de llamarla.
- *
- * HU-A-06 (spec_modulo_B.md §2.9): admite `email` y `telefono` opcionales;
- * con `email` el servicio crea la ficha y la cuenta juntas. La IP va al
- * evento CUENTA_CREADA. La respuesta suma `cuenta` (nunca la contraseña).
- */
 async function cambiarEstadoAlumno(
   id: string,
   input: unknown,
@@ -217,6 +203,20 @@ export async function reactivarAlumno(id: string, input: unknown) {
   return cambiarEstadoAlumno(id, input, true);
 }
 
+/**
+ * Server Action equivalente a `POST /api/alumnos` (spec_modulo_B.md §2.1).
+ * Movida acá desde `src/app/(dashboard)/alumnos/actions.ts` (deuda técnica
+ * de HU-B-01, corregida como parte de HU-B-06 §1 punto 3: violaba la Regla
+ * N.° 11 de `docs/RULES.md` — las Server Actions van en
+ * `src/server/<modulo>/actions.ts`, nunca sueltas junto a una página). Mismo
+ * contrato como objeto plano serializable (Regla N.° 5) — nunca una
+ * instancia de `NextResponse`. Recibe el payload ya como objeto (no
+ * `FormData`): el formulario de alta arma el objeto antes de llamarla.
+ *
+ * HU-A-06 (spec_modulo_B.md §2.9): admite `email` y `telefono` opcionales;
+ * con `email` el servicio crea la ficha y la cuenta juntas. La IP va al
+ * evento CUENTA_CREADA. La respuesta suma `cuenta` (nunca la contraseña).
+ */
 export async function crearAlumno(input: unknown): Promise<ResultadoCrearAlumno> {
   const [dniLongitudMin, dniLongitudMax] = await Promise.all([
     getParametroNumerico("dni_longitud_min", 7),

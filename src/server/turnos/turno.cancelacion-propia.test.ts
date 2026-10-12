@@ -26,12 +26,12 @@ describe("evaluarCancelacion", () => {
   });
 
   it("no habilita clases canceladas, iniciadas ni inscripciones finalizadas", () => {
-    expect(evaluarCancelacion(base, { ...turno, estadoTurno: "CANCELADO" }, momento, { cancelacionAnticipacionHoras: 24 }).estado).toBe("NO_DISPONIBLE");
-    expect(evaluarCancelacion({ ...base, vigencia: "CANCELADA_ALUMNO" }, turno, momento, { cancelacionAnticipacionHoras: 24 }).estado).toBe("NO_DISPONIBLE");
+    expect(evaluarCancelacion(base, { ...turno, estadoTurno: "CANCELADO" }, momento, { cancelacionAnticipacionHoras: 24 }).estado).toBe("NO_APLICA");
+    expect(evaluarCancelacion({ ...base, vigencia: "CANCELADA_ALUMNO" }, turno, momento, { cancelacionAnticipacionHoras: 24 }).estado).toBe("NO_APLICA");
   });
 
   it("rechaza una reserva cuyo vencimiento ya pasó aunque esté dentro del plazo de anticipación", () => {
     const reservaVencida = { ...base, estadoPago: "RESERVADA" as const, venceEl: new Date("2026-10-10T12:59:00.000Z") };
-    expect(evaluarCancelacion(reservaVencida, turno, momento, { cancelacionAnticipacionHoras: 24 })).toMatchObject({ estado: "NO_DISPONIBLE", limite: null });
+    expect(evaluarCancelacion(reservaVencida, turno, momento, { cancelacionAnticipacionHoras: 24 })).toMatchObject({ estado: "NO_APLICA", limite: null });
   });
 });

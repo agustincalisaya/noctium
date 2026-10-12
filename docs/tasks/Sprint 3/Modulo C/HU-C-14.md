@@ -1,9 +1,9 @@
 # TASK: HU-C-14 — Cancelar mi inscripción a una clase
 
-**Módulo:** C (Gestionar turnos)  
-**Sprint:** 3 · **SP estimado:** 3  
-**Contrato:** `docs/specs/spec_modulo_C.md` §2.19  
-**RBAC:** `turnos:cancelar_propia` (Alumno)  
+**Módulo:** C (Gestionar turnos)
+**Sprint:** 3 · **SP estimado:** 3
+**Contrato:** `docs/specs/spec_modulo_C.md` §2.19
+**RBAC:** `turnos:cancelar_propia` (Alumno)
 **Schema:** completo por PR 0; sin migración.
 
 ## 0. Relevamiento previo a implementación
@@ -18,8 +18,8 @@ Implementa la cancelación propia sin borrar la inscripción ni modificar pagos.
 
 ## 2. Historia de Usuario
 
-**Como** alumno  
-**Necesito** cancelar mi inscripción a una clase futura  
+**Como** alumno
+**Necesito** cancelar mi inscripción a una clase futura
 **Para** liberar el lugar cuando no voy a asistir.
 
 Los siete criterios de aceptación son los definidos en `HU-Sprint-3.md` y contractualizados en C §2.19.
@@ -53,11 +53,11 @@ No aplica.
 
 ### 4.5. Trazabilidad
 
-`finalizarInscripcion` conserva fecha, actor y estado en la inscripción y encola el historial para después del commit. El servicio emite `turno:inscripcion_cancelada` y, si corresponde, `turno:disponible_nuevamente` después de resolver la transacción.
+`finalizarInscripcion` conserva fecha, actor y estado en la inscripción y encola el historial para después del commit. El servicio emite `turno:inscripcion_cancelada` (`turno_id, alumno_id, inscripcion_id, estado_pago, usuario_id`) y, si corresponde, `turno:disponible_nuevamente` (`turno_id, alumno_id_liberado, usuario_id`) después de resolver la transacción (spec C §4).
 
 ## 5. Frontend
 
-«Mis clases» ofrece «Cancelar inscripción» solo cuando el evaluador responde `PERMITIDA`; fuera de plazo muestra la leyenda contractual. La confirmación es irreversible, incluye datos reales y aviso de reintegro cuando corresponde. Un rechazo queda dentro del diálogo. Al cerrarlo se refresca el listado.
+«Mis clases» ofrece «Cancelar mi inscripción» cuando el evaluador responde `PERMITIDA`; con `FUERA_DE_PLAZO` muestra la acción deshabilitada con la leyenda contractual, y con `NO_APLICA` no la muestra (§2.17.4). La confirmación es irreversible, incluye datos reales y aviso de reintegro cuando el listado indica pago. El aviso de reintegro también acompaña al mensaje de éxito cuando la respuesta trae `con_pagos: true`, aunque el pago se haya registrado mientras el alumno confirmaba. Un rechazo queda dentro del diálogo. Al cerrarlo se refresca el listado.
 
 ## 6. Testing
 
@@ -67,11 +67,11 @@ Límites inclusivos, excepción de reserva, estados no cancelables, contrato HTT
 
 ### Nivel 2 — API / Postman
 
-Colección en `docs/testing/Modulo C/hu-c-14/HU-C-14.postman_collection.json`. Su presencia no acredita ejecución.
+Colección en `docs/testing/Modulo C/hu-c-14/HU-C-14.postman_collection.json`, con assertions de status, envelope y código para el éxito y cada error (401, 403, 404, 409). Su presencia no acredita ejecución.
 
 ### Nivel 3 — PostgreSQL
 
-Consultas en `docs/testing/Modulo C/hu-c-14/HU-C-14.sql`. Tests descartables en `src/server/turnos/turno.cancelacion-propia.pg.test.ts` (7/7). Las verificaciones ejecutadas y pendientes se registran en la evidencia.
+Consultas en `docs/testing/Modulo C/hu-c-14/HU-C-14.sql`. Tests descartables en `src/server/turnos/turno.cancelacion-propia.pg.test.ts`, que verifican también los payloads de los eventos. Las verificaciones ejecutadas y pendientes se registran en la evidencia.
 
 ## 7. Checklist de Definition of Done
 
@@ -81,6 +81,17 @@ Consultas en `docs/testing/Modulo C/hu-c-14/HU-C-14.sql`. Tests descartables en 
 - [x] Identidad derivada de la sesión y permiso granular.
 - [x] Confirmación C-25 y textos centralizados.
 - [x] Pruebas focales documentadas.
-- [x] PostgreSQL descartable: 7/7.
+- [x] PostgreSQL descartable: 7/7 (`turno.cancelacion-propia.pg.test.ts`, ver evidencia).
 - [ ] Postman, navegador y CI: ver evidencia.
-- [ ] Commit, push, PR e integración: manuales, no autorizados.
+- [x] Commit de la implementación: 28165e3.
+- [ ] Commit de las correcciones de auditoría, push, PR e integración: manuales, no autorizados.
+
+## 8. Correcciones de auditoría
+
+| Hallazgo | Corrección |
+|---|---|
+| P2-03 | `cancelacion` usa `NO_APLICA` como la spec C §2.17.4 (antes `NO_DISPONIBLE`). |
+| P3-01 | Payloads de eventos completos según spec C §4. |
+| P3-02 | Acción «Cancelar mi inscripción»; fuera de plazo, deshabilitada con la leyenda. |
+| P3-03 | El aviso de reintegro también se decide con `con_pagos` de la respuesta. |
+| P3-05 | Evidencia y task actualizadas con la corrida PG real y la colección con assertions. |

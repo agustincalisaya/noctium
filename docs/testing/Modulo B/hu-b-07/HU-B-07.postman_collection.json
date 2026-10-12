@@ -1,0 +1,1026 @@
+{
+  "info": {
+    "name": "HU-B-07 — Desactivar y reactivar alumno",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar solo contra un servidor conectado a una base noctium_pruebas_<8 hex> con el seed aplicado. Iniciar sesión real con cada rol y copiar el encabezado Cookie en cookie_mesa, cookie_gerente, cookie_profesor y cookie_alumno sin exportar sus valores; el jar está deshabilitado. Preparar con HU-B-07.sql: alumno_registros (activo, con una clase pasada o un pago, y al menos una inscripción vigente a una clase futura) y alumno_inexistente. Ejecutar en orden: el GET de impacto guarda la versión que usan los POST siguientes. La concurrencia, la sesión revocada y los rollbacks se verifican en alumno.estado.pg.test.ts."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "cookie_gerente",
+      "value": ""
+    },
+    {
+      "key": "cookie_profesor",
+      "value": ""
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    },
+    {
+      "key": "alumno_registros",
+      "value": ""
+    },
+    {
+      "key": "alumno_inexistente",
+      "value": "cknoexiste000000000000000"
+    },
+    {
+      "key": "version",
+      "value": "0"
+    },
+    {
+      "key": "total_impacto",
+      "value": "0"
+    }
+  ],
+  "item": [
+    {
+      "name": "Sin sesión — impacto 401",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — impacto 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — desactivar 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente — reactivar 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor — impacto 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor — desactivar 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor — reactivar 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno — impacto 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno — desactivar 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno — reactivar 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":0}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Impacto de alumno inexistente — 404",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_inexistente}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código ALUMNO_NO_ENCONTRADO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_NO_ENCONTRADO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Impacto — 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Contrato\", () => { pm.expect(body.data).to.include.keys(\"alumno\", \"version\", \"total\", \"inscripciones_futuras\", \"motivo_obligatorio\"); });",
+              "pm.test(\"Total coincide con la lista\", () => pm.expect(body.data.total).to.eql(body.data.inscripciones_futuras.length));",
+              "pm.test(\"Motivo obligatorio con registros\", () => pm.expect(body.data.motivo_obligatorio).to.eql(true));",
+              "body.data.inscripciones_futuras.forEach((i) => pm.test(`Inscripción ${i.inscripcion_id}`, () => { pm.expect(i).to.include.keys(\"inscripcion_id\", \"turno_id\", \"fecha\", \"hora_inicio\", \"hora_fin\", \"materia\", \"profesor\"); }));",
+              "pm.collectionVariables.set(\"version\", String(body.data.version));",
+              "pm.collectionVariables.set(\"total_impacto\", String(body.data.total));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar sin versión — 400",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDATION_ERROR\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar con motivo de 301 caracteres — 400",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}},\"motivo\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDATION_ERROR\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar con campo ajeno — 400",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}},\"activo\":false}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDATION_ERROR\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar sin motivo con registros — 400",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código MOTIVO_REQUERIDO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"MOTIVO_REQUERIDO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar con versión vieja — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":999,\"motivo\":\"Se mudó\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código CONFLICTO_EDICION_CONCURRENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CONFLICTO_EDICION_CONCURRENTE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar — 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}},\"motivo\":\"Se mudó\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Inactivo y versión incrementada\", () => { pm.expect(body.data.activo).to.eql(false); pm.expect(body.data.version).to.eql(Number(pm.collectionVariables.get(\"version\")) + 1); });",
+              "pm.test(\"Quita lo que anunció el impacto\", () => pm.expect(body.data.inscripciones_quitadas).to.eql(Number(pm.collectionVariables.get(\"total_impacto\"))));",
+              "pm.test(\"Sin caché\", () => pm.expect(pm.response.headers.get(\"Cache-Control\") || \"\").to.include(\"no-store\"));",
+              "pm.collectionVariables.set(\"version\", String(body.data.version));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Desactivar de nuevo — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/desactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}},\"motivo\":\"Otra vez\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código ALUMNO_YA_INACTIVO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_YA_INACTIVO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Impacto de un inactivo — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código ALUMNO_YA_INACTIVO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_YA_INACTIVO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactivar con motivo — 400",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}},\"motivo\":\"no\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código VALIDATION_ERROR\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"VALIDATION_ERROR\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactivar con versión vieja — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":999}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código CONFLICTO_EDICION_CONCURRENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CONFLICTO_EDICION_CONCURRENTE\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactivar — 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Activo y versión incrementada\", () => { pm.expect(body.data).to.eql({ id: pm.collectionVariables.get(\"alumno_registros\"), activo: true, version: Number(pm.collectionVariables.get(\"version\")) + 1 }); });",
+              "pm.collectionVariables.set(\"version\", String(body.data.version));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reactivar de nuevo — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/reactivar",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"version\":{{version}}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código ALUMNO_YA_ACTIVO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"ALUMNO_YA_ACTIVO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Impacto después de reactivar: no restaura inscripciones",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/alumnos/{{alumno_registros}}/impacto-baja"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Sin inscripciones futuras restauradas\", () => pm.expect(body.data.total).to.eql(0));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

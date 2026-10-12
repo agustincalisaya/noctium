@@ -1,6 +1,6 @@
 # HU-L-07 — Evidencia del cambio masivo de tarifas
 
-Implementada y verificada localmente; pendiente commit manual, revisión e integración. Fuentes: Excel oficial filas 90–98 y Cierre de pendientes, spec L §2.9 y sincronización L-06, PR-0 y DESIGN. No hay diferidos propios de producto.
+Implementada y verificada localmente; commit f49a357 en feature/hu-restantes; pendiente revisión e integración. Fuentes: Excel oficial filas 90–98 y Cierre de pendientes, spec L §2.9 y sincronización L-06, PR-0 y DESIGN. No hay diferidos propios de producto.
 
 ## Matriz de aceptación
 
@@ -63,7 +63,8 @@ El precio se comprobó con los servicios reales `crearInscripcion` y `registrarO
 
 - ⏳ Seed repetido de L-06, bloqueado por inicio de subproceso descrito arriba; responsable de verificación: quien prepare revisión/CI.
 - ⏳ Ejecutar la colección entregada desde Postman; los HTTP equivalentes ya fueron ejercitados en navegador para los casos indicados.
-- ⏳ Controles globales de CI, commit manual, revisión e integración.
+- ✅ Commit: f49a357.
+- ⏳ Controles globales de CI, revisión e integración.
 - ✅ L-06 CA4 y CA6: verificación diferida de cambio masivo cerrada con flujo real de C/I y detalle de L.
 - L-07 no tiene diferidos propios de producto. C-14/B-07 permanecen para entregas posteriores.
 

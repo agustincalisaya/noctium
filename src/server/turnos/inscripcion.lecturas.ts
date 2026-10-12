@@ -4,6 +4,7 @@ import { construirFiltroBusquedaAlumno } from "@/server/alumnos/alumno.busqueda"
 import { finDelDiaCentro, inicioDeTurno, inicioDelDiaCentro, isoCentro } from "@/server/shared/fechas-centro";
 import { ahora } from "@/server/shared/reloj";
 import { esVigenteEn, sqlInstante, sqlVigenteEn } from "@/server/turnos/inscripcion.vigencia";
+import { horaLocal } from "@/server/turnos/turno.validaciones";
 
 /**
  * Lecturas públicas de la inscripción del módulo C (PR-0.md §2.13): las usan
@@ -126,12 +127,13 @@ export async function listarInscripcionesDeAlumno(
 }
 
 export async function alumnoTieneRegistros(alumnoId: string, db: Db = prisma): Promise<boolean> {
+  const local = horaLocal(ahora());
   const [fila] = await db.$queryRaw<{ existe: boolean }[]>(Prisma.sql`
     SELECT EXISTS (
       SELECT 1 FROM "turno_alumno" ta
       JOIN "turnos" t ON t."idTurno" = ta."turnoId"
       WHERE ta."alumnoId" = ${alumnoId}
-        AND t."fechaTurno" + t."horaInicioTurno" <= ${sqlInstante(ahora())}
+        AND t."fechaTurno" + t."horaInicioTurno" <= CAST(${`${local.fecha} ${local.hora}`} AS timestamp)
     ) AS existe`);
   return Boolean(fila?.existe);
 }

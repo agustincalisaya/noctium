@@ -75,8 +75,12 @@ describe.skipIf(!basePgHabilitada)("HU-C-14: cancelación propia en PostgreSQL r
       expect(await db.reservaTurno.count({ where: { turnoId: turno.idTurno, tipoRecurso: "ALUMNO", recursoId: propio.alumnoId } })).toBe(0);
       expect(await db.pago.count({ where: { inscripcionId: inscripcion.idInscripcion } })).toBe(1);
       const eventos = await db.eventoTurno.findMany({ where: { turnoId: turno.idTurno }, orderBy: { creadoEnEvento: "asc" } });
-      expect(eventos.map((e) => e.tipoEvento)).toContain("turno:inscripcion_cancelada");
-      expect(eventos.some((e) => e.tipoEvento === "turno:disponible_nuevamente")).toBe(true);
+      expect(eventos.find((e) => e.tipoEvento === "turno:inscripcion_cancelada")?.payloadEvento).toEqual({
+        turno_id: turno.idTurno, alumno_id: propio.alumnoId, inscripcion_id: inscripcion.idInscripcion, estado_pago: "PAGADA", usuario_id: propio.usuarioId,
+      });
+      expect(eventos.find((e) => e.tipoEvento === "turno:disponible_nuevamente")?.payloadEvento).toEqual({
+        turno_id: turno.idTurno, alumno_id_liberado: propio.alumnoId, usuario_id: propio.usuarioId,
+      });
     });
   });
 

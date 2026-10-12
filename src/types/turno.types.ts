@@ -9,7 +9,7 @@ export type InscripcionPropia = {
   situacion: SituacionInscripcionPropia;
   vence_el: string | null;
   precio: number;
-  cancelacion: "PERMITIDA" | "FUERA_DE_PLAZO" | "NO_DISPONIBLE";
+  cancelacion: "PERMITIDA" | "FUERA_DE_PLAZO" | "NO_APLICA";
   limite_cancelacion_en_linea: string | null;
 };
 

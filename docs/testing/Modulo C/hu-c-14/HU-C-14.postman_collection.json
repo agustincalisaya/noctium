@@ -2,28 +2,247 @@
   "info": {
     "name": "HU-C-14 — Cancelar inscripción propia",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Colección no ejecutada. Requiere base aislada y Cookie Jar con sesiones reales; no exportar cookies ni secretos."
+    "description": "Ejecutar solo contra un servidor conectado a una base noctium_pruebas_<8 hex>. Iniciar sesión real y copiar el encabezado Cookie en cookie_alumno y cookie_mesa sin exportar sus valores; el jar está deshabilitado. Preparar con HU-C-14.sql o datos de prueba: turno_pagada (inscripción PAGADA del alumno, clase a más de 24 h), turno_fuera_plazo (PAGADA, clase a menos de 24 h), turno_cancelado (clase CANCELADO con inscripción vigente) y turno_inexistente (un id que no existe). Ejecutar en orden: el segundo POST sobre turno_pagada verifica la repetición."
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:3000" },
-    { "key": "turno_id", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "turno_pagada",
+      "value": ""
+    },
+    {
+      "key": "turno_fuera_plazo",
+      "value": ""
+    },
+    {
+      "key": "turno_cancelado",
+      "value": ""
+    },
+    {
+      "key": "turno_inexistente",
+      "value": "cknoexiste000000000000000"
+    }
   ],
   "item": [
     {
-      "name": "Cancelar inscripción propia",
+      "name": "Sin sesión — 401",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
       "request": {
         "method": "POST",
         "header": [],
-        "url": { "raw": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/cancelacion", "host": ["{{base_url}}"], "path": ["api", "turnos", "{{turno_id}}", "inscripcion", "cancelacion"] }
-      }
+        "url": "{{baseUrl}}/api/turnos/{{turno_pagada}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SESION_INVALIDA\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SESION_INVALIDA\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa de entrada — 403",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turno_pagada}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código SIN_PERMISO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"SIN_PERMISO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clase inexistente — 404",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turno_inexistente}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código TURNO_NO_ENCONTRADO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"TURNO_NO_ENCONTRADO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fuera de plazo — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turno_fuera_plazo}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código CANCELACION_FUERA_DE_PLAZO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"CANCELACION_FUERA_DE_PLAZO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clase cancelada por el centro — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turno_cancelado}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código TURNO_CANCELADO\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"TURNO_CANCELADO\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cancelar inscripción pagada — 200",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turno_pagada}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Sin error\", () => pm.expect(body.error).to.eql(null));",
+              "pm.test(\"Contrato\", () => { pm.expect(body.data).to.include.keys(\"id\", \"inscripcion_id\", \"vigencia\", \"con_pagos\", \"alumnos_inscriptos\", \"estado\"); });",
+              "pm.test(\"Finaliza como CANCELADA_ALUMNO con pagos\", () => { pm.expect(body.data.id).to.eql(pm.collectionVariables.get(\"turno_pagada\")); pm.expect(body.data.vigencia).to.eql(\"CANCELADA_ALUMNO\"); pm.expect(body.data.con_pagos).to.eql(true); });",
+              "pm.test(\"Estado de la clase\", () => pm.expect([\"DISPONIBLE\", \"COMPLETO\"]).to.include(body.data.estado));",
+              "pm.test(\"Sin caché\", () => pm.expect(pm.response.headers.get(\"Cache-Control\") || \"\").to.include(\"no-store\"));"
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "Repetir cancelación — 409",
+      "protocolProfileBehavior": {
+        "disableCookies": true
+      },
       "request": {
         "method": "POST",
-        "header": [],
-        "url": { "raw": "{{base_url}}/api/turnos/{{turno_id}}/inscripcion/cancelacion", "host": ["{{base_url}}"], "path": ["api", "turnos", "{{turno_id}}", "inscripcion", "cancelacion"] }
-      }
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/turnos/{{turno_pagada}}/inscripcion/cancelacion"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test(\"Envelope\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Código INSCRIPCION_NO_VIGENTE\", () => { pm.expect(body.data).to.eql(null); pm.expect(body.error.code).to.eql(\"INSCRIPCION_NO_VIGENTE\"); });"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

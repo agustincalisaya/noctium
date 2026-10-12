@@ -32,7 +32,7 @@ export async function cancelarInscripcionPropia(turnoId: string, usuarioId: stri
     if (!inscripcion || inscripcion.vigencia !== "VIGENTE") throw new ErrorDeDominio("errores.inscripcion.noVigente");
     if (turno.estadoTurno === "CANCELADO") throw new ErrorDeDominio("errores.turno.cancelado");
     const evaluacion = evaluarCancelacion(inscripcion, turno, momento, parametros);
-    if (evaluacion.estado === "NO_DISPONIBLE") throw new ErrorDeDominio("errores.turno.vencido");
+    if (evaluacion.estado === "NO_APLICA") throw new ErrorDeDominio("errores.turno.vencido");
     if (evaluacion.estado === "FUERA_DE_PLAZO") throw new ErrorDeDominio("errores.inscripcion.cancelacionFueraDePlazo");
 
     const finalizada = await finalizarInscripcion(tx, {
@@ -54,16 +54,22 @@ export async function cancelarInscripcionPropia(turnoId: string, usuarioId: stri
       },
       disponibleNuevamente: finalizada.estadoTurno?.cambio && estado === "DISPONIBLE",
       alumnoId: alumno.id,
+      estadoPago: inscripcion.estadoPago,
     };
   });
   await emitirEventoTurno("turno:inscripcion_cancelada", turnoId, usuarioId, {
     turno_id: turnoId,
-    inscripcion_id: resultado.data.inscripcion_id,
     alumno_id: resultado.alumnoId,
+    inscripcion_id: resultado.data.inscripcion_id,
+    estado_pago: resultado.estadoPago,
     usuario_id: usuarioId,
   });
   if (resultado.disponibleNuevamente) {
-    await emitirEventoTurno("turno:disponible_nuevamente", turnoId, usuarioId, { turno_id: turnoId, usuario_id: usuarioId });
+    await emitirEventoTurno("turno:disponible_nuevamente", turnoId, usuarioId, {
+      turno_id: turnoId,
+      alumno_id_liberado: resultado.alumnoId,
+      usuario_id: usuarioId,
+    });
   }
   return resultado.data;
 }

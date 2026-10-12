@@ -43,6 +43,12 @@ export async function POST(req: NextRequest) {
           { status: 404 },
         );
       }
+      if (error.code === "CUENTA_YA_EXISTE") {
+        return NextResponse.json(
+          { data: null, error: { code: error.code, message: error.message } },
+          { status: 409 },
+        );
+      }
       if (
         error.code === "CODIGO_INVALIDO" ||
         error.code === "CODIGO_VENCIDO" ||
