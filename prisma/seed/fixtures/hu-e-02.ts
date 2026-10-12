@@ -18,13 +18,18 @@ export async function fixtureHuE02({ prisma: db }: ContextoFixtures) {
     db.alumno.findFirstOrThrow({ where: { usuario: { emailUsuario: "alumno01@noctium.local" } } }),
   ]);
   const actor = actorUsuario(mesa.idUsuario);
+  // Las clases futuras van en la franja del viernes 14-18 de Giménez: el seed
+  // base ubica sus clases de 08 a 12 con fechas relativas a hoy, así que una
+  // fecha fija de mañana choca con ellas según el día en que se siembre.
   const escenarios = [
-    { fecha: "2026-09-21", tipo: "PRESENTE" }, { fecha: "2026-09-22", tipo: "AUSENTE" }, { fecha: "2026-09-23", tipo: "LEGACY" }, { fecha: "2026-09-24", tipo: "SIN_REGISTRO" },
-    { fecha: "2026-10-12", tipo: "PROXIMA" }, { fecha: "2026-10-13", tipo: "CANCELADA_CENTRO" }, { fecha: "2026-10-14", tipo: "CANCELADA_ALUMNO" }, { fecha: "2026-10-15", tipo: "BAJA_ALUMNO" }, { fecha: "2026-10-16", tipo: "QUITADA_CENTRO" }, { fecha: "2026-10-19", tipo: "RESERVA_VENCIDA" }, { fecha: "2026-10-20", tipo: "BAJA_TRAS_CANCELAR" }, { fecha: "2026-10-21", tipo: "REINSCRIPCION" },
+    { fecha: "2026-09-21", hora: "08:00", tipo: "PRESENTE" }, { fecha: "2026-09-22", hora: "08:00", tipo: "AUSENTE" }, { fecha: "2026-09-23", hora: "08:00", tipo: "LEGACY" }, { fecha: "2026-09-24", hora: "08:00", tipo: "SIN_REGISTRO" },
+    { fecha: "2026-10-16", hora: "14:00", tipo: "PROXIMA" }, { fecha: "2026-10-16", hora: "15:00", tipo: "CANCELADA_CENTRO" }, { fecha: "2026-10-16", hora: "16:00", tipo: "CANCELADA_ALUMNO" }, { fecha: "2026-10-16", hora: "17:00", tipo: "BAJA_ALUMNO" },
+    { fecha: "2026-10-23", hora: "14:00", tipo: "QUITADA_CENTRO" }, { fecha: "2026-10-23", hora: "15:00", tipo: "RESERVA_VENCIDA" }, { fecha: "2026-10-23", hora: "16:00", tipo: "BAJA_TRAS_CANCELAR" }, { fecha: "2026-10-23", hora: "17:00", tipo: "REINSCRIPCION" },
   ] as const;
   for (const e of escenarios) {
-    const hora = ["2026-10-12", "2026-10-14", "2026-10-16", "2026-10-19"].includes(e.fecha) ? "10:00" : "08:00";
-    let turno = await db.turno.findFirst({ where: { fechaTurno: new Date(`${e.fecha}T00:00:00Z`), horaInicioTurno: new Date(`1970-01-01T${hora}:00Z`), profesorId: profesor.idProfesor, materiaId: materia.idMateria } });
+    const { hora } = e;
+    // Solo clases propias del fixture: nunca adopta (ni cancela) una clase del seed base.
+    let turno = await db.turno.findFirst({ where: { idTurno: { not: { startsWith: "seed-" } }, fechaTurno: new Date(`${e.fecha}T00:00:00Z`), horaInicioTurno: new Date(`1970-01-01T${hora}:00Z`), profesorId: profesor.idProfesor, materiaId: materia.idMateria } });
     // Crear la reserva cerca de la acción demostrada, antes de su vencimiento.
     const alta = e.fecha < "2026-10-01" ? "2026-09-01T12:00:00Z" : e.tipo === "RESERVA_VENCIDA" ? "2026-10-01T11:00:00Z" : e.tipo === "REINSCRIPCION" ? "2026-10-06T11:00:00Z" : "2026-10-07T11:00:00Z";
     turno = await conReloj(new Date(alta), async () => {
