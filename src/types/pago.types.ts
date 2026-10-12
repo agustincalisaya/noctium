@@ -26,7 +26,42 @@ export type PagoRegistrado = {
   fecha_pago: string;
 };
 
-export type PagoDeTurno = Omit<PagoRegistrado, "turno_id"> & { registrado_en: string };
+export type PagoDeTurno = Omit<PagoRegistrado, "turno_id"> & {
+  registrado_en: string;
+  /** Comprobante vigente del pago (HU-I-11). */
+  comprobante: { id: string; numero: string } | null;
+};
+
+/**
+ * Comprobante tal como lo muestran `GET /api/comprobantes/[id]` y sus dos
+ * variantes (spec_modulo_I.md §2.9.3). Las marcas se derivan al leer (§2.9.4).
+ * Vista del alumno: sin `registrado_por` (lleva `registrado_en_el_centro`) y
+ * sin el motivo de la anulación.
+ */
+export type ComprobanteLeido = {
+  id: string;
+  /** «0001-NNNNNNNN». */
+  numero: string;
+  /** ISO 8601 con el offset del centro. */
+  emitido_el: string;
+  centro: { nombre: string; domicilio: string; telefono: string };
+  /** `nombre_completo` en formato «Apellido, Nombre». */
+  alumno: { nombre_completo: string; dni: string };
+  /** `YYYY-MM-DD`. */
+  fecha_pago: string;
+  forma_pago: { nombre: string };
+  /** Vista completa: nombre real, o `null` si la cuenta no tiene ficha del personal. */
+  registrado_por?: string | null;
+  registrado_en_el_centro?: true;
+  clases: { materia: string; fecha: string; hora_inicio: string; monto: string }[];
+  total: string;
+  marcas: {
+    /** `fecha` `YYYY-MM-DD`; `motivo` ausente en la vista del alumno. */
+    anulado: { fecha: string; motivo?: string } | null;
+    reemplazado_por: { id: string; numero: string } | null;
+    reemplaza_a: { numero: string } | null;
+  };
+};
 
 export type AlumnoPago = {
   id: string;

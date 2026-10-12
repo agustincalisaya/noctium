@@ -8,15 +8,19 @@ export async function turnosConPagosVigentes(turnoIds: string[], db: Prisma.Tran
   return pagos.map((pago) => pago.turnoId);
 }
 import { obtenerAlumnosBasicos } from "@/server/alumnos/alumno.publico";
-import { formatearNumeroComprobante } from "@/server/pagos/comprobante.schema";
+import { comprobanteDelPagoEnOperacion, INCLUDE_LECTURA, type OperacionLeida } from "@/server/pagos/comprobante.lectura";
 import {
-  INCLUDE_OPERACION_VIGENTE,
   sqlFechaPagoVigente,
   sqlMontoVigente,
   sqlPagoNoAnulado,
   vigenteDeOperacion,
   type OperacionConVigente,
 } from "@/server/pagos/pago.vigente";
+
+/** `true` si el alumno tiene algún pago registrado, vigente o anulado (motivo obligatorio de la baja, HU-B-07). */
+export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
+  return (await db.pago.findFirst({ where: { alumnoId }, select: { idPago: true } })) !== null;
+}
 
 /**
  * Contrato público de pagos del Módulo I (spec_modulo_I.md §2.3, Regla N.° 3):
@@ -38,18 +42,11 @@ export type PagoDeTurno = {
   fecha_pago: string;
   /** Instante de registro en ISO 8601. */
   registrado_en: string;
+  /** Comprobante vigente del pago (HU-I-11, spec_modulo_I.md §2.9.3). */
+  comprobante: { id: string; numero: string } | null;
 };
 
 type Db = Prisma.TransactionClient;
-
-const INCLUDE_LECTURA = {
-  ...INCLUDE_OPERACION_VIGENTE,
-  comprobantes: {
-    orderBy: { numero: "desc" },
-    select: { idComprobante: true, numero: true, datos: true, reemplazadoPor: { select: { idComprobante: true } } },
-  },
-} satisfies Prisma.OperacionPagoInclude;
-type OperacionLeida = Prisma.OperacionPagoGetPayload<{ include: typeof INCLUDE_LECTURA }>;
 
 async function formasPorId(db: Db, ids: string[]) {
   const formas = await db.formaPago.findMany({
@@ -57,17 +54,6 @@ async function formasPorId(db: Db, ids: string[]) {
     select: { idFormaPago: true, nombreFormaPago: true, activaFormaPago: true },
   });
   return new Map(formas.map((f) => [f.idFormaPago, { id: f.idFormaPago, nombre: f.nombreFormaPago, is_active: f.activaFormaPago }]));
-}
-
-/**
- * Comprobante vigente para un pago (spec_modulo_I.md §2.13.1): el que nadie
- * reemplazó; para un pago anulado, el último que lo incluyó.
- */
-function comprobanteDelPago(operacion: OperacionLeida, pagoId: string, anulado: boolean) {
-  const comprobante = anulado
-    ? operacion.comprobantes.find((c) => ((c.datos as { clases?: { pago_id: string }[] }).clases ?? []).some((clase) => clase.pago_id === pagoId))
-    : operacion.comprobantes.find((c) => c.reemplazadoPor === null);
-  return comprobante ? { id: comprobante.idComprobante, numero: formatearNumeroComprobante(comprobante.numero) } : null;
 }
 
 export type PagoDeAlumno = {
@@ -115,7 +101,7 @@ async function pagosDeOperaciones(db: Db, operaciones: OperacionLeida[], filtroP
         registrado_por: vigente.registradaPorUsuarioId,
         anulado: pago.anulado,
         anulacion: pago.anulacion ? { fecha: pago.anulacion.fecha.toISOString(), motivo: pago.anulacion.motivo } : null,
-        comprobante_vigente: comprobanteDelPago(operacion, pago.pagoId, pago.anulado),
+        comprobante_vigente: comprobanteDelPagoEnOperacion(operacion, pago.pagoId, pago.anulado),
         cambios: pago.cambios,
         clases_de_la_operacion: clases,
       });
@@ -216,7 +202,9 @@ export async function listarPagosDeTurno(
 ): Promise<PagoDeTurno[]> {
   return (await pagosDeClase(turnoId, db))
     .filter((p) => !p.anulado)
-    .map(({ id, alumno, monto, forma_pago, fecha_pago, registrado_en }) => ({ id, alumno, monto, forma_pago, fecha_pago, registrado_en }));
+    .map(({ id, alumno, monto, forma_pago, fecha_pago, registrado_en, comprobante_vigente }) => ({
+      id, alumno, monto, forma_pago, fecha_pago, registrado_en, comprobante: comprobante_vigente,
+    }));
 }
 
 /**

@@ -9,6 +9,7 @@ export type InscripcionPropia = {
   situacion: SituacionInscripcionPropia;
   vence_el: string | null;
   precio: number;
+  cancelacion: "PERMITIDA" | "FUERA_DE_PLAZO" | "NO_APLICA";
 };
 
 /** Resumen informativo previo al POST (C §2.17.1); no reserva ni fija tarifa. */
@@ -67,6 +68,8 @@ export type PagoRegistradoTurno = {
   /** `YYYY-MM-DD`. */
   fecha_pago: string;
   registrado_en: string;
+  /** Comprobante vigente del pago (HU-I-11); enlaza a `/comprobantes/[id]`. */
+  comprobante: { id: string; numero: string } | null;
 };
 
 /**

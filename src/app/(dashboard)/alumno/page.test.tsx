@@ -6,8 +6,9 @@ import AlumnoPage from "@/app/(dashboard)/alumno/page";
 
 const { permiso, listar, confirmar } = vi.hoisted(() => ({ permiso: vi.fn(), listar: vi.fn(), confirmar: vi.fn() }));
 vi.mock("@/server/shared/with-permission", () => ({ exigirPermiso: permiso }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/server/turnos/turno.service", () => ({ listarTurnosPropios: listar, obtenerConfirmacionReservaPropia: confirmar }));
-const reserva: InscripcionPropia = { id: "inscripcion-propia", situacion: "RESERVADA", vence_el: "2026-10-10T12:05:00-03:00", precio: 26000 };
+const reserva: InscripcionPropia = { id: "inscripcion-propia", situacion: "RESERVADA", vence_el: "2026-10-10T12:05:00-03:00", precio: 26000, cancelacion: "NO_APLICA" };
 const tarjeta = {
   turno_id: "clase-propia", fecha: "2026-10-13", hora_inicio: "16:00", hora_fin: "18:00",
   materia: "Física I", profesor: "Pérez, Ana", aula: "Aula 2", estado: "DISPONIBLE", clase_dictada: false,
@@ -46,6 +47,44 @@ describe("C-22 Mis clases — componente server real, servicios simulados", () =
     const html = await consultar();
     expect(html).toContain(mensaje);
     expect(html.includes("$ 26.000")).toBe(conPrecio);
+  });
+
+  describe("C-14 acción de cancelar la inscripción", () => {
+    const textoAccion = "Cancelar mi inscripción";
+    const leyenda = "Ya no podés cancelar en línea. Comunicate con el centro.";
+    const botonAccion = (html: string) => html.match(new RegExp(`<button[^>]*>${textoAccion}</button>`))?.[0];
+
+    it("PERMITIDA: el botón de cancelar aparece habilitado y sin leyenda", async () => {
+      listar.mockResolvedValue(datos({ ...reserva, situacion: "PAGADA", cancelacion: "PERMITIDA" }));
+      const html = await consultar();
+      const boton = botonAccion(html);
+      expect(boton).toBeDefined();
+      expect(boton).not.toMatch(/\sdisabled=/);
+      expect(html).not.toContain(leyenda);
+    });
+
+    it("FUERA_DE_PLAZO: el botón aparece deshabilitado, asociado a la leyenda de contacto con el centro", async () => {
+      listar.mockResolvedValue(datos({ ...reserva, situacion: "PAGADA", cancelacion: "FUERA_DE_PLAZO" }));
+      const html = await consultar();
+      const boton = botonAccion(html);
+      expect(boton).toBeDefined();
+      expect(boton).toMatch(/\sdisabled=/);
+      expect(boton).toContain('aria-describedby="cancelacion-clase-propia"');
+      expect(html).toContain(`<p id="cancelacion-clase-propia" class="text-sm text-muted-foreground">${leyenda}</p>`);
+    });
+
+    it("NO_APLICA: no hay acción ni leyenda", async () => {
+      listar.mockResolvedValue(datos({ ...reserva, situacion: "PAGADA", cancelacion: "NO_APLICA" }));
+      const html = await consultar();
+      expect(html).not.toContain(textoAccion);
+      expect(html).not.toContain(leyenda);
+    });
+
+    it("la acción solo se ofrece en la pestaña de próximas clases", async () => {
+      listar.mockResolvedValue(datos({ ...reserva, situacion: "PAGADA", cancelacion: "PERMITIDA" }));
+      expect(await consultar({ vista: "anteriores" })).not.toContain(textoAccion);
+    });
+
   });
 
   it("confirmación y recarga usan id + sesión fuera de la página de resultados, con plazo definitivo", async () => {

@@ -12,9 +12,13 @@
 //
 // SPRINT 3 (PR-0.md §2.16): este archivo es el SEED BASE — catálogos, formas
 // de pago, tarifas, parámetros, datos del centro, cuentas, fichas y clases.
-// NO crea inscripciones, pagos, comprobantes ni clases dictadas: esos datos
-// los crean los fixtures de cada HU llamando a los servicios de dominio, para
-// que cumplan las mismas reglas que la aplicación. Lo único que crea con un
+// NO crea clases dictadas; los demás datos de negocio los crean los fixtures
+// de cada HU llamando a los servicios de dominio, para que cumplan las mismas
+// reglas que la aplicación. Al final, después de los fixtures y con esos mismos
+// servicios, ejecuta el plan `alumnos` de TURNOS (ver INSCRIPTOS_AGREGADOS):
+// paso 13, reservas pendientes de pago en las clases futuras; paso 14, alumnos
+// ya pagados en las clases pasadas (un comprobante por alumno, numerado después
+// de los de los fixtures). Lo único que crea con un
 // servicio es una caja abierta por cuenta de mesa de entrada de prueba
 // (CUENTAS_CON_CAJA, con `abrirCaja`, PR-0.md §2.15), así se puede cobrar desde
 // el detalle de la clase. Al final corre los fixtures de prisma/seed/fixtures/.
@@ -44,10 +48,11 @@
 //                                    (probar "La cuenta está inactiva", HU-A-01)
 // Los alumnos con cuenta tienen aceptados los términos vigentes ("1.0").
 //
-// Alumnos (HU-B-04): 40 fichas, 39 activas. Contacto variado (ambos, solo
-// teléfono, solo email), normalizado igual que HU-B-02.
+// Alumnos (HU-B-04): 52 fichas, 51 activas (las 41..52 son para el registro
+// de pagos). Contacto variado (ambos, solo teléfono, solo email), normalizado
+// igual que HU-B-02.
 //
-// Fichas SIN cuenta (HU-B-01 / HU-B-08): alumnos 07..15 y 18..40, el alumno
+// Fichas SIN cuenta (HU-B-01 / HU-B-08): alumnos 07..15 y 18..52, el alumno
 // inactivo 17 y el profesor inactivo. Sirven para probar el autorregistro con
 // vinculación por código (HU-B-08 c4); varían en si tienen o no email
 // verificable (c5). En dev el código NO se manda por mail: emailSenderConsola
@@ -126,6 +131,10 @@ import { DURACIONES_PERMITIDAS_TURNO_MIN } from "../src/server/turnos/turno.sche
 import { ahora, conReloj } from "../src/server/shared/reloj";
 import { transaccion } from "../src/server/shared/transaccion";
 import { abrirCaja } from "../src/server/pagos/caja.service";
+import { registrarPago } from "../src/server/pagos/pago.service";
+import { crearInscripcion } from "../src/server/turnos/inscripcion.publico";
+import { actorUsuario } from "../src/server/shared/historial";
+import { ServiceError } from "../src/server/shared/service-error";
 import { correrFixtures } from "./seed/fixtures";
 import { fechaCentro, instanteCentro } from "../src/server/shared/fechas-centro";
 import {
@@ -696,6 +705,21 @@ const ALUMNOS: AlumnoSeed[] = [
   { nombre: "Antonella", apellido: "Quiroga", genero: "FEMENINO", cuenta: null, activo: true },
   { nombre: "Ezequiel", apellido: "Muñoz", genero: "MASCULINO", cuenta: null, activo: true },
   { nombre: "Guadalupe", apellido: "Ledesma", genero: null, cuenta: null, activo: true },
+  // --- Fichas sin cuenta para el registro de pagos (ver INSCRIPTOS_AGREGADOS).
+  // Al final por la misma razón; sus DNI (40100041..52) ordenan después de los
+  // que toman los fixtures por orden de DNI. ---
+  { nombre: "Federico", apellido: "Arias", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Carolina", apellido: "Bustos", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Matías", apellido: "Correa", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Paula", apellido: "Escobar", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Damián", apellido: "Ferrari", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Rocío", apellido: "Godoy", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Leandro", apellido: "Juárez", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Victoria", apellido: "Maldonado", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Ulises", apellido: "Ponce", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Jazmín", apellido: "Romano", genero: "FEMENINO", cuenta: null, activo: true },
+  { nombre: "Kevin", apellido: "Toledo", genero: "MASCULINO", cuenta: null, activo: true },
+  { nombre: "Lourdes", apellido: "Villalba", genero: "FEMENINO", cuenta: null, activo: true },
 ];
 
 /** DNI de la ficha i (se deriva del índice: no reordenar ALUMNOS). */
@@ -1066,6 +1090,44 @@ const TURNOS: TurnoSeed[] = [
   // corrige cambiando el aula a «Aula 10» (libre todos los martes 18-20).
   { id: "seed-turno-demo-p1", semanal: { dia: "MARTES", ocurrencia: 2 }, hora: "18:00", duracionMin: 120, materia: "Programación I", profesor: 3, aula: "Aula 11", alumnos: rango(30, 34) }, // 5/35
 ];
+
+// Registro de pagos (HU-I-10): alumnos que se suman al plan `alumnos` de
+// TURNOS, para tener clases con un solo inscripto y más clases llenas o casi
+// llenas. Solo agrega (el plan original no cambia) y validarDatos() lo revisa
+// junto con el plan: cupo, alumnos activos y sin clases superpuestas.
+// Los alumnos 40..51 (fichas nuevas) completan las clases que pierden a los
+// de ALUMNOS_CON_RESERVA_SIN_MARCAR.
+const INSCRIPTOS_AGREGADOS: Record<string, number[]> = {
+  "seed-turno-03": rango(40, 49), // 10/30
+  "seed-turno-06": [21, ...rango(48, 51)], // Aula 1: 9/10, casi llena
+  "seed-turno-07": rango(40, 47), // Aula 1: 10/10, llena
+  "seed-turno-21": [4, ...rango(48, 50)], // Aula 1: 9/10, casi llena
+  "seed-turno-28": rango(40, 47), // Aula 1: 10/10, llena
+  "seed-turno-17": [10], // 1 alumno
+  "seed-turno-30": [12], // 1 alumno
+};
+
+// El fixture HU-H-10 deja, a propósito, una reserva vencida SIN MARCAR por mes
+// en ALUMNOS[22..34] (los toma por orden de DNI, «alumnos[20 + atraso]», y su
+// prueba con PostgreSQL las necesita). Inscribir a uno de ellos la marcaría
+// (crearInscripcion vence primero las reservas del alumno), así que el paso 13
+// no los inscribe. Las reservas vencidas sin marcar de otros alumnos (clases
+// pasadas de otros fixtures) sí se marcan al inscribirlos, como en la app.
+const ALUMNOS_CON_RESERVA_SIN_MARCAR = new Set(rango(22, 34));
+
+/**
+ * TURNOS con el plan de inscriptos que ejecuta el paso 13: el plan original
+ * sin ALUMNOS_CON_RESERVA_SIN_MARCAR, más INSCRIPTOS_AGREGADOS.
+ */
+function turnosConInscriptos(): TurnoSeed[] {
+  for (const id of Object.keys(INSCRIPTOS_AGREGADOS)) {
+    if (!TURNOS.some((t) => t.id === id)) throw new Error(`INSCRIPTOS_AGREGADOS: clase inexistente ${id}`);
+  }
+  return TURNOS.map((t) => ({
+    ...t,
+    alumnos: [...t.alumnos.filter((i) => !ALUMNOS_CON_RESERVA_SIN_MARCAR.has(i)), ...(INSCRIPTOS_AGREGADOS[t.id] ?? [])],
+  }));
+}
 
 // ------------------------------------------------------------
 // DEMO INCREMENTO 2 (guion de 6 pasos). validarDatos() verifica cada caso.
@@ -1473,7 +1535,7 @@ async function main() {
   // «Hoy» sale del reloj del dominio (PR-0.md §2.16): SEED_FECHA_HOY lo fija
   // (ver el final del archivo) y, si no, es el día real del centro.
   const hoy = fechaCentro(ahora());
-  const turnosSeed = TURNOS;
+  const turnosSeed = turnosConInscriptos();
   const fechasTurnos = calcularFechasTurnos(hoy, turnosSeed);
   validarDatos(hoy, turnosSeed, fechasTurnos);
   if (soloValidar) {
@@ -1886,6 +1948,85 @@ async function main() {
 
   // 12) Fixtures de las HU (prisma/seed/fixtures/index.ts) --------
   await correrFixtures({ prisma });
+
+  // 13) Inscripciones para probar el registro de pagos (HU-I-10) -------
+  // Ejecuta el plan `alumnos` de turnosSeed en las clases futuras confirmadas,
+  // como reservas pendientes de pago: `crearInscripcion` con origen CENTRO y
+  // reserva (HU-C-24), igual que mesa de entrada, así que el servicio revalida
+  // cupo, superposición, alumno activo y tarifa. Corre después de los fixtures
+  // para no cambiar lo que ellos crean (ni sus pagos y comprobantes). No toca
+  // clases pasadas (no puede haber alumnos en una clase pasada sin pagar),
+  // canceladas ni pendientes. Clave natural: si el par (clase, alumno) ya tiene
+  // alguna inscripción, en cualquier vigencia, no se crea otra. La reserva vence
+  // a las plazo_pago_horas de correr el seed, o al inicio de la clase si es antes.
+  const actorMesa = actorUsuario(mesaEntradaId);
+  let inscripcionesCreadas = 0;
+  const omitidas: string[] = [];
+  for (const t of turnosSeed) {
+    if (estadoSeedBase(t) !== "DISPONIBLE" || fechasTurnos.get(t.id)! <= hoy) continue;
+    for (const i of t.alumnos) {
+      const alumnoId = alumnoIds[i];
+      if (await prisma.turnoAlumno.findFirst({ where: { turnoId: t.id, alumnoId }, select: { idInscripcion: true } })) continue;
+      try {
+        await transaccion(
+          (tx) => crearInscripcion(tx, { turnoId: t.id, alumnoId, origen: "CENTRO", conReserva: true, actor: actorMesa }),
+          { db: prisma },
+        );
+        inscripcionesCreadas++;
+      } catch (error) {
+        // Un rechazo del dominio (por ejemplo, choque con una clase de un fixture) se informa y se sigue.
+        if (!(error instanceof ServiceError)) throw error;
+        omitidas.push(`${t.id} · ${ALUMNOS[i].apellido}, ${ALUMNOS[i].nombre}: ${error.code}`);
+      }
+    }
+  }
+  console.log(`✓ ${inscripcionesCreadas} inscripciones en clases futuras creadas en esta corrida (reservas pendientes de pago)`);
+  for (const o of omitidas) console.log(`  · Inscripción omitida: ${o}`);
+
+  // 14) Clases pasadas con alumnos pagados, para registrar la clase dictada --
+  // Las clases pasadas del seed (seed-turno-26 y 27) reciben su plan de
+  // inscriptos ya PAGADO: con el reloj del dominio en la mañana de la clase,
+  // antes de que empiece, se inscribe (crearInscripcion, como en el paso 13) y
+  // se cobra el precio con registrarPago, como el fixture HU-H-06 (Transferencia,
+  // así no cambia el efectivo de la caja abierta). Cada pago es una operación
+  // con su comprobante: corren después de los fixtures, que conservan sus
+  // números. No registra la clase dictada: queda para hacerlo desde la pantalla.
+  // Clave natural: por par (clase, alumno), no se reinscribe ni se cobra dos veces.
+  // La fecha guardada (las clases no se mueven al resembrar), no la recalculada con hoy.
+  let pagosPasados = 0;
+  for (const t of turnosSeed) {
+    if (estadoSeedBase(t) !== "DISPONIBLE") continue;
+    const { fechaTurno: fecha } = await prisma.turno.findUniqueOrThrow({ where: { idTurno: t.id }, select: { fechaTurno: true } });
+    if (fecha >= hoy) continue;
+    const antesDeLaClase = instanteCentro(fecha.toISOString().slice(0, 10), "07:00");
+    for (const i of t.alumnos) {
+      const alumnoId = alumnoIds[i];
+      try {
+        await conReloj(antesDeLaClase, async () => {
+          if (!(await prisma.turnoAlumno.findFirst({ where: { turnoId: t.id, alumnoId }, select: { idInscripcion: true } }))) {
+            await transaccion(
+              (tx) => crearInscripcion(tx, { turnoId: t.id, alumnoId, origen: "CENTRO", conReserva: true, actor: actorMesa }),
+              { db: prisma },
+            );
+          }
+          const inscripcion = await prisma.turnoAlumno.findFirst({
+            where: { turnoId: t.id, alumnoId, vigencia: "VIGENTE", estadoPago: { not: "PAGADA" } },
+            select: { precio: true },
+          });
+          if (!inscripcion) return;
+          await registrarPago(
+            { turno_id: t.id, alumno_id: alumnoId, monto: String(inscripcion.precio), forma_pago_id: "formapago-transferencia", fecha_pago: fecha },
+            mesaEntradaId,
+          );
+          pagosPasados++;
+        });
+      } catch (error) {
+        if (!(error instanceof ServiceError)) throw error;
+        console.log(`  · Pago omitido: ${t.id} · ${ALUMNOS[i].apellido}, ${ALUMNOS[i].nombre}: ${error.code}`);
+      }
+    }
+  }
+  console.log(`✓ ${pagosPasados} alumnos inscriptos y pagados en clases pasadas en esta corrida (para registrar la clase dictada)`);
 
   console.log(`\nSeed completo. Contraseña de todos los usuarios: ${PASSWORD}`);
 }

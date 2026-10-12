@@ -17,8 +17,8 @@ const { TurnoDetalleVista } = await import("./turno-detalle");
 
 const RETORNO = "/turnos?pagina=2&orden=fecha_hora_asc";
 const PAGOS = [
-  { id: "pago-2", alumno: { id: "alumno-2", nombre_completo: "Gómez, Lucía" }, monto: "12000.00", forma_pago: { id: "fp-1", nombre: "Transferencia" }, fecha_pago: "2026-10-02", registrado_en: "2026-10-02T15:00:00.000Z" },
-  { id: "pago-1", alumno: { id: "alumno-1", nombre_completo: "Pérez, Juan" }, monto: "15000.50", forma_pago: { id: "fp-2", nombre: "Efectivo" }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z" },
+  { id: "pago-2", alumno: { id: "alumno-2", nombre_completo: "Gómez, Lucía" }, monto: "12000.00", forma_pago: { id: "fp-1", nombre: "Transferencia" }, fecha_pago: "2026-10-02", registrado_en: "2026-10-02T15:00:00.000Z", comprobante: { id: "comp-2", numero: "0001-00000124" } },
+  { id: "pago-1", alumno: { id: "alumno-1", nombre_completo: "Pérez, Juan" }, monto: "15000.50", forma_pago: { id: "fp-2", nombre: "Efectivo" }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z", comprobante: null },
 ];
 const detalle = (extra: Record<string, unknown> = {}) => ({
   id: "turno-1", fecha: "2026-10-06", hora_inicio: "16:00", hora_fin: "17:00", duracion_minutos: 60, cupo_maximo: 6,
@@ -239,6 +239,26 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
       expect(fetch.mock.calls.filter(([url]) => url === "/api/turnos/turno-1").length).toBe(cargasAntes + 1);
     });
 
+    it("dos clics seguidos en «Inscribir» envían una sola alta", async () => {
+      let resolver: (valor: ReturnType<typeof respuesta>) => void = () => {};
+      fetch.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.startsWith("/api/turnos/participantes/alumnos?q=")) return respuesta([NUEVO]);
+        if (url === "/api/turnos/turno-1/alumnos" && init?.method === "POST") {
+          altas.push({ url, body: JSON.parse(String(init.body)) });
+          return new Promise<ReturnType<typeof respuesta>>((resolve) => { resolver = resolve; });
+        }
+        return respuesta(detalle());
+      });
+      await elegirAlumno();
+      const inscribir = boton("Inscribir")!;
+      await act(async () => { inscribir.click(); });
+      await act(async () => { inscribir.click(); });
+      expect(altas).toHaveLength(1);
+      await act(async () => { resolver(respuestaAlta); });
+      expect(altas).toHaveLength(1);
+      expect(dialogo()).toBeNull();
+    });
+
     it("si el servidor rechaza, el motivo se muestra en el mismo mensaje y no se agrega nada", async () => {
       respuestaAlta = respuesta(null, false, { code: "INSCRIPCION_REQUIERE_PAGO", message: "El alumno ya tuvo una reserva sin pagar en esta clase: se inscribe recién al confirmar el pago." });
       await elegirAlumno();
@@ -246,6 +266,19 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
       expect(dialogo()).not.toBeNull();
       expect(dialogo()!.textContent).toContain("se inscribe recién al confirmar el pago");
       expect(texto()).not.toContain("Alumno agregado");
+      // Criterio 3: se ofrece «Registrar pago» con el alumno y la clase elegidos (C §2.18.3).
+      const acceso = dialogo()!.querySelector('a[aria-label^="Registrar pago de"]');
+      expect(acceso?.textContent).toBe("Registrar pago");
+      expect(acceso?.getAttribute("aria-label")).toBe("Registrar pago de Lucía Ramos");
+      expect(acceso?.getAttribute("href")).toBe("/pagos/registrar?alumno=alumno-9&clase=turno-1");
+    });
+
+    it("un rechazo que no es «requiere pago» no ofrece «Registrar pago»", async () => {
+      respuestaAlta = respuesta(null, false, { code: "ALUMNO_NO_DISPONIBLE", message: "El alumno ya tiene una clase agendada en ese horario" });
+      await elegirAlumno();
+      await clic(boton("Inscribir"));
+      expect(dialogo()!.textContent).toContain("El alumno ya tiene una clase agendada en ese horario");
+      expect(dialogo()!.querySelector('a[aria-label^="Registrar pago de"]')).toBeNull();
     });
   });
 
@@ -264,15 +297,71 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect([...tarjeta.querySelectorAll('button[aria-label^="Quitar a"]')].map((b) => b.getAttribute("aria-label"))).toEqual(["Quitar a Pérez, Juan", "Quitar a Gómez, Lucía"]);
   });
 
-  it("«Quitar» sigue funcionando: DELETE y recarga del detalle", async () => {
-    await montar({ puedeGestionarAlumnos: true });
-    fetch.mockResolvedValueOnce(respuesta({ estado: "DISPONIBLE" }));
-    fetch.mockResolvedValueOnce(respuesta(detalle({ alumnos: [{ id: "alumno-2", nombre: "Gómez, Lucía", dni: "30999888" }], alumnos_inscriptos: "1/6" })));
-    await act(async () => { (container.querySelector('button[aria-label="Quitar a Pérez, Juan"]') as HTMLButtonElement).click(); });
-    await esperar();
-    expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/alumnos/alumno-1", { method: "DELETE", cache: "no-store" });
-    expect(texto()).toContain("Alumno quitado de la clase");
-    expect(texto()).toContain("Alumnos inscriptos · 1 de 6");
+  describe("HU-C-24 / HU-C-25: «Quitar» pide confirmación antes de quitar", () => {
+    const dialogo = () => document.querySelector('[role="alertdialog"]');
+    const botonDialogo = (nombre: string) => [...dialogo()!.querySelectorAll("button")].find((b) => b.textContent === nombre) as HTMLButtonElement;
+    const quitados = () => fetch.mock.calls.filter(([url, init]) => url === "/api/turnos/turno-1/alumnos/alumno-1" && init?.method === "DELETE");
+    const abrirConfirmacion = async () => {
+      await montar({ puedeGestionarAlumnos: true });
+      await act(async () => { (container.querySelector('button[aria-label="Quitar a Pérez, Juan"]') as HTMLButtonElement).click(); });
+    };
+
+    it("abre la confirmación con el patrón del Excel, la advertencia y «Volver» con el foco, sin quitar todavía", async () => {
+      await abrirConfirmacion();
+      expect(dialogo()!.textContent).toContain("¿Estás seguro de que querés quitar a Juan Pérez de Matemática del 06/10/2026 a las 16:00?");
+      expect(dialogo()!.textContent).toContain("Esta acción no se puede deshacer.");
+      expect([...dialogo()!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Volver", "Quitar"]);
+      expect(botonDialogo("Quitar").className).toContain("bg-destructive");
+      // Base UI mueve el foco después de montar el popup.
+      await act(async () => { await new Promise((resolver) => setTimeout(resolver, 50)); });
+      expect(document.activeElement).toBe(botonDialogo("Volver"));
+      expect(quitados()).toHaveLength(0);
+    });
+
+    it("«Volver» cierra el mensaje y no quita", async () => {
+      await abrirConfirmacion();
+      await act(async () => { botonDialogo("Volver").click(); });
+      expect(dialogo()).toBeNull();
+      expect(quitados()).toHaveLength(0);
+      expect(texto()).not.toContain("Alumno quitado");
+    });
+
+    it("«Quitar» envía el DELETE una vez, cierra el mensaje, avisa y recarga el detalle", async () => {
+      await abrirConfirmacion();
+      fetch.mockResolvedValueOnce(respuesta({ estado: "DISPONIBLE" }));
+      fetch.mockResolvedValueOnce(respuesta(detalle({ alumnos: [{ id: "alumno-2", nombre: "Gómez, Lucía", dni: "30999888" }], alumnos_inscriptos: "1/6" })));
+      await act(async () => { botonDialogo("Quitar").click(); });
+      await esperar();
+      expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1/alumnos/alumno-1", { method: "DELETE", cache: "no-store" });
+      expect(quitados()).toHaveLength(1);
+      expect(dialogo()).toBeNull();
+      expect(texto()).toContain("Alumno quitado de la clase");
+      expect(texto()).toContain("Alumnos inscriptos · 1 de 6");
+    });
+
+    it("si el servidor rechaza, el motivo se muestra en el mismo mensaje y no se quita nada", async () => {
+      await abrirConfirmacion();
+      fetch.mockResolvedValueOnce(respuesta(null, false, { code: "RESERVA_NO_PENDIENTE", message: "Esta reserva ya no está pendiente: se pagó o venció." }));
+      await act(async () => { botonDialogo("Quitar").click(); });
+      await esperar();
+      expect(dialogo()).not.toBeNull();
+      expect(dialogo()!.textContent).toContain("Esta reserva ya no está pendiente: se pagó o venció.");
+      expect(texto()).not.toContain("Alumno quitado");
+    });
+
+    it("dos clics seguidos en «Quitar» envían un solo DELETE", async () => {
+      await abrirConfirmacion();
+      let resolver: (valor: ReturnType<typeof respuesta>) => void = () => {};
+      fetch.mockImplementationOnce(() => new Promise<ReturnType<typeof respuesta>>((resolve) => { resolver = resolve; }));
+      const quitar = botonDialogo("Quitar");
+      await act(async () => { quitar.click(); });
+      await act(async () => { quitar.click(); });
+      expect(quitados()).toHaveLength(1);
+      await act(async () => { resolver(respuesta({ estado: "DISPONIBLE" })); });
+      await esperar();
+      expect(quitados()).toHaveLength(1);
+      expect(dialogo()).toBeNull();
+    });
   });
 
   it("lista vacía con cupo asignado → texto del producto, no «Sin asignar»", async () => {
@@ -328,9 +417,16 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(tarjeta.querySelector("h2")?.textContent).toBe("Pago");
     expect(tarjeta.textContent).toContain("Pagos registrados");
     expect([...tarjeta.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
-      "Gómez, Lucía02/10/2026 · Transferencia$ 12.000", "Pérez, Juan01/10/2026 · Efectivo$ 15.000,50",
+      "Gómez, Lucía02/10/2026 · TransferenciaComprobante 0001-00000124$ 12.000", "Pérez, Juan01/10/2026 · Efectivo$ 15.000,50",
     ]);
     expect(tarjeta.textContent).toContain("Total registrado$ 27.000,50");
+  });
+
+  it("HU-I-11: cada pago con comprobante enlaza a /comprobantes/[id]; sin comprobante no hay link", async () => {
+    await montar();
+    const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
+    const links = [...tarjeta.querySelectorAll("li a")].map((a) => [a.textContent, a.getAttribute("href")]);
+    expect(links).toEqual([["Comprobante 0001-00000124", "/comprobantes/comp-2"]]);
   });
 
   it("HU-I-01 ofrece registro solo con permiso y elegibilidad; conserva la lectura en un turno cancelado", async () => {

@@ -2,8 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ServiceError } from "@/server/shared/service-error";
-import type { DetalleMateria } from "@/types/materia.types";
-import type { CrearMateriaInput, ListarMateriasQuery, ModificarMateriaInput, CambiarTarifaInput } from "@/server/materias/materia.schema";
+import type { DetalleMateria, MateriaConTarifa, CambioTarifasMasivo } from "@/types/materia.types";
+import type { CrearMateriaInput, ListarMateriasQuery, ModificarMateriaInput, CambiarTarifaInput, CambiarTarifasMasivoInput } from "@/server/materias/materia.schema";
 import { transaccion, type Tx, type OpcionesTransaccion } from "@/server/shared/transaccion";
 import { bloquear } from "@/server/shared/bloquear";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
@@ -372,5 +372,45 @@ export async function cambiarTarifaMateria(
     if (actual.tarifaHoraMateria === input.tarifa_hora) throw new ErrorDeDominio("errores.materias.tarifaSinCambio");
     await aplicarCambiosDeTarifa(tx, [{ id, anterior: actual.tarifaHoraMateria, nueva: input.tarifa_hora }], { masivo: false }, actor);
     return { id, tarifa_hora: input.tarifa_hora, tarifa_anterior: actual.tarifaHoraMateria };
+  }, opciones);
+}
+
+/** HU-L-07: selector completo de activas, protegido por el permiso de cambio. */
+export async function listarMateriasConTarifa(db: Prisma.TransactionClient = prisma): Promise<MateriaConTarifa[]> {
+  const filas = await db.materia.findMany({
+    where: { activaMateria: true },
+    orderBy: [{ nombreNormalizadaMateria: "asc" }, { idMateria: "asc" }],
+    select: { idMateria: true, nombreMateria: true, codigoMateria: true, tarifaHoraMateria: true },
+  });
+  return filas.map((fila) => ({
+    id: fila.idMateria, nombre: fila.nombreMateria, codigo: fila.codigoMateria, tarifa_hora: fila.tarifaHoraMateria,
+  }));
+}
+
+/** Valida todo el lote bloqueado antes de escribir; el helper comparte la fecha. */
+export async function cambiarTarifasMasivo(
+  input: CambiarTarifasMasivoInput, actor: string, opciones: OpcionesTransaccion = {},
+): Promise<CambioTarifasMasivo> {
+  return transaccion(async (tx) => {
+    const ids = input.materias.map(({ id }) => id).sort();
+    await bloquear(tx, { recursos: { materias: ids } });
+    const filas = await tx.materia.findMany({
+      where: { idMateria: { in: ids } },
+      select: { idMateria: true, activaMateria: true, tarifaHoraMateria: true },
+    });
+    const actuales = new Map(filas.map((fila) => [fila.idMateria, fila]));
+    if (ids.some((id) => !actuales.has(id))) throw new ErrorDeDominio("errores.materias.noEncontrada");
+    if (filas.some((fila) => !fila.activaMateria)) throw new ErrorDeDominio("errores.materias.inactiva");
+    for (const materia of input.materias) {
+      if (actuales.get(materia.id)!.tarifaHoraMateria !== materia.tarifa_actual) {
+        throw new ErrorDeDominio("errores.materias.tarifaConflicto");
+      }
+    }
+    const cambios = ids.flatMap((id) => {
+      const anterior = actuales.get(id)!.tarifaHoraMateria;
+      return anterior === input.tarifa_hora ? [] : [{ id, anterior, nueva: input.tarifa_hora }];
+    });
+    if (cambios.length) await aplicarCambiosDeTarifa(tx, cambios, { masivo: true }, actor);
+    return { tarifa_hora: input.tarifa_hora, actualizadas: cambios.length, sin_cambio: ids.length - cambios.length };
   }, opciones);
 }

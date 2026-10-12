@@ -83,6 +83,35 @@ export type ResultadoModificarAlumno =
   | { data: { id: string; campos_modificados: string[]; version: number }; error: null }
   | { data: null; error: { code: string; message: string; detalles?: unknown } };
 
+export type ImpactoBajaAlumno = {
+  alumno: { id: string; nombre: string; apellido: string };
+  version: number;
+  total: number;
+  inscripciones_futuras: {
+    inscripcion_id: string;
+    turno_id: string;
+    fecha: string;
+    hora_inicio: string;
+    hora_fin: string;
+    materia: { id: string; nombre: string };
+    profesor: { id: string; nombre_para_mostrar: string } | null;
+  }[];
+  motivo_obligatorio: boolean;
+};
+
+export type EstadoAlumnoCambiado = { id: string; activo: boolean; version: number; inscripciones_quitadas?: number };
+
+/** Entrada de `historial_estados` del detalle del alumno (spec_modulo_B.md 2.12); `fecha` en ISO 8601 con el offset del centro. */
+export type HistorialEstadoAlumno = {
+  fecha: string;
+  accion: "DESACTIVAR" | "REACTIVAR";
+  usuario: { id: string; nombre_para_mostrar: string | null } | null;
+  motivo: string | null;
+};
+export type ResultadoAccionAlumno<T> =
+  | { data: T; error: null }
+  | { data: null; error: { code: string; message: string; detalles?: Record<string, string[]> } };
+
 /**
  * Resultado de `iniciarAutorregistro()` (HU-B-08, spec_modulo_B.md §2.6).
  * Las 3 ramas con respuesta directa (a, c-vía-error, d) — la rama (b)

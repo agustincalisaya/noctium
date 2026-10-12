@@ -76,6 +76,10 @@ Los textos nuevos del Índice de presentismo se centralizan bajo `ui.indicadores
 ## Sprint 3 — Registro de asistencia (HU-E-09)
 
 Registrar una clase dictada toma primero el bloqueo canónico de la clase con `bloquear`, dentro de `transaccion`. Con el mismo momento del reloj, vence perezosamente las reservas y copia exclusivamente inscripciones vigentes. Las transiciones de vencimiento que encola C se escriben después del commit; si la validación revierte, se descartan. La clase y sus estados de asistencia son un snapshot inmutable con auditoría en la misma fila; marcar Ausente no cambia pagos, precios ni inscripciones. La unicidad no anulada se protege con el índice parcial y `ON CONFLICT` parametrizado, sin captura de P2002 dentro de la transacción. Todas las lecturas usan el valor vigente compartido de E y excluyen clases anuladas.
+### Cancelación propia de inscripciones (HU-C-14)
+
+La elegibilidad del listado y la escritura usan el mismo evaluador. La cancelación bloquea clase e inscripción, marca vencimientos y relee estado, pago y parámetros antes de finalizar lógicamente como `CANCELADA_ALUMNO`. El instante exacto del límite está permitido; una reserva sin pagar puede cancelarse antes de su vencimiento. Pagos e importes quedan intactos. El historial y los eventos se escriben después del commit.
+
 ### Lecturas y datos de presentación del Sprint 3
 
 Los indicadores componen exclusivamente lecturas de las fachadas públicas de los módulos dueños del dato (Regla N.° 3). Los fixtures de presentación se registran en `prisma/seed/fixtures/index.ts`, usan servicios de dominio para las mutaciones y comprueban una clave estable antes de crear: repetir el seed no duplica ni modifica hechos existentes.
@@ -108,6 +112,10 @@ Los indicadores componen exclusivamente lecturas de las fachadas públicas de lo
 - Al terminar, el formulario hace siempre `POST /api/auth/logout` (tolera que no haya sesión) y recién después navega con `window.location.href` a `/login?contrasena=actualizada`. Sin eso, una sesión abierta desde «Mi cuenta», ya revocada, haría que `/login` redirija a `/home` y el aviso no se vería.
 - Datos sensibles: ni el token, ni el enlace, ni las contraseñas, ni los hashes van en eventos, logs ni respuestas. El enlace solo aparece en el texto plano del email del simulador, fuera de producción. Un error al armar o enviar el email (incluida la falta de `NEXTAUTH_URL`/`AUTH_URL`) invalida el enlace recién creado y registra `RECUPERACION_ENVIO_FALLIDO`.
 - Encabezados: `next.config.ts` fija `Referrer-Policy: no-referrer` en `/restablecer-contrasena` y `Cache-Control: no-store, must-revalidate` en las dos pantallas; las dos rutas de API lo fijan en cada respuesta.
+
+## Aplicación HU-B-07 — Estado del alumno
+
+La baja y reactivación toman primero el bloqueo canónico del alumno y validan estado y versión. La baja elige como candidatas solo las inscripciones vigentes de clases Disponibles o Completas que empiezan después del momento de la baja (las clases pasadas o en curso no se bloquean ni se tocan), bloquea esas clases e inscripciones y, con ellas bloqueadas, marca las reservas vencidas del alumno en esas clases; después finaliza solo las inscripciones vigentes con `BAJA_ALUMNO`, conserva pagos y hechos académicos, desactiva la cuenta y revoca sesiones en la misma transacción. La reactivación no restaura inscripciones ni sesiones. El historial de estado se encola para después del commit. El motivo es obligatorio si C, I o E informan registros previos mediante sus fachadas públicas. El DNI y el email de contacto de una ficha inactiva siguen contando para la unicidad: el autorregistro los rechaza con `CUENTA_YA_EXISTE`, y lo comprueba otra vez dentro de la transacción del alta, con las fichas de ese email tomadas `FOR SHARE`, para serializarse con una baja concurrente.
 
 ## Aplicación HU-D-08 — Estado del profesor
 

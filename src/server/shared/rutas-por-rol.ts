@@ -21,6 +21,10 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   aulas: ["GERENTE"],
   alumnos: ["MESA_ENTRADA", "GERENTE"],
   pagos: ["MESA_ENTRADA"],
+  // HU-I-11 (spec_modulo_I.md §2.9.3): el comprobante lo ven mesa de entrada
+  // y gerente (`comprobantes:leer`); el alumno, el suyo (`comprobantes:leer_propios`).
+  comprobantes: ["MESA_ENTRADA", "GERENTE"],
+  "mis-pagos": ["ALUMNO"],
   materias: ["MESA_ENTRADA", "GERENTE", "PROFESOR"],
   turnos: "CUALQUIERA",
   calendario: "CUALQUIERA",

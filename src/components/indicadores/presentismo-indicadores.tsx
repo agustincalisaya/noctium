@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { GraficoIndicador } from "@/components/indicadores/grafico-indicador";
+import { etiquetaMesCorta } from "@/components/indicadores/graficos-indicadores";
 import { useIndicador } from "@/components/indicadores/use-indicador";
 import { Pagination } from "@/components/shared/pagination";
 import { texto } from "@/lib/textos";
@@ -10,7 +11,6 @@ import type { PresentismoMensualData, PresentismoMateriasData, PresentismoBajoDa
 
 type Rango = { desde: string; hasta: string };
 const formato = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
-const mes = (valor: string, indice: number) => new Intl.DateTimeFormat("es-AR", { month: "short", ...(indice === 0 || valor.endsWith("-01") ? { year: "2-digit" as const } : {}), timeZone: "UTC" }).format(new Date(`${valor}-01T12:00:00Z`));
 const valorGrafico = (valor: number, clave: string) => `${formato.format(valor)}${clave === "indice" ? " %" : ""}`;
 function total(r: ResumenPresentismo | undefined) { return r?.indice == null ? "—" : `${formato.format(r.indice)} %`; }
 function estado(q: { cargando: boolean; error: string | null }, vacio: boolean): "cargando" | "error" | "vacio" | "ok" { return q.cargando ? "cargando" : q.error ? "error" : vacio ? "vacio" : "ok"; }
@@ -33,7 +33,7 @@ export function PresentismoIndicadores({ rango }: { rango: Rango }) {
   return <div className="space-y-6">
     <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <div className={doceMeses ? "min-w-0 lg:col-span-2" : "min-w-0"}>
-        <GraficoIndicador id="presentismo-mes" titulo={texto("ui.indicadores.presentismo.mensual")} total={total(mensual.datos?.resumen)} totalDetalle={mensual.datos ? `${mensual.datos.resumen.presentes} de ${mensual.datos.resumen.inscriptos}` : undefined} leyendaFecha={texto("ui.indicadores.presentismo.leyenda")} datos={(mensual.datos?.meses ?? []).map(m => ({ ...m }))} series={[...series, { clave: "indice", etiqueta: texto("ui.indicadores.presentismo.titulo"), unidad: "%", tipo: "linea", color: "var(--chart-attendance-index)", ejePorcentaje: true }]} claveCategoria="mes" formatearCategoria={mes} formatearValor={valorGrafico} estado={estado(mensual, !mensual.datos?.resumen.inscriptos)} onReintentar={mensual.reintentar} error={mensual.error ?? undefined} textoVacio={texto("ui.indicadores.presentismo.vacio")} mensual diferenciaClave="ausentes" />
+        <GraficoIndicador id="presentismo-mes" titulo={texto("ui.indicadores.presentismo.mensual")} total={total(mensual.datos?.resumen)} totalDetalle={mensual.datos ? `${mensual.datos.resumen.presentes} de ${mensual.datos.resumen.inscriptos}` : undefined} leyendaFecha={texto("ui.indicadores.presentismo.leyenda")} datos={(mensual.datos?.meses ?? []).map(m => ({ ...m }))} series={[...series, { clave: "indice", etiqueta: texto("ui.indicadores.presentismo.titulo"), unidad: "%", tipo: "linea", color: "var(--chart-attendance-index)", ejePorcentaje: true }]} claveCategoria="mes" formatearCategoria={etiquetaMesCorta} formatearValor={valorGrafico} estado={estado(mensual, !mensual.datos?.resumen.inscriptos)} onReintentar={mensual.reintentar} error={mensual.error ?? undefined} textoVacio={texto("ui.indicadores.presentismo.vacio")} mensual diferenciaClave="ausentes" />
       </div>
       <GraficoIndicador id="presentismo-materia" titulo={texto("ui.indicadores.presentismo.materia")} total={total(materias.datos?.resumen)} totalDetalle={materias.datos ? `${materias.datos.resumen.presentes} de ${materias.datos.resumen.inscriptos}` : undefined} leyendaFecha={texto("ui.indicadores.presentismo.ordenMateria")} datos={datosMateria.map(m => ({ categoria: m.categoria, inscriptos: m.inscriptos, presentes: m.presentes, ausentes: m.ausentes, indice: m.indice }))} series={series} claveCategoria="categoria" orientacion="horizontal" detalleBarra={(fila, clave) => clave === "presentes" ? ` · ${formato.format(Number(fila.indice))}% · −${fila.ausentes}` : ""} columnasTabla={[{clave:"categoria",etiqueta:texto("ui.indicadores.presentismo.materiaColumna")},{clave:"inscriptos",etiqueta:texto("ui.indicadores.presentismo.inscriptos")},{clave:"presentes",etiqueta:texto("ui.indicadores.presentismo.presentes")},{clave:"indice",etiqueta:texto("ui.indicadores.presentismo.titulo"),formatear:v=>v==null?"—":`${formato.format(Number(v))}%`},{clave:"ausentes",etiqueta:texto("ui.indicadores.presentismo.ausentes")}]} formatearValor={valorGrafico} estado={estado(materias, !materias.datos?.items.length)} onReintentar={materias.reintentar} error={materias.error ?? undefined} textoVacio={texto("ui.indicadores.presentismo.vacio")} />
     </div>

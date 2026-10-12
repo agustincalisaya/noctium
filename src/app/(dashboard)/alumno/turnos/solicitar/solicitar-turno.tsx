@@ -274,12 +274,27 @@ export function SolicitarTurno() {
             <dt>{texto("ui.turnos.resumen.precio")}</dt><dd className="font-semibold text-foreground">{formatearMonto(resumenInscripcion.precio)}</dd>
           </dl>
           <p>{texto("ui.turnos.resumen.precioFijo")}</p>
-          {resumenInscripcion.vence_pago_el && <p>{texto("ui.turnos.reserva.plazo", {
-            vencimiento: texto("ui.turnos.reserva.fechaHora", {
-              dia: fechaLarga(resumenInscripcion.vence_pago_el.slice(0, 10)).toLocaleLowerCase("es-AR"),
-              hora: resumenInscripcion.vence_pago_el.slice(11, 16),
-            }),
-          })}</p>}
+          {resumenInscripcion.vence_pago_el && <>
+            <p>{texto("ui.turnos.reserva.plazo", {
+              vencimiento: texto("ui.turnos.reserva.fechaHora", {
+                dia: fechaLarga(resumenInscripcion.vence_pago_el.slice(0, 10)).toLocaleLowerCase("es-AR"),
+                hora: resumenInscripcion.vence_pago_el.slice(11, 16),
+              }),
+            })}</p>
+            <p>{`${texto("ui.turnos.resumen.cancelacionReserva", {
+              vencimiento: texto("ui.turnos.reserva.fechaHora", {
+                dia: fechaLarga(resumenInscripcion.vence_pago_el.slice(0, 10)).toLocaleLowerCase("es-AR"),
+                hora: resumenInscripcion.vence_pago_el.slice(11, 16),
+              }),
+            })} ${resumenInscripcion.limite_cancelacion_pasado
+              ? texto("ui.turnos.resumen.cancelacionPagadaVencida")
+              : texto("ui.turnos.resumen.cancelacionPagada", {
+                limite: texto("ui.turnos.reserva.fechaHora", {
+                  dia: fechaLarga(resumenInscripcion.limite_cancelacion_en_linea.slice(0, 10)).toLocaleLowerCase("es-AR"),
+                  hora: resumenInscripcion.limite_cancelacion_en_linea.slice(11, 16),
+                }),
+              })}`}</p>
+          </>}
         </div>}
       />
     </div>
