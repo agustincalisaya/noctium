@@ -893,6 +893,7 @@ export const TEXTOS = {
   // --- Registrar pago buscando al alumno (HU-I-10, spec_modulo_I.md §2.7) ---
   "confirmaciones.pagos.registrarOperacion": "¿Estás seguro de que querés registrar el pago de {total} a nombre de {alumno}?",
   "ui.pagos.registrar.titulo": "Registrar pago",
+  "ui.pagos.registrar.errorGenerico": "No se pudo completar la acción. Intentá nuevamente.",
   "ui.pagos.registrar.descripcion": "Alumno → Clases → Confirmación. Cobrá una o varias clases del alumno en una sola operación.",
   "ui.pagos.registrar.migaClases": "Clases",
   "ui.pagos.progreso.nombre": "Progreso del registro de pago",
@@ -931,7 +932,7 @@ export const TEXTOS = {
   "ui.pagos.origen.inscripcion": "Fijado al inscribirse",
   "ui.pagos.origen.tarifaVigente": "Tarifa vigente",
   "ui.pagos.importe.modificar": "Modificar importe",
-  "ui.pagos.importe.usarPrecio": "Usar el precio de la clase",
+  "ui.pagos.importe.usarPrecio": "Usar el precio",
   "ui.pagos.importe.etiqueta": "Importe de {materia}",
   "ui.pagos.importe.motivo": "Motivo del cambio de importe",
   "ui.pagos.importe.invalido": "Ingresá un importe mayor a cero con hasta 2 decimales.",
@@ -1047,6 +1048,7 @@ export const TEXTOS = {
   "ui.turnos.reserva.pendiente": "Pago pendiente · se abona en el centro",
   "ui.turnos.reserva.sinRegistrar": "Pago sin registrar",
   "ui.turnos.reserva.vencida": "Reserva vencida",
+  "ui.turnos.buscador.errorBusqueda": "No se pudo buscar alumnos",
   // HU-C-24: reservas pendientes en el detalle de la clase (mesa de entrada).
   "ui.turnos.reserva.venceEl": "Reservada · vence {vencimiento}",
   "ui.turnos.reserva.registrarPago": "Registrar pago",
