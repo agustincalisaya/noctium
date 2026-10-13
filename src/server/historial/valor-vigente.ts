@@ -37,9 +37,14 @@ export function sqlConControlVigente(cd: string): Prisma.Sql {
     ${c}."conControlAsistencia")`;
 }
 
+export const claseDictadaVigente = { anuladaEl: null, anulacion: { is: null } } satisfies Prisma.ClaseDictadaWhereInput;
+
 /** Clase dictada vigente: no anulada (spec_modulo_E.md §3.7). */
 export function sqlClaseDictadaVigente(cd: string): Prisma.Sql {
-  return Prisma.sql`${alias(cd)}."anuladaEl" IS NULL`;
+  const c = alias(cd);
+  return Prisma.sql`${c}."anuladaEl" IS NULL AND NOT EXISTS (
+    SELECT 1 FROM "anulaciones_clase_dictada" acd
+    WHERE acd."claseDictadaId" = ${c}."idClaseDictada")`;
 }
 
 /** Fecha del resultado de examen después de aplicar su corrección más reciente. */

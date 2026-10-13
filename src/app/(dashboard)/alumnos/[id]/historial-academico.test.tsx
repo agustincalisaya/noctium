@@ -58,9 +58,9 @@ describe("HU-E-09 historial académico", () => {
   it("muestra las indicaciones con fecha local, autor y referencia a la clase", async () => {
     m.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: {
       alumno: { id: "a", nombre_completo: "Alumno" }, materias_disponibles: [{ id: "m", nombre: "Matemática" }],
-      indicaciones_opciones: { materias: [{ id: "m", nombre: "Matemática" }], clases: [{ id: "c", materia_id: "m", fecha: "2026-09-28" }] },
+      indicaciones_opciones: { materias: [{ id: "m", nombre: "Matemática" }], clases: [] },
       asistencia_por_materia: [],
-      items: [{ id: "i", tipo: "INDICACION", fecha: "2026-09-29", materia: { id: "m", nombre: "Matemática" }, indicacion: "Practicar ecuaciones", registrada_en: "2026-09-30T01:30:00.000Z", registrada_por: "mesa@noctium.local", clase_dictada_id: "c" }],
+      items: [{ id: "i", tipo: "INDICACION", fecha: "2026-09-29", materia: { id: "m", nombre: "Matemática" }, indicacion: "Practicar ecuaciones", registrada_en: "2026-09-30T01:30:00.000Z", registrada_por: "mesa@noctium.local", clase_dictada_id: "c", clase_dictada_fecha: "2026-09-28" }],
       paginacion: { total: 1, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
     }, error: null }) });
     await act(async () => root.render(<HistorialAcademico alumnoId="a" puedeRegistrarExamen={false} puedeRegistrarIndicacion={false} mostrarNombre={false} />));
@@ -70,6 +70,7 @@ describe("HU-E-09 historial académico", () => {
     expect(contenedor.textContent).toContain("Registrada el 29/09/2026, 22:30");
     expect(contenedor.textContent).toContain("Registrada por mesa@noctium.local");
     expect(contenedor.textContent).toContain("Clase relacionada del 28/09/2026");
+    expect(contenedor.querySelector(".bg-warning.text-warning-foreground")?.textContent).toBe("Indicación");
   });
 
   it("fija la materia del Profesor y deshabilita indicaciones antes de su primera clase", async () => {

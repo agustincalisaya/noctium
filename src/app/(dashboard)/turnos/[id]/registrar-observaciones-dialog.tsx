@@ -19,12 +19,14 @@ export function RegistrarObservacionesDialog({ turnoId, contexto, onRegistrada }
   const [temas, setTemas] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [error, setError] = useState("");
+  const [errorInternas, setErrorInternas] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   const abrir = () => {
     setTemas("");
     setObservaciones("");
     setError("");
+    setErrorInternas("");
     setConfirmacion(false);
     setAbierto(true);
   };
@@ -32,8 +34,13 @@ export function RegistrarObservacionesDialog({ turnoId, contexto, onRegistrada }
   const continuar = (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
     setError("");
+    setErrorInternas("");
     if (!temas.trim()) {
       setError(texto("ui.historial.observaciones.temasRequeridos"));
+      return;
+    }
+    if (observaciones && !observaciones.trim()) {
+      setErrorInternas(texto("ui.historial.observaciones.internasSoloEspacios"));
       return;
     }
     setConfirmacion(true);
@@ -101,15 +108,20 @@ export function RegistrarObservacionesDialog({ turnoId, contexto, onRegistrada }
               maxLength={1000}
               rows={3}
               value={observaciones}
-              onChange={(evento) => setObservaciones(evento.target.value)}
+              onChange={(evento) => {
+                setObservaciones(evento.target.value);
+                setErrorInternas("");
+              }}
               disabled={guardando}
-              aria-describedby="observaciones-internas-contador"
+              aria-invalid={!!errorInternas || undefined}
+              aria-describedby={errorInternas ? "observaciones-internas-contador observaciones-internas-error" : "observaciones-internas-contador"}
               className="min-h-20 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p id="observaciones-internas-contador" aria-live="polite" className="text-right text-xs text-muted-foreground">
               {texto("ui.historial.observaciones.contador", { cantidad: observaciones.length })}
             </p>
           </div>
+          {errorInternas && <p id="observaciones-internas-error" role="alert" className="text-sm text-destructive">{errorInternas}</p>}
           {error && <p id="temas-vistos-error" role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={guardando} onClick={() => setAbierto(false)}>

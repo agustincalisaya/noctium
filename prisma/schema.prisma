@@ -956,10 +956,8 @@ model AjusteCaja {
   @@map("ajustes_caja")
 }
 
-// Registro de clase dictada (HU-E-01). Desde el Sprint 3 (spec_modulo_E.md
-// §2.5.1): la unicidad es el índice parcial «una no anulada por turno»
-// (clases_dictadas_turno_no_anulada_key) y la marca de anulación se escribe
-// una sola vez (excepción documentada a la Regla N.° 8).
+// Clase dictada: snapshot inmutable. HU-E-11 agrega anulaciones referenciadas
+// y una proyección de vigencia con unicidad por turno, mantenida por PostgreSQL.
 model ClaseDictada {
   idClaseDictada String @id @default(cuid())
   turnoId               String
@@ -970,6 +968,7 @@ model ClaseDictada {
   creadoPorUsuarioId String?
   // Sprint 3: false con el flujo de HU-E-01 (estados null), true con HU-E-09.
   conControlAsistencia  Boolean                @default(false)
+  // Marcas históricas: solo compatibilidad con registros anteriores a HU-E-11 append-only.
   anuladaEl             DateTime?
   anuladaPorUsuarioId   String?
   motivoAnulacion       String?                @db.VarChar(300)
@@ -977,6 +976,8 @@ model ClaseDictada {
   materia Materia @relation(fields: [materiaId], references: [idMateria])
   profesor Profesor @relation(fields: [profesorId], references: [idProfesor])
   alumnos ClaseDictadaAlumno[]
+  anulacion             AnulacionClaseDictada?
+  registroVigente       RegistroClaseDictadaVigente?
   correcciones          CorreccionAsistencia[]
   observacion           ObservacionClase?
   indicaciones          Indicacion[]
@@ -984,6 +985,30 @@ model ClaseDictada {
   @@index([turnoId])
   @@index([profesorId, materiaId])
   @@map("clases_dictadas")
+}
+
+// Hecho de anulación (HU-E-11): una fila nueva; nunca edita la clase original.
+model AnulacionClaseDictada {
+  idAnulacionClase      String   @id @default(cuid())
+  anuladoAnterior      Boolean  @default(false)
+  anuladoNuevo         Boolean  @default(true)
+  claseDictadaId        String   @unique
+  motivo                String   @db.VarChar(300)
+  createdAtAnulacion    DateTime @default(now())
+  creadoPorUsuarioId    String?
+  clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada])
+
+  @@map("anulaciones_clase_dictada")
+}
+
+// Proyección reconstruible, no un hecho académico. Los triggers de la migración
+// reservan un turno al insertar la clase y lo liberan al insertar su anulación.
+model RegistroClaseDictadaVigente {
+  turnoId        String @id
+  claseDictadaId String @unique
+  clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada], onDelete: Cascade)
+
+  @@map("clases_dictadas_vigentes")
 }
 
 model ClaseDictadaAlumno {

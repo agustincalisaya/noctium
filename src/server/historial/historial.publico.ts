@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function profesorTieneRegistros(profesorId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
   return (await db.claseDictada.count({ where: { profesorId } })) > 0;
 }
-import { sqlAsistenciaVigente, sqlClaseDictadaVigente, sqlConControlVigente } from "@/server/historial/valor-vigente";
+import { claseDictadaVigente, sqlAsistenciaVigente, sqlClaseDictadaVigente, sqlConControlVigente } from "@/server/historial/valor-vigente";
 
 type Db = Prisma.TransactionClient;
 
@@ -26,7 +26,7 @@ export async function obtenerClaseDictadaDeTurno(
 ): Promise<{ id: string; registrada_en: string; alumnos_registrados: number } | null> {
   // Relación 1:N (PR-0.md §2.0 y §2.8): la clase dictada vigente del turno es la no anulada.
   const clase = await db.claseDictada.findFirst({
-    where: { turnoId, anuladaEl: null },
+    where: { turnoId, ...claseDictadaVigente },
     select: {
       idClaseDictada: true,
       createdAtClaseDictada: true,
@@ -49,7 +49,7 @@ export async function profesorAtendioAlumno(
   db: Prisma.TransactionClient = prisma,
 ): Promise<boolean> {
   const inscripcion = await db.claseDictadaAlumno.findFirst({
-    where: { alumnoId, clase: { is: { profesorId, anuladaEl: null } } },
+    where: { alumnoId, clase: { is: { profesorId, ...claseDictadaVigente } } },
     select: { alumnoId: true },
   });
   return inscripcion !== null;

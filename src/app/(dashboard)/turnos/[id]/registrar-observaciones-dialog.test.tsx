@@ -56,6 +56,21 @@ describe("HU-E-07 diálogo de observaciones", () => {
     expect(alertDialog().textContent).toContain("Esta acción no se puede deshacer.");
   });
 
+  it("rechaza internas con solo espacios, conserva la entrada y permite dejarlas vacías", async () => {
+    await montar();
+    await ingresar("temas-vistos", "Funciones");
+    await ingresar("observaciones-internas", " \n\t");
+    await continuar();
+    expect(dialog().querySelector('[role="alert"]')?.textContent).toContain("no pueden contener solo espacios");
+    expect(document.getElementById("observaciones-internas")?.getAttribute("aria-invalid")).toBe("true");
+    expect(document.getElementById("temas-vistos")?.getAttribute("aria-invalid")).not.toBe("true");
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(m.guardar).not.toHaveBeenCalled();
+    await ingresar("observaciones-internas", "");
+    await continuar();
+    expect(alertDialog()).not.toBeNull();
+  });
+
   it("guarda la entrada normalizada, muestra el toast literal y devuelve el control al detalle", async () => {
     await montar();
     await ingresar("temas-vistos", "  Funciones lineales  ");

@@ -37,7 +37,7 @@ describe("HU-E-01 compatible / HU-E-09 registro", () => {
     expect(mocks.bloquear).toHaveBeenCalledWith(mocks.tx, { clases: ["turno-1"] });
     expect(mocks.turno).toHaveBeenCalledWith("turno-1", mocks.tx); expect(mocks.termino).toHaveBeenCalledOnce();
     const sql = mocks.tx.$executeRaw.mock.calls[0][0];
-    expect(sql.sql).toContain('ON CONFLICT ("turnoId") WHERE "anuladaEl" IS NULL DO NOTHING');
+    expect(sql.sql).toContain('INSERT INTO "clases_dictadas"');
     expect(sql.values).toContain("materia-1"); expect(sql.values).toContain("profesor-1"); expect(sql.values).toContain("mesa-1");
     expect(sql.values).toContain("2026-09-28");
     expect(mocks.tx.claseDictadaAlumno.createMany).toHaveBeenCalledWith({ data: [
@@ -89,11 +89,7 @@ describe("HU-E-01 compatible / HU-E-09 registro", () => {
     await registrarClaseDictada(mocks.tx as never, { turnoId: "turno-1", actor: { tipo: "USUARIO", usuarioId: mesa.id }, asistencias: [{ inscripcionId: "ins-1", estado: "PRESENTE" }, { inscripcionId: "ins-2", estado: "AUSENTE" }] });
     expect(mocks.tx.claseDictadaAlumno.createMany).toHaveBeenCalledOnce();
   });
-  it("devuelve la ganadora si ON CONFLICT no inserta", async () => {
-    mocks.tx.$executeRaw.mockResolvedValue(0); mocks.tx.claseDictada.findFirstOrThrow.mockResolvedValue({ idClaseDictada: "ganadora" });
-    await expect(registrarSolicitud("turno-1", mesa)).resolves.toMatchObject({ id: "ganadora", ya_existia: true });
-    expect(mocks.tx.claseDictadaAlumno.createMany).not.toHaveBeenCalled();
-  });
+
 });
 
 describe("HU-E-01 GET ampliado", () => {
