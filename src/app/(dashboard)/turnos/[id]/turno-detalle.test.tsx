@@ -36,8 +36,8 @@ const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: as
 let root: Root;
 let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarPago?: boolean; puedeRegistrarClase?: boolean } = {}) => {
-  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarPago={props.puedeRegistrarPago ?? false} puedeRegistrarClase={props.puedeRegistrarClase ?? false} />));
+const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarClase?: boolean } = {}) => {
+  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarClase={props.puedeRegistrarClase ?? false} />));
   await esperar();
 };
 const valor = (etiqueta: string) => [...container.querySelectorAll("dt")].find((dt) => dt.textContent === etiqueta)?.nextElementSibling?.textContent;
@@ -448,20 +448,23 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(links).toEqual([["Comprobante 0001-00000124", "/comprobantes/comp-2"]]);
   });
 
-  it("HU-I-01 ofrece registro solo con permiso y elegibilidad; conserva la lectura en un turno cancelado", async () => {
-    await montar({ puedeRegistrarPago: true });
-    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Registrar pago")).toBe(true);
-    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
-    await act(async () => root.unmount()); root = createRoot(container);
-    await montar({ puedeRegistrarPago: true });
-    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Registrar pago")).toBe(false);
-    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
+  it("HU-I-10: la tarjeta Pago solo informa pagos; el cobro se ofrece por alumno", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({
+      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: true }],
+    })));
+    await montar();
+    const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
+    expect(tarjeta.textContent).toContain("Total registrado");
+    expect(tarjeta.querySelector("button")).toBeNull();
+    expect(container.querySelector('a[aria-label="Registrar pago de Pérez, Juan"]')?.getAttribute("href"))
+      .toBe("/pagos/registrar?alumno=alumno-1&clase=turno-1");
   });
 
-  it("HU-I-01 deshabilita registro cuando no hay inscriptos", async () => {
-    fetch.mockResolvedValue(respuesta(detalle({ alumnos: [], acciones_habilitadas: [] })));
-    await montar({ puedeRegistrarPago: true });
-    expect(([...container.querySelectorAll("button")].find((b) => b.textContent === "Registrar pago") as HTMLButtonElement).disabled).toBe(true);
+  it("HU-I-10: la tarjeta Pago conserva la lectura en una clase cancelada", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    await montar();
+    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
+    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"] button')).toBeNull();
   });
 
   it("tarjeta «Pago» vacía → «Ninguno todavía.»", async () => {

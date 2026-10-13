@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { PagoAcciones } from "@/components/pagos/pago-acciones";
 import { Badge } from "@/components/ui/badge";
@@ -8,15 +7,14 @@ import type { PagoRegistradoTurno } from "@/types/turno.types";
 
 /**
  * Tarjeta «Pago» (mockup pág. 5), solo cuando la API envía `pagos` (rol con
- * `pagos:leer`; nunca el Profesor). HU-I-01 añade la acción autorizada y el
- * total de importes registrados solicitado por la referencia PDF, sin saldo
- * esperado ni validación de precio. La suma usa centavos enteros exactos.
+ * `pagos:leer`; nunca el Profesor). Muestra los pagos y el total de importes
+ * registrados solicitado por la referencia PDF, sin saldo esperado ni
+ * validación de precio. La suma usa centavos enteros exactos.
  * HU-I-06: cada pago lleva sus acciones (Corregir, Anular, Ver detalle); un
  * pago anulado se muestra tachado con «Anulado» y no suma en el total.
  */
-export function TurnoPagoCard({ pagos, accion, claseEtiqueta, onCambio }: {
+export function TurnoPagoCard({ pagos, claseEtiqueta, onCambio }: {
   pagos: PagoRegistradoTurno[];
-  accion?: ReactNode;
   /** «Materia del Día dd/mm», para los títulos de los diálogos de HU-I-06. */
   claseEtiqueta: string;
   /** Recarga el detalle después de corregir o anular. */
@@ -30,7 +28,6 @@ export function TurnoPagoCard({ pagos, accion, claseEtiqueta, onCambio }: {
   return (
     <section aria-labelledby="pago-turno-titulo" className="space-y-3 rounded-md border border-border bg-card p-4 text-card-foreground sm:p-[22px]">
       <h2 id="pago-turno-titulo" className="text-sm font-semibold">Pago</h2>
-      {accion}
       <div className="space-y-2">
         <h3 className="text-[10px] leading-4 uppercase tracking-wide text-muted-foreground">Pagos registrados</h3>
         {pagos.length === 0 ? (

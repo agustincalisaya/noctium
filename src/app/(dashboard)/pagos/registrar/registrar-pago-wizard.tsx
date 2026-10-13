@@ -21,8 +21,6 @@ import {
   seleccionInicial, totalElegido, type FilaElegible, type Seleccion,
 } from "./seleccion-clases";
 
-const MENSAJE_ERROR_GENERICO = "No se pudo completar la acción. Intentá nuevamente.";
-
 type Carga = { alumnoId: string; turnoId?: string };
 
 /**
@@ -112,7 +110,7 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
         throw new Error(texto("ui.pagos.tarifaCambio", { materia: detalles.materia ?? "" }));
       }
       setSinCaja(error?.code === "CAJA_NO_ABIERTA");
-      throw new Error(error?.message ?? MENSAJE_ERROR_GENERICO);
+      throw new Error(error?.message ?? texto("ui.pagos.registrar.errorGenerico"));
     }
     resultado.current = cuerpo.data as OperacionDePagoRegistrada;
   };

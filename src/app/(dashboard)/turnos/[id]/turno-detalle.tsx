@@ -14,15 +14,14 @@ import { TurnoPagoCard } from "./turno-pago-card";
 import { AsignarPrioridadDialog } from "./asignar-prioridad-dialog";
 import { CancelarTurnoDialog } from "./cancelar-turno-dialog";
 import { ReprogramarTurnoDialog } from "./reprogramar-turno-dialog";
-import { RegistrarPagoDialog } from "./registrar-pago-dialog";
 import { diaAbreviadoYFecha } from "@/lib/turno-detalle";
 
 /**
  * Detalle de turno (HU-C-09, mockup pág. 5): contenedor que consulta
  * `GET /api/turnos/[id]` y reparte los datos en subcomponentes, uno por zona,
- * para que C-05, C-06, C-10, I-01 y E-01 se enganchen sin pisarse.
+ * para que C-05, C-06, C-10 y E-01 se enganchen sin pisarse.
  */
-export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionarAlumnos, puedeRegistrarClase = false, puedeRegistrarPago = false, puedeRegistrarIndicacion = false, esProfesor = false }: { id: string; retorno: string; puedeConfigurar: boolean; puedeGestionarAlumnos: boolean; puedeRegistrarClase?: boolean; puedeRegistrarPago?: boolean; puedeRegistrarIndicacion?: boolean; esProfesor?: boolean }) {
+export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionarAlumnos, puedeRegistrarClase = false, puedeRegistrarIndicacion = false, esProfesor = false }: { id: string; retorno: string; puedeConfigurar: boolean; puedeGestionarAlumnos: boolean; puedeRegistrarClase?: boolean; puedeRegistrarIndicacion?: boolean; esProfesor?: boolean }) {
   const [turno, setTurno] = useState<TurnoDetalle | null>(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
@@ -62,7 +61,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
     {turnoActual?.estado === "PENDIENTE" && (puedeConfigurar || (puedeGestionarAlumnos && turnoActual.aula_id)) && <div className="flex flex-wrap gap-3">{puedeConfigurar && <Link className="inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{turnoActual.aula_id ? textoC19("ui.clases.interfaz.modificarConfiguracionOAula") : textoC19("ui.clases.interfaz.modificarConfiguracionYAsignarAula")}</Link>}{puedeGestionarAlumnos && turnoActual.aula_id && <Link className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.asignarProfesorYAlumnos")}</Link>}</div>}
     {cargando ? <p role="status">{textoC19("ui.clases.interfaz.cargandoClase")}</p> : error ? <div role="alert" className="space-y-3 rounded-md border border-border bg-card p-4"><p>{error}</p><Button variant="outline" onClick={() => void cargar()}>{textoC19("ui.formasPago.reintentar")}</Button></div> : turnoActual && (
       // Mockup pág. 5: columnas proporcionales 2:1 con datos y alumnos; a la derecha
-      // con «Pago» y «Clase» en los roles que pueden registrar, como en el mockup.
+      // con «Pago» para quienes pueden consultar pagos, como en el mockup.
       <div className={`grid gap-[18px] ${turnoActual.pagos ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
         <div className="min-w-0 space-y-[18px]">
           <TurnoDatosCard turno={turnoActual} />
@@ -72,12 +71,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
           {turnoActual.pagos && <TurnoPagoCard pagos={turnoActual.pagos}
             claseEtiqueta={textoC19("ui.pagos.correccion.claseEtiqueta", { materia: turnoActual.materia, dia: diaAbreviadoYFecha(turnoActual.fecha) })}
             onCambio={() => cargar(true)}
-            accion={puedeRegistrarPago && (turnoActual.estado === "DISPONIBLE" || turnoActual.estado === "COMPLETO") ? <RegistrarPagoDialog
-            turnoId={turnoActual.id}
-            contexto={`${turnoActual.materia} · ${diaAbreviadoYFecha(turnoActual.fecha)}, ${turnoActual.hora_inicio}–${turnoActual.hora_fin}`}
-            deshabilitado={!turnoActual.acciones_habilitadas.includes("registrar_pago")}
-            onRegistrado={() => cargar(true)}
-          /> : undefined} />}
+          />}
         </aside>}
       </div>
     )}

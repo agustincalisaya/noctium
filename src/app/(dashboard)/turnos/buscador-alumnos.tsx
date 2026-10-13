@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fetchAutenticado } from "@/lib/fetch-autenticado";
+import { texto } from "@/lib/textos";
 
 export type AlumnoBuscado = { id: string; nombre: string; apellido: string; dni: string };
 export const etiquetaAlumno = (alumno: AlumnoBuscado) => `${alumno.apellido}, ${alumno.nombre}`;
@@ -39,9 +40,9 @@ export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado
       try {
         const respuesta = await fetchAutenticado(`${endpoint}?q=${encodeURIComponent(query.trim())}`, { signal: controller.signal, cache: "no-store" });
         const valor = await respuesta.json().catch(() => null);
-        if (!respuesta.ok) throw new Error(valor?.error?.message ?? "No se pudo buscar alumnos");
+        if (!respuesta.ok) throw new Error(valor?.error?.message ?? texto("ui.turnos.buscador.errorBusqueda"));
         setResultados(valor.data ?? []);
-      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "No se pudo buscar alumnos"); }
+      } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : texto("ui.turnos.buscador.errorBusqueda")); }
       finally { if (!controller.signal.aborted) setBuscando(false); }
     }, 250);
     return () => { window.clearTimeout(timer); controller.abort(); };
