@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { registrarPago } from "@/server/pagos/pago.service";
-import { listarPagosDeTurno } from "@/server/pagos/pago.publico";
+import { listarPagosDeClase } from "@/server/pagos/pago.publico";
 import { abrirCajaDePrueba, crearFichaMesaEntradaDePrueba } from "@/server/testing/fabricas";
 
 // Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
@@ -71,7 +71,7 @@ describe.skipIf(!habilitada)("HU-I-01 PostgreSQL aislado", () => {
       data: { vigencia: "QUITADA_CENTRO", finalizadaEl: new Date(), finalizadaPorActorTipo: "PROCESO_AUTOMATICO" },
     });
     await db!.formaPago.update({ where: { idFormaPago: formaId }, data: { activaFormaPago: false } });
-    const pagos = await listarPagosDeTurno(turnoId);
+    const pagos = await listarPagosDeClase(turnoId);
     expect(pagos).toHaveLength(3);
     expect(pagos.every((pago) => pago.alumno.id === alumnoId && pago.forma_pago.nombre === prefijo)).toBe(true);
   });

@@ -55,9 +55,11 @@ const PUBLICOS = [
     ruta: "server/pagos/pago.publico.ts",
     // PR 0: valor vigente, del propio módulo I (2.13). HU-I-11: el comprobante
     // vigente de cada pago se resuelve en la lectura de comprobantes, también de I.
+    // HU-I-06: el alcance de corrección (`puede_corregir`), sin dependencias de otros módulos.
     permitidos: [
       "@prisma/client", "@/lib/prisma", "@/server/alumnos/alumno.publico",
       "@/server/pagos/comprobante.lectura", "@/server/pagos/pago.vigente",
+      "@/server/pagos/correccion.alcance",
     ],
   },
   // PR 0 (Sprint 3): fachadas nuevas.
@@ -81,6 +83,11 @@ const PUBLICOS = [
   {
     ruta: "server/historial/historial.publico.ts",
     permitidos: ["@prisma/client", "@/lib/prisma", "@/server/historial/valor-vigente"],
+  },
+  {
+    // HU-I-06: lo importa pago.publico.ts, así que tampoco puede depender de otros módulos.
+    ruta: "server/pagos/correccion.alcance.ts",
+    permitidos: ["@prisma/client"],
   },
 ];
 

@@ -1,12 +1,12 @@
 import type { RolUsuario } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { turno, turnoAlumno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeTurno, obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion, existeInscripcionVigente } = vi.hoisted(() => ({
+const { turno, turnoAlumno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuario, listarPagosDeClase, obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion, existeInscripcionVigente } = vi.hoisted(() => ({
   turno: { findFirst: vi.fn() },
   turnoAlumno: { findMany: vi.fn() },
   obtenerOpcionProfesorDeUsuario: vi.fn(),
   obtenerEmailDeUsuario: vi.fn(),
-  listarPagosDeTurno: vi.fn(),
+  listarPagosDeClase: vi.fn(),
   obtenerClaseDictadaDeTurno: vi.fn(),
   profesorPuedeRegistrarIndicacion: vi.fn(),
   existeInscripcionVigente: vi.fn(),
@@ -14,7 +14,7 @@ const { turno, turnoAlumno, obtenerOpcionProfesorDeUsuario, obtenerEmailDeUsuari
 vi.mock("@/lib/prisma", () => ({ prisma: { turno, turnoAlumno } }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorDeUsuario }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario }));
-vi.mock("@/server/pagos/pago.publico", () => ({ listarPagosDeTurno }));
+vi.mock("@/server/pagos/pago.publico", () => ({ listarPagosDeClase }));
 vi.mock("@/server/historial/historial.publico", () => ({ obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion }));
 vi.mock("@/server/turnos/inscripcion.publico", () => ({ existeInscripcionVigenteConProfesor: existeInscripcionVigente }));
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: vi.fn() }));
@@ -46,7 +46,19 @@ const registro = ({ estado = "DISPONIBLE" as Estado, cupo = 5 as number | null, 
   createdAtTurno: new Date("2026-09-24T12:00:00.000Z"), updatedAtTurno: new Date("2026-09-25T12:00:00.000Z"),
   creadoPorUsuarioId: creadoPor, modificadoPorUsuarioId: "usuario-otro",
 });
-const PAGO = { id: "pago-1", alumno: { id: "alumno-retirado", nombre_completo: "Ruiz, Tomás" }, monto: "12000.00", forma_pago: { id: "fp", nombre: "Efectivo" }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z" };
+const PAGO_DE_CLASE = {
+  id: "pago-1", alumno: { id: "alumno-retirado", nombre_completo: "Ruiz, Tomás" }, monto: "12000.00",
+  forma_pago: { id: "fp", nombre: "Efectivo", is_active: true }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z",
+  inscripcion_id: "insc-1", operacion_id: "op-1", anulado: false, anulacion: null,
+  comprobante_vigente: { id: "comp-1", numero: "0001-00000001" }, cambios: 0, clases_de_la_operacion: 1, puede_corregir: true,
+};
+// Lo que muestra el detalle: `comprobante` (contrato de C §2.4) y sin la inscripción.
+const PAGO = {
+  id: "pago-1", alumno: { id: "alumno-retirado", nombre_completo: "Ruiz, Tomás" }, monto: "12000.00",
+  forma_pago: { id: "fp", nombre: "Efectivo", is_active: true }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z",
+  comprobante: { id: "comp-1", numero: "0001-00000001" }, operacion_id: "op-1", anulado: false, anulacion: null,
+  cambios: 0, clases_de_la_operacion: 1, puede_corregir: true,
+};
 
 type Usuario = { id: string; rol: RolUsuario };
 const detalle = (usuario: Usuario = MESA, capacidades = CAPACIDADES_MESA) => obtenerDetalleTurno("turno-1", usuario, { capacidades, ahora: AHORA });
@@ -62,7 +74,7 @@ beforeEach(() => {
   turnoAlumno.findMany.mockResolvedValue([]);
   obtenerEmailDeUsuario.mockResolvedValue("mesa@centro.com");
   obtenerOpcionProfesorDeUsuario.mockResolvedValue({ id: "profesor-1", nombreParaMostrar: "Méndez, Laura" });
-  listarPagosDeTurno.mockResolvedValue([PAGO]);
+  listarPagosDeClase.mockResolvedValue([PAGO_DE_CLASE]);
   obtenerClaseDictadaDeTurno.mockResolvedValue(null);
   profesorPuedeRegistrarIndicacion.mockResolvedValue(false);
   existeInscripcionVigente.mockResolvedValue(false);
@@ -113,7 +125,7 @@ describe("HU-C-09 alcance por rol (AC2)", () => {
     ["D", () => obtenerOpcionProfesorDeUsuario.mockRejectedValue(new Error("D caído")), PROFESOR],
     ["Prisma", () => turno.findFirst.mockRejectedValue(new Error("Prisma caído")), MESA],
     ["A", () => obtenerEmailDeUsuario.mockRejectedValue(new Error("A caído")), MESA],
-    ["I", () => listarPagosDeTurno.mockRejectedValue(new Error("I caído")), MESA],
+    ["I", () => listarPagosDeClase.mockRejectedValue(new Error("I caído")), MESA],
   ])("un fallo de %s se propaga: nunca se traduce en sin_permiso", async (_modulo, fallar, usuario) => {
     fallar();
     await expect(detalle(usuario, usuario === PROFESOR ? CAPACIDADES_PROFESOR : CAPACIDADES_MESA)).rejects.toThrow("caído");
@@ -188,27 +200,35 @@ describe("HU-C-09 campos del detalle (AC1)", () => {
 });
 
 describe("HU-C-09 pagos (AC1, Q6d)", () => {
-  it("con pagos:leer incluye la lista completa de I, con pagos de alumnos ya retirados", async () => {
+  it("con pagos:leer incluye la lista completa de I, con pagos de alumnos ya retirados y el alcance de quien consulta (HU-I-06)", async () => {
     const resultado = await ok();
-    expect(listarPagosDeTurno).toHaveBeenCalledExactlyOnceWith("turno-1");
+    expect(listarPagosDeClase).toHaveBeenCalledExactlyOnceWith("turno-1", MESA);
     expect(resultado.pagos).toEqual([PAGO]);
   });
 
+  it("incluye los pagos anulados marcados (HU-I-06)", async () => {
+    listarPagosDeClase.mockResolvedValue([{ ...PAGO_DE_CLASE, anulado: true, anulacion: { fecha: "2026-10-02T12:00:00.000Z", motivo: "Reintegro" }, puede_corregir: false }]);
+    expect((await ok(GERENTE, CAPACIDADES_GERENTE)).pagos).toEqual([
+      { ...PAGO, anulado: true, anulacion: { fecha: "2026-10-02T12:00:00.000Z", motivo: "Reintegro" }, puede_corregir: false },
+    ]);
+    expect(listarPagosDeClase).toHaveBeenCalledWith("turno-1", GERENTE);
+  });
+
   it("con pagos:leer y sin registros devuelve []", async () => {
-    listarPagosDeTurno.mockResolvedValue([]);
+    listarPagosDeClase.mockResolvedValue([]);
     expect((await ok(GERENTE, CAPACIDADES_GERENTE)).pagos).toEqual([]);
   });
 
   it("sin pagos:leer la propiedad se omite y no se consulta I", async () => {
     const resultado = await ok(MESA, { ...CAPACIDADES_MESA, verPagos: false });
     expect(resultado).not.toHaveProperty("pagos");
-    expect(listarPagosDeTurno).not.toHaveBeenCalled();
+    expect(listarPagosDeClase).not.toHaveBeenCalled();
   });
 
   it("el Profesor nunca recibe pagos, aunque la capacidad llegara en true", async () => {
     const resultado = await ok(PROFESOR, { ...CAPACIDADES_PROFESOR, verPagos: true });
     expect(resultado).not.toHaveProperty("pagos");
-    expect(listarPagosDeTurno).not.toHaveBeenCalled();
+    expect(listarPagosDeClase).not.toHaveBeenCalled();
   });
 });
 

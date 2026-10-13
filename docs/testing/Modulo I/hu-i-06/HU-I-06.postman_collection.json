@@ -1,0 +1,1156 @@
+{
+  "info": {
+    "name": "HU-I-06 — Corregir o anular un pago registrado",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Nivel 2 de la §6 de docs/tasks/Sprint 3/Modulo I/HU-I-06.md (spec_modulo_I.md §2.14). Tres carpetas, cada una con su propio login de NextAuth (csrf + callback/credentials): correr cada carpeta en una corrida aparte (cookie jar nuevo), en el orden A → B → C, pasando el environment exportado de una a la siguiente (pago_1, pago_2, huella, caja_ajuste_id). «mesa2» = mesa.entrada2@noctium.local, «gerente» = gerente@noctium.local, «profesor» = profesor1@noctium.local. La contraseña NO se guarda: pasarla con --env-var password=…. Variables de entrada (salen de las consultas «Entrada» de HU-I-06.sql sobre la base con el seed): alumno_id, insc_1 e insc_2 (dos inscripciones cobrables del mismo alumno con el mismo precio), precio (ese precio, entero), pago_antiguo_id (un pago registrado hace más de 30 días, en una caja abierta de otro integrante) y forma_inactiva_id. A01 cobra las dos clases en la caja de mesa2 y A17/A18 la CIERRAN (deja de estar abierta): es el escenario de caja cerrada de B02/B03. B05/B06 corrigen y restituyen el monto del pago antiguo (quedan las dos correcciones). Ejecutada con newman: ver HU-I-06-evidencia.md."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "email_mesa2",
+      "value": "mesa.entrada2@noctium.local"
+    },
+    {
+      "key": "email_gerente",
+      "value": "gerente@noctium.local"
+    },
+    {
+      "key": "email_profesor",
+      "value": "profesor1@noctium.local"
+    },
+    {
+      "key": "csrf",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "A · mesa2: cobra, corrige, anula y cierra su caja (correr primero)",
+      "item": [
+        {
+          "name": "A mesa2 · GET csrf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrf', pm.response.json().csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A mesa2 · POST login (credenciales)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/callback/credentials",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "csrfToken",
+                  "value": "{{csrf}}"
+                },
+                {
+                  "key": "email",
+                  "value": "{{email_mesa2}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login sin error', () => pm.expect(pm.response.code).to.be.below(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A mesa2 · GET sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('sesión con rol MESA_ENTRADA', () => pm.expect(u.rol).to.eql('MESA_ENTRADA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A00 mesa2 · POST abrir caja si no hay (201 o 409 CAJA_YA_ABIERTA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('caja abierta', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A01 mesa2 · POST operación de 2 clases por transferencia · 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/operaciones",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"items\": [\n    {\n      \"inscripcion_id\": \"{{insc_1}}\",\n      \"monto\": \"{{precio}}\"\n    },\n    {\n      \"inscripcion_id\": \"{{insc_2}}\",\n      \"monto\": \"{{precio}}\"\n    }\n  ],\n  \"forma_pago_id\": \"formapago-transferencia\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const precio = Number(pm.environment.get('precio'));",
+                  "pm.environment.set('precio_dec', precio.toFixed(2));",
+                  "pm.environment.set('monto_mesa', String(precio - 1000));",
+                  "pm.environment.set('monto_mesa_dec', (precio - 1000).toFixed(2));",
+                  "pm.environment.set('monto_gerente', String(precio - 2000));",
+                  "pm.environment.set('monto_gerente_dec', (precio - 2000).toFixed(2));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "const pagos = pm.response.json().data.pagos;",
+                  "pm.test('dos pagos', () => pm.expect(pagos).to.have.length(2));",
+                  "pm.environment.set('pago_1', pagos.find((p) => p.inscripcion_id === pm.environment.get('insc_1')).id);",
+                  "pm.environment.set('pago_2', pagos.find((p) => p.inscripcion_id === pm.environment.get('insc_2')).id);",
+                  "pm.environment.set('operacion_id', pm.response.json().data.operacion_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A02 mesa2 · POST corrección de monto · 200 (contrato §2.14.2)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_mesa}}\",\n  \"motivo\": \"Beca parcial (HU-I-06)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('monto vigente = precio − 1000', () => pm.expect(d.monto).to.eql(pm.environment.get('monto_mesa_dec')));",
+                  "pm.test('forma vigente con is_active', () => pm.expect(d.forma_pago).to.eql({ id: 'formapago-transferencia', nombre: 'Transferencia', is_active: true }));",
+                  "pm.test('clases_abarcadas 2', () => pm.expect(d.clases_abarcadas).to.eql(2));",
+                  "pm.test('comprobante de reemplazo', () => pm.expect(d.comprobante.numero).to.match(/^0001-\\d{8}$/));",
+                  "pm.test('fecha YYYY-MM-DD', () => pm.expect(d.fecha_pago).to.match(/^\\d{4}-\\d{2}-\\d{2}$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A03 mesa2 · POST corrección con los valores vigentes · 400 SIN_CAMBIOS",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_mesa_dec}}\",\n  \"forma_pago_id\": \"formapago-transferencia\",\n  \"motivo\": \"Igual\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code SIN_CAMBIOS', () => pm.expect(pm.response.json().error.code).to.eql('SIN_CAMBIOS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A04 mesa2 · POST forma nueva inactiva (Cheque) · 409 FORMA_PAGO_NO_DISPONIBLE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pago_id\": \"{{forma_inactiva_id}}\",\n  \"motivo\": \"Forma inactiva\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code FORMA_PAGO_NO_DISPONIBLE', () => pm.expect(pm.response.json().error.code).to.eql('FORMA_PAGO_NO_DISPONIBLE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A05 mesa2 · POST fecha futura · 400 FECHA_PAGO_FUTURA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha_pago\": \"{{futura}}\",\n  \"motivo\": \"Fecha futura\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);",
+                  "pm.environment.set('futura', d.toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code FECHA_PAGO_FUTURA', () => pm.expect(pm.response.json().error.code).to.eql('FECHA_PAGO_FUTURA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A06 mesa2 · POST sin campos de cambio · 400 VALIDACION",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Nada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A07 mesa2 · POST motivo de 301 caracteres · 400 VALIDACION",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"1\",\n  \"motivo\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A08 mesa2 · POST forma y fecha de la operación · 200, alcanza a 2 clases",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"forma_pago_id\": \"formapago-debito\",\n  \"fecha_pago\": \"{{ayer}}\",\n  \"motivo\": \"Error de carga (HU-I-06)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date(Date.now() - 3 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000);",
+                  "pm.environment.set('ayer', d.toISOString().slice(0, 10));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('forma débito', () => pm.expect(d.forma_pago.id).to.eql('formapago-debito'));",
+                  "pm.test('fecha corregida', () => pm.expect(d.fecha_pago).to.eql(pm.environment.get('ayer')));",
+                  "pm.test('clases_abarcadas 2', () => pm.expect(d.clases_abarcadas).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A09 mesa2 · POST anular el segundo pago («Reintegro») · 200 (contrato §2.14.3)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_2}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Reintegro\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('anulado', () => pm.expect(d.anulado).to.eql(true));",
+                  "pm.test('inscripción con estado de pago', () => pm.expect(['RESERVADA', 'PAGO_SIN_REGISTRAR']).to.include(d.inscripcion.estado_pago));",
+                  "pm.test('vence_el solo si se reabrió la reserva', () => pm.expect(d.inscripcion.vence_el === null).to.eql(d.inscripcion.estado_pago !== 'RESERVADA'));",
+                  "pm.test('queda otro pago vigente: comprobante de reemplazo', () => pm.expect(d.comprobante.reemplazo).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A10 mesa2 · POST anular de nuevo · 409 PAGO_YA_ANULADO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_2}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Otra vez\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code PAGO_YA_ANULADO', () => pm.expect(pm.response.json().error.code).to.eql('PAGO_YA_ANULADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A11 mesa2 · POST corregir el anulado · 409 PAGO_ANULADO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_2}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"1\",\n  \"motivo\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code PAGO_ANULADO', () => pm.expect(pm.response.json().error.code).to.eql('PAGO_ANULADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A12 mesa2 · GET historial del pago corregido · 200, más nuevo primero",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('registro vigente', () => pm.expect(d.registro.monto).to.eql(pm.environment.get('monto_mesa_dec')));",
+                  "pm.test('tipos en orden', () => pm.expect(d.cambios.map((c) => c.tipo)).to.eql(['CORRECCION_FECHA', 'CORRECCION_FORMA', 'CORRECCION_MONTO']));",
+                  "pm.test('monto precio → precio − 1000', () => pm.expect([d.cambios[2].valor_anterior, d.cambios[2].valor_nuevo]).to.eql([pm.environment.get('precio_dec'), pm.environment.get('monto_mesa_dec')]));",
+                  "pm.test('forma por nombre', () => pm.expect([d.cambios[1].valor_anterior, d.cambios[1].valor_nuevo]).to.eql(['Transferencia', 'Débito']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A13 mesa2 · GET historial del pago anulado · 200, la anulación primero y las de la operación incluidas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/{{pago_2}}/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('tipos', () => pm.expect(d.cambios.map((c) => c.tipo)).to.eql(['ANULACION', 'CORRECCION_FECHA', 'CORRECCION_FORMA']));",
+                  "pm.test('anulación: monto vigente → null, motivo Reintegro', () => pm.expect([d.cambios[0].valor_anterior, d.cambios[0].valor_nuevo, d.cambios[0].motivo]).to.eql([pm.environment.get('precio_dec'), null, 'Reintegro']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A14 mesa2 · GET historial de un pago sin cambios · 200, cambios []",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/{{pago_antiguo_id}}/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('cambios []', () => pm.expect(pm.response.json().data.cambios).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A15 mesa2 · GET historial de un pago inexistente · 404 PAGO_NO_ENCONTRADO",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/c000000000000000000000000/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code PAGO_NO_ENCONTRADO', () => pm.expect(pm.response.json().error.code).to.eql('PAGO_NO_ENCONTRADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A16 mesa2 · POST corregir un pago registrado hace más de 30 días · 403 FUERA_DE_ALCANCE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_antiguo_id}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"1\",\n  \"motivo\": \"Fuera de alcance\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code FUERA_DE_ALCANCE', () => pm.expect(pm.response.json().error.code).to.eql('FUERA_DE_ALCANCE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A17 mesa2 · POST declarar efectivo (cerrar la caja del pago) · 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/declaracion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"efectivo_declarado\": \"0\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('huella', pm.response.json().data.huella);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A18 mesa2 · POST cierre · 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/cierre",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"huella\": \"{{huella}}\",\n  \"motivo\": \"Cierre de prueba (HU-I-06)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A19 mesa2 · POST corregir con la caja del pago cerrada · 403 FUERA_DE_ALCANCE",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_gerente}}\",\n  \"motivo\": \"Caja cerrada\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code FUERA_DE_ALCANCE', () => pm.expect(pm.response.json().error.code).to.eql('FUERA_DE_ALCANCE'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "B · gerente: caja de ajuste y alcance sin límite (correr segundo)",
+      "item": [
+        {
+          "name": "B gerente · GET csrf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrf', pm.response.json().csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B gerente · POST login (credenciales)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/callback/credentials",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "csrfToken",
+                  "value": "{{csrf}}"
+                },
+                {
+                  "key": "email",
+                  "value": "{{email_gerente}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login sin error', () => pm.expect(pm.response.code).to.be.below(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B gerente · GET sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('sesión con rol GERENTE', () => pm.expect(u.rol).to.eql('GERENTE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B01 gerente · GET cajas abiertas (para la caja de ajuste) · 200",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/cajas"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const abiertas = pm.response.json().data.abiertas;",
+                  "pm.test('hay al menos una caja abierta', () => pm.expect(abiertas.length).to.be.above(0));",
+                  "pm.environment.set('caja_ajuste_id', abiertas[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B02 gerente · POST corregir pago de caja cerrada sin caja de ajuste · 409 CAJA_DE_AJUSTE_NO_ABIERTA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_gerente}}\",\n  \"motivo\": \"Beca (gerente)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code CAJA_DE_AJUSTE_NO_ABIERTA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_DE_AJUSTE_NO_ABIERTA'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B03 gerente · POST corregir con una caja abierta ajena · 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_gerente}}\",\n  \"motivo\": \"Beca (gerente)\",\n  \"caja_ajuste_id\": \"{{caja_ajuste_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "pm.test('monto = precio − 2000', () => pm.expect(pm.response.json().data.monto).to.eql(pm.environment.get('monto_gerente_dec')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B04 gerente · GET historial del pago antiguo (monto vigente) · 200",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/{{pago_antiguo_id}}/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const m = pm.response.json().data.registro.monto;",
+                  "pm.environment.set('monto_antiguo', m);",
+                  "pm.environment.set('monto_antiguo_mas_uno', (Number(m) + 1).toFixed(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B05 gerente · POST corregir el pago de más de 30 días · 200 (el gerente no tiene límite)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_antiguo_id}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_antiguo_mas_uno}}\",\n  \"motivo\": \"Prueba de alcance del gerente (HU-I-06)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B06 gerente · POST restituir el monto del pago antiguo · 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_antiguo_id}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"{{monto_antiguo}}\",\n  \"motivo\": \"Restituye el monto de la prueba anterior (HU-I-06)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('monto restituido', () => pm.expect(pm.response.json().data.monto).to.eql(pm.environment.get('monto_antiguo')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B07 gerente · GET historial con las dos correcciones del gerente · 200",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/{{pago_antiguo_id}}/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json().data.cambios;",
+                  "pm.test('dos correcciones de monto, la restitución primero', () => pm.expect(c.map((x) => [x.tipo, x.valor_nuevo])).to.eql([['CORRECCION_MONTO', pm.environment.get('monto_antiguo')], ['CORRECCION_MONTO', pm.environment.get('monto_antiguo_mas_uno')]]));",
+                  "pm.test('usuario con nombre', () => pm.expect(c[0].usuario.nombre_completo).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "C · profesor: sin permisos de pagos (correr tercero)",
+      "item": [
+        {
+          "name": "C profesor · GET csrf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrf', pm.response.json().csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C profesor · POST login (credenciales)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/callback/credentials",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "csrfToken",
+                  "value": "{{csrf}}"
+                },
+                {
+                  "key": "email",
+                  "value": "{{email_profesor}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login sin error', () => pm.expect(pm.response.code).to.be.below(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C profesor · GET sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('sesión con rol PROFESOR', () => pm.expect(u.rol).to.eql('PROFESOR'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C01 profesor · GET historial · 403 SIN_PERMISO (sin pagos:leer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C02 profesor · POST corrección · 403 SIN_PERMISO (sin pagos:corregir)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": \"1\",\n  \"motivo\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C03 profesor · POST anulación · 403 SIN_PERMISO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/pagos/{{pago_1}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('sobre { data: null, error }', () => pm.expect(pm.response.json().data).to.eql(null));",
+                  "pm.test('error.code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@ export async function turnosConPagosVigentes(turnoIds: string[], db: Prisma.Tran
 }
 import { obtenerAlumnosBasicos } from "@/server/alumnos/alumno.publico";
 import { comprobanteDelPagoEnOperacion, INCLUDE_LECTURA, type OperacionLeida } from "@/server/pagos/comprobante.lectura";
+import { puedeCorregirPago, type UsuarioOperador } from "@/server/pagos/correccion.alcance";
 import {
   sqlFechaPagoVigente,
   sqlMontoVigente,
@@ -16,6 +17,7 @@ import {
   vigenteDeOperacion,
   type OperacionConVigente,
 } from "@/server/pagos/pago.vigente";
+import { ahora } from "@/server/shared/reloj";
 
 /** `true` si el alumno tiene algún pago registrado, vigente o anulado (motivo obligatorio de la baja, HU-B-07). */
 export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
@@ -30,21 +32,6 @@ export async function alumnoTieneRegistros(alumnoId: string, db: Prisma.Transact
  * archivo, así que ninguno de los dos importa al otro. Todas las lecturas
  * usan una sola implementación del valor vigente (`pago.vigente.ts`, R3-PR0-I11).
  */
-
-/** Un pago registrado de un turno, tal como lo muestra el detalle (spec_modulo_C.md §2.4). */
-export type PagoDeTurno = {
-  id: string;
-  alumno: { id: string; nombre_completo: string };
-  /** Decimal con punto y dos decimales ("15000.50"), sin pasar por coma flotante. */
-  monto: string;
-  forma_pago: { id: string; nombre: string };
-  /** Fecha de calendario `YYYY-MM-DD`. */
-  fecha_pago: string;
-  /** Instante de registro en ISO 8601. */
-  registrado_en: string;
-  /** Comprobante vigente del pago (HU-I-11, spec_modulo_I.md §2.9.3). */
-  comprobante: { id: string; numero: string } | null;
-};
 
 type Db = Prisma.TransactionClient;
 
@@ -145,11 +132,17 @@ export async function listarPagosDeAlumno(
     .sort(ordenFechaYRegistro);
 }
 
+/**
+ * Un pago de la clase tal como lo muestra «Pagos registrados» del detalle
+ * (spec_modulo_C.md §2.4), con los anulados incluidos (HU-I-06).
+ */
 export type PagoDeClase = {
   id: string;
   alumno: { id: string; nombre_completo: string };
+  /** Decimal con punto y dos decimales ("15000.50"), sin pasar por coma flotante. */
   monto: string;
-  forma_pago: { id: string; nombre: string };
+  forma_pago: { id: string; nombre: string; is_active: boolean };
+  /** Fecha de calendario `YYYY-MM-DD`. */
   fecha_pago: string;
   registrado_en: string;
   inscripcion_id: string;
@@ -159,14 +152,25 @@ export type PagoDeClase = {
   comprobante_vigente: { id: string; numero: string } | null;
   cambios: number;
   clases_de_la_operacion: number;
+  /** `puedeCorregirPago` para el usuario que consulta; `false` si no se indicó usuario. */
+  puede_corregir: boolean;
 };
 
-async function pagosDeClase(turnoId: string, db: Db): Promise<PagoDeClase[]> {
+/**
+ * Pagos de la clase, más recientes primero (por momento de registro, con el
+ * id como desempate estable), con los anulados incluidos y el valor vigente
+ * (PR-0.md §2.13). Incluye los pagos de alumnos que ya no están inscriptos:
+ * un pago es un hecho consumado (Regla N.° 8). Los nombres de alumno salen de
+ * `obtenerAlumnosBasicos()` en lote. Con `usuario`, cada pago trae
+ * `puede_corregir` (HU-I-06); la caja del pago nunca sale de esta fachada.
+ */
+export async function listarPagosDeClase(turnoId: string, usuario?: UsuarioOperador | null, db: Db = prisma): Promise<PagoDeClase[]> {
   const operaciones = await db.operacionPago.findMany({ where: { pagos: { some: { turnoId } } }, include: INCLUDE_LECTURA });
   if (operaciones.length === 0) return [];
   const items = await pagosDeOperaciones(db, operaciones, (_pagoId, pagoTurnoId) => pagoTurnoId === turnoId);
   const alumnoDePago = new Map(operaciones.flatMap((o) => o.pagos.map((p) => [p.idPago, p.alumnoId] as const)));
   const alumnos = new Map((await obtenerAlumnosBasicos([...new Set(alumnoDePago.values())], db)).map((a) => [a.id, `${a.apellido}, ${a.nombre}`]));
+  const momento = ahora();
   return items
     .sort((a, b) => b.registrado_en.localeCompare(a.registrado_en) || b.pago_id.localeCompare(a.pago_id))
     .map((p) => {
@@ -179,7 +183,7 @@ async function pagosDeClase(turnoId: string, db: Db): Promise<PagoDeClase[]> {
         id: p.pago_id,
         alumno: { id: alumnoId, nombre_completo: nombreCompleto },
         monto: p.monto,
-        forma_pago: { id: p.forma_pago.id, nombre: p.forma_pago.nombre },
+        forma_pago: p.forma_pago,
         fecha_pago: p.fecha_pago,
         registrado_en: p.registrado_en,
         inscripcion_id: p.inscripcion_id,
@@ -189,32 +193,11 @@ async function pagosDeClase(turnoId: string, db: Db): Promise<PagoDeClase[]> {
         comprobante_vigente: p.comprobante_vigente,
         cambios: p.cambios,
         clases_de_la_operacion: p.clases_de_la_operacion,
+        puede_corregir: usuario ? puedeCorregirPago(usuario, {
+          anulado: p.anulado, registradoEn: new Date(p.registrado_en), cajaAbierta: p.caja_abierta,
+        }, momento) : false,
       };
     });
-}
-
-/** Pagos de la clase con los anulados incluidos y los campos de HU-I-06 (spec_modulo_I.md §2.17). Mismo orden que `listarPagosDeTurno`. */
-export async function listarPagosDeClase(turnoId: string, db: Db = prisma): Promise<PagoDeClase[]> {
-  return pagosDeClase(turnoId, db);
-}
-
-/**
- * Pagos del turno, más recientes primero (por momento de registro, con el id
- * como desempate estable). Misma firma y forma que en Sprint 2
- * (`PagoDeTurno`), con el valor vigente (PR-0.md §2.13): sin los pagos
- * anulados y con monto, forma y fecha de pago vigentes. Incluye los pagos de
- * alumnos que ya no están inscriptos: un pago es un hecho consumado (Regla
- * N.° 8). Los nombres de alumno salen de `obtenerAlumnosBasicos()` en lote.
- */
-export async function listarPagosDeTurno(
-  turnoId: string,
-  db: Db = prisma,
-): Promise<PagoDeTurno[]> {
-  return (await pagosDeClase(turnoId, db))
-    .filter((p) => !p.anulado)
-    .map(({ id, alumno, monto, forma_pago, fecha_pago, registrado_en, comprobante_vigente }) => ({
-      id, alumno, monto, forma_pago, fecha_pago, registrado_en, comprobante: comprobante_vigente,
-    }));
 }
 
 /**

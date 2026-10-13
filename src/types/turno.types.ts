@@ -58,18 +58,31 @@ export const ETIQUETA_ESTADO_TURNO: Record<EstadoTurno, string> = { PENDIENTE: t
 
 export const ETIQUETA_PRIORIDAD_TURNO: Record<PrioridadTurno, string> = { NORMAL: "Normal", ALTA: "Alta", URGENTE: "Urgente" };
 
-/** Pago registrado del turno (`listarPagosDeTurno()`, spec_modulo_I.md §2.3). */
+/**
+ * Pago registrado del turno (`listarPagosDeClase()`, spec_modulo_I.md §2.17).
+ * Incluye los anulados, que no suman (HU-I-06).
+ */
 export type PagoRegistradoTurno = {
   id: string;
   alumno: { id: string; nombre_completo: string };
-  /** Decimal con punto ("15000.50"). */
+  /** Decimal con punto ("15000.50"), valor vigente. */
   monto: string;
-  forma_pago: { id: string; nombre: string };
+  /** Forma vigente de la operación; `is_active: false` se muestra «Inactiva» al corregir. */
+  forma_pago: { id: string; nombre: string; is_active: boolean };
   /** `YYYY-MM-DD`. */
   fecha_pago: string;
   registrado_en: string;
   /** Comprobante vigente del pago (HU-I-11); enlaza a `/comprobantes/[id]`. */
   comprobante: { id: string; numero: string } | null;
+  operacion_id: string;
+  anulado: boolean;
+  anulacion: { fecha: string; motivo: string } | null;
+  /** Correcciones y anulación registradas (HU-I-06). */
+  cambios: number;
+  /** Pagos no anulados de la operación: el aviso «alcanza a N clases» de HU-I-06. */
+  clases_de_la_operacion: number;
+  /** Calculado por el servidor con `puedeCorregirPago` (spec_modulo_I.md §2.14.1). */
+  puede_corregir: boolean;
 };
 
 /**
