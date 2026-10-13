@@ -1256,6 +1256,17 @@ export const TEXTOS = {
   "ui.gerentes.listado.telefono": "Teléfono",
   "ui.gerentes.listado.email": "Email",
   "ui.gerentes.listado.estado": "Estado",
+  // Búsqueda, paginación y «(vos)» del listado (HU-G-03, prototipo figura 96).
+  "ui.gerentes.listado.subtitulo": "Buscá por nombre, apellido o DNI (desde 2 caracteres, sin distinguir mayúsculas ni tildes).",
+  "ui.gerentes.listado.buscarPlaceholder": "Ej.: ferreyra, 31222…",
+  "ui.gerentes.listado.buscarEtiqueta": "Buscar gerente",
+  "ui.gerentes.listado.buscando": "Buscando gerentes",
+  "ui.gerentes.listado.cargando": "Cargando gerentes",
+  // propuesto: pendiente de validar por el PO (P-F6).
+  "ui.gerentes.listado.sinResultados": "No se encontraron gerentes para «{q}»",
+  "ui.gerentes.listado.error": "No se pudo cargar el listado de gerentes",
+  "ui.gerentes.listado.reintentar": "Reintentar",
+  "ui.gerentes.listado.vos": "(vos)",
   "ui.gerentes.estado.activo": "Activo",
   "ui.gerentes.estado.inactivo": "Inactivo",
   "ui.gerentes.form.identidad": "Identidad",

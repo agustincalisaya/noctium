@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// POST y GET /api/gerentes (spec_modulo_G.md §2.1 y §2.3, HU-G-01). Con el
+// POST y GET /api/gerentes (spec_modulo_G.md §2.1 y §2.3, HU-G-01 y HU-G-03). Con el
 // withPermission real: la sesión y los permisos salen de mocks de `auth` y de
 // `prisma`; el servicio está simulado.
 
@@ -67,7 +67,7 @@ beforeEach(() => {
   m.sesion.actual = { user: { id: "gerente", rol: "GERENTE" } };
   m.permiso.mockImplementation(async ({ where }) => (where.rolPermiso_accionPermiso.rolPermiso === "GERENTE" ? {} : null));
   m.crear.mockResolvedValue(CREADO);
-  m.listar.mockResolvedValue({ items: [], total: 0 });
+  m.listar.mockResolvedValue({ items: [], pagina: 1, por_pagina: 10, total: 0, total_paginas: 0 });
 });
 
 describe("POST /api/gerentes", () => {
@@ -139,15 +139,47 @@ describe("POST /api/gerentes", () => {
 
 describe("GET /api/gerentes", () => {
   const LISTADO = {
-    items: [{ id: "f1", apellido: "Ibarra", nombre: "Marcos", dni: "27111222", telefono: null, email: "m@x.com", activo: true }],
+    items: [{ id: "f1", apellido: "Ibarra", nombre: "Marcos", dni: "27111222", telefono: null, email: "m@x.com", activo: true, esVos: true }],
+    pagina: 1,
+    por_pagina: 10,
     total: 1,
+    total_paginas: 1,
   };
 
-  it("200 con el listado mínimo y no-store; el servicio no recibe parámetros", async () => {
+  // HU-G-01 probaba el listado mínimo sin parámetros; HU-G-03 suma `pagina`,
+  // `q`, la sesión y la forma paginada de la spec §2.3. Se conservan las
+  // aserciones de G-01.
+  it("200 con la forma de la spec §2.3 y no-store; sin parámetros pide la página 1 con la sesión", async () => {
     m.listar.mockResolvedValue(LISTADO);
     expect(await get()).toEqual({ status: 200, cuerpo: { data: LISTADO, error: null }, cache: expect.stringContaining("no-store") });
-    expect(m.listar).toHaveBeenCalledWith();
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 1 }, "gerente");
     expect(m.permiso).toHaveBeenCalledWith({ where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "gerentes:leer" } } });
+  });
+
+  it("pasa pagina, q (recortado) y el id de la sesión al servicio", async () => {
+    m.listar.mockResolvedValue({ ...LISTADO, pagina: 2 });
+    expect((await get("?pagina=2&q=%20ferreyra%2031222%20")).status).toBe(200);
+    expect(m.listar).toHaveBeenCalledWith({ pagina: 2, q: "ferreyra 31222" }, "gerente");
+  });
+
+  it.each([
+    ["?pagina=0", "pagina"],
+    ["?pagina=abc", "pagina"],
+    ["?pagina=-1", "pagina"],
+    [`?q=${"a".repeat(101)}`, "q"],
+  ])("400 VALIDATION_ERROR con %s, sin llamar al servicio", async (query, campo) => {
+    const r = await get(query);
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error).toMatchObject({ code: "VALIDATION_ERROR", message: "Los datos del gerente no son válidos." });
+    expect(r.cuerpo.error.detalles[campo]).toBeDefined();
+    expect(m.listar).not.toHaveBeenCalled();
+  });
+
+  it.each(["?por_pagina=5", "?pagina=1&orden=dni"])("400 con un parámetro que no existe (%s): por_pagina es fijo", async (query) => {
+    const r = await get(query);
+    expect(r.status).toBe(400);
+    expect(r.cuerpo.error.code).toBe("VALIDATION_ERROR");
+    expect(m.listar).not.toHaveBeenCalled();
   });
 
   it("401 sin sesión y 403 para los otros roles", async () => {
@@ -155,7 +187,9 @@ describe("GET /api/gerentes", () => {
     expect((await get()).status).toBe(401);
     for (const rol of ["MESA_ENTRADA", "PROFESOR", "ALUMNO"]) {
       m.sesion.actual = { user: { id: "otro", rol } };
-      expect((await get()).status).toBe(403);
+      const r = await get("?q=ibarra");
+      expect(r.status).toBe(403);
+      expect(r.cuerpo).toMatchObject({ data: null, error: { code: "SIN_PERMISO" } });
     }
     expect(m.listar).not.toHaveBeenCalled();
   });
@@ -164,5 +198,6 @@ describe("GET /api/gerentes", () => {
     m.listar.mockRejectedValue(new Error("connection refused"));
     const r = await get();
     expect(r).toMatchObject({ status: 500, cuerpo: { data: null, error: { code: "ERROR_INTERNO" } } });
+    expect(JSON.stringify(r.cuerpo)).not.toContain("connection");
   });
 });

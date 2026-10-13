@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { flattenError } from "zod";
-import { construirAltaGerenteSchema, construirModificarGerenteSchema } from "@/server/gerentes/gerente.schema";
+import {
+  ListarGerentesQuerySchema,
+  POR_PAGINA_GERENTES,
+  construirAltaGerenteSchema,
+  construirModificarGerenteSchema,
+} from "@/server/gerentes/gerente.schema";
 
 // Schemas de los gerentes (spec_modulo_G.md §2.1 y §2.2, HU-G-01 c1 y c2;
 // decisión 3 de la task: las reglas de HU-F-01).
@@ -135,5 +140,27 @@ describe("construirModificarGerenteSchema", () => {
 
   it.each([{ activo: true }, { usuarioId: "x" }, { rol: "GERENTE" }])(".strict() rechaza %j", (extra) => {
     expect(modificar.safeParse({ version: 0, ...extra }).success).toBe(false);
+  });
+});
+
+describe("ListarGerentesQuerySchema (HU-G-03)", () => {
+  it("pagina por defecto 1 y q recortado", () => {
+    expect(ListarGerentesQuerySchema.parse({})).toEqual({ pagina: 1 });
+    expect(ListarGerentesQuerySchema.parse({ pagina: "3", q: "  ferreyra " })).toEqual({ pagina: 3, q: "ferreyra" });
+    expect(POR_PAGINA_GERENTES).toBe(10);
+  });
+
+  it.each(["0", "-1", "1.5", "abc"])("rechaza pagina=%s", (pagina) => {
+    expect(ListarGerentesQuerySchema.safeParse({ pagina }).success).toBe(false);
+  });
+
+  it("q de hasta 100 caracteres (se mide después de recortar)", () => {
+    expect(ListarGerentesQuerySchema.safeParse({ q: "a".repeat(100) }).success).toBe(true);
+    expect(ListarGerentesQuerySchema.safeParse({ q: ` ${"a".repeat(100)} ` }).success).toBe(true);
+    expect(ListarGerentesQuerySchema.safeParse({ q: "a".repeat(101) }).success).toBe(false);
+  });
+
+  it.each([{ por_pagina: "5" }, { orden: "dni" }])(".strict() rechaza %j: por_pagina no es parámetro", (extra) => {
+    expect(ListarGerentesQuerySchema.safeParse({ pagina: "1", ...extra }).success).toBe(false);
   });
 });

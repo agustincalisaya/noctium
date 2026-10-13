@@ -9,7 +9,13 @@ import {
   obtenerResumenCuenta,
   verificarEmailNoAsociadoAOtraCuenta,
 } from "@/server/usuarios/cuenta.service";
-import type { AltaGerenteInput, ModificarGerenteInput } from "@/server/gerentes/gerente.schema";
+import { construirFiltroBusquedaGerentes } from "@/server/gerentes/gerente.busqueda";
+import {
+  POR_PAGINA_GERENTES,
+  type AltaGerenteInput,
+  type ListarGerentesQuery,
+  type ModificarGerenteInput,
+} from "@/server/gerentes/gerente.schema";
 import type {
   DetalleGerente,
   DisponibilidadGerente,
@@ -276,20 +282,43 @@ export async function obtenerDetalleGerente(
 }
 
 /**
- * Listado mínimo de gerentes (HU-G-01, DEC-38): todas las fichas, activas e
- * inactivas, por apellido y nombre normalizados y el DNI como desempate.
- * HU-G-03 le suma la búsqueda, la paginación y `esVos` por ítem, de forma
- * aditiva. Solo lectura.
+ * Listado de gerentes (spec_modulo_G.md §2.3, HU-G-03 c1 a c5; parte de
+ * HU-G-01, DEC-38), sobre activos e inactivos. Mismo diseño que
+ * `listarPersonal` (HU-F-03):
+ * - Orden por apellido y nombre normalizados y el DNI como desempate (orden
+ *   total: ninguna fila se repite ni se pierde al paginar).
+ * - Búsqueda con `construirFiltroBusquedaGerentes` (criterio de HU-B-05); un
+ *   `q` de menos de 2 caracteres devuelve el listado completo.
+ * - Paginación de a `POR_PAGINA_GERENTES`, con el `total` del resultado
+ *   filtrado. Una página fuera de rango se lleva a la última y, sin
+ *   resultados, `pagina` es 1 y `total_paginas` es 0.
+ * - `esVos` por ítem (criterio 3): la ficha cuya cuenta es la de la sesión.
+ *   Una ficha sin cuenta nunca lo es. `usuarioId` se lee para calcularlo,
+ *   pero no se devuelve.
+ * Solo lectura: no escribe nada.
  */
-export async function listarGerentes(db: Db = prisma): Promise<ListadoGerentes> {
+export async function listarGerentes(
+  query: ListarGerentesQuery,
+  sesionUsuarioId: string,
+  db: Db = prisma,
+): Promise<ListadoGerentes> {
+  const where = construirFiltroBusquedaGerentes(query.q);
+  const total = await db.fichaGerente.count({ where });
+  const totalPaginas = Math.ceil(total / POR_PAGINA_GERENTES);
+  const pagina = total === 0 ? 1 : Math.min(query.pagina, totalPaginas);
+
   const fichas = await db.fichaGerente.findMany({
+    where,
     orderBy: [
       { apellidoNormalizadoFichaGerente: "asc" },
       { nombreNormalizadoFichaGerente: "asc" },
       { dniFichaGerente: "asc" },
     ],
+    skip: (pagina - 1) * POR_PAGINA_GERENTES,
+    take: POR_PAGINA_GERENTES,
     select: {
       idFichaGerente: true,
+      usuarioId: true,
       apellidoFichaGerente: true,
       nombreFichaGerente: true,
       dniFichaGerente: true,
@@ -307,8 +336,12 @@ export async function listarGerentes(db: Db = prisma): Promise<ListadoGerentes> 
       telefono: f.telefonoFichaGerente,
       email: f.emailFichaGerente,
       activo: f.activoFichaGerente,
+      esVos: f.usuarioId !== null && f.usuarioId === sesionUsuarioId,
     })),
-    total: fichas.length,
+    pagina,
+    por_pagina: POR_PAGINA_GERENTES,
+    total,
+    total_paginas: totalPaginas,
   };
 }
 

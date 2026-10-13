@@ -1,7 +1,11 @@
 import type { Genero } from "@prisma/client";
 import type { ResumenCuenta } from "@/server/usuarios/cuenta.service";
 
-/** Fila del listado mínimo de `/gerentes` (DEC-38: HU-G-03 le suma `esVos`). */
+/**
+ * Fila del listado de `/gerentes` (spec_modulo_G.md §2.3, HU-G-01 y HU-G-03).
+ * `esVos` lo calcula el servidor: `true` solo en la ficha del gerente
+ * autenticado (criterio 3). El `usuarioId` de la ficha nunca se devuelve.
+ */
 export type GerenteListadoItem = {
   id: string;
   apellido: string;
@@ -10,16 +14,20 @@ export type GerenteListadoItem = {
   telefono: string | null;
   email: string;
   activo: boolean;
+  esVos: boolean;
 };
 
 /**
- * `GET /api/gerentes` mínimo (HU-G-01, DEC-38): todas las fichas, activas e
- * inactivas, sin búsqueda ni paginación. HU-G-03 le suma `pagina`,
- * `por_pagina` y `total_paginas` de forma aditiva.
+ * `GET /api/gerentes` (spec_modulo_G.md §2.3, HU-G-03): activas e inactivas,
+ * con búsqueda y paginación de a `POR_PAGINA_GERENTES`. `total` es el del
+ * resultado filtrado; sin resultados, `pagina` es 1 y `total_paginas` es 0.
  */
 export type ListadoGerentes = {
   items: GerenteListadoItem[];
+  pagina: number;
+  por_pagina: number;
   total: number;
+  total_paginas: number;
 };
 
 /**

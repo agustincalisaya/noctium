@@ -8,7 +8,7 @@ import { ErrorDeDominio } from "@/server/shared/error-dominio";
 
 const m = vi.hoisted(() => {
   const tx = {
-    fichaGerente: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
+    fichaGerente: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   };
   return {
     tx,
@@ -354,31 +354,115 @@ describe("obtenerDetalleGerente", () => {
 });
 
 describe("listarGerentes", () => {
-  it("todas las fichas, activas e inactivas, en orden apellido, nombre y DNI; total = cantidad", async () => {
-    m.tx.fichaGerente.findMany.mockResolvedValue([
-      {
-        idFichaGerente: "a",
-        apellidoFichaGerente: "Ibarra",
-        nombreFichaGerente: "Marcos",
-        dniFichaGerente: DNI,
-        telefonoFichaGerente: null,
-        emailFichaGerente: "marcos@mail.com",
-        activoFichaGerente: false,
-      },
-    ]);
-    expect(await listarGerentes()).toEqual({
-      items: [{ id: "a", apellido: "Ibarra", nombre: "Marcos", dni: DNI, telefono: null, email: "marcos@mail.com", activo: false }],
+  const FILA = {
+    idFichaGerente: "a",
+    usuarioId: "ckotracuenta",
+    apellidoFichaGerente: "Ibarra",
+    nombreFichaGerente: "Marcos",
+    dniFichaGerente: DNI,
+    telefonoFichaGerente: null,
+    emailFichaGerente: "marcos@mail.com",
+    activoFichaGerente: false,
+  };
+
+  // HU-G-01 dejaba el listado completo sin parámetros (DEC-38); HU-G-03 suma
+  // la query ({ pagina, q }), la sesión, la paginación y `esVos`. Se conservan
+  // las aserciones de G-01 (activas e inactivas, orden y forma de cada fila)
+  // y se suman las nuevas.
+  it("activas e inactivas, por apellido, nombre y DNI, sin filtro y en la página 1", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(1);
+    m.tx.fichaGerente.findMany.mockResolvedValue([FILA]);
+    expect(await listarGerentes({ pagina: 1 }, SESION)).toEqual({
+      items: [{ id: "a", apellido: "Ibarra", nombre: "Marcos", dni: DNI, telefono: null, email: "marcos@mail.com", activo: false, esVos: false }],
+      pagina: 1,
+      por_pagina: 10,
       total: 1,
+      total_paginas: 1,
     });
     const args = m.tx.fichaGerente.findMany.mock.calls[0]![0];
     expect(args.where).toBeUndefined();
+    expect(m.tx.fichaGerente.count).toHaveBeenCalledWith({ where: undefined });
     expect(args.orderBy).toEqual([
       { apellidoNormalizadoFichaGerente: "asc" },
       { nombreNormalizadoFichaGerente: "asc" },
       { dniFichaGerente: "asc" },
     ]);
-    expect(args.skip).toBeUndefined();
-    expect(args.take).toBeUndefined();
+    expect(args).toMatchObject({ skip: 0, take: 10 });
+  });
+
+  it("pagina de a 10 con skip/take y el total del resultado filtrado", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(23);
+    m.tx.fichaGerente.findMany.mockResolvedValue([]);
+    const r = await listarGerentes({ pagina: 2, q: "ferr 8806" }, SESION);
+    expect(r).toMatchObject({ pagina: 2, por_pagina: 10, total: 23, total_paginas: 3 });
+    const args = m.tx.fichaGerente.findMany.mock.calls[0]![0];
+    expect(args).toMatchObject({ skip: 10, take: 10 });
+    // El mismo filtro para contar y para traer las filas.
+    expect(m.tx.fichaGerente.count).toHaveBeenCalledWith({ where: args.where });
+    expect(args.where).toEqual({
+      AND: [
+        { OR: [{ apellidoNormalizadoFichaGerente: { contains: "ferr" } }, { nombreNormalizadoFichaGerente: { contains: "ferr" } }] },
+        {
+          OR: [
+            { apellidoNormalizadoFichaGerente: { contains: "8806" } },
+            { nombreNormalizadoFichaGerente: { contains: "8806" } },
+            { dniFichaGerente: { contains: "8806" } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("una página fuera de rango se lleva a la última, como en el personal", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(23);
+    m.tx.fichaGerente.findMany.mockResolvedValue([]);
+    expect(await listarGerentes({ pagina: 9 }, SESION)).toMatchObject({ pagina: 3, total_paginas: 3 });
+    expect(m.tx.fichaGerente.findMany.mock.calls[0]![0]).toMatchObject({ skip: 20, take: 10 });
+  });
+
+  it("sin resultados: página 1, total_paginas 0 e items vacío", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(0);
+    m.tx.fichaGerente.findMany.mockResolvedValue([]);
+    expect(await listarGerentes({ pagina: 4, q: "zzz" }, SESION)).toEqual({ items: [], pagina: 1, por_pagina: 10, total: 0, total_paginas: 0 });
+    expect(m.tx.fichaGerente.findMany.mock.calls[0]![0]).toMatchObject({ skip: 0 });
+  });
+
+  it("un q de menos de 2 caracteres no filtra", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(0);
+    m.tx.fichaGerente.findMany.mockResolvedValue([]);
+    await listarGerentes({ pagina: 1, q: "a" }, SESION);
+    expect(m.tx.fichaGerente.findMany.mock.calls[0]![0].where).toBeUndefined();
+  });
+
+  it("esVos solo en la ficha de la cuenta de la sesión; una ficha sin cuenta nunca; el ítem no trae usuarioId", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(3);
+    m.tx.fichaGerente.findMany.mockResolvedValue([
+      { ...FILA, idFichaGerente: "otra" },
+      { ...FILA, idFichaGerente: "propia", usuarioId: SESION },
+      { ...FILA, idFichaGerente: "sincuenta", usuarioId: null },
+    ]);
+    const { items } = await listarGerentes({ pagina: 1 }, SESION);
+    expect(items.map((i) => [i.id, i.esVos])).toEqual([
+      ["otra", false],
+      ["propia", true],
+      ["sincuenta", false],
+    ]);
+    for (const item of items) expect(item).not.toHaveProperty("usuarioId");
+    expect(m.tx.fichaGerente.findMany.mock.calls[0]![0].select).toMatchObject({ usuarioId: true });
+  });
+
+  it("una ficha sin cuenta no es «(vos)» aunque la sesión no tenga id", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(1);
+    m.tx.fichaGerente.findMany.mockResolvedValue([{ ...FILA, usuarioId: null }]);
+    expect((await listarGerentes({ pagina: 1 }, null as unknown as string)).items[0]!.esVos).toBe(false);
+  });
+
+  it("solo lee: no escribe nada", async () => {
+    m.tx.fichaGerente.count.mockResolvedValue(0);
+    m.tx.fichaGerente.findMany.mockResolvedValue([]);
+    await listarGerentes({ pagina: 1, q: "marcos" }, SESION);
+    expect(m.tx.fichaGerente.create).not.toHaveBeenCalled();
+    expect(m.tx.fichaGerente.updateMany).not.toHaveBeenCalled();
   });
 });
 
