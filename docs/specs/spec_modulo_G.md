@@ -23,6 +23,32 @@
 | P-G3 | `bloquear` (`PR-0.md` §2.16) debe poder tomar **varias** fichas de gerente por id ascendente (nivel de recurso) | PR 0 |
 | P-G4 | Supuesto que la HU no define (3.9): se puede modificar una ficha inactiva. (Que un gerente modifique su propia ficha y su propio email lo resuelve DEC-44 del mapa: la sesión sigue.) | PO |
 
+### Nota de implementación HU-G-01
+
+Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código real tuvo que acomodar respecto de §2.1 a §2.4 y §2.7; las mismas diferencias que registró HU-F-01 en `spec_modulo_F.md`.
+
+1. **`crearGerente(input, usuarioRegistranteId, ip?)`:** suma la IP opcional, que `crearCuentaParaFicha` registra en `CUENTA_CREADA` (2.1 dice `crearGerente(input, usuarioRegistranteId)`).
+2. **Forma de la cuenta.** El `201` y el detalle devuelven el `ResumenCuenta` de A tal cual (`estado`, `email`, `rol`, `debe_cambiar_password`, en snake_case), que es lo que consume `CuentaAccesoCard`; los ejemplos de 2.1 están en camelCase.
+3. **El 400 es `VALIDATION_ERROR`** con los errores por campo en `detalles`, como en F.
+4. **Schemas.** En la modificación, el género acepta `null` («Sin especificar»; 2.2 usa `.partial()`, que no lo permite) y el email no se puede vaciar. El email vacío, ausente o `null` responde el mensaje del backlog con clave propia, `ui.gerentes.contacto.emailRequerido` («Ingresá el email: con él se crea la cuenta de acceso»): `emailContactoSchema` respondería «Ingresá un email válido». Los mensajes de identidad salen de `ui.comun.identidad.*`.
+5. **Servicio público (2.7).** No se crea `gerente.publico.ts` ni `obtenerNombresGerentes`: `obtenerNombresPersonal` (`src/server/personal/personal.publico.ts`) ya resuelve el nombre de los gerentes por `usuarioId` y nadie consume la función de 2.7.
+6. **Conflicto de edición.** `errores.general.conflictoEdicion` no existe: se usa `errores.gerente.conflictoEdicion` (`CONFLICTO_EDICION_CONCURRENTE` 409). Se suman al catálogo `errores.gerente.dniDuplicado` (`DNI_DUPLICADO` 409) y `errores.gerente.noEncontrado` (`GERENTE_NO_ENCONTRADO` 404); `EMAIL_YA_ASOCIADO` reutiliza `errores.cuenta.emailYaAsociado`.
+7. **`verificarEmailNoAsociadoAOtraCuenta`** tiene la firma `(email, { excluirUsuarioId? }, db)`, no `(tx, email)` (2.1 paso 2), y la llama `crearCuentaParaFicha`. Con cuenta, la modificación no la llama: `cambiarEmailCuenta` ya verifica la unicidad excluyendo la propia cuenta.
+8. **Partición con HU-G-03 y HU-G-05 (DEC-38).** `listarGerentes(db?)` no recibe parámetros y responde `{ items, total }` con el orden de 2.3; HU-G-03 suma `q`, la paginación y `esVos` por ítem. `obtenerDetalleGerente(id, sesionUsuarioId, db?)` devuelve los datos, `version`, las fechas, `cuenta` y `esVos`; HU-G-05 suma `historialEstados`, `motivoObligatorioAlDesactivar` y `esUltimoGerenteActivo` sin cambiar la firma.
+9. **Disponibilidad al salir del campo.** Se suma la Server Action `verificarDisponibilidadGerente({ dni?, email?, excluirId? })`: devuelve solo `{ dni_disponible, email_disponible }`, pide `gerentes:crear` en el alta y `gerentes:editar` con `excluirId`, y un `excluirId` inexistente es `404 GERENTE_NO_ENCONTRADO`. Sin Route Handler.
+10. **DEC-44.** La confirmación de la edición usa un aviso propio cuando el gerente cambia su propio email (`ui.gerentes.edicion.avisoEmailPropio`, propuesto, pendiente del PO).
+
+### Nota de implementación HU-G-03
+
+Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código real tuvo que acomodar respecto de §1 y §2.3; las mismas diferencias que registró HU-F-03 en `spec_modulo_F.md`.
+
+1. **`tokenizarBusqueda`.** §1 («Utilidades compartidas») la ubica, por `spec_modulo_F.md` §1, en `src/server/shared/busqueda-persona.ts`. En el repo vive en `src/lib/busqueda-texto.ts` (la usan alumnos, turnos y personal): se reutiliza esa y no se crea `busqueda-persona.ts`. El filtro propio es `construirFiltroBusquedaGerentes(q)` en `src/server/gerentes/gerente.busqueda.ts`.
+2. **Firma de `listarGerentes`.** Es `listarGerentes(query, sesionUsuarioId, db?)`, con `query = { pagina, q? }`: la de §2.3 con `db` al final, como el resto del servicio. Reemplaza a la de HU-G-01 (`listarGerentes(db?)`, punto 8 de la nota anterior); los llamadores se adaptaron. La respuesta es `{ items, pagina, por_pagina, total, total_paginas }`.
+3. **`por_pagina` no es parámetro.** Es fijo (`POR_PAGINA_GERENTES = 10`); enviarlo, como cualquier otro parámetro, es `400 VALIDATION_ERROR` (`.strict()`). Una página mayor que la última devuelve la última y, sin resultados, `pagina: 1` y `total_paginas: 0`, como en el personal y en alumnos. Los errores de `pagina` y `q` salen con los mensajes por defecto de Zod (la spec da el schema sin mensajes propios), igual que en F.
+4. **`esVos` por ítem**, en camelCase como en el ejemplo de §2.3: `ficha.usuarioId !== null && ficha.usuarioId === sesionUsuarioId`. El ítem no devuelve `usuarioId`.
+5. **Texto de «sin resultados».** `ui.gerentes.listado.sinResultados` = «No se encontraron gerentes para «{q}»», propuesto, pendiente de validar por el PO (P-F6). No hay estado vacío sin búsqueda: siempre figura al menos el gerente autenticado.
+6. **Fichas de prueba sin cuenta.** La fixture `hu-g-03.ts` crea 12 fichas con `usuarioId` nulo (DNI 88065001 a 88065012), la excepción de la regla 3.1 para fichas de prueba, como en F-03. Para HU-G-05: las activas entran en el bloqueo de «todas las fichas de gerente activas», pero no cuentan para «al menos un gerente activo», que cuenta fichas activas con cuenta activa (§2.5, paso 4).
+
 ---
 
 ## 1. Visión General

@@ -76,6 +76,11 @@ export const ERRORES_DE_DOMINIO = {
   "errores.personal.cajaAbierta": { code: "CAJA_ABIERTA", status: 409 },
   "errores.personal.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
 
+  // Módulo G (spec_modulo_G.md §2.1, §2.2 y §2.4, HU-G-01).
+  "errores.gerente.dniDuplicado": { code: "DNI_DUPLICADO", status: 409 },
+  "errores.gerente.noEncontrado": { code: "GERENTE_NO_ENCONTRADO", status: 404 },
+  "errores.gerente.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
+
   // Módulo A (spec_modulo_A.md §2.6.1).
   "errores.cuenta.emailYaAsociado": { code: "EMAIL_YA_ASOCIADO", status: 409 },
   "errores.cuenta.datosInvalidos": { code: "VALIDATION_ERROR", status: 400 },

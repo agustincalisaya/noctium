@@ -39,6 +39,9 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   // cierres) es de mesa de entrada; «Cierres de caja» de todo el personal, del Gerente.
   caja: ["MESA_ENTRADA"],
   cajas: ["GERENTE"],
+  // HU-G-01 (spec_modulo_G.md §3.7): los gerentes los gestiona solo el Gerente.
+  // Distinta de `gerente` (el panel de indicadores): se compara por segmento completo.
+  gerentes: ["GERENTE"],
 };
 
 /** Única página que admite una sesión con la marca «Debe cambiar la contraseña». */
