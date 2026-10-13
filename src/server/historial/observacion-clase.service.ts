@@ -1,3 +1,4 @@
+import { claseDictadaVigente } from "./valor-vigente";
 import { texto as textoC19 } from "@/lib/textos";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient, type RolUsuario } from "@prisma/client";
@@ -27,7 +28,7 @@ export async function registrarObservacionClase(
 ) {
   await bloquear(tx, { clases: [turnoId] });
   const clase = await tx.claseDictada.findFirst({
-    where: { turnoId, anuladaEl: null },
+    where: { turnoId, ...claseDictadaVigente },
     select: { idClaseDictada: true, profesorId: true },
   });
   if (!clase) throw new ServiceError("CLASE_NO_REGISTRADA", MENSAJES.CLASE_NO_REGISTRADA);
@@ -99,10 +100,10 @@ export async function leerObservacionDeClase(
       observacionesInternas: true,
       createdAtObservacion: true,
       creadoPorUsuarioId: true,
-      clase: { select: { profesorId: true, anuladaEl: true } },
+      clase: { select: { profesorId: true, anuladaEl: true, anulacion: { select: { idAnulacionClase: true } } } },
     },
   });
-  if (!observacion || observacion.clase.anuladaEl) return null;
+  if (!observacion || observacion.clase.anuladaEl || observacion.clase.anulacion) return null;
 
   const lecturaInterna = usuario.rol === "MESA_ENTRADA" || usuario.rol === "GERENTE"
     || (usuario.rol === "PROFESOR" && (await obtenerOpcionProfesorDeUsuario(usuario.id, db))?.id === observacion.clase.profesorId);

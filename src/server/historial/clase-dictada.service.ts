@@ -1,3 +1,4 @@
+import { claseDictadaVigente, sqlClaseDictadaVigente } from "./valor-vigente";
 import { texto as textoC19 } from "@/lib/textos";
 import { randomUUID } from "node:crypto";
 import { Prisma, type EstadoAsistencia, type RolUsuario } from "@prisma/client";
@@ -41,7 +42,7 @@ async function leerAsistencia(db: Tx, claseId: string) {
            ${sqlConControlVigente("cd")} AS con_control
     FROM "clases_dictadas" cd LEFT JOIN "clases_dictadas_alumnos" cda
       ON cda."claseDictadaId" = cd."idClaseDictada"
-    WHERE cd."idClaseDictada" = ${claseId} AND cd."anuladaEl" IS NULL`);
+    WHERE cd."idClaseDictada" = ${claseId} AND ${sqlClaseDictadaVigente("cd")}`);
   const alumnos = filas.filter((fila): fila is FilaAsistencia & { alumno_id: string } => fila.alumno_id !== null);
   const control = filas[0]?.con_control ?? false;
   return {
@@ -111,7 +112,7 @@ export async function registrarClaseDictada(tx: Tx, datos: DatosRegistroClase) {
 }
 
 async function guardarRegistro(tx: Tx, datos: DatosRegistroClase, turno: Awaited<ReturnType<typeof prepararClase>>, momento: Date) {
-  const existente = await tx.claseDictada.findFirst({ where: { turnoId: datos.turnoId, anuladaEl: null }, select: { idClaseDictada: true } });
+  const existente = await tx.claseDictada.findFirst({ where: { turnoId: datos.turnoId, ...claseDictadaVigente }, select: { idClaseDictada: true } });
   if (existente) return respuestaRegistro(tx, datos.turnoId, turno.fecha, existente.idClaseDictada, true);
   await marcarVencidas(tx, datos.turnoId, { momento });
   const inscriptos = await inscripcionesVigentes(tx, datos.turnoId, momento);
@@ -119,16 +120,13 @@ async function guardarRegistro(tx: Tx, datos: DatosRegistroClase, turno: Awaited
   const id = randomUUID();
   const control = datos.asistencias !== undefined;
   const usuarioId = datos.actor.tipo === "USUARIO" ? datos.actor.usuarioId : null;
-  const insertadas = await tx.$executeRaw(Prisma.sql`
+  // El bloqueo canónico del turno serializa registrar/corregir/anular. La
+  // proyección PostgreSQL protege además la unicidad de escrituras directas.
+  await tx.$executeRaw(Prisma.sql`
     INSERT INTO "clases_dictadas" ("idClaseDictada", "turnoId", "fechaClaseDictada", "materiaId", "profesorId",
       "createdAtClaseDictada", "creadoPorUsuarioId", "conControlAsistencia")
     VALUES (${id}, ${datos.turnoId}, ${turno.fecha}::date, ${turno.materia_id}, ${turno.profesor_id},
-      ${momento}, ${usuarioId}, ${control})
-    ON CONFLICT ("turnoId") WHERE "anuladaEl" IS NULL DO NOTHING`);
-  if (!insertadas) {
-    const ganadora = await tx.claseDictada.findFirstOrThrow({ where: { turnoId: datos.turnoId, anuladaEl: null }, select: { idClaseDictada: true } });
-    return respuestaRegistro(tx, datos.turnoId, turno.fecha, ganadora.idClaseDictada, true);
-  }
+      ${momento}, ${usuarioId}, ${control})`);
   const estados = new Map(datos.asistencias?.map(({ inscripcionId, estado }) => [inscripcionId, estado]));
   if (inscriptos.length) await tx.claseDictadaAlumno.createMany({ data: inscriptos.map((inscripcion) => ({
     claseDictadaId: id, alumnoId: inscripcion.alumnoId, estadoAsistencia: estados.get(inscripcion.id) ?? null,
@@ -141,7 +139,7 @@ export async function registrarClaseDictadaDesdeSolicitud(turnoId: string, usuar
   const momento = ahora();
   return transaccion(async (tx) => {
     const turno = await prepararClase(tx, turnoId, momento, usuario);
-    const existente = await tx.claseDictada.findFirst({ where: { turnoId, anuladaEl: null }, select: { idClaseDictada: true } });
+    const existente = await tx.claseDictada.findFirst({ where: { turnoId, ...claseDictadaVigente }, select: { idClaseDictada: true } });
     if (existente) return respuestaRegistro(tx, turnoId, turno.fecha, existente.idClaseDictada, true);
     await marcarVencidas(tx, turnoId, { momento });
     // El conjunto vigente se decide en la misma transacción y con el mismo momento.
@@ -159,7 +157,7 @@ export async function registrarClaseDictadaDesdeSolicitud(turnoId: string, usuar
 /** Registro del hecho dictado, resolviendo nombres por los contratos de A y B. */
 export async function obtenerRegistroClaseDictada(turnoId: string, usuario: UsuarioHistorial) {
   const clase = await prisma.claseDictada.findFirst({
-    where: { turnoId, anuladaEl: null },
+    where: { turnoId, ...claseDictadaVigente },
     select: { idClaseDictada: true, profesorId: true, fechaClaseDictada: true, creadoPorUsuarioId: true, createdAtClaseDictada: true },
   });
   if (!clase) throw new ServiceError("CLASE_NO_REGISTRADA", MENSAJES.CLASE_NO_REGISTRADA);
@@ -205,7 +203,7 @@ function plazoDeClase(fecha: Date, momento: Date) {
 async function claseParaCorreccion(tx: Tx, turnoId: string, usuario: UsuarioHistorial, momento: Date) {
   if (usuario.rol !== "MESA_ENTRADA" && usuario.rol !== "PROFESOR") throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
   await bloquear(tx, { clases: [turnoId] });
-  const clase = await tx.claseDictada.findFirst({ where: { turnoId, anuladaEl: null } });
+  const clase = await tx.claseDictada.findFirst({ where: { turnoId, ...claseDictadaVigente } });
   if (!clase) throw new ServiceError("CLASE_NO_REGISTRADA", MENSAJES.CLASE_NO_REGISTRADA);
   if (usuario.rol === "PROFESOR") {
     const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, tx);
@@ -235,12 +233,31 @@ export async function corregirAsistenciaClaseDictada(turnoId: string, usuario: U
 }
 export async function anularClaseDictada(turnoId: string, usuario: UsuarioHistorial, motivo: string) {
   const momento = ahora();
-  const id = await transaccion(async tx => {
+  const resultado = await transaccion(async tx => {
+    // Repetir exactamente una anulación ya confirmada es idempotente. El
+    // permiso, la propiedad y el plazo siguen verificándose en cada solicitud.
+    if (usuario.rol !== "MESA_ENTRADA" && usuario.rol !== "PROFESOR") throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+    await bloquear(tx, { clases: [turnoId] });
+    const vigente = await tx.claseDictada.findFirst({ where: { turnoId, ...claseDictadaVigente } });
+    if (!vigente) {
+      const anterior = await tx.anulacionClaseDictada.findFirst({
+        where: { clase: { turnoId } },
+        orderBy: [{ createdAtAnulacion: "desc" }, { idAnulacionClase: "desc" }],
+        include: { clase: { select: { profesorId: true, fechaClaseDictada: true } } },
+      });
+      if (!anterior || anterior.motivo !== motivo || anterior.creadoPorUsuarioId !== usuario.id) throw new ServiceError("CLASE_NO_REGISTRADA", MENSAJES.CLASE_NO_REGISTRADA);
+      if (usuario.rol === "PROFESOR") {
+        const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, tx);
+        if (!profesor || profesor.id !== anterior.clase.profesorId) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
+        if (!plazoDeClase(anterior.clase.fechaClaseDictada, momento)) throw new ErrorDeDominio("errores.correccion.plazoVencido");
+      }
+      return { id: anterior.claseDictadaId, momento: anterior.createdAtAnulacion };
+    }
     const clase = await claseParaCorreccion(tx, turnoId, usuario, momento);
-    const modificadas = await tx.claseDictada.updateMany({ where: { idClaseDictada: clase.idClaseDictada, anuladaEl: null },
-      data: { anuladaEl: momento, anuladaPorUsuarioId: usuario.id, motivoAnulacion: motivo } });
-    if (modificadas.count !== 1) throw new ErrorDeDominio("errores.claseDictada.yaAnulada");
-    return clase.idClaseDictada;
+    await tx.anulacionClaseDictada.create({ data: {
+      claseDictadaId: clase.idClaseDictada, motivo, creadoPorUsuarioId: usuario.id, createdAtAnulacion: momento,
+    } });
+    return { id: clase.idClaseDictada, momento };
   });
-  return { id, turno_id: turnoId, anulada_en: momento.toISOString(), anulada_por: await obtenerEmailDeUsuario(usuario.id), motivo };
+  return { id: resultado.id, turno_id: turnoId, anulada_en: resultado.momento.toISOString(), anulada_por: await obtenerEmailDeUsuario(usuario.id), motivo };
 }

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { queryRaw, alumno, propio, materias, profesores, profesorUsuario, email, opciones, asistencia, vigente, propia, now } = vi.hoisted(() => ({
@@ -42,7 +43,7 @@ const registroIndicacion = {
   total: 1n, materias_disponibles: ["materia-1"], tipo: "INDICACION" as const,
   fecha: new Date("2026-09-30T00:00:00.000Z"), materia_id: "materia-1", profesor_id: null,
   nota: null, observaciones: null, indicacion: "Practicar ecuaciones", registrada_en: new Date("2026-09-30T01:30:00.000Z"),
-  clase_dictada_id: "clase-1", creado_por_usuario_id: "mesa-1", turno_id: null, registro_id: "indicacion-1",
+  clase_dictada_id: "clase-1", clase_dictada_fecha: new Date("2026-09-28T00:00:00Z"), creado_por_usuario_id: "mesa-1", turno_id: null, registro_id: "indicacion-1",
   temas_vistos: null, observaciones_internas: null, observacion_registrada_en: null, observacion_creada_por_id: null,
   creado_en: new Date("2026-09-30T01:30:00.000Z"), asistencia: null,
   corregido: null, anulado: null, anulacion_motivo: null, anulacion_en: null, anulacion_por: null, resultado_creado_por: null,
@@ -96,12 +97,12 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
 
     expect(resultado.paginacion).toEqual({ total: 12, pagina_actual: 2, total_paginas: 2, por_pagina: 10 });
     const [plantilla, ...parametros] = queryRaw.mock.calls[0]! as unknown as [TemplateStringsArray, ...unknown[]];
-    const sql = plantilla.join("?");
+    const sql = Prisma.sql(plantilla, ...parametros).sql;
     expect(sql).toContain("UNION ALL");
     expect(sql).toContain("materia_id = ?::text");
     expect(sql).toContain("LIMIT ? OFFSET ?");
     expect(sql).toContain("'INDICACION'::text AS tipo");
-    expect(sql).toContain('clase."anuladaEl" IS NULL');
+    expect(sql).toContain('"clase"."anuladaEl" IS NULL');
     expect(asistencia).toHaveBeenCalledWith("alumno-1");
     expect(parametros).toContain("alumno-1");
     expect(parametros).toContain("materia-1");
@@ -115,7 +116,7 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
 
     expect(resultado.items).toEqual([{
       tipo: "INDICACION", id: "indicacion-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" },
-      indicacion: "Practicar ecuaciones", registrada_en: "2026-09-30T01:30:00.000Z", registrada_por: "mesa@noctium.local", clase_dictada_id: "clase-1",
+      indicacion: "Practicar ecuaciones", registrada_en: "2026-09-30T01:30:00.000Z", registrada_por: "mesa@noctium.local", clase_dictada_id: "clase-1", clase_dictada_fecha: "2026-09-28",
     }]);
     expect(email).toHaveBeenCalledExactlyOnceWith("mesa-1");
     expect(opciones).toHaveBeenCalledExactlyOnceWith("alumno-1", undefined);
@@ -243,8 +244,8 @@ describe("HU-E-10 valores vigentes y visibilidad de resultados de examen", () =>
       nota: "9.5",
     }]);
     const resultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10, materia_id: "materia-1" }, profesor);
-    const [plantilla] = queryRaw.mock.calls.at(-1)! as unknown as [TemplateStringsArray, ...unknown[]];
-    const sql = plantilla.join("?");
+    const [plantilla, ...valores] = queryRaw.mock.calls.at(-1)! as unknown as [TemplateStringsArray, ...unknown[]];
+    const sql = Prisma.sql(plantilla, ...valores).sql;
     const parametros = valoresSql(queryRaw.mock.calls.at(-1));
     expect(sql).toContain("anulaciones_resultado_examen");
     expect(parametros).toContain(false);

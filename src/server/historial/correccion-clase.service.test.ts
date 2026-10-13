@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ tx: { claseDictada: { findFirst: vi.fn(), updateMany: vi.fn() }, correccionAsistencia: { create: vi.fn() }, $queryRaw: vi.fn() }, bloquear: vi.fn(), profesor: vi.fn(), email: vi.fn() }));
+const m = vi.hoisted(() => ({ tx: { claseDictada: { findFirst: vi.fn(), updateMany: vi.fn() }, anulacionClaseDictada: { create: vi.fn(), findFirst: vi.fn() }, correccionAsistencia: { create: vi.fn() }, $queryRaw: vi.fn() }, bloquear: vi.fn(), profesor: vi.fn(), email: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/server/shared/transaccion", () => ({ transaccion: (fn: (tx: unknown) => unknown) => fn(m.tx) }));
 vi.mock("@/server/shared/bloquear", () => ({ bloquear: m.bloquear }));
@@ -11,7 +11,7 @@ const mesa = { id: "m", rol: "MESA_ENTRADA" as const };
 const profesor = { id: "p", rol: "PROFESOR" as const };
 const datos = { motivo: "Error de carga", asistencias: [{ alumno_id: "a", estado: "AUSENTE" as const }] };
 beforeEach(() => {
- vi.clearAllMocks(); m.tx.claseDictada.findFirst.mockResolvedValue({ idClaseDictada: "cd", profesorId: "prof", fechaClaseDictada: new Date("2026-10-01T00:00:00Z") });
+ vi.clearAllMocks(); m.tx.anulacionClaseDictada.findFirst.mockResolvedValue(null); m.tx.claseDictada.findFirst.mockResolvedValue({ idClaseDictada: "cd", profesorId: "prof", fechaClaseDictada: new Date("2026-10-01T00:00:00Z") });
  m.tx.$queryRaw.mockResolvedValue([{ alumno_id: "a", asistencia: "PRESENTE", con_control: true }]);
  m.tx.correccionAsistencia.create.mockResolvedValue({ idCorreccionAsistencia: "cor" }); m.tx.claseDictada.updateMany.mockResolvedValue({ count: 1 }); m.profesor.mockResolvedValue({ id: "prof" }); m.email.mockResolvedValue("m@test.local");
 });
@@ -38,13 +38,22 @@ describe("E11 corrección y anulación", () => {
   await conReloj(new Date("2026-10-09T02:59:59Z"), () => expect(anular("t", profesor, "No se dio")).resolves.toMatchObject({ id: "cd" }));
   await conReloj(new Date("2026-10-09T03:00:00Z"), () => expect(anular("t", profesor, "No se dio")).rejects.toMatchObject({ code: "PLAZO_CORRECCION_VENCIDO" }));
  });
- it("mesa opera fuera de plazo, marca con condición atómica y auditoría", async () => {
+ it("mesa opera fuera de plazo, crea una anulación referenciada sin modificar el original", async () => {
   await conReloj(new Date("2026-12-01T12:00:00Z"), () => anular("t", mesa, "No se dio"));
-  expect(m.tx.claseDictada.updateMany).toHaveBeenCalledWith({ where: { idClaseDictada: "cd", anuladaEl: null }, data: { anuladaEl: new Date("2026-12-01T12:00:00Z"), anuladaPorUsuarioId: "m", motivoAnulacion: "No se dio" } });
+  expect(m.tx.anulacionClaseDictada.create).toHaveBeenCalledWith({ data: { claseDictadaId: "cd", createdAtAnulacion: new Date("2026-12-01T12:00:00Z"), creadoPorUsuarioId: "m", motivo: "No se dio" } });
+  expect(m.tx.claseDictada.updateMany).not.toHaveBeenCalled();
  });
- it("no registrada 404 y carrera de anulación 409", async () => {
-  m.tx.claseDictada.findFirst.mockResolvedValue(null); await expect(anular("t", mesa, "Motivo")).rejects.toMatchObject({ code: "CLASE_NO_REGISTRADA" });
-  m.tx.claseDictada.findFirst.mockResolvedValue({ idClaseDictada: "cd" }); m.tx.claseDictada.updateMany.mockResolvedValue({ count: 0 });
-  await expect(anular("t", mesa, "Motivo")).rejects.toMatchObject({ code: "CLASE_DICTADA_YA_ANULADA" });
+ it("sin clase ni anulación anterior devuelve 404", async () => {
+  m.tx.claseDictada.findFirst.mockResolvedValue(null);
+  await expect(anular("t", mesa, "Motivo")).rejects.toMatchObject({ code: "CLASE_NO_REGISTRADA" });
+  expect(m.tx.anulacionClaseDictada.create).not.toHaveBeenCalled();
+ });
+ it("repetición exacta devuelve el hecho anterior; otro usuario o motivo no lo reutiliza", async () => {
+  m.tx.claseDictada.findFirst.mockResolvedValue(null);
+  m.tx.anulacionClaseDictada.findFirst.mockResolvedValue({ claseDictadaId: "cd", createdAtAnulacion: new Date("2026-10-02T12:00:00Z"), creadoPorUsuarioId: "m", motivo: "No se dio", clase: { profesorId: "prof", fechaClaseDictada: new Date("2026-10-01T00:00:00Z") } });
+  await expect(anular("t", mesa, "No se dio")).resolves.toMatchObject({ id: "cd", anulada_en: "2026-10-02T12:00:00.000Z" });
+  await expect(anular("t", mesa, "Otro motivo")).rejects.toMatchObject({ code: "CLASE_NO_REGISTRADA" });
+  await expect(anular("t", { id: "otro", rol: "MESA_ENTRADA" }, "No se dio")).rejects.toMatchObject({ code: "CLASE_NO_REGISTRADA" });
+  expect(m.tx.anulacionClaseDictada.create).not.toHaveBeenCalled();
  });
 });

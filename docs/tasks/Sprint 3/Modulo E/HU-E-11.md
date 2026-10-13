@@ -37,7 +37,7 @@ Base comprobada: `origin/develop` en `593580522ebcb96490595033ba6ce61e404d030d`.
 
 ### Contratos y brechas para aprobación
 
-1. Backlog criterio 5 pide anulación como registro nuevo. Spec E §2.11 y PR0 §2.10 ya documentan T3: marca atómica de anulación en la propia fila para el índice parcial. Propuesta: aplicar esa excepción contractual vigente, conservando íntegramente el contenido, las correcciones, actor/fecha/motivo y el estado previo deducible. No crear tablas sin coordinación con el responsable PR0. Si se exige además un hecho de anulación append-only, hay que acordar su contrato y migración antes del código.
+1. Corrección del 13/10/2026 autorizada por el usuario: se cumple el criterio 5 sin la excepción T3 anterior. `AnulacionClaseDictada` agrega estado anterior/nuevo, referencia única, motivo, usuario y fecha; `RegistroClaseDictadaVigente` y sus triggers preservan la unicidad al volver a registrar. La migración copia las anulaciones previas sin modificar originales. Seed intocable. La repetición exacta de la última anulación devuelve la auditoría previa, con autorización y plazo nuevamente comprobados.
 2. El plazo usa una fecha calendario `@db.Date`, a medianoche UTC. No pasarla directamente al helper de instantes que convierte a Buenos Aires: podría desplazar la base al día anterior. Normalizar la fecha de clase a su día local antes de usar el helper existente; probar día 7/día 8 y cambio de fecha UTC. Mantener inalterado el plazo de E10 basado en timestamp.
 3. El prototipo usa verde sólido para Presente; los tokens actuales son fondos suaves. Propuesta: agregar, si resulta necesario, un token semántico de selección de asistencia en `src/app/globals.css` y documentarlo en `docs/DESIGN.md`, sin alterar tokens usados por el sidebar.
 
@@ -57,7 +57,7 @@ Incluye primera carga de asistencia legacy, corrección vigente, anulación, per
 
 POST corrección: `clases:corregir`, 201 con id, clase, control, totales, motivo, actor/fecha. POST anulación: mismo permiso, 200 con clase/turno y motivo/actor/fecha. Sobre `{ data, error }`. Schemas antes del servicio; 400 validación/ASISTENCIA_INCOMPLETA; 403 SIN_PERMISO/PLAZO_CORRECCION_VENCIDO; 404 CLASE_NO_REGISTRADA; 409 ASISTENCIA_SIN_CAMBIOS/CLASE_DICTADA_YA_ANULADA/TRANSACCION_OCUPADA.
 
-En `transaccion`, bloquear clase y leer registro no anulado. Mesa sin límite; profesor propietario, hasta siete días calendario inclusive. Validar conjunto exacto del snapshot, nunca inscripciones actuales. Leer estados con `valor-vigente.ts`. Corrección crea cabecera y todas sus filas anterior/nuevo; nunca modifica asistencia original. Anulación atómica según decisión 0.1. Excluir registro en lecturas; ocultar observaciones; conservar examen e indicación sin vínculo. Re-registro crea otro id. GET calcula acciones con permiso real; gerente sin escrituras.
+En `transaccion`, bloquear clase y leer registro no anulado. Mesa sin límite; profesor propietario, hasta siete días calendario inclusive. Validar conjunto exacto del snapshot, nunca inscripciones actuales. Leer estados con `valor-vigente.ts`. Corrección crea cabecera y todas sus filas anterior/nuevo; nunca modifica asistencia original. Anulación append-only según decisión 0.1. Excluir registro en lecturas; ocultar observaciones; conservar examen e indicación sin vínculo. Re-registro crea otro id. GET calcula acciones con permiso real; gerente sin escrituras.
 
 ## 5. Frontend
 
@@ -73,7 +73,7 @@ Checks previstos: npm test, npm run test:pg, npm run lint, comprobador de claves
 
 ## 7. Definition of Done
 
-- [x] Relevamiento y decisión T3 aprobados.
+- [x] Relevamiento original y corrección del criterio 5 registrados.
 - [x] Código y pruebas de todos los criterios.
 - [x] Fixtures idempotentes, SQL/API y revisión visual.
 - [ ] Checks locales y remotos documentados honestamente.

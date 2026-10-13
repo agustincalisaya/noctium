@@ -34,10 +34,12 @@ function fechaCorta(fecha: string) {
 
 export function ResultadoExamenAcciones({
   alumnoId,
+  nombreAlumno,
   item,
   onActualizado,
 }: {
   alumnoId: string;
+  nombreAlumno?: string;
   item: ResultadoExamenHistorial;
   onActualizado: () => void;
 }) {
@@ -135,18 +137,18 @@ export function ResultadoExamenAcciones({
         <p>{texto("ui.historial.examen.datosAnulacion", { fecha: fechaHora(item.anulacion.anulada_en), usuario: item.anulacion.anulada_por ?? "—" })}</p>
       </div>}
       {item.puede_corregir && !item.anulado && <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" aria-label={texto("ui.historial.examen.ariaCorregir", { materia: item.materia.nombre, fecha: fechaCorta(item.fecha) })} onClick={() => abrirEditor("corregir")}>{texto("ui.historial.examen.corregir")}</Button>
-        <Button type="button" variant="outline" aria-label={texto("ui.historial.examen.ariaAnular", { materia: item.materia.nombre, fecha: fechaCorta(item.fecha) })} onClick={() => abrirEditor("anular")}>{texto("ui.historial.examen.anular")}</Button>
+        <Button type="button" variant="ghost" className="h-auto p-0 text-xs text-primary underline underline-offset-4 hover:bg-transparent" aria-label={texto("ui.historial.examen.ariaCorregir", { materia: item.materia.nombre, fecha: fechaCorta(item.fecha) })} onClick={() => abrirEditor("corregir")}>{texto("ui.historial.examen.corregir")}</Button>
+        <Button type="button" variant="ghost" className="h-auto p-0 text-xs text-primary underline underline-offset-4 hover:bg-transparent" aria-label={texto("ui.historial.examen.ariaAnular", { materia: item.materia.nombre, fecha: fechaCorta(item.fecha) })} onClick={() => abrirEditor("anular")}>{texto("ui.historial.examen.anular")}</Button>
       </div>}
 
       <Dialog open={editor !== null} onOpenChange={(abierto) => { if (!abierto) setEditor(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{texto(editor === "anular" ? "ui.historial.examen.dialogoAnular" : "ui.historial.examen.dialogoCorregir")}</DialogTitle>
-            <DialogDescription>{item.materia.nombre}</DialogDescription>
+            <DialogDescription>{nombreAlumno ? `${nombreAlumno} · ` : ""}{item.materia.nombre}{editor === "corregir" && ` · ${texto("ui.historial.examen.materiaInmutable")}`}</DialogDescription>
           </DialogHeader>
           <form className="mt-5 space-y-4" onSubmit={prepararConfirmacion}>
-            {editor === "corregir" && <>
+            {editor === "corregir" && <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <label htmlFor={`fecha-examen-${item.id}`} className="text-sm font-medium">{texto("ui.historial.examen.fecha")}</label>
                 <input id={`fecha-examen-${item.id}`} type="date" required max={hoyBuenosAires()} value={fecha} onChange={(evento) => setFecha(evento.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
@@ -155,16 +157,16 @@ export function ResultadoExamenAcciones({
                 <label htmlFor={`nota-examen-${item.id}`} className="text-sm font-medium">{texto("ui.historial.examen.nota")}</label>
                 <input id={`nota-examen-${item.id}`} type="text" inputMode="decimal" pattern="[0-9]{1,3}([,.][0-9])?" required value={nota} onChange={(evento) => setNota(evento.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               </div>
-            </>}
+            </div>}
             <div className="space-y-1.5">
-              <label htmlFor={`motivo-examen-${item.id}`} className="text-sm font-medium">{texto("ui.historial.examen.motivo")}</label>
-              <textarea id={`motivo-examen-${item.id}`} required maxLength={300} rows={3} value={motivo} onChange={(evento) => setMotivo(evento.target.value)} className="min-h-20 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              <label htmlFor={`motivo-examen-${item.id}`} className="text-sm font-medium">{texto(editor === "corregir" ? "ui.historial.examen.motivoCorreccion" : "ui.historial.examen.motivo")}</label>
+              <textarea id={`motivo-examen-${item.id}`} required maxLength={300} rows={3} placeholder={texto("ui.historial.examen.placeholderMotivo")} value={motivo} onChange={(evento) => setMotivo(evento.target.value)} className="min-h-20 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <p className="text-right text-xs text-muted-foreground">{motivo.length}/300</p>
             </div>
             {errorLocal && <p role="alert" className="text-sm text-destructive">{errorLocal}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditor(null)}>{texto("ui.historial.examen.cancelar")}</Button>
-              <Button type="submit">{texto("ui.historial.examen.continuar")}</Button>
+              <Button type="submit">{texto(editor === "corregir" ? "ui.historial.examen.guardarCorreccion" : "ui.historial.examen.continuar")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

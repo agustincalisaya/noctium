@@ -1,3 +1,4 @@
+import { claseDictadaVigente } from "./valor-vigente";
 import type { Prisma, PrismaClient, RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.publico";
@@ -34,14 +35,14 @@ export async function registrarIndicacion(
   await verificarAlumnoActivo(alumnoId, tx);
 
   const cursada = await tx.claseDictadaAlumno.findFirst({
-    where: { alumnoId, clase: { is: { materiaId: input.materia_id, anuladaEl: null } } },
+    where: { alumnoId, clase: { is: { materiaId: input.materia_id, ...claseDictadaVigente } } },
     select: { alumnoId: true },
   });
   if (!cursada) throw new ErrorDeDominio("errores.examen.materiaNoCursada");
 
   if (input.clase_dictada_id) {
     const clase = await tx.claseDictada.findFirst({
-      where: { idClaseDictada: input.clase_dictada_id, anuladaEl: null },
+      where: { idClaseDictada: input.clase_dictada_id, ...claseDictadaVigente },
       select: { materiaId: true, alumnos: { where: { alumnoId }, select: { alumnoId: true } } },
     });
     if (!clase) throw new ErrorDeDominio("errores.claseDictada.noEncontrada");
@@ -84,7 +85,7 @@ export async function opcionesDeIndicacion(
 ): Promise<{ materias: { id: string; nombre: string }[]; clases: ClaseOpcionIndicacion[] }> {
   const clases = await db.claseDictada.findMany({
     where: {
-      anuladaEl: null,
+      ...claseDictadaVigente,
       ...(materiaId ? { materiaId } : {}),
       alumnos: { some: { alumnoId } },
     },
