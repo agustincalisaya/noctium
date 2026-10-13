@@ -1,0 +1,370 @@
+[
+  {
+    "caso": "6-desktop-indicador-ingresos",
+    "client": 528,
+    "scroll": 528,
+    "left": 0,
+    "overflowX": "hidden",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "6-desktop-indicador-ocupacion",
+    "client": 528,
+    "scroll": 528,
+    "left": 0,
+    "overflowX": "hidden",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "12-desktop-indicador-ingresos",
+    "client": 528,
+    "scroll": 592,
+    "left": 64,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "80 mil",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "12-desktop-indicador-ocupacion",
+    "client": 528,
+    "scroll": 592,
+    "left": 64,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "35%",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "13-desktop-indicador-ingresos",
+    "client": 1104,
+    "scroll": 1104,
+    "left": 0,
+    "overflowX": "hidden",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "13-desktop-indicador-ocupacion",
+    "client": 1104,
+    "scroll": 1104,
+    "left": 0,
+    "overflowX": "hidden",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "24-desktop-indicador-ingresos",
+    "client": 1104,
+    "scroll": 1120,
+    "left": 16,
+    "overflowX": "auto",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "24-desktop-indicador-ocupacion",
+    "client": 1104,
+    "scroll": 1120,
+    "left": 16,
+    "overflowX": "auto",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "6-mobile-indicador-ingresos",
+    "client": 326,
+    "scroll": 328,
+    "left": 2,
+    "overflowX": "auto",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "6-mobile-indicador-ocupacion",
+    "client": 326,
+    "scroll": 328,
+    "left": 2,
+    "overflowX": "auto",
+    "categoriasOcultas": []
+  },
+  {
+    "caso": "12-mobile-indicador-ingresos",
+    "client": 326,
+    "scroll": 592,
+    "left": 266,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "80 mil",
+        "oculto": true
+      },
+      {
+        "texto": "82 mil",
+        "oculto": true
+      },
+      {
+        "texto": "84 mil",
+        "oculto": true
+      },
+      {
+        "texto": "86 mil",
+        "oculto": true
+      },
+      {
+        "texto": "88 mil",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "12-mobile-indicador-ocupacion",
+    "client": 326,
+    "scroll": 592,
+    "left": 266,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "35%",
+        "oculto": true
+      },
+      {
+        "texto": "36%",
+        "oculto": true
+      },
+      {
+        "texto": "37%",
+        "oculto": true
+      },
+      {
+        "texto": "38%",
+        "oculto": true
+      },
+      {
+        "texto": "39%",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "13-mobile-indicador-ingresos",
+    "client": 326,
+    "scroll": 636,
+    "left": 310,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "80 mil",
+        "oculto": true
+      },
+      {
+        "texto": "82 mil",
+        "oculto": true
+      },
+      {
+        "texto": "84 mil",
+        "oculto": true
+      },
+      {
+        "texto": "86 mil",
+        "oculto": true
+      },
+      {
+        "texto": "88 mil",
+        "oculto": true
+      },
+      {
+        "texto": "90 mil",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "13-mobile-indicador-ocupacion",
+    "client": 326,
+    "scroll": 636,
+    "left": 310,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "35%",
+        "oculto": true
+      },
+      {
+        "texto": "36%",
+        "oculto": true
+      },
+      {
+        "texto": "37%",
+        "oculto": true
+      },
+      {
+        "texto": "38%",
+        "oculto": true
+      },
+      {
+        "texto": "39%",
+        "oculto": true
+      },
+      {
+        "texto": "40%",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "24-mobile-indicador-ingresos",
+    "client": 326,
+    "scroll": 1120,
+    "left": 794,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "80 mil",
+        "oculto": true
+      },
+      {
+        "texto": "82 mil",
+        "oculto": true
+      },
+      {
+        "texto": "84 mil",
+        "oculto": true
+      },
+      {
+        "texto": "86 mil",
+        "oculto": true
+      },
+      {
+        "texto": "88 mil",
+        "oculto": true
+      },
+      {
+        "texto": "90 mil",
+        "oculto": true
+      },
+      {
+        "texto": "92 mil",
+        "oculto": true
+      },
+      {
+        "texto": "94 mil",
+        "oculto": true
+      },
+      {
+        "texto": "96 mil",
+        "oculto": true
+      },
+      {
+        "texto": "98 mil",
+        "oculto": true
+      },
+      {
+        "texto": "100 mil",
+        "oculto": true
+      },
+      {
+        "texto": "102 mil",
+        "oculto": true
+      },
+      {
+        "texto": "104 mil",
+        "oculto": true
+      },
+      {
+        "texto": "106 mil",
+        "oculto": true
+      },
+      {
+        "texto": "108 mil",
+        "oculto": true
+      },
+      {
+        "texto": "110 mil",
+        "oculto": true
+      },
+      {
+        "texto": "112 mil",
+        "oculto": true
+      }
+    ]
+  },
+  {
+    "caso": "24-mobile-indicador-ocupacion",
+    "client": 326,
+    "scroll": 1120,
+    "left": 794,
+    "overflowX": "auto",
+    "categoriasOcultas": [
+      {
+        "texto": "35%",
+        "oculto": true
+      },
+      {
+        "texto": "36%",
+        "oculto": true
+      },
+      {
+        "texto": "37%",
+        "oculto": true
+      },
+      {
+        "texto": "38%",
+        "oculto": true
+      },
+      {
+        "texto": "39%",
+        "oculto": true
+      },
+      {
+        "texto": "40%",
+        "oculto": true
+      },
+      {
+        "texto": "41%",
+        "oculto": true
+      },
+      {
+        "texto": "42%",
+        "oculto": true
+      },
+      {
+        "texto": "43%",
+        "oculto": true
+      },
+      {
+        "texto": "44%",
+        "oculto": true
+      },
+      {
+        "texto": "45%",
+        "oculto": true
+      },
+      {
+        "texto": "46%",
+        "oculto": true
+      },
+      {
+        "texto": "47%",
+        "oculto": true
+      },
+      {
+        "texto": "48%",
+        "oculto": true
+      },
+      {
+        "texto": "49%",
+        "oculto": true
+      },
+      {
+        "texto": "50%",
+        "oculto": true
+      },
+      {
+        "texto": "51%",
+        "oculto": true
+      }
+    ]
+  }
+]

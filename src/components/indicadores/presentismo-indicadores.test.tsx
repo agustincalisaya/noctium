@@ -17,6 +17,15 @@ beforeEach(() => { mocks.llamadas = []; mocks.errores = {}; mocks.retry.mockClea
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 async function render(r = rango) { await act(async () => root.render(<PresentismoIndicadores rango={r} />)); }
 describe("Pestaña de presentismo", () => {
+  it("un período sin registros conserva los meses, el total nulo y la explicación de 0 %", async () => {
+    const vacio = { inscriptos: 0, presentes: 0, ausentes: 0, indice: null };
+    mocks.datos["/api/indicadores/presentismo-por-mes"] = { meses: [{ mes: "2026-05", ...vacio }, { mes: "2026-06", ...vacio }], resumen: vacio, clases_sin_control: 0 };
+    await render();
+    expect(container.querySelector('[data-series="inscriptos,presentes,indice"]')?.getAttribute("data-estado")).toBe("ok");
+    expect(container.querySelector('[data-series="inscriptos,presentes,indice"]')?.getAttribute("data-items")).toBe("2");
+    expect(container.textContent).toContain("Sin registros: no hay inscripciones para calcular el índice");
+    expect(container.textContent).toContain("El 0 % indica que hubo inscripciones y ninguna presencia");
+  });
   it("usa gráfico común con barras y línea, mantiene aviso cero y enlaza materia del historial", async () => { await render(); expect(container.querySelector('[data-series="inscriptos,presentes,indice"]')).not.toBeNull(); expect(container.textContent).toContain("0 clases dictadas sin control"); expect(container.querySelector('a[href="/alumnos/a?tab=historial&materia_id=m"]')).not.toBeNull(); expect(container.textContent).toContain("75 %"); });
   it("pagina de diez y vuelve a uno cuando cambia el período", async () => { await render(); const next = [...container.querySelectorAll("button")].find(b => b.textContent?.includes("Siguiente"))!; await act(async () => next.click()); expect(mocks.llamadas).toContain("/api/indicadores/alumnos-presentismo-bajo?pagina=2"); await render({ ...rango, desde: "2026-06" }); expect(mocks.llamadas.at(-1)).toBe("/api/indicadores/alumnos-presentismo-bajo?pagina=1"); });
   it("un gráfico con error conserva la otra consulta y la tabla", async () => { mocks.errores["/api/indicadores/presentismo-por-mes"] = "fallo"; await render(); expect(container.querySelectorAll('[data-estado="error"]')).toHaveLength(1); expect(container.querySelector('[data-estado="ok"]')).not.toBeNull(); expect(container.textContent).toContain("Díaz, Ana"); });

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { texto } from "@/lib/textos";
+import { cn } from "@/lib/utils";
 
 export type DatoIndicador = Record<string, string | number | null>;
 export type SerieIndicador = { clave: string; etiqueta: string; unidad: string; tipo: "barra" | "linea"; color: string; ejePorcentaje?: boolean };
@@ -19,6 +20,8 @@ export type GraficoIndicadorProps = {
   mensual?: boolean; diferenciaClave?: string; diferenciaEtiqueta?: string;
   totalDetalle?: string; columnasTabla?: ColumnaIndicador[]; detalleBarra?: (fila: DatoIndicador, clave: string) => string;
   referencia?: { valor: number; etiqueta: string };
+  className?: string; alturaMaxima?: number;
+  sinDatosClave?: string;
 };
 const numero = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 export function valorCompacto(valor: number): string {
@@ -29,23 +32,54 @@ export function valorCompacto(valor: number): string {
 
 export function GraficoIndicador({ id, titulo, total, leyendaFecha, datos, series, claveCategoria = "mes", anchoCategoria = 132,
   orientacion = "vertical", formatearValor = v => String(v), formatearCategoria = v => v, estado, onReintentar, textoVacio, error,
-  mensual = false, diferenciaClave, diferenciaEtiqueta = texto("ui.indicadores.panel.ausentes"), totalDetalle, columnasTabla, detalleBarra }: GraficoIndicadorProps) {
+  mensual = false, diferenciaClave, diferenciaEtiqueta = texto("ui.indicadores.panel.ausentes"), totalDetalle, columnasTabla, detalleBarra, className, alturaMaxima, sinDatosClave }: GraficoIndicadorProps) {
   const [tabla, setTabla] = useState(false);
   const scroll = useRef<HTMLDivElement>(null);
   const [desborda, setDesborda] = useState(false);
+  const [desbordaVertical, setDesbordaVertical] = useState(false);
   const horizontal = orientacion === "horizontal";
   const largo = mensual && datos.length > 12;
   const barras = series.filter(s => s.tipo === "barra");
   const porcentaje = series.every(s => s.unidad === "%");
-  const anchoMinimo = mensual ? datos.length * (barras.length > 2 ? largo ? barras.length * 14 + 28 : barras.length * 10 + 16 : barras.length > 1 ? 60 : 44) + 64 : 0;
+  const anchoEtiqueta = Math.max(13, ...datos.flatMap(fila => barras.map(s => formatearValor(Number(fila[s.clave] ?? 0), s.clave).length * 6)));
+  const anchoGrupoMultiple = anchoEtiqueta > 18 ? Math.ceil((barras.length * (anchoEtiqueta + 3) + 12) / 0.76) : 72;
+  const anotarPares = mensual && !!diferenciaClave;
+  // El espacio por grupo depende de sus cifras y series, no del período.
+  const anchoMinimo = mensual ? datos.length * (barras.length > 2 || anotarPares ? anchoGrupoMultiple : barras.length > 1 ? 60 : 44) + (anotarPares ? 80 : barras.length > 2 ? 50 : 64) : 0;
+  const margenDerecho = horizontal ? Math.max(detalleBarra ? 102 : 42, ...datos.flatMap(fila => barras.map(s => (formatearValor(Number(fila[s.clave] ?? 0), s.clave) + (detalleBarra?.(fila, s.clave) ?? "")).length * 6 + 14))) : series.some(s => s.ejePorcentaje) ? 4 : 8;
   const config = Object.fromEntries(series.map(s => [s.clave, { label: s.etiqueta, color: s.color }])) as ChartConfig;
   useEffect(() => {
     const elemento = scroll.current;
     if (!elemento) return;
-    const medir = () => { setDesborda(elemento.scrollWidth > elemento.clientWidth + 1); elemento.scrollLeft = elemento.scrollWidth; };
-    medir(); const observer = new ResizeObserver(medir); observer.observe(elemento);
-    return () => observer.disconnect();
-  }, [datos, tabla, estado]);
+    let alFinal = mensual;
+    let frame = 0;
+    let desmontado = false;
+    const medir = () => {
+      if (mensual && alFinal) elemento.scrollLeft = elemento.scrollWidth;
+      const limite = elemento.getBoundingClientRect();
+      const categorias = mensual ? [...elemento.querySelectorAll("[data-category], .recharts-label-list text")] : [];
+      const contenidoOculto = categorias.length ? categorias.some(categoria => {
+        const rect = categoria.getBoundingClientRect();
+        return rect.width > 0 && (rect.left < limite.left - 1 || rect.right > limite.right + 1);
+      }) : elemento.scrollWidth > elemento.clientWidth + 1;
+      setDesborda(elemento.scrollWidth > elemento.clientWidth + 1 && contenidoOculto);
+      setDesbordaVertical(elemento.scrollHeight > elemento.clientHeight + 1);
+    };
+    const programar = () => {
+      if (desmontado) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(medir);
+    };
+    const recorrer = () => { alFinal = elemento.scrollLeft >= elemento.scrollWidth - elemento.clientWidth - 2; programar(); };
+    medir();
+    const observer = new ResizeObserver(programar); observer.observe(elemento);
+    if (elemento.firstElementChild) observer.observe(elemento.firstElementChild);
+    const cambios = new MutationObserver(programar);
+    cambios.observe(elemento, { subtree: true, childList: true, attributes: true, attributeFilter: ["width", "height", "x", "y", "transform"] });
+    elemento.addEventListener("scroll", recorrer, { passive: true });
+    document.fonts?.ready.then(programar);
+    return () => { desmontado = true; cancelAnimationFrame(frame); observer.disconnect(); cambios.disconnect(); elemento.removeEventListener("scroll", recorrer); };
+  }, [datos, tabla, estado, mensual]);
   const categoriaExacta = (valor: string, indice: number) => mensual && /^\d{4}-\d{2}$/.test(valor)
     ? new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${valor}-01T12:00:00Z`))
     : formatearCategoria(valor, indice);
@@ -55,7 +89,7 @@ export function GraficoIndicador({ id, titulo, total, leyendaFecha, datos, serie
     ...series.map(s => ({ clave: s.clave, etiqueta: `${s.etiqueta} (${s.unidad})`, formatear: (v: string | number | null) => v == null ? "—" : formatearValor(Number(v), s.clave) })),
     ...(diferenciaClave && !series.some(s => s.clave === diferenciaClave) ? [{ clave: diferenciaClave, etiqueta: diferenciaEtiqueta }] : []),
   ];
-  return <Card aria-labelledby={`${id}-titulo`} aria-busy={estado === "cargando"} role="region" className={`gap-0 rounded-lg py-0 shadow-none ${horizontal ? "self-start" : ""} ${largo ? "min-w-0 lg:col-span-2" : "min-w-0"}`}>
+  return <Card aria-labelledby={`${id}-titulo`} aria-busy={estado === "cargando"} role="region" className={cn("min-w-0 gap-0 rounded-lg py-0 shadow-none", horizontal && "self-start", largo && "lg:col-span-2", className)}>
     <CardHeader className="block px-4 pt-4 pb-0">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0"><CardTitle id={`${id}-titulo`} className="text-sm leading-5 font-semibold">{titulo}</CardTitle><CardDescription className="mt-0.5 text-xs leading-4">{leyendaFecha}</CardDescription></div>
@@ -70,25 +104,31 @@ export function GraficoIndicador({ id, titulo, total, leyendaFecha, datos, serie
       {estado === "vacio" && <p role="status" className="py-16 text-center text-sm text-muted-foreground">{textoVacio || texto("ui.indicadores.panel.vacio")}</p>}
       {estado === "ok" && <>
         {!tabla && series.length > 1 && <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2 text-[10px] leading-4 text-muted-foreground">{series.map(s => <span key={s.clave} className="inline-flex items-center gap-1.5"><span aria-hidden className="h-2 w-2 rounded-[2px]" style={{ background: s.color }} />{s.etiqueta}{s.unidad !== "%" ? ` (${s.unidad})` : ""}</span>)}</div>}
-        {!tabla && <div ref={scroll} className="overflow-x-auto overscroll-x-contain" tabIndex={desborda ? 0 : undefined} aria-label={desborda ? titulo : undefined}>
-          <div style={{ minWidth: anchoMinimo || undefined }}>
-            <ChartContainer config={config} className="aspect-auto w-full text-[10px]" style={{ height: horizontal ? Math.max(80, datos.length * (barras.length > 1 ? 36 : 27) + 16) : 200 }}>
-              <ComposedChart accessibilityLayer data={datos} layout={horizontal ? "vertical" : "horizontal"} barGap={3} barCategoryGap={horizontal ? "25%" : "24%"} margin={{ top: horizontal ? 4 : 22, right: horizontal ? (detalleBarra ? 102 : 42) : series.some(s => s.ejePorcentaje) ? 4 : 8, left: 0, bottom: 0 }}>
+        {!tabla && <div ref={scroll} className={cn("overscroll-contain rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", desborda ? "overflow-x-auto" : "overflow-x-hidden", horizontal && alturaMaxima ? "overflow-y-auto" : "overflow-y-hidden")} style={{ maxHeight: horizontal ? alturaMaxima : undefined }} tabIndex={desborda || desbordaVertical ? 0 : undefined} role={desborda || desbordaVertical ? "group" : undefined} aria-label={desborda || desbordaVertical ? titulo : undefined} aria-describedby={mensual && desborda ? `${id}-scroll` : undefined}>
+          <div style={{ minWidth: Math.max(anchoMinimo, horizontal && detalleBarra && margenDerecho > 140 ? anchoCategoria + margenDerecho + 120 : 0) || undefined }}>
+            <ChartContainer config={config} className="aspect-auto w-full text-[10px]" style={{ height: horizontal ? Math.max(80, datos.length * (barras.length > 1 ? 36 : 27) + 16) : anotarPares ? 250 : 200 }}>
+              <ComposedChart accessibilityLayer data={datos} layout={horizontal ? "vertical" : "horizontal"} barGap={horizontal ? 6 : 3} barCategoryGap={horizontal ? "25%" : "24%"} margin={{ top: horizontal ? 4 : anotarPares ? 58 : 22, right: margenDerecho, left: 0, bottom: 0 }}>
                 {!horizontal && <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.45} />}
-                {horizontal ? <><XAxis type="number" hide domain={[0, "dataMax"]} /><YAxis type="category" dataKey={claveCategoria} interval={0} width={anchoCategoria} tickLine={false} axisLine={false} tick={({ x, y, payload }) => { const nombre = formatearCategoria(String(payload.value), datos.findIndex(d => d[claveCategoria] === payload.value)); return <text x={x} y={y} dy={3} textAnchor="end" fill="var(--muted-foreground)" fontSize={10}><title>{nombre}</title>{nombre.length > 25 ? `${nombre.slice(0, 24)}…` : nombre}</text>; }} /></> : <><XAxis dataKey={claveCategoria} tickLine={false} axisLine={false} tickMargin={7} interval={0} height={26} tickFormatter={v => formatearCategoria(String(v), datos.findIndex(d => d[claveCategoria] === v))} /><YAxis yAxisId="cantidad" tickLine={false} axisLine={false} width={42} tickCount={4} tickFormatter={v => porcentaje ? `${v}%` : series[0]?.unidad === "pesos" ? `$ ${valorCompacto(Number(v))}` : valorCompacto(Number(v))} domain={porcentaje ? [0, (max: number) => Math.max(80, Math.ceil(max / 20) * 20)] : [0, "auto"]} /></>}
+                {horizontal ? <><XAxis type="number" hide domain={[0, "dataMax"]} /><YAxis type="category" dataKey={claveCategoria} interval={0} width={anchoCategoria} tickLine={false} axisLine={false} tick={({ x, y, payload }) => { const nombre = formatearCategoria(String(payload.value), datos.findIndex(d => d[claveCategoria] === payload.value)); return <foreignObject x={Number(x) - anchoCategoria + 8} y={Number(y) - 8} width={anchoCategoria - 10} height={16}><div title={nombre} className="truncate text-right text-[10px] leading-4 text-muted-foreground">{nombre}</div></foreignObject>; }} /></> : <><XAxis dataKey={claveCategoria} tickLine={false} axisLine={false} tickMargin={7} interval={0} height={sinDatosClave ? 44 : 26} tick={mensual ? ({ x, y, payload }) => {
+                  const indice = datos.findIndex(d => d[claveCategoria] === payload.value);
+                  const fila = datos[indice];
+                  const sinDatos = sinDatosClave && !Number(fila?.[sinDatosClave]);
+                  const diferencia = diferenciaClave ? fila?.[diferenciaClave] : null;
+                  return <g data-category={payload.value}>{anotarPares && diferencia != null && Number(fila?.[barras[0].clave]) > 0 && <text x={x} y={16} textAnchor="middle" fill="var(--destructive)" fontSize={9} data-annotation="diferencia"><title>{diferenciaEtiqueta}: {diferencia}</title>−{diferencia}</text>}<text x={x} y={Number(y) + 8} textAnchor="middle" fill="var(--muted-foreground)" fontSize={10}>{formatearCategoria(String(payload.value), indice)}</text>{sinDatos && <text x={x} y={Number(y) + 22} textAnchor="middle" fill="var(--muted-foreground)" fontSize={9}>{texto("ui.indicadores.presentismo.sinRegistros")}</text>}</g>;
+                } : undefined} tickFormatter={v => formatearCategoria(String(v), datos.findIndex(d => d[claveCategoria] === v))} /><YAxis yAxisId="cantidad" tickLine={false} axisLine={false} width={42} tickCount={4} tickFormatter={v => porcentaje ? `${v}%` : series[0]?.unidad === "pesos" ? `$ ${valorCompacto(Number(v))}` : valorCompacto(Number(v))} domain={porcentaje ? [0, (max: number) => Math.max(80, Math.ceil(max / 20) * 20)] : [0, "auto"]} /></>}
                 {!horizontal && series.some(s => s.ejePorcentaje) && <YAxis yAxisId="porcentaje" orientation="right" domain={[0, 100]} ticks={[0, 50, 100]} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} width={34} tick={{ fill: "var(--chart-attendance-index)" }} />}
                 <ChartTooltip content={<ChartTooltipContent labelFormatter={(_, payload) => categoriaExacta(String(payload?.[0]?.payload?.[claveCategoria] ?? ""), datos.findIndex(d => d[claveCategoria] === payload?.[0]?.payload?.[claveCategoria]))} formatter={(v, name) => <span className="flex w-full justify-between gap-4"><span>{series.find(s => s.clave === name)?.etiqueta}</span><span className="font-medium tabular-nums">{v == null ? "—" : formatearValor(Number(v), String(name))}</span></span>} />} />
-                {series.map(s => s.tipo === "barra" ? <Bar key={s.clave} dataKey={s.clave} name={s.clave} yAxisId={horizontal ? undefined : "cantidad"} fill={s.color} maxBarSize={horizontal ? barras.length > 1 ? 8 : 12 : barras.length > 2 ? 13 : barras.length > 1 ? 22 : 38} radius={horizontal ? [0, 1, 1, 0] : [2, 2, 0, 0]} isAnimationActive={false}>
-                  <LabelList dataKey={(fila: DatoIndicador) => String(fila[claveCategoria])} content={props => { const fila = datos.find(d => String(d[claveCategoria]) === String(props.value)); const value = fila?.[s.clave]; if (!fila || value == null || mensual && Number(value) === 0 && !barras.some(b => Number(fila[b.clave]) > 0)) return null; const x = Number(props.x), y = Number(props.y), width = Number(props.width), height = Number(props.height); return <text x={horizontal ? x + width + 4 : x + width / 2} y={horizontal ? y + height / 2 : y - 5} dominantBaseline={horizontal ? "central" : undefined} textAnchor={horizontal ? "start" : "middle"} fill="var(--foreground)" fontSize={9}>{etiquetaValor(Number(value), s)}{horizontal && detalleBarra ? detalleBarra(fila, s.clave) : ""}</text>; }} />
-                  {diferenciaClave && s.clave === barras[0]?.clave && <LabelList dataKey={(fila: DatoIndicador) => String(fila[claveCategoria])} content={props => { const fila = datos.find(d => String(d[claveCategoria]) === String(props.value)); const v = fila?.[diferenciaClave]; if (!fila || v == null || !Number(fila[barras[0].clave])) return null; return <text x={Number(props.x) + Number(props.width) + 2} y={Number(props.y) - 19} textAnchor="middle" fill="var(--destructive)" fontSize={9}><title>{diferenciaEtiqueta}: {v}</title>−{v}</text>; }} />}
+                {series.map(s => s.tipo === "barra" ? <Bar key={s.clave} dataKey={s.clave} name={s.clave} yAxisId={horizontal ? undefined : "cantidad"} fill={s.color} maxBarSize={horizontal ? barras.length > 1 ? 8 : 12 : barras.length > 2 ? anchoEtiqueta : barras.length > 1 ? Math.max(22, anotarPares ? anchoEtiqueta : 0) : 38} radius={horizontal ? [0, 1, 1, 0] : [2, 2, 0, 0]} isAnimationActive={false}>
+                  <LabelList dataKey={(fila: DatoIndicador) => String(fila[claveCategoria])} content={props => { const fila = datos.find(d => String(d[claveCategoria]) === String(props.value)); const value = fila?.[s.clave]; if (!fila || value == null || mensual && Number(value) === 0 && !barras.some(b => Number(fila[b.clave]) > 0)) return null; const x = Number(props.x), y = Number(props.y), width = Number(props.width), height = Number(props.height); return <text x={horizontal ? x + width + 4 : x + width / 2} y={horizontal ? y + height / 2 : anotarPares ? 34 : y - 5} dominantBaseline={horizontal ? "central" : undefined} textAnchor={horizontal ? "start" : "middle"} fill="var(--foreground)" fontSize={9}>{etiquetaValor(Number(value), s)}{horizontal && detalleBarra ? detalleBarra(fila, s.clave) : ""}</text>; }} />
+                  {diferenciaClave && !anotarPares && s.clave === barras[0]?.clave && <LabelList dataKey={(fila: DatoIndicador) => String(fila[claveCategoria])} content={props => { const fila = datos.find(d => String(d[claveCategoria]) === String(props.value)); const v = fila?.[diferenciaClave]; if (!fila || v == null || !Number(fila[barras[0].clave])) return null; return <text x={Number(props.x) + Number(props.width) + 2} y={anotarPares ? 16 : Number(props.y) - 19} textAnchor="middle" fill="var(--destructive)" fontSize={9} data-annotation="diferencia"><title>{diferenciaEtiqueta}: {v}</title>−{v}</text>; }} />}
                 </Bar> : <Line key={s.clave} dataKey={s.clave} name={s.clave} yAxisId={horizontal ? undefined : s.ejePorcentaje ? "porcentaje" : "cantidad"} type="linear" stroke={s.color} strokeWidth={1.5} dot={{ r: 2.5, fill: "var(--card)", stroke: s.color }} connectNulls={false} isAnimationActive={false} />)}
               </ComposedChart>
             </ChartContainer>
           </div>
         </div>}
-        {!tabla && mensual && desborda && <p className="mt-3 text-xs text-muted-foreground">{texto("ui.indicadores.panel.scroll")}</p>}
+        {!tabla && mensual && desborda && <p id={`${id}-scroll`} className="mt-3 text-xs text-muted-foreground">{texto("ui.indicadores.panel.scroll")}</p>}
       </>}
-      <div className={tabla ? "overflow-x-auto" : "sr-only"}>
+      <div className={tabla ? "overflow-x-auto rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" : "sr-only"} tabIndex={tabla ? 0 : undefined} role={tabla ? "group" : undefined} aria-label={tabla ? titulo : undefined}>
         <table className="w-full text-left text-sm tabular-nums"><caption className="sr-only">{titulo}</caption><thead className="border-b border-border"><tr>{columnas.map(c => <th scope="col" key={c.clave} className="px-3 py-2">{c.etiqueta}</th>)}</tr></thead><tbody>{estado === "ok" && datos.map(fila => <tr key={String(fila[claveCategoria])} className="border-b border-border">{columnas.map((c, i) => { const v = fila[c.clave]; const contenido = c.formatear ? c.formatear(v) : v == null ? "—" : String(v); return i === 0 ? <th scope="row" key={c.clave} className="px-3 py-2 font-medium">{contenido}</th> : <td key={c.clave} className="px-3 py-2">{contenido}</td>; })}</tr>)}</tbody></table>
       </div>
     </CardContent>
