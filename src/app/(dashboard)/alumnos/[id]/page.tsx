@@ -104,14 +104,10 @@ export default async function AlumnoDetallePage({
             activo={alumno.is_active}
             puedeEditar={!mostrarHistorial && !mostrarClases && !mostrarPagos && !gerente && usuarioEditar !== null}
             modoHistorial={mostrarHistorial || mostrarClases || mostrarPagos}
+            accion={!mostrarHistorial && !mostrarClases && !mostrarPagos && usuarioCambiarEstado ? <EstadoAlumnoDialog alumno={{ id: alumno.id, nombre: alumno.nombre, apellido: alumno.apellido, activo: alumno.is_active, version: alumno.version }} /> : undefined}
           />
           {mostrarPagos && usuarioCambiarEstado && <EstadoAlumnoDialog alumno={{ id: alumno.id, nombre: alumno.nombre, apellido: alumno.apellido, activo: alumno.is_active, version: alumno.version }} />}
           </div>
-          {!mostrarHistorial && !mostrarClases && !mostrarPagos && usuarioCambiarEstado && (
-            <div className="flex justify-end">
-              <EstadoAlumnoDialog alumno={{ id: alumno.id, nombre: alumno.nombre, apellido: alumno.apellido, activo: alumno.is_active, version: alumno.version }} />
-            </div>
-          )}
           {gerente && <p className="text-xs text-muted-foreground">{texto("ui.historial.clasesAlumno.consulta")}</p>}
           <nav className="flex gap-5 border-b border-border" aria-label={textoC19("ui.clases.interfaz.seccionesDeLaFicha")}>
             <Link
