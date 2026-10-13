@@ -155,7 +155,7 @@ export function ResolverClasesProfesorDialog({ profesorId, onCerrar, onDesactiva
               </label><span aria-live="polite" className="text-muted-foreground">{texto(seleccionadas.length === 1 ? "ui.profesores.estado.seleccionadasUna" : "ui.profesores.estado.seleccionadas", { total: seleccionadas.length })}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" disabled={!seleccionadas.length || cargando} className="border-destructive text-destructive" onClick={() => setConfirmacion("cancelar")}>{texto("ui.profesores.estado.cancelar")}</Button>
+              <Button variant="outline" size="sm" disabled={!seleccionadas.length || cargando} className="border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => setConfirmacion("cancelar")}>{texto("ui.profesores.estado.cancelar")}</Button>
               <Button variant="outline" size="sm" disabled={!seleccionadas.length || cargando} onClick={() => {
                 if (materiasSeleccionadas.size !== 1) { setError(texto("errores.profesor.materiasDistintas")); return; }
                 setPaso("preview"); setError(null); setDestino(""); setPreview(null);

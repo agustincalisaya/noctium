@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -12,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
  * la verificación real es la de `verificarPermiso("alumnos:editar")` dentro
  * de la Server Action/Route Handler, esto solo evita mostrar el acceso a
  * quien no podría enviarlo.
+ *
+ * `accion` (HU-B-07, spec B §2.12): «Desactivar alumno»/«Reactivar» ya armado
+ * por `page.tsx`, que decide cuándo se muestra; va al extremo derecho.
  */
 export function FichaEncabezado({
   alumnoId,
@@ -22,6 +26,7 @@ export function FichaEncabezado({
   activo,
   puedeEditar,
   modoHistorial = false,
+  accion,
 }: {
   alumnoId: string;
   nombre: string;
@@ -31,24 +36,28 @@ export function FichaEncabezado({
   activo: boolean;
   puedeEditar: boolean;
   modoHistorial?: boolean;
+  accion?: ReactNode;
 }) {
   return (
-    <header className="space-y-1">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">
-          {modoHistorial ? `${nombre} ${apellido}` : `${apellido}, ${nombre}`}
-        </h1>
-        {!modoHistorial && <Badge variant={activo ? "success" : "muted"}>{activo ? "Activo" : "Inactivo"}</Badge>}
+    <header className="flex flex-wrap items-center justify-between gap-3">
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold">
+            {modoHistorial ? `${nombre} ${apellido}` : `${apellido}, ${nombre}`}
+          </h1>
+          {!modoHistorial && <Badge variant={activo ? "success" : "muted"}>{activo ? "Activo" : "Inactivo"}</Badge>}
+        </div>
+        <p className="text-sm text-muted-foreground">DNI {dni}{email ? ` · ${email}` : ""}</p>
+        {puedeEditar && (
+          <Link
+            href={`/alumnos/${alumnoId}/editar`}
+            className="inline-block rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Modificar datos
+          </Link>
+        )}
       </div>
-      <p className="text-sm text-muted-foreground">DNI {dni}{email ? ` · ${email}` : ""}</p>
-      {puedeEditar && (
-        <Link
-          href={`/alumnos/${alumnoId}/editar`}
-          className="inline-block rounded-sm text-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Modificar datos
-        </Link>
-      )}
+      {accion}
     </header>
   );
 }
