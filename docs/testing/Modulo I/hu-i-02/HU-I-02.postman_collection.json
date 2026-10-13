@@ -1,0 +1,298 @@
+{
+  "info": {
+    "name": "Noctium HU-I-02 Historial de pagos",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar solo contra noctium_i02_pg (127.0.0.1:55434) con la app local en 3005. Cookies obtenidas por login; no contiene credenciales. Los requests GET no alteran datos."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:3005"
+    },
+    {
+      "key": "alumno_id",
+      "value": ""
+    },
+    {
+      "key": "alumno_inexistente_id",
+      "value": "c123456789012345678901234"
+    },
+    {
+      "key": "cookie_mesa",
+      "value": ""
+    },
+    {
+      "key": "cookie_gerente",
+      "value": ""
+    },
+    {
+      "key": "cookie_profesor",
+      "value": ""
+    },
+    {
+      "key": "cookie_alumno",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Mesa · historial 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Modo HISTORIAL y datos privados ausentes\", () => { pm.expect(body.data.modo).to.eql(\"HISTORIAL\"); pm.expect(body.data).not.to.have.property(\"saldo\"); pm.expect(body.data).not.to.have.property(\"caja\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa · opciones 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial/opciones?alumno_id={{alumno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa · estado RESERVADA 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}&estado_pago=RESERVADA"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Modo ESTADO_DE_PAGO y datos privados ausentes\", () => { pm.expect(body.data.modo).to.eql(\"ESTADO_DE_PAGO\"); pm.expect(body.data).not.to.have.property(\"saldo\"); pm.expect(body.data).not.to.have.property(\"caja\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa · query inválida 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}&estado_pago=PAGADA&materia_id=x"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesa · alumno inexistente 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_mesa}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_inexistente_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente · historial 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Modo HISTORIAL y datos privados ausentes\", () => { pm.expect(body.data.modo).to.eql(\"HISTORIAL\"); pm.expect(body.data).not.to.have.property(\"saldo\"); pm.expect(body.data).not.to.have.property(\"caja\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gerente · estado 200",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_gerente}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}&estado_pago=RESERVADA"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });",
+              "pm.test(\"Modo ESTADO_DE_PAGO y datos privados ausentes\", () => { pm.expect(body.data.modo).to.eql(\"ESTADO_DE_PAGO\"); pm.expect(body.data).not.to.have.property(\"saldo\"); pm.expect(body.data).not.to.have.property(\"caja\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profesor · historial 403",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_profesor}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alumno · opciones 403",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Cookie",
+            "value": "{{cookie_alumno}}"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/historial/opciones?alumno_id={{alumno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión · historial 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/pagos/historial?alumno_id={{alumno_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test(\"Sobre estándar\", () => { pm.expect(body).to.have.property(\"data\"); pm.expect(body).to.have.property(\"error\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

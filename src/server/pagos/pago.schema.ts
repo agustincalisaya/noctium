@@ -63,3 +63,19 @@ export const RegistrarOperacionSchema = z.object({
 }).strict();
 
 export type RegistrarOperacionInput = z.infer<typeof RegistrarOperacionSchema>;
+
+// HU-I-02: las fechas filtran pagos vigentes o clases según el modo.
+export const HistorialPagosQuerySchema = z.object({
+  alumno_id: z.string().cuid(),
+  desde: fechaCalendarioValidaSchema.optional(),
+  hasta: fechaCalendarioValidaSchema.optional(),
+  forma_pago_id: formaPagoIdSchema.optional(),
+  materia_id: z.string().trim().min(1).optional(),
+  estado_pago: z.enum(["PAGADA", "RESERVADA", "PAGO_SIN_REGISTRAR"]).optional(),
+  pagina: z.coerce.number().int().positive().default(1),
+}).strict().refine((q) => !q.desde || !q.hasta || q.desde <= q.hasta, "Desde no puede ser posterior a Hasta")
+  .refine((q) => !q.estado_pago || (!q.forma_pago_id && !q.materia_id),
+    "El estado de pago solo se combina con el rango de fechas");
+
+export const OpcionesHistorialPagosQuerySchema = z.object({ alumno_id: z.string().cuid() }).strict();
+export type HistorialPagosQuery = z.infer<typeof HistorialPagosQuerySchema>;

@@ -121,3 +121,42 @@ export type OperacionDePagoRegistrada = {
   }[];
   comprobante: { id: string; numero: string };
 };
+
+/** HU-I-02: las dos respuestas de la pestaña Pagos. */
+export type PaginacionHistorialPagos = { total: number; pagina_actual: number; total_paginas: number; por_pagina: 10 };
+export type PagoHistorialItem = {
+  pago_id: string;
+  fecha_pago: string;
+  registrado_en: string;
+  clase: { turno_id: string; fecha: string; hora_inicio: string; materia: { id: string; nombre: string } };
+  precio: number;
+  monto: string;
+  monto_original: string | null;
+  forma_pago: { id: string; nombre: string; is_active: boolean };
+  registrado_por: { usuario_id: string; nombre_completo: string | null };
+  ajuste: { motivo: string; ajustado_por: { usuario_id: string; nombre_completo: string | null } } | null;
+  anulado: boolean;
+  comprobante: { id: string; numero: string } | null;
+  operacion: { id: string; clases: number };
+  cambios: number;
+  puede_corregir: boolean;
+};
+export type EstadoPagoHistorialItem = {
+  inscripcion_id: string;
+  turno_id: string;
+  fecha: string;
+  hora_inicio: string;
+  materia: { id: string; nombre: string };
+  profesor: { id: string; nombre_para_mostrar: string } | null;
+  precio: number;
+  estado_pago: "PAGADA" | "RESERVADA" | "PAGO_SIN_REGISTRAR";
+  vence_el: string | null;
+  puede_registrar_pago: boolean;
+};
+export type HistorialPagosData =
+  | { modo: "HISTORIAL"; total_pagado: string; items: PagoHistorialItem[]; paginacion: PaginacionHistorialPagos }
+  | { modo: "ESTADO_DE_PAGO"; items: EstadoPagoHistorialItem[]; paginacion: PaginacionHistorialPagos };
+export type OpcionesHistorialPagos = {
+  formas_pago: { id: string; nombre: string; is_active: boolean }[];
+  materias: { id: string; nombre: string }[];
+};

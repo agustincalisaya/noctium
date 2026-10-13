@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {
   $transaction: async (fn: (tx: typeof mocks.tx) => unknown) => fn({ ...mocks.tx }),
   operacionPago: { findMany: mocks.operaciones },
   formaPago: { findMany: mocks.formasPorId },
+  caja: { findMany: async () => [{ idCaja: "caja-1", estado: "ABIERTA" }] },
 } }));
 vi.mock("@/server/turnos/turno.publico", () => ({ obtenerAlumnosInscriptosDeTurno: mocks.inscriptos }));
 vi.mock("@/server/turnos/inscripcion.publico", () => ({

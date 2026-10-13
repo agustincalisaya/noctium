@@ -3,9 +3,11 @@
 **Módulo:** I (Pagos) · **Sprint:** 3 · **Responsable:** Cali · **SP:** 2
 **Rama solicitada:** `HU-F-02`. Es el nombre de rama indicado por el usuario; la HU de esta task es I-02, no F-02.
 **Base relevada:** `develop`, commit `be491e4` (13/10/2026). Revalidar contra develop actualizado antes de implementar.
-**Estado:** task preparada; relevamiento inicial realizado; pendiente de confirmación de Fase 1. No se implementó código.
+
+**Estado:** Fase 2 implementada y verificada en el worktree `noctium-codex`; cambios staged para revisión, sin commit.
 **Contrato:** `docs/specs/spec_modulo_I.md` §2.13, §2.6.2 y §2.17; `docs/specs/spec_modulo_C.md` §2.18.4 y sus lecturas públicas; `docs/tasks/Sprint 3/PR-0.md` §2.13; `docs/tasks/Sprint 3/HU-Sprint-3.md` HU-I-02; `docs/RULES.md`, `docs/DESIGN.md`, `docs/adicionales/sdd-metodologia.md`.
-**Referencia visual:** `Noctium_Prototipo.pdf`, figuras 77 y 78, páginas 70 y 71 (P-28).
+**Referencia visual usada en Fase 2:** fotos provistas `Historial de pagos.png` y `Filtro por estado de pago.png`, en `C:\Users\agust\Desktop\Imagenes HU\HU-F-02`.
+
 **RBAC:** `pagos:leer` para consultar; `pagos:crear` para ofrecer el atajo a Registrar pago. Profesor y Alumno no acceden a esta API. Gerente consulta sin registrar pagos.
 **Schema:** reutilizar el PR 0; sin migraciones, cambios de schema ni seed base.
 
@@ -137,7 +139,8 @@ Lecturas: no agregar Server Actions de escritura, eventos de mutación, bloqueos
 
 ## 5. Frontend
 
-- Figuras 77/78 del prototipo: encabezado del alumno, pestañas de ficha, filtros y tabla. Usar tokens y componentes existentes; verificar escritorio y móvil.
+- Fotos provistas de historial y estado de pago: encabezado del alumno, pestañas de ficha, filtros y tabla. Usar tokens y componentes existentes; verificar escritorio y móvil.
+
 - Historial: Fecha, Clase enlazada a detalle (fecha/hora/materia), Precio, Monto cobrado, Forma, Registrado por y Comprobante. Mostrar ajuste con motivo/actor cuando corresponda; Anulado textual y exclusión del total.
 - Estado: Fecha, Materia, Profesor, Precio, Estado textual y atajo de cobro si habilitado. Reservada muestra «pagar antes del <fecha y hora>».
 - Activar estado limpia/deshabilita forma y materia y muestra la leyenda contractual. Volver a historial no restaura silenciosamente filtros que se limpiaron.
@@ -168,20 +171,42 @@ Colección para ambos GET: mesa y gerente autorizados, alumno/profesor 403, sin 
 
 Crear datos aislados mediante servicios del dominio y reloj inyectable; sin pagos fuera del plazo para fabricar fixtures. Comprobar SQL contra los valores originales/compensatorios y precio de inscripción, filtrado y paginación. Demostrar que consultar no altera pago/inscripción/caja. No usar una base compartida ni seed destructivo.
 
-Comparar ambas vistas con figuras 77/78 en escritorio y móvil; guardar capturas/evidencia. Ejecutar los checks del proyecto adecuados (TypeScript, lint, tests dirigidos y build); distinguir fallos previos de nuevos, sin arreglos ajenos. Marcar «Bloqueado» todo criterio no verificado, con motivo, nunca aprobado ficticiamente.
+Comparar ambas vistas con las fotos provistas en escritorio y móvil; guardar capturas/evidencia. Ejecutar los checks del proyecto adecuados (TypeScript, lint, tests dirigidos y build); distinguir fallos previos de nuevos, sin arreglos ajenos. Marcar «Bloqueado» todo criterio no verificado, con motivo, nunca aprobado ficticiamente.
 
 Verificación diferida: integración de acciones de I-06 y vista propia de I-05 cuando se implementen; no difiere la prueba de lectura de anulados/correcciones que el PR 0 ya permite.
 
 ## 7. Definition of Done
 
-- [ ] Fase 1 con inventario final y decisiones confirmada explícitamente.
-- [ ] Rama/carpeta propia y base actual revisadas; trabajo de Claude preservado.
-- [ ] Ambos endpoints y pestaña con contrato completo y permisos servidor.
-- [ ] Filtros, modos, total exacto y paginación de 10 verificados.
-- [ ] Vigencia central reutilizada; compatibilidad de lecturas anteriores verificada.
-- [ ] Pagos anulados/corregidos y precio congelado verificados.
-- [ ] Atajos de cobro y comprobantes existentes, según permisos.
-- [ ] UI comparada con prototipo en escritorio/móvil.
-- [ ] Tres niveles de pruebas ejecutados/documentados, bloqueos explícitos.
-- [ ] Textos y notas normativas aditivas; diff acotado y sin migraciones.
-- [ ] Sin commit, push, merge, rebase ni amend; cambios revisables en working tree/staged.
+- [x] Fase 1 con inventario final y decisiones confirmada explícitamente.
+- [x] Rama/carpeta propia y base actual revisadas; trabajo de Claude preservado.
+- [x] Ambos endpoints y pestaña con contrato completo y permisos servidor.
+- [x] Filtros, modos, total exacto y paginación de 10 verificados.
+- [x] Vigencia central reutilizada; compatibilidad de lecturas anteriores verificada.
+- [x] Pagos anulados/corregidos y precio congelado verificados.
+- [x] Atajos de cobro y comprobantes existentes, según permisos.
+- [x] UI comparada con las fotos provistas en escritorio/móvil.
+- [x] Tres niveles de pruebas ejecutados/documentados, bloqueos explícitos.
+- [x] Textos y notas normativas aditivas; diff acotado y sin migraciones.
+- [x] Sin commit, push, merge, pull, rebase ni amend; cambios revisables staged.
+
+## 8. Resoluciones aprobadas y ejecución de Fase 2 (13/10/2026)
+
+El responsable autorizó expresamente la Fase 2 y las decisiones de Fase 1. La rama `HU-F-02` y el worktree `noctium-codex` se conservaron sobre `5745c88`; no se hizo commit, push, merge, pull, rebase ni amend.
+
+- `/alumnos/[id]/pagos` delega en la ficha con `tab=pagos`; el filtro también se puede abrir en `/alumnos/[id]?tab=pagos`. No se creó pantalla global ni menú lateral.
+- `pagina` es entera positiva, tamaño fijo 10. Fuera de rango se ajusta a la última página; sin resultados devuelve página 1 y cero páginas.
+- `alumno_id` usa CUID, `forma_pago_id` usa el validador de CUID o ids históricos del catálogo y `materia_id` usa texto no vacío, como en la spec y en las lecturas existentes. Las fechas son calendario válido y rango ordenado. La query es estricta.
+- Las opciones se forman con las formas y materias realmente usadas por el alumno, incluidos pagos anulados y formas luego inactivas. Los nombres se ordenan normalizados.
+- Extensiones aditivas aprobadas: `listarInscripcionesDeAlumno` expone `vence_el` y acepta `estadoPago` opcional. Ese filtro aplica `esVigenteEn` y clase Disponible/Completa; sin filtro conserva el universo anterior. `listarPagosDeAlumno` expone internamente `caja_abierta` consultada en lote para `puedeCorregirPago`; no se envía la caja al cliente.
+- El permiso del atajo de cobro se verifica también en servidor con `pagos:crear` y rol Mesa. I-10 vuelve a verificar al cobrar. Los botones Corregir/Anular siguen reservados a I-06.
+- La migración `20261013040000_hu_e11_anulacion_append_only` afecta las anulaciones de clases dictadas de E y su proyección vigente; no requiere cambio de schema ni migración propia para I-02. Se regeneró Prisma Client y se aplicaron migraciones solo en `noctium_i02_pg` (`127.0.0.1:55434`).
+
+### Archivos de la HU
+
+- Backend y contratos: `src/server/pagos/pago.schema.ts`, `pago.service.ts`, `pago.publico.ts`, `src/server/turnos/inscripcion.lecturas.ts`, `src/types/pago.types.ts` y ambas rutas bajo `src/app/api/pagos/historial/`.
+- Ficha e interfaz: `src/app/(dashboard)/alumnos/[id]/page.tsx`, `pagos/page.tsx`, `historial-pagos.tsx`, `tabla-historial-pagos.tsx`, `src/lib/pagos-historial-listado.ts` y claves `ui.pagos.historial.*` de `src/lib/textos.ts`.
+- Verificación: `pago.historial.test.ts`, `pago.historial.pg.test.ts`, `inscripcion.lecturas.pg.test.ts`, ambas pruebas de rutas, `historial-pagos.test.tsx`, adaptación de mocks de `pago.publico.test.ts` y `pago.service.test.ts`, y `docs/testing/Modulo I/hu-i-02/`. Notas acotadas en `docs/RULES.md` y `docs/DESIGN.md`.
+
+La coordinación con C-26 mantiene el cambio de C dentro del tipo y `listarInscripcionesDeAlumno`; no se tocaron las lecturas de reservas de Claude. Las claves de textos nuevas viven solo bajo `ui.pagos.historial.*`. Las notas de RULES/DESIGN son aditivas y deberán integrarse conservando ambas contribuciones cuando se reúnan las ramas.
+
+Evidencia técnica y comparación visual: [HU-I-02-evidencia.md](../../../testing/Modulo%20I/hu-i-02/HU-I-02-evidencia.md). Las referencias visuales usadas fueron las dos fotos provistas de historial y estado de pago, abiertas antes de construir la UI.

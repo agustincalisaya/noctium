@@ -7,6 +7,7 @@ import {
   inscripcionVigenteDelPar,
   listarInscripcionesPendientesDePagoDeAlumno,
   obtenerClasesBasicas,
+  listarInscripcionesDeAlumno,
 } from "@/server/turnos/inscripcion.publico";
 import { buscarAlumnosActivos, obtenerAlumnosBasicos } from "@/server/alumnos/alumno.publico";
 import { obtenerTarifasPorIds } from "@/server/materias/materia.publico";
@@ -15,6 +16,13 @@ import { registrarOperacion, type ItemOperacion } from "@/server/pagos/operacion
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
 import { precioClase } from "@/server/shared/precio-clase";
 import { ahora } from "@/server/shared/reloj";
+import { instanteCentro, isoCentro } from "@/server/shared/fechas-centro";
+import { normalizarTexto } from "@/lib/normalizar-texto";
+import { obtenerNombresPersonal } from "@/server/personal/personal.publico";
+import { listarPagosDeAlumno } from "@/server/pagos/pago.publico";
+import { puedeCorregirPago, type UsuarioOperador } from "@/server/pagos/correccion.service";
+import type { HistorialPagosQuery } from "@/server/pagos/pago.schema";
+import type { HistorialPagosData, OpcionesHistorialPagos, PagoHistorialItem, EstadoPagoHistorialItem, PaginacionHistorialPagos } from "@/types/pago.types";
 import { ServiceError } from "@/server/shared/service-error";
 import { transaccion } from "@/server/shared/transaccion";
 import type { RegistrarOperacionInput, RegistrarPagoInput } from "@/server/pagos/pago.schema";
@@ -220,4 +228,116 @@ export async function registrarOperacionDePago(input: RegistrarOperacionInput, u
       comprobante: { id: comprobante.id, numero: comprobante.numeroVisible },
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Historial de pagos del alumno (HU-I-02, spec I §2.13)
+// ---------------------------------------------------------------------------
+
+const POR_PAGINA_HISTORIAL = 10 as const;
+const fechaQuery = (fecha?: Date) => fecha?.toISOString().slice(0, 10);
+const ordenarNombre = (a: { nombre: string; id: string }, b: { nombre: string; id: string }) =>
+  normalizarTexto(a.nombre).localeCompare(normalizarTexto(b.nombre), "es") || a.id.localeCompare(b.id);
+
+function paginarHistorial<T>(items: T[], solicitada: number): { items: T[]; paginacion: PaginacionHistorialPagos } {
+  const total = items.length;
+  const totalPaginas = Math.ceil(total / POR_PAGINA_HISTORIAL);
+  const pagina = total === 0 ? 1 : Math.min(solicitada, totalPaginas);
+  return {
+    items: items.slice((pagina - 1) * POR_PAGINA_HISTORIAL, pagina * POR_PAGINA_HISTORIAL),
+    paginacion: { total, pagina_actual: pagina, total_paginas: totalPaginas, por_pagina: POR_PAGINA_HISTORIAL },
+  };
+}
+
+async function exigirAlumnoDelHistorial(alumnoId: string) {
+  const [alumno] = await obtenerAlumnosBasicos([alumnoId]);
+  if (!alumno) throw new ErrorDeDominio("errores.alumno.noEncontrado");
+}
+
+/** Dos modos mutuamente excluyentes. C decide la vigencia; I compone sus pagos. */
+export async function listarHistorialDePagos(
+  query: HistorialPagosQuery,
+  usuario: UsuarioOperador & { puedeCrearPago: boolean },
+): Promise<HistorialPagosData> {
+  await exigirAlumnoDelHistorial(query.alumno_id);
+  const desde = fechaQuery(query.desde);
+  const hasta = fechaQuery(query.hasta);
+  if (query.estado_pago) {
+    const inscripciones = await listarInscripcionesDeAlumno(query.alumno_id, { desde, hasta, estadoPago: query.estado_pago });
+    const momento = ahora();
+    const items: EstadoPagoHistorialItem[] = inscripciones.map((inscripcion) => ({
+      inscripcion_id: inscripcion.inscripcion_id,
+      turno_id: inscripcion.turno_id,
+      fecha: inscripcion.fecha,
+      hora_inicio: inscripcion.hora_inicio,
+      materia: inscripcion.materia,
+      profesor: inscripcion.profesor_id && inscripcion.profesor
+        ? { id: inscripcion.profesor_id, nombre_para_mostrar: inscripcion.profesor } : null,
+      precio: inscripcion.precio,
+      estado_pago: inscripcion.estado_pago,
+      vence_el: inscripcion.estado_pago === "RESERVADA" ? inscripcion.vence_el : null,
+      puede_registrar_pago: usuario.rol === "MESA_ENTRADA" && usuario.puedeCrearPago &&
+        inscripcion.estado_pago !== "PAGADA" &&
+        instanteCentro(inscripcion.fecha, inscripcion.hora_inicio).getTime() > momento.getTime(),
+    }));
+    const pagina = paginarHistorial(items, query.pagina);
+    return { modo: "ESTADO_DE_PAGO", ...pagina };
+  }
+
+  const pagos = await listarPagosDeAlumno(query.alumno_id, {
+    desde, hasta, formaPagoId: query.forma_pago_id,
+  });
+  const [clases, nombres] = await Promise.all([
+    obtenerClasesBasicas(pagos.map((p) => p.turno_id)),
+    obtenerNombresPersonal(pagos.flatMap((p) => [p.registrado_por, ...(p.ajustado_por ? [p.ajustado_por] : [])])),
+  ]);
+  const clasePorId = new Map(clases.map((c) => [c.turno_id, c]));
+  const nombrePorId = new Map(nombres.map((n) => [n.usuario_id, n.nombre_completo]));
+  const momento = ahora();
+  const filtrados = pagos.filter((p) => {
+    const clase = clasePorId.get(p.turno_id);
+    if (!clase) throw new Error(`Pago ${p.pago_id} sin clase ${p.turno_id}`);
+    return !query.materia_id || clase.materia.id === query.materia_id;
+  });
+  const total = filtrados.reduce((suma, p) => p.anulado ? suma : suma.plus(p.monto), new Prisma.Decimal(0));
+  const items: PagoHistorialItem[] = filtrados.map((p) => {
+    const clase = clasePorId.get(p.turno_id)!;
+    return {
+      pago_id: p.pago_id,
+      fecha_pago: p.fecha_pago,
+      registrado_en: isoCentro(new Date(p.registrado_en)),
+      clase: { turno_id: clase.turno_id, fecha: clase.fecha, hora_inicio: clase.hora_inicio, materia: clase.materia },
+      precio: p.precio,
+      monto: p.monto,
+      monto_original: p.monto_original,
+      forma_pago: p.forma_pago,
+      registrado_por: { usuario_id: p.registrado_por, nombre_completo: nombrePorId.get(p.registrado_por) ?? null },
+      ajuste: p.motivo_ajuste && p.ajustado_por ? {
+        motivo: p.motivo_ajuste,
+        ajustado_por: { usuario_id: p.ajustado_por, nombre_completo: nombrePorId.get(p.ajustado_por) ?? null },
+      } : null,
+      anulado: p.anulado,
+      comprobante: p.comprobante_vigente,
+      operacion: { id: p.operacion_id, clases: p.clases_de_la_operacion },
+      cambios: p.cambios,
+      puede_corregir: puedeCorregirPago(usuario, {
+        anulado: p.anulado, registradoEn: new Date(p.registrado_en), cajaAbierta: p.caja_abierta,
+      }, momento),
+    };
+  });
+  const pagina = paginarHistorial(items, query.pagina);
+  return { modo: "HISTORIAL", total_pagado: total.toFixed(2), ...pagina };
+}
+
+/** Opciones solo de los pagos del alumno, incluso anulados; valores vigentes. */
+export async function obtenerOpcionesHistorialPagos(alumnoId: string): Promise<OpcionesHistorialPagos> {
+  await exigirAlumnoDelHistorial(alumnoId);
+  const pagos = await listarPagosDeAlumno(alumnoId);
+  const clases = await obtenerClasesBasicas(pagos.map((p) => p.turno_id));
+  const formas = new Map(pagos.map((p) => [p.forma_pago.id, p.forma_pago]));
+  const materias = new Map(clases.map((c) => [c.materia.id, c.materia]));
+  return {
+    formas_pago: [...formas.values()].sort(ordenarNombre),
+    materias: [...materias.values()].sort(ordenarNombre),
+  };
 }

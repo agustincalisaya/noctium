@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // una operación y el valor vigente sale de la operación con sus correcciones y
 // anulaciones (pago.vigente.ts). Las aserciones de resultado son las de Sprint 2.
 const { db, tx, obtenerAlumnosBasicos } = vi.hoisted(() => ({
-  db: { operacionPago: { findMany: vi.fn() }, formaPago: { findMany: vi.fn() }, $queryRaw: vi.fn() },
-  tx: { operacionPago: { findMany: vi.fn() }, formaPago: { findMany: vi.fn() }, $queryRaw: vi.fn() },
+  db: { operacionPago: { findMany: vi.fn() }, formaPago: { findMany: vi.fn() }, caja: { findMany: vi.fn() }, $queryRaw: vi.fn() },
+  tx: { operacionPago: { findMany: vi.fn() }, formaPago: { findMany: vi.fn() }, caja: { findMany: vi.fn() }, $queryRaw: vi.fn() },
   obtenerAlumnosBasicos: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
@@ -31,6 +31,8 @@ const basico = (id: string, apellido: string, nombre: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   db.formaPago.findMany.mockResolvedValue([FORMA]);
+  db.caja.findMany.mockResolvedValue([{ idCaja: "caja-1", estado: "ABIERTA" }]);
+  tx.caja.findMany.mockResolvedValue([{ idCaja: "caja-1", estado: "ABIERTA" }]);
   tx.formaPago.findMany.mockResolvedValue([FORMA]);
 });
 

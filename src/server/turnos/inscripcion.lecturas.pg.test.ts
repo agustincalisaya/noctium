@@ -58,6 +58,10 @@ describe.skipIf(!basePgHabilitada)("lecturas públicas de la inscripción con Po
     const despues = new Date(reserva.inscripcion.venceEl!.getTime() + 1000);
     const vencida = (await conReloj(despues, () => listarInscripcionesDeAlumno(alumno.idAlumno, {}, db))).find((i) => i.turno_id === conReserva.idTurno)!;
     expect(vencida).toMatchObject({ vigencia: "VIGENTE", vigente_ahora: false });
+    // HU-I-02: la reserva vencida sin marcar no aparece en el modo Estado de pago.
+    const reservadasVigentes = await conReloj(despues, () =>
+      listarInscripcionesDeAlumno(alumno.idAlumno, { estadoPago: "RESERVADA" }, db));
+    expect(reservadasVigentes.some((i) => i.turno_id === conReserva.idTurno)).toBe(false);
     const filtrada = await listarInscripcionesDeAlumno(alumno.idAlumno, { desde: conReserva.fechaTurno.toISOString().slice(0, 10), hasta: conReserva.fechaTurno.toISOString().slice(0, 10) }, db);
     expect(filtrada.map((i) => i.turno_id)).toEqual([conReserva.idTurno]);
   });

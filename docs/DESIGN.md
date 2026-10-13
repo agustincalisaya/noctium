@@ -575,3 +575,7 @@ sus consumidores, sin editar sus fuentes.
 ### HU-I-07 — Figuras 83 y 84 (10/10/2026)
 
 El listado mantiene Nombre y Estado, y agrega Editar y Desactivar/Reactivar, sin Preferida por. La baja usa botón destructivo rojo aunque sea reversible: C-25 separa `destructiva` de `irreversible`, sin leyenda de irreversibilidad. El motivo vive en `contenido` del diálogo, fuera de la descripción accesible; confirmación deshabilitada sin impacto, para última activa y cuando falta motivo requerido. Popup de baja de 25rem máximo, responsive y con scroll si no cabe en altura; conserva Volver y los errores inline. La ficha y la edición de preferida en B conservan y etiquetan la inactiva.
+
+### HU-I-02 — Pestaña Pagos (figuras 77 y 78)
+
+La ficha conserva encabezado y pestañas de alumno. Pagos agrega filtros en una tarjeta sobre la tabla, total a la derecha solo en historial y un segundo modo de clases por estado de pago. El estado se escribe junto al color; Reservada muestra su vencimiento y Pago sin registrar ofrece Registrar pago cuando el usuario puede cobrar. En móvil la tabla se desplaza horizontalmente sin comprimir las columnas. Los enlaces a clase y comprobante usan sus rutas existentes; los pagos anulados se atenúan y se etiquetan. Referencia visual revisada: las dos imágenes provistas en `Imagenes HU/HU-F-02`.

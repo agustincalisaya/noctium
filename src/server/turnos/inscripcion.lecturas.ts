@@ -57,6 +57,8 @@ export type InscripcionDeAlumno = {
   cancelada_el: Date | null;
   estado_pago: EstadoPagoInscripcion;
   precio: number;
+  /** Vencimiento de una reserva, en la zona del centro. */
+  vence_el: string | null;
 };
 
 /**
@@ -67,7 +69,7 @@ export type InscripcionDeAlumno = {
  */
 export async function listarInscripcionesDeAlumno(
   alumnoId: string,
-  filtros: { desde?: string; hasta?: string } = {},
+  filtros: { desde?: string; hasta?: string; estadoPago?: EstadoPagoInscripcion } = {},
   db: Db = prisma,
 ): Promise<InscripcionDeAlumno[]> {
   const momento = ahora();
@@ -121,8 +123,13 @@ export async function listarInscripcionesDeAlumno(
         cancelada_el: f.turno.estadoTurno === "CANCELADO" ? canceladaEl.get(f.turnoId) ?? null : null,
         estado_pago: f.estadoPago,
         precio: f.precio,
+        vence_el: f.venceEl ? isoCentro(f.venceEl) : null,
       };
     })
+    // Sin el nuevo filtro, E/B/C conservan el universo y el orden anteriores.
+    .filter((f) => !filtros.estadoPago || (f.vigente_ahora &&
+      (f.estado_clase === "DISPONIBLE" || f.estado_clase === "COMPLETO") &&
+      f.estado_pago === filtros.estadoPago))
     .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.hora_inicio.localeCompare(a.hora_inicio) || b.inscripcion_id.localeCompare(a.inscripcion_id));
 }
 
