@@ -8,6 +8,7 @@ import { obtenerCuentaDeAlumno, obtenerDetalleAlumno } from "@/server/alumnos/al
 import { ServiceError } from "@/server/shared/service-error";
 import { parametrosListadoAlumnos } from "@/lib/alumno-listado";
 import { HistorialAcademico } from "./historial-academico";
+import { HistorialPagos } from "./historial-pagos";
 import { FichaEncabezado } from "./ficha-encabezado";
 import { FichaContacto } from "./ficha-contacto";
 import { FichaAltaPago } from "./ficha-alta-pago";
@@ -31,20 +32,24 @@ export default async function AlumnoDetallePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ pagina?: string; q?: string; tab?: string; volver?: string; materia_id?: string }>;
+  searchParams: Promise<{ pagina?: string; q?: string; tab?: string; volver?: string; materia_id?: string; desde?: string; hasta?: string; forma_pago_id?: string; estado_pago?: string }>;
 }) {
   const { id } = await params;
-  const { pagina, q, tab, volver, materia_id } = await searchParams;
-  const [usuarioFicha, usuarioHistorial, usuarioEditar, usuarioCambiarEstado, usuarioRegistrarExamen, usuarioRegistrarIndicacion] = await Promise.all([
+  const { pagina, q, tab, volver, materia_id, desde, hasta, forma_pago_id, estado_pago } = await searchParams;
+  const [usuarioFicha, usuarioHistorial, usuarioEditar, usuarioCambiarEstado, usuarioRegistrarExamen, usuarioRegistrarIndicacion, usuarioPagos, usuarioCrearPago] = await Promise.all([
     permisoOpcional("alumnos:leer"),
     permisoOpcional("historial:leer"),
     permisoOpcional("alumnos:editar"),
     permisoOpcional("alumnos:cambiar_estado"),
     permisoOpcional("examenes:registrar"),
     permisoOpcional("indicaciones:registrar"),
+    permisoOpcional("pagos:leer"),
+    permisoOpcional("pagos:crear"),
   ]);
   if (!usuarioFicha || !["MESA_ENTRADA", "GERENTE"].includes(usuarioFicha.rol)) redirect("/sin-permiso");
   const mostrarClases = tab === "clases";
+  if (tab === "pagos" && !usuarioPagos) redirect("/sin-permiso");
+  const mostrarPagos = tab === "pagos" && usuarioPagos !== null;
   const gerente = usuarioFicha.rol === "GERENTE";
   const puedeLeerFicha = usuarioFicha !== null;
   const puedeLeerHistorial = usuarioHistorial !== null;
@@ -71,8 +76,8 @@ export default async function AlumnoDetallePage({
   })}`;
 
   return (
-    <div className={`mx-auto w-full min-w-0 space-y-5 p-6 ${mostrarHistorial || mostrarClases ? "max-w-6xl" : "max-w-3xl"}`}>
-      {puedeLeerFicha && (mostrarHistorial || mostrarClases) && alumno ? (
+    <div className={`mx-auto w-full min-w-0 space-y-5 p-6 ${mostrarHistorial || mostrarClases || mostrarPagos ? "max-w-6xl" : "max-w-3xl"}`}>
+      {puedeLeerFicha && (mostrarHistorial || mostrarClases || mostrarPagos) && alumno ? (
         <nav aria-label={textoC19("ui.clases.interfaz.migasDePan")} className="text-sm text-muted-foreground">
           <Link href={hrefListado} className="text-primary underline underline-offset-4 hover:text-foreground">{textoC19("ui.clases.menu.alumnos")}</Link>
           <span aria-hidden="true" className="px-2">/</span>
@@ -89,17 +94,20 @@ export default async function AlumnoDetallePage({
 
       {puedeLeerFicha && alumno ? (
         <>
+          <div className={mostrarPagos ? "flex flex-wrap items-start justify-between gap-3" : undefined}>
           <FichaEncabezado
             alumnoId={alumno.id}
             nombre={alumno.nombre}
             apellido={alumno.apellido}
             dni={alumno.dni}
-            email={mostrarHistorial || mostrarClases ? alumno.email : null}
+            email={mostrarHistorial || mostrarClases || mostrarPagos ? alumno.email : null}
             activo={alumno.is_active}
-            puedeEditar={!mostrarHistorial && !mostrarClases && !gerente && usuarioEditar !== null}
-            modoHistorial={mostrarHistorial || mostrarClases}
+            puedeEditar={!mostrarHistorial && !mostrarClases && !mostrarPagos && !gerente && usuarioEditar !== null}
+            modoHistorial={mostrarHistorial || mostrarClases || mostrarPagos}
           />
-          {!mostrarHistorial && !mostrarClases && usuarioCambiarEstado && (
+          {mostrarPagos && usuarioCambiarEstado && <EstadoAlumnoDialog alumno={{ id: alumno.id, nombre: alumno.nombre, apellido: alumno.apellido, activo: alumno.is_active, version: alumno.version }} />}
+          </div>
+          {!mostrarHistorial && !mostrarClases && !mostrarPagos && usuarioCambiarEstado && (
             <div className="flex justify-end">
               <EstadoAlumnoDialog alumno={{ id: alumno.id, nombre: alumno.nombre, apellido: alumno.apellido, activo: alumno.is_active, version: alumno.version }} />
             </div>
@@ -108,8 +116,8 @@ export default async function AlumnoDetallePage({
           <nav className="flex gap-5 border-b border-border" aria-label={textoC19("ui.clases.interfaz.seccionesDeLaFicha")}>
             <Link
               href={`/alumnos/${encodeURIComponent(id)}?tab=datos`}
-              aria-current={!mostrarHistorial && !mostrarClases ? "page" : undefined}
-              className={`border-b-2 px-1 py-2 text-sm ${!mostrarHistorial && !mostrarClases ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              aria-current={!mostrarHistorial && !mostrarClases && !mostrarPagos ? "page" : undefined}
+              className={`border-b-2 px-1 py-2 text-sm ${!mostrarHistorial && !mostrarClases && !mostrarPagos ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >{textoC19("ui.clases.interfaz.datos")}</Link>
             <Link href={`/alumnos/${encodeURIComponent(id)}/clases`} aria-current={mostrarClases ? "page" : undefined} className={`border-b-2 px-1 py-2 text-sm ${mostrarClases ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{texto("ui.historial.clasesAlumno.tab")}</Link>
             {puedeLeerHistorial && <Link
@@ -117,6 +125,7 @@ export default async function AlumnoDetallePage({
               aria-current={mostrarHistorial ? "page" : undefined}
               className={`border-b-2 px-1 py-2 text-sm ${mostrarHistorial ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             >{textoC19("ui.indicadores.presentismo.historial")}</Link>}
+            {usuarioPagos && <Link href={ `/alumnos/${encodeURIComponent(id)}/pagos` } aria-current={mostrarPagos ? "page" : undefined} className={`border-b-2 px-1 py-2 text-sm ${mostrarPagos ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{texto("ui.pagos.historial.tab")}</Link>}
           </nav>
         </>
       ) : null}
@@ -131,7 +140,8 @@ export default async function AlumnoDetallePage({
         />
       )}
       {mostrarClases && <HistorialClases alumnoId={id} />}
-      {!mostrarHistorial && !mostrarClases && alumno && (
+      {mostrarPagos && <HistorialPagos alumnoId={id} puedeRegistrarPago={usuarioCrearPago?.rol === "MESA_ENTRADA"} iniciales={{ pagina, desde, hasta, forma_pago_id, materia_id, estado_pago }} />}
+      {!mostrarHistorial && !mostrarClases && !mostrarPagos && alumno && (
         <>
           <FichaContacto
             alumnoId={alumno.id}
