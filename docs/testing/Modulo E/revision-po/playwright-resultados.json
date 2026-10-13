@@ -1,0 +1,354 @@
+{
+  "config": {
+    "argv": [
+      "/usr/bin/node",
+      "/home/polentita/noctium/node_modules/.bin/playwright",
+      "test",
+      "-c",
+      "playwright.historial.config.ts"
+    ],
+    "configFile": "/home/polentita/noctium/playwright.historial.config.ts",
+    "rootDir": "/home/polentita/noctium/scripts/testing",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/tmp/noctium-po-playwright-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/home/polentita/noctium/scripts/testing",
+        "testIgnore": [],
+        "testMatch": [
+          "historial-po.e2e.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/tmp/noctium-po-playwright-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/home/polentita/noctium/scripts/testing",
+        "snapshotDir": "/home/polentita/noctium/scripts/testing",
+        "testIgnore": [],
+        "testMatch": "historial-po.e2e.ts",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://127.0.0.1:3100",
+          "viewport": {
+            "width": 1440,
+            "height": 1080
+          },
+          "trace": "retain-on-failure"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "docs/testing/Modulo E/revision-po/playwright-resultados.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "historial-po.e2e.ts",
+      "file": "historial-po.e2e.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "E08: DTO real, tres tipos, 16 registros, filtro, paginación y privacidad",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2032,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:47.859Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-039249c65c0cdee016f2",
+          "file": "historial-po.e2e.ts",
+          "line": 15,
+          "column": 5
+        },
+        {
+          "title": "E08: móvil, texto largo, nota sin superposición y cero desbordamiento",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1453,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:49.988Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-30fd4de7a6d1605c4198",
+          "file": "historial-po.e2e.ts",
+          "line": 48,
+          "column": 5
+        },
+        {
+          "title": "E08: carga, error, reintento y vacío literal",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2100,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:51.457Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-a8b22ca3cd50d1fa353f",
+          "file": "historial-po.e2e.ts",
+          "line": 71,
+          "column": 5
+        },
+        {
+          "title": "E04: profesor con A y B, contexto firmado, 403 sin alta y 201 dentro de alcance",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1588,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:53.571Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-161fc66be27252b87d35",
+          "file": "historial-po.e2e.ts",
+          "line": 93,
+          "column": 5
+        },
+        {
+          "title": "E04: clase futura sin primer dictado y profesor ajeno",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1688,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:55.172Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-eace47522f796859edfa",
+          "file": "historial-po.e2e.ts",
+          "line": 114,
+          "column": 5
+        },
+        {
+          "title": "E04: Mesa de Entrada guarda con vínculo y sin contexto/vínculo",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 770,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:56.877Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-d85c70af9b2ee7e4b065",
+          "file": "historial-po.e2e.ts",
+          "line": 124,
+          "column": 5
+        },
+        {
+          "title": "C25: confirmaciones E07, E10 y E11 muestran contexto, datos y errores",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3325,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-13T11:50:57.661Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd9a8edb865bfd0fd147-477a69d7422bc595d6da",
+          "file": "historial-po.e2e.ts",
+          "line": 135,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-13T11:50:47.164Z",
+    "duration": 13893.813999999998,
+    "expected": 7,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

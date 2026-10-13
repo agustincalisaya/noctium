@@ -138,7 +138,7 @@ export function RegistrarObservacionesDialog({ turnoId, contexto, onRegistrada }
       abierto={confirmacion}
       onCerrar={() => setConfirmacion(false)}
       titulo={texto("ui.historial.observaciones.confirmar")}
-      detalle={<p>{contexto}</p>}
+      detalle={<div className="space-y-2 break-words [overflow-wrap:anywhere]"><p>{contexto}</p><p className="whitespace-pre-wrap">{texto("ui.historial.observaciones.temas")}: {temas.trim()}</p>{observaciones.trim() && <p className="whitespace-pre-wrap">{texto("ui.historial.observaciones.internas")}: {observaciones.trim()}</p>}</div>}
       textoConfirmar={texto("ui.historial.observaciones.registrar")}
       irreversible
       onConfirmar={confirmar}

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { obtenerAlumnoBasico, obtenerAlumnoDeUsuario } from "@/server/alumnos/alumno.publico";
 import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { obtenerNombresProfesores, obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
-import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
+import { obtenerDetallesClasesHistorial } from "@/server/turnos/turno.publico";
+import { obtenerEmailDeUsuario, obtenerNombresPublicosDeUsuarios } from "@/server/usuarios/usuario.service";
 import { ServiceError } from "@/server/shared/service-error";
 import { ahora } from "@/server/shared/reloj";
 import { existeInscripcionVigenteConProfesor } from "@/server/turnos/inscripcion.publico";
@@ -28,6 +29,10 @@ import {
 type FilaHistorial = {
   asistencia: "PRESENTE" | "AUSENTE" | null;
   total: bigint;
+  clases_dictadas: bigint;
+  examenes: bigint;
+  indicaciones: bigint;
+  descripcion_publica: string | null;
   materias_disponibles: string[];
   tipo: "CLASE_DICTADA" | "EXAMEN" | "INDICACION" | null;
   fecha: Date | null;
@@ -101,6 +106,7 @@ export async function obtenerHistorialAlumno(
         clase."profesorId" AS profesor_id,
         NULL::numeric AS nota,
         NULL::text AS observaciones,
+        NULL::text AS descripcion_publica,
         observacion."temasVistos" AS temas_vistos,
         observacion."observacionesInternas" AS observaciones_internas,
         observacion."createdAtObservacion" AS observacion_registrada_en,
@@ -134,6 +140,7 @@ export async function obtenerHistorialAlumno(
         NULL::text AS profesor_id,
         ${sqlNotaExamenVigente("examen")} AS nota,
         examen."observaciones" AS observaciones,
+        examen."descripcionPublica" AS descripcion_publica,
         NULL::text AS temas_vistos,
         NULL::text AS observaciones_internas,
         NULL::timestamp AS observacion_registrada_en,
@@ -176,6 +183,7 @@ export async function obtenerHistorialAlumno(
         NULL::text AS profesor_id,
         NULL::numeric AS nota,
         NULL::text AS observaciones,
+        NULL::text AS descripcion_publica,
         NULL::text AS temas_vistos,
         NULL::text AS observaciones_internas,
         NULL::timestamp AS observacion_registrada_en,
@@ -206,7 +214,10 @@ export async function obtenerHistorialAlumno(
       WHERE ${filtroMateria}::text IS NULL OR materia_id = ${filtroMateria}::text
     ),
     conteo AS (
-      SELECT COUNT(*)::bigint AS total FROM filtrados
+      SELECT COUNT(*)::bigint AS total,
+        COUNT(*) FILTER (WHERE tipo = 'CLASE_DICTADA') AS clases_dictadas,
+        COUNT(*) FILTER (WHERE tipo = 'EXAMEN') AS examenes,
+        COUNT(*) FILTER (WHERE tipo = 'INDICACION') AS indicaciones FROM filtrados
     ),
     materias AS (
       SELECT COALESCE(array_agg(materia_id ORDER BY materia_id), ARRAY[]::text[]) AS ids
@@ -217,9 +228,9 @@ export async function obtenerHistorialAlumno(
       ORDER BY fecha DESC, creado_en DESC, registro_id DESC
       LIMIT ${limite} OFFSET ${offset}
     )
-    SELECT conteo.total, materias.ids AS materias_disponibles,
+    SELECT conteo.total, conteo.clases_dictadas, conteo.examenes, conteo.indicaciones, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
-      pagina.nota, pagina.observaciones, pagina.indicacion, pagina.registrada_en,
+      pagina.nota, pagina.observaciones, pagina.descripcion_publica, pagina.indicacion, pagina.registrada_en,
       pagina.clase_dictada_id, pagina.clase_dictada_fecha, pagina.creado_por_usuario_id,
       pagina.turno_id, pagina.registro_id, pagina.asistencia,
       pagina.temas_vistos, pagina.observaciones_internas, pagina.observacion_registrada_en,
@@ -238,13 +249,15 @@ export async function obtenerHistorialAlumno(
     : (filaInicial?.materias_disponibles ?? []);
   const autores = [...new Set(registros.flatMap((fila) => [fila.creado_por_usuario_id, fila.observacion_creada_por_id]
     .filter((id): id is string => Boolean(id))))];
-  const [materias, profesores, emailsAutores, opcionesIndicacion] = await Promise.all([
+  const [materias, profesores, emailsAutores, opcionesIndicacion, nombresAutores, detallesClases] = await Promise.all([
     obtenerMateriasPorIds(idsMateriasDisponibles),
     obtenerNombresProfesores(registros.flatMap((fila) => fila.profesor_id ? [fila.profesor_id] : [])),
     Promise.all(autores.map(async (id) => [id, await obtenerEmailDeUsuario(id)] as const)),
     usuario.rol === "MESA_ENTRADA" || usuario.rol === "PROFESOR"
       ? obtenerOpcionesDeIndicacion(alumnoId, query.materia_id)
       : Promise.resolve({ materias: [], clases: [] }),
+    usuario.rol === "ALUMNO" ? obtenerNombresPublicosDeUsuarios([...new Set(registros.flatMap(f => [f.creado_por_usuario_id, f.resultado_creado_por].filter((id): id is string => Boolean(id))))]) : Promise.resolve(new Map<string, string>()),
+    usuario.rol === "ALUMNO" ? obtenerDetallesClasesHistorial(registros.flatMap(f => f.turno_id ? [f.turno_id] : [])) : Promise.resolve(new Map()),
   ]);
   const materiasPorId = new Map(materias.map((materia) => [materia.id, materia.nombre]));
   const emailsPorUsuario = new Map(emailsAutores);
@@ -259,7 +272,7 @@ export async function obtenerHistorialAlumno(
     if (fila.tipo === "CLASE_DICTADA") {
       if (!fila.profesor_id || !fila.turno_id) throw new Error(`La clase ${fila.registro_id} no tiene profesor o turno`);
       const profesor = profesores[fila.profesor_id];
-      if (!profesor) throw new Error(`No se encontró el profesor ${fila.profesor_id} de la clase ${fila.registro_id}`);
+      if (!profesor && usuario.rol !== "ALUMNO") throw new Error(`No se encontró el profesor ${fila.profesor_id} de la clase ${fila.registro_id}`);
       const observacion = fila.temas_vistos !== null && fila.observacion_registrada_en
         ? {
           temas_vistos: fila.temas_vistos,
@@ -275,7 +288,8 @@ export async function obtenerHistorialAlumno(
         id: fila.registro_id,
         fecha: fechaCalendario(fila.fecha),
         materia: { id: fila.materia_id, nombre: nombreMateria },
-        profesor,
+        profesor: profesor ?? null,
+        ...(usuario.rol === "ALUMNO" ? { aula: detallesClases.get(fila.turno_id)?.aula ?? null, hora_inicio: detallesClases.get(fila.turno_id)?.hora_inicio ?? null, hora_fin: detallesClases.get(fila.turno_id)?.hora_fin ?? null } : {}),
         turno_id: fila.turno_id,
         asistencia: fila.asistencia ?? null,
         ...(observacion ? { observacion } : {}),
@@ -294,6 +308,7 @@ export async function obtenerHistorialAlumno(
       materia: { id: fila.materia_id, nombre: nombreMateria },
       nota: String(fila.nota),
       observaciones: fila.observaciones,
+      ...(usuario.rol === "ALUMNO" ? { descripcion_publica: fila.descripcion_publica ?? null, registrado_por: fila.resultado_creado_por ? nombresAutores.get(fila.resultado_creado_por) ?? null : null } : {}),
       corregido: fila.corregido === true,
       anulado: fila.anulado === true,
       puede_corregir: puedeCorregir,
@@ -314,7 +329,7 @@ export async function obtenerHistorialAlumno(
       materia: { id: fila.materia_id, nombre: nombreMateria },
       indicacion: fila.indicacion,
       registrada_en: fila.registrada_en.toISOString(),
-      registrada_por: fila.creado_por_usuario_id ? emailsPorUsuario.get(fila.creado_por_usuario_id) ?? null : null,
+      registrada_por: fila.creado_por_usuario_id ? (usuario.rol === "ALUMNO" ? nombresAutores : emailsPorUsuario).get(fila.creado_por_usuario_id) ?? null : null,
       clase_dictada_id: fila.clase_dictada_id,
       clase_dictada_fecha: fila.clase_dictada_fecha ? fechaCalendario(fila.clase_dictada_fecha) : null,
     };
@@ -338,6 +353,7 @@ export async function obtenerHistorialAlumno(
     puede_registrar_indicacion = Boolean(profesor && await profesorPuedeRegistrarIndicacion(profesor.id, alumnoId, query.materia_id));
   }
   return {
+    desglose: { clases_dictadas: Number(filaInicial?.clases_dictadas ?? 0), examenes: Number(filaInicial?.examenes ?? 0), indicaciones: Number(filaInicial?.indicaciones ?? 0) },
     asistencia_por_materia: asistenciaPorMateria,
     alumno: { id: alumno.id, nombre_completo: `${alumno.apellido}, ${alumno.nombre}` },
     materias_disponibles: materias
@@ -382,14 +398,15 @@ export async function obtenerMiHistorial(query: HistorialQuery, usuario: Usuario
   if (!alumno) throw new ServiceError("SIN_PERMISO", MENSAJES.SIN_PERMISO);
   const historial = await obtenerHistorialAlumno(alumno.id, query, usuario);
   return {
+    desglose: historial.desglose,
     materias_disponibles: historial.materias_disponibles,
     asistencia_por_materia: historial.asistencia_por_materia,
     paginacion: historial.paginacion,
     items: historial.items.map(item => {
       const base = { id: item.id, fecha: item.fecha, materia: item.materia };
-      if (item.tipo === "CLASE_DICTADA") return { ...base, tipo: item.tipo, profesor: item.profesor, asistencia: item.asistencia, temas_vistos: item.observacion?.temas_vistos ?? null };
-      if (item.tipo === "EXAMEN") return { ...base, tipo: item.tipo, nota: item.nota };
-      return { ...base, tipo: item.tipo, indicacion: item.indicacion };
+      if (item.tipo === "CLASE_DICTADA") return { ...base, tipo: item.tipo, profesor: item.profesor, asistencia: item.asistencia, temas_vistos: item.observacion?.temas_vistos ?? null, aula: item.aula ?? null, hora_inicio: item.hora_inicio ?? null, hora_fin: item.hora_fin ?? null };
+      if (item.tipo === "EXAMEN") return { ...base, tipo: item.tipo, nota: item.nota, descripcion_publica: item.descripcion_publica ?? null, registrado_por: item.registrado_por ?? null };
+      return { ...base, tipo: item.tipo, indicacion: item.indicacion, registrada_en: item.registrada_en, registrada_por: item.registrada_por };
     }),
   };
 }

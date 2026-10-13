@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { exigirPermiso, verificarPermiso, PermisoError } from "@/server/shared/with-permission";
 import { obtenerDetalleTurno } from "@/server/turnos/turno.detalle";
 import { profesorPuedeRegistrarIndicacion } from "@/server/historial/historial.publico";
+import { emitirContextoIndicacion } from "@/server/historial/contexto-indicacion.service";
+import { ServiceError } from "@/server/shared/service-error";
 import { ahora } from "@/server/shared/reloj";
 
 export default async function HistorialDesdeClasePage({ params }: { params: Promise<{ id: string; alumnoId: string }> }) {
@@ -34,8 +36,14 @@ export default async function HistorialDesdeClasePage({ params }: { params: Prom
     catch (error) { if (error instanceof PermisoError && error.status === 403) return false; throw error; }
   }
   const [puedeExamen, puedeIndicacion] = await Promise.all([puede("examenes:registrar"), puede("indicaciones:registrar")]);
+  let contextoOrigen: string;
+  try { contextoOrigen = await emitirContextoIndicacion(usuario.id, alumnoId, detalle.turno.materia_id, turnoId); }
+  catch (error) {
+    if (error instanceof ServiceError && error.code === "SIN_PERMISO") redirect("/sin-permiso");
+    throw error;
+  }
   return <section className="mx-auto w-full max-w-6xl space-y-5">
     <Link href={`/turnos/${encodeURIComponent(turnoId)}`} className="text-sm text-primary underline underline-offset-4">{texto("ui.historial.clasesAlumno.volverClase")}</Link>
-    <HistorialAcademico alumnoId={alumnoId} materiaInicial={detalle.turno.materia_id} mostrarNombre puedeRegistrarExamen={puedeExamen} puedeRegistrarIndicacion={puedeIndicacion} />
+    <HistorialAcademico claseInicial={detalle.turno.clase_dictada?.id} contextoOrigen={contextoOrigen} alumnoId={alumnoId} materiaInicial={detalle.turno.materia_id} mostrarNombre puedeRegistrarExamen={puedeExamen} puedeRegistrarIndicacion={puedeIndicacion} />
   </section>;
 }

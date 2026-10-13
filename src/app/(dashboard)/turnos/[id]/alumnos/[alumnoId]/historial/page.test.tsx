@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 const m=vi.hoisted(()=>({permiso:vi.fn(),detalle:vi.fn(),historico:vi.fn()}));
+vi.mock("@/server/historial/contexto-indicacion.service", () => ({ emitirContextoIndicacion: vi.fn(async () => "contexto-firmado") }));
 vi.mock("next/navigation",()=>({redirect:(url:string)=>{throw new Error(`REDIRECT ${url}`);}}));
 vi.mock("@/server/shared/with-permission",()=>({exigirPermiso:m.permiso,verificarPermiso:m.permiso,PermisoError:class extends Error{status=403;}}));
 vi.mock("@/server/turnos/turno.detalle",()=>({obtenerDetalleTurno:m.detalle}));

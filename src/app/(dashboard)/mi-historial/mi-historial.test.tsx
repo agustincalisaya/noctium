@@ -7,14 +7,15 @@ const m = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("@/lib/fetch-autenticado", () => ({ fetchAutenticado: m.fetch }));
 import { MiHistorial } from "./mi-historial";
 const data: MiHistorialData = {
+  desglose: { clases_dictadas: 8, examenes: 2, indicaciones: 2 },
   materias_disponibles: [{ id: "m1", nombre: "Matemática II" }, { id: "m2", nombre: "Física I" }],
   asistencia_por_materia: [{ materia_id: "m1", presentes: 3, ausentes: 1, sin_control: 1, porcentaje: 75 }],
   paginacion: { total: 12, pagina_actual: 1, total_paginas: 2, por_pagina: 10 },
   items: [
-    { tipo: "EXAMEN", id: "e", fecha: "2026-10-03", materia: { id: "m2", nombre: "Física I" }, nota: "8" },
-    { tipo: "INDICACION", id: "i", fecha: "2026-10-02", materia: { id: "m1", nombre: "Matemática II" }, indicacion: "Repasar funciones" },
-    { tipo: "CLASE_DICTADA", id: "c", fecha: "2026-10-01", materia: { id: "m1", nombre: "Matemática II" }, profesor: "Laura Méndez", temas_vistos: "Regla de L’Hôpital", asistencia: null },
-    { tipo: "CLASE_DICTADA", id: "c2", fecha: "2026-09-30", materia: { id: "m1", nombre: "Matemática II" }, profesor: "Laura Méndez", temas_vistos: null, asistencia: "AUSENTE" },
+    { tipo: "EXAMEN", id: "e", fecha: "2026-10-03", materia: { id: "m2", nombre: "Física I" }, nota: "8", descripcion_publica: "Parcial de cinemática", registrado_por: "Martín Ríos" },
+    { tipo: "INDICACION", id: "i", fecha: "2026-10-02", materia: { id: "m1", nombre: "Matemática II" }, indicacion: "Repasar funciones", registrada_en: "2026-10-02T14:00:00.000Z", registrada_por: "Laura Méndez" },
+    { tipo: "CLASE_DICTADA", id: "c", fecha: "2026-10-01", materia: { id: "m1", nombre: "Matemática II" }, profesor: "Laura Méndez", aula: "Aula 1", hora_inicio: "10:00", hora_fin: "11:00", temas_vistos: "Regla de L’Hôpital", asistencia: null },
+    { tipo: "CLASE_DICTADA", id: "c2", fecha: "2026-09-30", materia: { id: "m1", nombre: "Matemática II" }, profesor: "Laura Méndez", aula: "Aula 1", hora_inicio: "10:00", hora_fin: "11:00", temas_vistos: null, asistencia: "AUSENTE" },
   ],
 };
 let host: HTMLDivElement; let root: Root;
@@ -28,7 +29,7 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); })
 async function render() { await act(async () => root.render(<MiHistorial />)); await flush(); }
 describe("E08 Mi historial", () => {
   it("tres tipos, temas, asistencia, porcentajes y nota", async () => {
-    await render(); expect(host.textContent).toContain("75% de asistencia"); expect(host.textContent).toContain("Repasar funciones"); expect(host.textContent).toContain("Regla de L’Hôpital"); expect(host.textContent).toContain("Asistió (sin control de asistencia)"); expect(host.textContent).toContain("Ausente"); expect(host.querySelectorAll("ol > li")).toHaveLength(4);
+    await render(); expect(host.textContent).toContain("8 clases dictadas · 2 exámenes · 2 indicaciones"); expect(host.textContent).toContain("Parcial de cinemática"); expect(host.textContent).toContain("Martín Ríos"); expect(host.textContent).toContain("Aula 1 · 10:00–11:00"); expect(host.textContent).toContain("75% de asistencia"); expect(host.textContent).toContain("Repasar funciones"); expect(host.textContent).toContain("Regla de L’Hôpital"); expect(host.textContent).toContain("Asistió (sin control de asistencia)"); expect(host.textContent).toContain("Ausente"); expect(host.querySelectorAll("ol > li")).toHaveLength(4);
   });
   it("página 2 y cambio de materia reinicia página 1", async () => {
     await render(); const next = host.querySelector<HTMLButtonElement>('[aria-label="Página siguiente"]')!;

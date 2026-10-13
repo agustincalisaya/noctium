@@ -2133,3 +2133,8 @@ La generación masiva (2.9.1), el proceso (2.18.1), la cancelación propia (2.19
 ### Sincronización con HU-D-08 (10/10/2026)
 
 `turno.baja-profesor.service.ts` expone por `turno.publico.ts` conteo/listado de futuras, preview, cancelación y cambio por clase. El núcleo C-05 se comparte dentro de la transacción del llamador. Creación, confirmación, generación y reprogramación bloquean el profesor antes de la clase y revalidan su actividad; si cambió el profesor frente a una lectura preliminar, abortan. La UI de resolución selecciona la página visible (diez), por decisión documentada en la task D-08. Los pagos e inscripciones permanecen intactos.
+
+
+### Lecturas públicas autorizadas para revisión PO E04/E08 (13/10/2026)
+
+E04/E08: `obtenerClaseOrigenHistorial(turnoId, alumnoId, db)` devuelve profesor/materia y si existe inscripción histórica; E revalida el contexto firmado y la primera clase dictada. `obtenerDetallesClasesHistorial(ids, db)` devuelve aula nullable resuelta por F, hora_inicio y hora_fin del turno conservado; no incluye alumnos ni pagos. Lecturas acotadas sin conceder permisos generales de C o K.

@@ -141,7 +141,7 @@ Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desacti
 
 `GET /api/mi-historial` implementado con permiso `historial:leer_propio`, dueño resuelto mediante B desde sesión y DTO allowlist de §2.12.2. La consulta unificada excluye exámenes anulados del modo ALUMNO antes de count/limit; clases anuladas ya se excluyen con el valor vigente de E11. Query de alumno ajeno: 403 antes de validación; otros parámetros desconocidos: 400.
 
-Pantalla `/mi-historial`: línea de tiempo, filtro de materia que reinicia página, diez registros por página y porcentaje de asistencia por materia. Referencia figura 76 aplicada con los campos públicos aprobados: no se entregan descripción/autor del examen, autor de indicación ni aula/horario ausentes del DTO. Acceso desde contenido de `/alumno` por instrucción de conservar sidebar.
+Pantalla `/mi-historial`: línea de tiempo, filtro de materia que reinicia página, diez registros por página y porcentaje de asistencia por materia. Referencia figura 76 ampliada por decisión de producto del 13/10/2026: ver revisión PO y contrato público al final de esta especificación. Acceso desde contenido de `/alumno` por instrucción de conservar sidebar.
 
 Changelog aditivo: HU-E-08 implementada después del merge E11 (#224); las interfaces de otros modos permanecen compatibles.
 
@@ -1118,28 +1118,31 @@ export const MiHistorialQuerySchema = z.object({
 
 **Comportamiento:**
 1. **El alumno se resuelve de la sesión** (criterio 6): `obtenerAlumnoDeUsuario(session.sub)` (Módulo B). Si la cuenta no tiene ficha vinculada: `403 SIN_PERMISO`. **Ninguna** parte de la solicitud lleva un identificador de alumno: si el pedido trae `alumno_id` (o `alumnoId`) en la query, el Route Handler responde `403 SIN_PERMISO` **antes** de validar (es un intento de consultar otro historial); cualquier otro parámetro desconocido es `400` por el `.strict()`. No hay ruta con `[id]`.
-2. La misma consulta unificada de 2.12.1 con el alumno de la sesión y el modo alumno: se excluyen las observaciones internas, los datos de otros alumnos, los resultados de examen anulados y las clases dictadas anuladas (criterio 5). Se devuelve **solo** lo que enumera el criterio 1 (P-E8).
+2. La misma consulta unificada de 2.12.1 con el alumno de la sesión y el modo alumno: se excluyen las observaciones internas, los datos de otros alumnos, los resultados de examen anulados y las clases dictadas anuladas (criterio 5). Se devuelve la lista pública de campos del criterio 1 y los campos adicionales autorizados por la revisión PO del 13/10/2026 (al final de esta especificación).
 3. Los tres tipos conviven en una sola línea de tiempo por fecha descendente (criterio 3). Filtro por Materia (criterio 4): al filtrar la pantalla vuelve a `pagina=1`, igual que en 2.3.
 
-**Respuesta `200 OK`:**
+**Respuesta `200 OK` (contrato ampliado por revisión PO 13/10/2026):**
 ```json
 {
   "data": {
+    "desglose": { "clases_dictadas": 1, "examenes": 1, "indicaciones": 1 },
     "materias_disponibles": [{ "id": "cuid", "nombre": "Matemática" }],
-    "asistencia_por_materia": [ { "materia_id": "cuid", "presentes": 4, "ausentes": 1, "sin_control": 2, "porcentaje": 80 } ],
+    "asistencia_por_materia": [{ "materia_id": "cuid", "presentes": 0, "ausentes": 1, "sin_control": 0, "porcentaje": 0 }],
     "items": [
-      { "tipo": "CLASE_DICTADA", "id": "cuid", "fecha": "2026-09-25", "materia": { "id": "cuid", "nombre": "Matemática" },
-        "profesor": "Giménez, Laura", "temas_vistos": "Funciones lineales", "asistencia": "AUSENTE" },
-      { "tipo": "EXAMEN", "id": "cuid", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" }, "nota": "8.5" },
-      { "tipo": "INDICACION", "id": "cuid", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" },
-        "indicacion": "Reforzar funciones cuadráticas" }
+      { "tipo": "INDICACION", "id": "cuid-i", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" },
+        "indicacion": "Reforzar funciones cuadráticas", "registrada_en": "2026-09-27T15:30:00Z", "registrada_por": "Giménez, Laura" },
+      { "tipo": "EXAMEN", "id": "cuid-e", "fecha": "2026-09-27", "materia": { "id": "cuid", "nombre": "Matemática" },
+        "nota": "8.5", "descripcion_publica": "Parcial de funciones", "registrado_por": "Ferreyra, Julián" },
+      { "tipo": "CLASE_DICTADA", "id": "cuid-c", "fecha": "2026-09-25", "materia": { "id": "cuid", "nombre": "Matemática" },
+        "profesor": "Giménez, Laura", "temas_vistos": "Funciones lineales", "asistencia": "AUSENTE",
+        "aula": "Aula 1", "hora_inicio": "14:00", "hora_fin": "15:00" }
     ],
     "paginacion": { "total": 3, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 10 }
   },
   "error": null
 }
 ```
-- `temas_vistos` es `null` si la clase no tiene observaciones. No se devuelven `turno_id`, `observacion`, `observaciones` del examen, `registrada_por`, `puede_corregir` ni `anulado`.
+- `temas_vistos` es `null` si la clase no tiene observaciones. No se devuelven `turno_id`, `observacion`, `observaciones` del examen, `puede_corregir` ni `anulado`. Se autorizan `registrada_por`, `registrada_en`, `registrado_por`, `descripcion_publica`, `aula`, `hora_inicio`, `hora_fin` y `desglose` según la revisión PO.
 - `asistencia_por_materia` es el porcentaje de la parte superior de la pantalla: clases presentes / clases dictadas en las que estaba inscripto, sin contar las «sin control» (criterio 2).
 - Sin registros: `200` con `items: []`; la pantalla muestra «Todavía no tenés historial académico» (criterio 7).
 
@@ -1316,3 +1319,36 @@ Conforme a `docs/RULES.md` Regla N.° 2, este módulo usa la **opción (a) — c
 >
 > Los puntos nuevos de la Revisión 2 (P-E1 a P-E13) los resolvió el Scrum Master el 08/10/2026; están en el encabezado de la Revisión 2, con a quién se informa cada uno.
 ```
+
+
+## Revisión PO — 13/10/2026 (HU-E-04 y HU-E-08)
+
+Esta decisión de producto reemplaza las restricciones anteriores de §2.12.2 sobre descripción/autor del examen, autor de indicación y aula/horario. Los nuevos detalles públicos están autorizados exclusivamente para el historial del alumno dueño, resuelto desde la sesión, sin ampliar los permisos ni el alcance de otros alumnos.
+
+### Contrato público GET /api/mi-historial
+
+Se conservan `materia_id`, `pagina`, `por_pagina=10`, orden descendente, aislamiento por sesión y respuesta `{data,error}` con `Cache-Control: no-store`. Solicitar un alumno ajeno da 403; parámetros desconocidos dan 400. El DTO se construye por lista permitida:
+
+- `desglose: {clases_dictadas:number, examenes:number, indicaciones:number}`: cuenta **todo el historial filtrado**, antes de `LIMIT/OFFSET`, incluso si la página está vacía. Excluye clases y exámenes anulados.
+- Clases: `id`, `tipo`, `fecha`, `materia`, `profesor` (nombre o null), `asistencia`, `temas_vistos`, `aula`, `hora_inicio`, `hora_fin` (nullable). El aula y horario se leen del turno correspondiente mediante `C.obtenerDetallesClasesHistorial`; C resuelve el nombre del aula mediante la fachada K. Se omite visualmente cada detalle no disponible.
+- Exámenes: `id`, `tipo`, `fecha`, `materia`, `nota`, `descripcion_publica`, `registrado_por` (nombre o null). **No se expone `observaciones`**: es texto libre histórico sin garantía de separación de datos internos. Se añade `ResultadoExamen.descripcionPublica`, nullable, máximo 1000 caracteres; POST de §2.2 acepta `descripcion_publica` y la UI explicita su visibilidad al alumno. No se copian observaciones históricas ni se inventa una descripción. Alta nueva permite los dos campos separados.
+- Indicaciones: `id`, `tipo`, `fecha`, `materia`, `indicacion`, `registrada_en` (ISO UTC), `registrada_por` (nombre o null). El día de la fila sigue siendo el día local del centro; el detalle usa la fecha/hora local del registro.
+- Se mantienen `materias_disponibles`, `asistencia_por_materia` y `paginacion`. El resumen de asistencia completo se mantiene arriba de la línea de tiempo.
+
+A autoriza `obtenerNombresPublicosDeUsuarios(ids, db)` mediante las fachadas B/D/F: solo devuelve nombres/apellidos de las fichas vinculadas de profesor, mesa de entrada, gerente o alumno. No entrega email, credenciales ni id como reemplazo del nombre. Si no existe ficha, el autor se omite. E usa estos nombres solo al construir el DTO del dueño. No se entrega información sobre otros alumnos, observaciones internas, motivos de corrección/anulación ni registros anulados.
+
+Presentación: encabezado compacto, filtro y desglose juntos, tarjeta única con filas y separadores sutiles. Orden fecha → punto → materia/etiqueta → detalle; nota a la derecha en escritorio y en su propia línea en móvil. Texto distingue los tres tipos además del color. Asistencia sin control usa estilo neutro. Textos largos se ajustan al ancho. Se conservan carga, error/reintento, paginación y vacío literal «Todavía no tenés historial académico»; el cambio de materia reinicia página 1.
+
+Limitación fiable del prototipo: no puede reconstruirse la descripción pública de exámenes históricos ni el nombre de autores sin ficha. Aula/horario reflejan el turno conservado, no una fotografía histórica independiente; no se inventan valores anteriores. La clase vinculada de la indicación no se añade al DTO propio en esta ampliación.
+
+### Contexto del profesor — POST /api/alumnos/[id]/indicaciones
+
+Se añade `contexto_origen?: string` (máximo 4096), **obligatorio para PROFESOR**, separado de `clase_dictada_id` opcional. La página `/turnos/[id]/alumnos/[alumnoId]/historial` valida su navegación y emite un JWT HS256 con `AUTH_SECRET`, audiencia `historial:indicacion`, sujeto usuario y claims alumno/materia/turno, vigencia dos horas. No existe un endpoint público de emisión arbitraria. Al registrar, E comprueba firma, vencimiento, audiencia, sujeto, alumno y materia y vuelve a validar el turno contra el profesor actual mediante C. C autoriza `obtenerClaseOrigenHistorial(turnoId, alumnoId, db)` con profesor, materia e inscripción histórica; si no hay inscripción, E exige que el alumno figure en el registro vigente de esa misma clase.
+
+La clase de origen puede ser futura. Además, se conserva la exigencia de al menos una clase **propia dictada no anulada** de la materia con el alumno (presente, ausente o sin control). Contexto faltante, manipulado, vencido, otra materia/alumno/usuario o profesor ajeno: `403 SIN_PERMISO`, sin alta. Reabrir el historial renueva el contexto. Un token emitido legítimamente para otra navegación propia representa esa otra navegación; no garantiza cuál pestaña está mirando el usuario.
+
+Mesa de Entrada no necesita contexto y conserva el vínculo opcional. El Profesor registra desde «Ver historial» en su clase; el diálogo directo del detalle queda para Mesa de Entrada. Se quita el enlace Alumnos del sidebar Profesor, que carece de `alumnos:leer`.
+
+### Confirmaciones C-25
+
+E-04, E-07 y E-10 usan «¿Estás seguro de que querés…?» con Volver. E-04 resume texto y fecha de clase vinculada; E-07 resume clase, temas y observaciones internas que se guardan; E-10 conserva valores anterior/nuevo y motivo. E-11 agrega hora y lista de estados enviados a su confirmación de corrección. Anular clase usa `ConfirmarAccionDialog`, motivo obligatorio, advertencia irreversible, botón de peligro, foco en Volver y error dentro del diálogo.

@@ -22,12 +22,16 @@ export function HistorialAcademico({
   puedeRegistrarIndicacion,
   mostrarNombre,
   materiaInicial = "",
+  contextoOrigen,
+  claseInicial,
 }: {
   alumnoId: string;
   puedeRegistrarExamen: boolean;
   puedeRegistrarIndicacion: boolean;
   mostrarNombre: boolean;
   materiaInicial?: string;
+  contextoOrigen?: string;
+  claseInicial?: string;
 }) {
   const [datos, setDatos] = useState<HistorialAcademicoData | null>(null);
   const [pagina, setPagina] = useState(1);
@@ -105,6 +109,8 @@ export function HistorialAcademico({
         )}
         {puedeRegistrarIndicacion && datos && (
           <RegistrarIndicacionDialog
+            contextoOrigen={contextoOrigen}
+            claseInicial={claseInicial}
             alumnoId={alumnoId}
             nombreAlumno={datos.alumno.nombre_completo}
             materias={datos.indicaciones_opciones?.materias ?? []}

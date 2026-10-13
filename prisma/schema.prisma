@@ -1096,6 +1096,7 @@ model ResultadoExamen {
   fechaExamen DateTime @db.Date
   notaExamen Decimal @db.Decimal(4, 1)
   observaciones String? @db.Text
+  descripcionPublica String? @db.VarChar(1000)
   createdAtResultadoExamen DateTime @default(now())
   creadoPorUsuarioId String?
   alumno Alumno @relation(fields: [alumnoId], references: [idAlumno])

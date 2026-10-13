@@ -5,6 +5,7 @@ import { crearAlumnoDePrueba, crearInscripcionDePrueba, crearMateriaDePrueba, cr
 import { registrarClaseDictada } from "@/server/historial/clase-dictada.service";
 import { opcionesDeIndicacion, registrarIndicacion } from "@/server/historial/indicacion.service";
 import { actorUsuario } from "@/server/shared/historial";
+import { emitirContextoIndicacion } from "./contexto-indicacion.service";
 import { ahora } from "@/server/shared/reloj";
 import { transaccion } from "@/server/shared/transaccion";
 
@@ -39,7 +40,7 @@ describe.skipIf(!basePgHabilitada)("HU-E-04 indicaciones con PostgreSQL real", (
     };
   }
 
-  const registrar = (alumnoId: string, datos: { materia_id: string; indicacion: string; clase_dictada_id?: string }, usuario: { id: string; rol: "MESA_ENTRADA" | "PROFESOR" }) =>
+  const registrar = (alumnoId: string, datos: { materia_id: string; indicacion: string; clase_dictada_id?: string; contexto_origen?: string }, usuario: { id: string; rol: "MESA_ENTRADA" | "PROFESOR" }) =>
     transaccion((tx) => registrarIndicacion(tx, alumnoId, datos, usuario), { db });
 
   it("persiste texto, autor, fecha y relación opcional y permite varias indicaciones", async () => {
@@ -56,8 +57,32 @@ describe.skipIf(!basePgHabilitada)("HU-E-04 indicaciones con PostgreSQL real", (
 
   it("permite al profesor con clase propia y rechaza al profesor ajeno", async () => {
     const e = await escenario();
-    await expect(registrar(e.alumno.idAlumno, { materia_id: e.materia.idMateria, indicacion: "Repasar" }, e.usuarioProfesor)).resolves.toMatchObject({ registrada_por: e.profesorUsuario.emailUsuario });
+    const contexto = await emitirContextoIndicacion(e.usuarioProfesor.id, e.alumno.idAlumno, e.materia.idMateria, e.turno.idTurno, db);
+    await expect(registrar(e.alumno.idAlumno, { materia_id: e.materia.idMateria, indicacion: "Repasar", contexto_origen: contexto }, e.usuarioProfesor)).resolves.toMatchObject({ registrada_por: e.profesorUsuario.emailUsuario });
     await expect(registrar(e.alumno.idAlumno, { materia_id: e.materia.idMateria, indicacion: "Repasar otra vez" }, e.usuarioOtroProfesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+  });
+
+  it("valida origen firmado entre dos materias, dueño, alumno, manipulación y primer dictado", async () => {
+    const e = await escenario();
+    const materiaB = await crearMateriaDePrueba(db);
+    const turnoB = await crearTurnoDePrueba(db, { enDias: -3, profesorId: e.profesor.idProfesor, materiaId: materiaB.idMateria });
+    await crearInscripcionDePrueba(db, { turnoId: turnoB.idTurno, alumnoId: e.alumno.idAlumno });
+    await transaccion(tx => registrarClaseDictada(tx, { turnoId: turnoB.idTurno, actor: actorUsuario(e.mesa.idUsuario) }), { db });
+    const contextoA = await emitirContextoIndicacion(e.usuarioProfesor.id, e.alumno.idAlumno, e.materia.idMateria, e.turno.idTurno, db);
+    const antes = await db.indicacion.count({ where: { alumnoId: e.alumno.idAlumno } });
+    const datos = { materia_id: e.materia.idMateria, indicacion: "Repasar", contexto_origen: contextoA };
+    await expect(registrar(e.alumno.idAlumno, { ...datos, materia_id: materiaB.idMateria }, e.usuarioProfesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    await expect(registrar(e.alumno.idAlumno, { ...datos, contexto_origen: contextoA + "x" }, e.usuarioProfesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    await expect(registrar(e.alumno.idAlumno, datos, e.usuarioOtroProfesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    const ajeno = await crearAlumnoDePrueba(db);
+    await expect(registrar(ajeno.idAlumno, datos, e.usuarioProfesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    expect(await db.indicacion.count({ where: { alumnoId: e.alumno.idAlumno } })).toBe(antes);
+    await expect(registrar(e.alumno.idAlumno, datos, e.usuarioProfesor)).resolves.toMatchObject({ materia_id: e.materia.idMateria });
+    const futura = await crearTurnoDePrueba(db, { enDias: 3, profesorId: e.profesor.idProfesor, materiaId: e.materia.idMateria });
+    await crearInscripcionDePrueba(db, { turnoId: futura.idTurno, alumnoId: ajeno.idAlumno });
+    const contextoFuturo = await emitirContextoIndicacion(e.usuarioProfesor.id, ajeno.idAlumno, e.materia.idMateria, futura.idTurno, db);
+    await expect(registrar(ajeno.idAlumno, { ...datos, contexto_origen: contextoFuturo }, e.usuarioProfesor)).rejects.toMatchObject({ code: "SIN_PERMISO" });
+    await expect(emitirContextoIndicacion(e.usuarioOtroProfesor.id, e.alumno.idAlumno, e.materia.idMateria, e.turno.idTurno, db)).rejects.toMatchObject({ code: "SIN_PERMISO" });
   });
 
   it("rechaza materia no cursada y alumno inactivo", async () => {

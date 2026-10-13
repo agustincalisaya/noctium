@@ -189,12 +189,6 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
         }
       ]
     },
-    // alumnos:leer: solo lectura (sin alta ni edición).
-    {
-      label: textoC19("ui.clases.menu.alumnos"),
-      icon: Users,
-      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/alumnos", icon: Contact }],
-    },
   ],
   ALUMNO: [
     {
