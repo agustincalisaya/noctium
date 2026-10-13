@@ -77,6 +77,11 @@ describe.skipIf(!basePgHabilitada)("HU-D-08 PostgreSQL real", () => {
     const otra = await crearTurnoDePrueba(db, { profesorId: p.idProfesor, enDias: 20 });
     const lista = await listarTurnosFuturosParaBaja(p.idProfesor, { pagina: 1 });
     expect(lista.items).toHaveLength(10); expect(lista.total).toBe(12); expect(lista.materias).toHaveLength(2);
+    expect(lista.seleccion.items).toHaveLength(12);
+    expect(lista.seleccion.items[0]).toMatchObject({ materia: { id: m.idMateria }, profesor: { id: p.idProfesor }, estado: "DISPONIBLE", con_pagos: false, inscriptos: 0 });
+    const filtrada = await listarTurnosFuturosParaBaja(p.idProfesor, { pagina: 2, materia_id: m.idMateria });
+    expect(filtrada.seleccion.items).toHaveLength(11);
+    expect(filtrada.seleccion.items.every((t) => t.materia.id === m.idMateria)).toBe(true);
     expect((await listarTurnosFuturosParaBaja(p.idProfesor, { pagina: 2, materia_id: m.idMateria })).items).toHaveLength(1);
     const ins = await crearInscripcionDePrueba(db, { turnoId: otra.idTurno, alumnoId: (await alumno()).idAlumno });
     const { pagos } = await crearOperacionDePrueba(db, { cajaId: (await abrirCajaDePrueba(db)).idCaja, inscripcionIds: [ins.idInscripcion] });

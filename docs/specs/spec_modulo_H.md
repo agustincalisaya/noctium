@@ -860,3 +860,9 @@ Instrucción explícita del usuario y relevamiento aprobado: figuras 52–57 gob
 |---|---|---|
 | H06 | Línea ocupación, leyenda inferior y encabezados grandes | Barras y geometría compacta según figuras 52–54 |
 | H07 | Línea azul y estadísticas en categorías | Línea ámbar y etiquetas de detalle según figura 55 |
+
+## Nota aditiva — corrección de H07/H10, 12/10/2026
+
+Por instrucción explícita recibida en la revisión de las historias, los selectores del panel ofrecen los últimos 24 meses hasta el mes actual del centro, sin opciones futuras. Esta restricción corresponde a la interfaz; no modifica el contrato de consulta de la API descrito en §2.2/2.3.
+
+La presentación conserva todos los meses del período y los totales completos. Presentismo distingue «Sin registros» (índice nulo y línea interrumpida) de 0 % con inscripciones; las cifras y los ausentes se ubican sobre cada par en un espacio separado del trazado. Los grupos mensuales mantienen un ancho legible; el aviso de desplazamiento depende de categorías realmente fuera del área visible y se recalcula al cargar y redimensionar. En períodos largos, las tarjetas mensuales y por materia aprovechan la fila completa. Con muchas materias, el gráfico admite recorrido vertical y la tabla conserva todos los datos. Los cálculos, exclusiones, ordenamientos y permisos se conservan.

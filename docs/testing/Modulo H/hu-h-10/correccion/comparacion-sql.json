@@ -1,0 +1,201 @@
+{
+  "resultado": "PASS",
+  "clases": [
+    {
+      "mes": "2026-05",
+      "estado": "CANCELADO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-08",
+      "estado": "CANCELADO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-06",
+      "estado": "DISPONIBLE",
+      "cantidad": 5
+    },
+    {
+      "mes": "2026-09",
+      "estado": "CANCELADO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-08",
+      "estado": "DISPONIBLE",
+      "cantidad": 3
+    },
+    {
+      "mes": "2026-05",
+      "estado": "DISPONIBLE",
+      "cantidad": 7
+    },
+    {
+      "mes": "2026-06",
+      "estado": "CANCELADO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-09",
+      "estado": "DISPONIBLE",
+      "cantidad": 11
+    },
+    {
+      "mes": "2026-07",
+      "estado": "DISPONIBLE",
+      "cantidad": 4
+    },
+    {
+      "mes": "2026-07",
+      "estado": "CANCELADO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-10",
+      "estado": "CANCELADO",
+      "cantidad": 3
+    },
+    {
+      "mes": "2026-10",
+      "estado": "DISPONIBLE",
+      "cantidad": 42
+    }
+  ],
+  "inscripciones": [
+    {
+      "mes": "2026-09",
+      "vigencia": "CANCELADA_ALUMNO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-08",
+      "vigencia": "RESERVA_VENCIDA",
+      "cantidad": 8
+    },
+    {
+      "mes": "2026-09",
+      "vigencia": "VIGENTE",
+      "cantidad": 12
+    },
+    {
+      "mes": "2026-05",
+      "vigencia": "CANCELADA_ALUMNO",
+      "cantidad": 3
+    },
+    {
+      "mes": "2026-06",
+      "vigencia": "VIGENTE",
+      "cantidad": 37
+    },
+    {
+      "mes": "2026-05",
+      "vigencia": "VIGENTE",
+      "cantidad": 50
+    },
+    {
+      "mes": "2026-07",
+      "vigencia": "CANCELADA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-08",
+      "vigencia": "CANCELADA_ALUMNO",
+      "cantidad": 3
+    },
+    {
+      "mes": "2026-09",
+      "vigencia": "BAJA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-10",
+      "vigencia": "CANCELADA_ALUMNO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-08",
+      "vigencia": "BAJA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-06",
+      "vigencia": "CANCELADA_ALUMNO",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-06",
+      "vigencia": "RESERVA_VENCIDA",
+      "cantidad": 5
+    },
+    {
+      "mes": "2026-06",
+      "vigencia": "BAJA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-05",
+      "vigencia": "RESERVA_VENCIDA",
+      "cantidad": 11
+    },
+    {
+      "mes": "2026-10",
+      "vigencia": "BAJA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-07",
+      "vigencia": "BAJA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-08",
+      "vigencia": "VIGENTE",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-07",
+      "vigencia": "RESERVA_VENCIDA",
+      "cantidad": 13
+    },
+    {
+      "mes": "2026-10",
+      "vigencia": "VIGENTE",
+      "cantidad": 17
+    },
+    {
+      "mes": "2026-07",
+      "vigencia": "VIGENTE",
+      "cantidad": 3
+    },
+    {
+      "mes": "2026-10",
+      "vigencia": "RESERVA_VENCIDA",
+      "cantidad": 2
+    },
+    {
+      "mes": "2026-05",
+      "vigencia": "BAJA_ALUMNO",
+      "cantidad": 1
+    },
+    {
+      "mes": "2026-09",
+      "vigencia": "RESERVA_VENCIDA",
+      "cantidad": 16
+    }
+  ],
+  "totalClases": 85,
+  "totalInscripciones": 189,
+  "tasas": {
+    "clases": {
+      "canceladas": 13,
+      "totales": 85,
+      "tasa": 15.3
+    },
+    "inscripciones": {
+      "canceladas_alumno": 13,
+      "totales": 189,
+      "tasa": 6.9
+    }
+  }
+}

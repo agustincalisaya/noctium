@@ -14,7 +14,7 @@ export function ajustarPeriodo(rango: RangoIndicador, extremo: "desde" | "hasta"
 }
 export function FiltroPeriodo({ rango, mesActual, onChange }: { rango: RangoIndicador; mesActual: string; onChange: (rango:RangoIndicador) => void }) {
   const [aviso, setAviso] = useState(false);
-  const opciones = Array.from({length:27}, (_, i) => desplazarMes(mesActual, i - 23));
+  const opciones = Array.from({length:24}, (_, i) => desplazarMes(mesActual, i - 23));
   const formato = new Intl.DateTimeFormat("es-AR", {month:"long",year:"numeric",timeZone:"UTC"});
   return <div className="w-full space-y-2 lg:w-auto">
     <div className="grid gap-2 sm:grid-cols-2">

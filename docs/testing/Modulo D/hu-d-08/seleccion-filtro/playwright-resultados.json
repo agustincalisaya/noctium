@@ -1,0 +1,93 @@
+{
+  "browser": "Chromium / Playwright",
+  "checks": [
+    {
+      "device": "desktop",
+      "selection": 205,
+      "rows": 10,
+      "pageSelectionPersists": true,
+      "filterRetainsCompatible": true,
+      "offPagePaymentWarning": true,
+      "pageOverflow": false,
+      "tableOverflow": false
+    },
+    {
+      "device": "mobile",
+      "selection": 205,
+      "rows": 10,
+      "pageSelectionPersists": true,
+      "filterRetainsCompatible": true,
+      "offPagePaymentWarning": true,
+      "pageOverflow": false,
+      "tableOverflow": true
+    },
+    {
+      "mutation": "cambio",
+      "selected": 205,
+      "changed": 204,
+      "failed": 1,
+      "failureSelectedWithReason": true,
+      "paymentsAndRegistrationsPreserved": true
+    },
+    {
+      "mutation": "cancelacion",
+      "cancelled": 2,
+      "paymentsAndRegistrationsPreserved": true,
+      "zeroFutureOffersDeactivation": true,
+      "deactivatedAndReactivated": true,
+      "cancelledNotRestored": true
+    }
+  ],
+  "requests": [
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cambio-profesor/previsualizacion",
+      "ids": 100,
+      "destination": "c1156751948224d0fbfacad9c",
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cambio-profesor/previsualizacion",
+      "ids": 100,
+      "destination": "c1156751948224d0fbfacad9c",
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cambio-profesor/previsualizacion",
+      "ids": 5,
+      "destination": "c1156751948224d0fbfacad9c",
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cambio-profesor",
+      "ids": 100,
+      "destination": "c1156751948224d0fbfacad9c",
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cambio-profesor",
+      "ids": 100,
+      "destination": "c1156751948224d0fbfacad9c",
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cambio-profesor",
+      "ids": 5,
+      "destination": "c1156751948224d0fbfacad9c",
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cancelacion",
+      "ids": 1,
+      "destination": null,
+      "status": 200
+    },
+    {
+      "path": "/api/profesores/ca9a26b99a6a44b8588913510/turnos-futuros/cancelacion",
+      "ids": 1,
+      "destination": null,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "result": "PASS"
+}
