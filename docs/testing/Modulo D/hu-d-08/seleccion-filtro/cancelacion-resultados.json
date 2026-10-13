@@ -1,0 +1,20 @@
+{
+  "browser": "Chromium / Playwright",
+  "requests": [
+    {
+      "ids": 100,
+      "status": 200
+    },
+    {
+      "ids": 100,
+      "status": 200
+    },
+    {
+      "ids": 4,
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "cancelled": 204,
+  "result": "PASS"
+}

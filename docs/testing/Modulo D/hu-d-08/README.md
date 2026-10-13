@@ -1,5 +1,7 @@
 # HU-D-08 — Evidencia
 
+> Evidencia histórica de la implementación inicial. La selección por página descrita aquí fue corregida según el criterio 2 y la revisión de #169. Ver [evidencia actual de selección por filtro](seleccion-filtro/README.md).
+
 Base: `develop` en `10e3ffb`. Todas las mutaciones de prueba se hicieron en bases PostgreSQL descartables; no se modificó la base de desarrollo. Se conservaron las cuentas oficiales.
 
 ## UI y API

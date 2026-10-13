@@ -121,7 +121,7 @@ La baja y reactivación toman primero el bloqueo canónico del alumno y validan 
 
 El permiso `profesores:cambiar_estado` se comprueba en las rutas y actions. Baja/reactivación bloquean al profesor y validan versión y estado; la ficha y su cuenta cambian en la misma transacción. C toma ese mismo recurso antes de crear, confirmar, generar o reprogramar clases y vuelve a comprobar actividad. Los lotes usan una transacción por clase, conservan pagos e inscripciones y reportan fallos por fila. El historial de estados se encola después del commit. La revocación de A conserva milisegundos y el guard compara `iat_sesion` sin truncar; renovar no cambia ese inicio y reactivar no borra el umbral.
 
-Textos nuevos centralizados en `ui.profesores.estado.*`; selección de M-40 limitada al filtro y página visible (diez), por decisión explícita del usuario documentada en la task. Los ids de clase admiten los identificadores estables del seed, con pertenencia validada antes del lote.
+Textos nuevos centralizados en `ui.profesores.estado.*`; selección de M-40 sobre todas las clases del filtro (`seleccion.items`, hasta 500), independiente de la página visible. Cambiar página conserva las marcas; cambiar materia descarta solo las que quedan fuera. Contadores, alumnos y pagos usan los ítems marcados completos. Vista previa y mutaciones se envían en tandas secuenciales de hasta 100, sumando resultados y conservando las fallidas seleccionadas con su motivo. La UI informa si la selección está truncada y recarga tras procesar para ofrecer las restantes. Los ids de clase admiten los identificadores estables del seed, con pertenencia validada antes del lote.
 
 ## Aplicación HU-F-01 — Personal de mesa de entrada
 

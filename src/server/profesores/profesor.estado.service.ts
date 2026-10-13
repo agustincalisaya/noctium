@@ -86,10 +86,11 @@ export async function listarTurnosFuturosParaBaja(id: string, query: z.infer<typ
   const nombres = new Map(materias.map((m) => [m.id, m.nombre]));
   const conPagos = new Set(pagos);
   const profesor = { id, nombre_para_mostrar: `${p.nombreProfesor} ${p.apellidoProfesor}` };
-  return { profesor, items: lista.items.map(({ materia_id, ...t }) => ({ ...t, materia: { id: materia_id, nombre: nombres.get(materia_id) ?? materia_id }, profesor, con_pagos: conPagos.has(t.turno_id) })),
+  const enriquecer = ({ materia_id, ...t }: (typeof lista.items)[number]) => ({ ...t, materia: { id: materia_id, nombre: nombres.get(materia_id) ?? materia_id }, profesor, con_pagos: conPagos.has(t.turno_id) });
+  return { profesor, items: lista.items.map(enriquecer),
     total: lista.total, pagina: query.pagina, por_pagina: 10,
     materias: lista.materias.map((m) => ({ id: m.materia_id, nombre: nombres.get(m.materia_id) ?? m.materia_id, cantidad: m.cantidad })).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
-    seleccion: { ...lista.seleccion, con_pagos: lista.seleccion.items.filter((t) => conPagos.has(t.turno_id)).length }, pendientes: futuras.pendientes,
+    seleccion: { ...lista.seleccion, items: lista.seleccion.items.map(enriquecer), con_pagos: lista.seleccion.items.filter((t) => conPagos.has(t.turno_id)).length }, pendientes: futuras.pendientes,
     confirmados: futuras.confirmados, destinos,
   };
 }
