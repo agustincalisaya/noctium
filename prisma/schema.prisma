@@ -657,6 +657,12 @@ model Turno {
   // dictada no anulada por turno» es un índice único parcial de la migración.
   clasesDictadas ClaseDictada[]
 
+  // HU-C-27 (criterio 12): el listado filtra y ordena por fecha sin recorrer
+  // la tabla, también con «Todas»; por profesor (HU-C-08 y alcance del
+  // Profesor) y por materia, siempre con la fecha como segundo criterio.
+  @@index([fechaTurno, horaInicioTurno])
+  @@index([profesorId, fechaTurno])
+  @@index([materiaId, fechaTurno])
   @@map("turnos")
 }
 

@@ -88,6 +88,17 @@
 **Efectos en otras specs (se anotan al escribirlas):** `spec_modulo_I.md` (el pago apunta a la inscripción; modo de compatibilidad de `POST /api/pagos`; mensajes de HU-I-10), `spec_modulo_E.md` (el historial de clases del alumno muestra el resultado de cada inscripción —Cancelada por el alumno, Reserva vencida, Quitada, Baja—; `profesorAtendioAlumno` y Q13/Q7b se reemplazan por el alcance de 8 g), `spec_modulo_B.md` (HU-B-07 finaliza inscripciones con `BAJA_ALUMNO`; publicar `construirFiltroBusquedaAlumno`), `spec_modulo_H.md` (la ocupación y las series cuentan inscripciones vigentes), `spec_modulo_J.md` y `spec_modulo_K.md` (cuentan vigentes a través de los servicios públicos de 2.15).
 
 
+## Nota aditiva — 13/10/2026: HU-C-27, filtros de período, fechas y materia en el listado
+
+Pedido del PO (13/10/2026): el listado «Clases» (`/turnos`, 2.4) deja de mostrar solo las clases desde hoy. Suma tres filtros sobre el mismo listado, sin pantalla nueva: **Período** (Anteriores, Hoy —por defecto—, Próximas, Todas), **Desde–Hasta** (por fecha de la clase, inclusive) y **Materia**. Se combinan con la búsqueda (`q`) y el profesor (`profesor_id`), viajan en la URL y se resuelven en el servidor, con índices nuevos en `turnos` (`(fechaTurno, horaInicioTurno)`, `(profesorId, fechaTurno)`, `(materiaId, fechaTurno)`). Reemplaza el criterio 6 de HU-C-02 en lo que hace a fechas y materia; **el filtro por estado sigue fuera del producto**.
+
+| Sección | Cambio |
+|---|---|
+| 2.4 | Período y orden (descendente con «Anteriores»); `es_dia_anterior` por ítem; un Pendiente de un día anterior no ofrece continuar su configuración |
+| 2.7 | Parámetros `periodo`, `desde`, `hasta`, `materia_id` (reemplazan la prohibición de `materia_id` y de los filtros por fecha; `solo_futuros` lo reemplaza `periodo`; `estados` sigue rechazado); corrección: la búsqueda no es por alumno |
+| 2.16.5 | Corrección: el listado y el detalle muestran los cuatro estados |
+| 3.11 | Reevaluación pedida por la propia sección: la excepción no se amplía |
+
 ## Nota aditiva — 01/10/2026: servicios públicos para Indicadores (`spec_modulo_H.md` Revisión 2)
 
 | Sección | Estado previo | Acción |
@@ -596,12 +607,12 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 ---
 
-### 2.4. Listado y detalle de turnos (HU-C-01) — sin cambios en Revisión 4
+### 2.4. Listado y detalle de turnos (HU-C-01) — sin cambios en Revisión 4; ampliado por HU-C-27 (13/10/2026)
 
 > **Revisión 6.** `alumnos_inscriptos` y la lista `alumnos` cuentan solo inscripciones **vigentes**, y `estado` se decide con la ocupación real (2.16.5). El detalle suma por alumno `inscripcion` y `puede_registrar_pago` (2.18.4). Sin otros cambios de contrato. Esos campos por alumno **no se envían al Profesor** (no ve precios, HU-L-06 criterio 7): solo con `pagos:leer`. `puede_ver_historial` conserva el campo, pero su valor para el Profesor lo calcula C con la primera condición de la convención 8 g (`PR-0.md` §2.9): el alumno es un inscripto vigente de una clase suya, dato que el detalle ya tiene, así que **no llama a E** (Regla N.° 3; `spec_modulo_E.md` 2.5.3). Reemplaza a `profesorAtendioAlumno` (Q7b), que E conserva exportada pero ya no usa. El alcance del Gerente al detalle (modo consulta) lo fija `PR-0.md` §2.9.
 
 
-> **Revisión 5 (HU-C-09, HU-C-10, HU-C-02, HU-C-08).** El presentador `presentar()` agrega: `prioridad` (`"NORMAL" | "ALTA" | "URGENTE"`), y `creado_en`. **El detalle** (`GET /api/turnos/[id]`) agrega además: `creado_por` (email vía `obtenerEmailDeUsuario()`; `null` si no hay dato, nunca el id), `cupo_maximo`, `duracion_minutos`, el listado completo de `alumnos`, `pagos` (`listarPagosDeTurno()`, cada uno con su **alumno**, monto, forma de pago y fecha, solo si el rol tiene `pagos:leer`), `clase_dictada` (`{ id, registrada_en } | null`, vía `obtenerClaseDictadaDeTurno()` de `spec_modulo_E.md` §2.4) y `acciones_habilitadas` (lista de las acciones que el estado y el rol permiten: `cancelar` (turno `DISPONIBLE`/`COMPLETO` vigente, permiso `turnos:cancelar`; **nunca** para un `PENDIENTE`, HU-C-05 AC2), `descartar` (solo `PENDIENTE`, permiso `turnos:cancelar`, N-1, 2.10), `reprogramar` (`DISPONIBLE`/`COMPLETO` vigente, permiso `turnos:reprogramar`), `prioridad` (cualquier estado salvo `CANCELADO`, permiso `turnos:priorizar`), `registrar_pago` (condición de `spec_modulo_I.md` §2.4) y `registrar_clase` (condición de `spec_modulo_E.md` §2.1 paso 4: turno `DISPONIBLE`/`COMPLETO`, `fecha + hora_fin ≤ ahora`, sin clase dictada previa y, para el Profesor, solo sus propios turnos)). Cada alumno inscripto lleva el enlace "Ver historial" cuando el rol tiene `historial:leer` (`spec_modulo_E.md` §2.3, Q13 ratificado por el PO el 29/09/2026). Cada elemento de `alumnos[]` lleva `puede_ver_historial: boolean`: para Gerente y Mesa de Entrada es `true`; para el Profesor es el resultado de `profesorAtendioAlumno()` (`spec_modulo_E.md` §2.4, Q7b) y el enlace se oculta cuando es `false`. Es el punto de entrada del Gerente y del Profesor a la ficha del alumno. Un profesor que consulta un turno que no es suyo recibe `403 SIN_PERMISO`, y recibe **el mismo** `403` si el id no existe (respuesta neutra, igual que `spec_modulo_J.md` §2.1: no puede distinguir un turno inexistente de uno ajeno); Gerente y Mesa de Entrada reciben `404 TURNO_NO_ENCONTRADO` ante un id inexistente. Los datos no asignados de un `PENDIENTE` se muestran `"Sin asignar"` (D4). **`creado_por`:** `Usuario` no tiene nombre (solo `emailUsuario`) y el personal de mesa de entrada no tiene ficha; se muestra el **email** vía el servicio público de Módulo A `obtenerEmailDeUsuario()` (nunca un `SELECT` sobre `usuarios`). Si `creadoPorUsuarioId` es `null` (p. ej. turnos de seed) o el servicio devuelve `null` (cuenta inexistente), `creado_por` es `null` en la API y la UI muestra «Sin registrar». El listado agrega los parámetros de 2.7 (`q`, `profesor_id`) y muestra el indicador visual de prioridad `ALTA`/`URGENTE` (texto o ícono, no solo color). Vista de la pantalla: mapa de pantallas §1, fila "Detalle de turno".
+> **Revisión 5 (HU-C-09, HU-C-10, HU-C-02, HU-C-08).** El presentador `presentar()` agrega: `prioridad` (`"NORMAL" | "ALTA" | "URGENTE"`), y `creado_en`. **El detalle** (`GET /api/turnos/[id]`) agrega además: `creado_por` (email vía `obtenerEmailDeUsuario()`; `null` si no hay dato, nunca el id), `cupo_maximo`, `duracion_minutos`, el listado completo de `alumnos`, `pagos` (`listarPagosDeTurno()`, cada uno con su **alumno**, monto, forma de pago y fecha, solo si el rol tiene `pagos:leer`), `clase_dictada` (`{ id, registrada_en } | null`, vía `obtenerClaseDictadaDeTurno()` de `spec_modulo_E.md` §2.4) y `acciones_habilitadas` (lista de las acciones que el estado y el rol permiten: `cancelar` (turno `DISPONIBLE`/`COMPLETO` vigente, permiso `turnos:cancelar`; **nunca** para un `PENDIENTE`, HU-C-05 AC2), `descartar` (solo `PENDIENTE`, permiso `turnos:cancelar`, N-1, 2.10), `reprogramar` (`DISPONIBLE`/`COMPLETO` vigente, permiso `turnos:reprogramar`), `prioridad` (cualquier estado salvo `CANCELADO`, permiso `turnos:priorizar`), `registrar_pago` (condición de `spec_modulo_I.md` §2.4) y `registrar_clase` (condición de `spec_modulo_E.md` §2.1 paso 4: turno `DISPONIBLE`/`COMPLETO`, `fecha + hora_fin ≤ ahora`, sin clase dictada previa y, para el Profesor, solo sus propios turnos)). Cada alumno inscripto lleva el enlace "Ver historial" cuando el rol tiene `historial:leer` (`spec_modulo_E.md` §2.3, Q13 ratificado por el PO el 29/09/2026). Cada elemento de `alumnos[]` lleva `puede_ver_historial: boolean`: para Gerente y Mesa de Entrada es `true`; para el Profesor es el resultado de `profesorAtendioAlumno()` (`spec_modulo_E.md` §2.4, Q7b) y el enlace se oculta cuando es `false`. Es el punto de entrada del Gerente y del Profesor a la ficha del alumno. Un profesor que consulta un turno que no es suyo recibe `403 SIN_PERMISO`, y recibe **el mismo** `403` si el id no existe (respuesta neutra, igual que `spec_modulo_J.md` §2.1: no puede distinguir un turno inexistente de uno ajeno); Gerente y Mesa de Entrada reciben `404 TURNO_NO_ENCONTRADO` ante un id inexistente. Los datos no asignados de un `PENDIENTE` se muestran `"Sin asignar"` (D4). **`creado_por`:** `Usuario` no tiene nombre (solo `emailUsuario`) y el personal de mesa de entrada no tiene ficha; se muestra el **email** vía el servicio público de Módulo A `obtenerEmailDeUsuario()` (nunca un `SELECT` sobre `usuarios`). Si `creadoPorUsuarioId` es `null` (p. ej. turnos de seed) o el servicio devuelve `null` (cuenta inexistente), `creado_por` es `null` en la API y la UI muestra «Sin registrar». El listado agrega los parámetros de 2.7 (`q`, `profesor_id` y, desde HU-C-27, `periodo`, `desde`, `hasta`, `materia_id`) y muestra el indicador visual de prioridad `ALTA`/`URGENTE` (texto o ícono, no solo color). Vista de la pantalla: mapa de pantallas §1, fila "Detalle de turno".
 >
 > Decisiones del PO (30/09/2026): «Creado por» muestra el email; no se implementa «Total registrado» (no figura en los criterios de HU-C-09 ni de HU-I-01). `creado_por` no se incluye en el listado en esta entrega (decisión del SM, 30/09/2026).
 >
@@ -614,8 +625,8 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 
 **Comportamiento esperado (cambia el presentador `presentar()`):**
 - Incluye turnos en los 4 estados (`PENDIENTE`, `DISPONIBLE`, `COMPLETO`, `CANCELADO`). Cada ítem: `fecha`, `hora_inicio`–`hora_fin`, **`alumnos_inscriptos`** (`"3/5"`, ocupación sobre `cupoMaximoTurno` — reemplaza el campo `alumno`/`alumnos` de nombres de Revisión 1), `profesor` (`"Apellido, Nombre"` o `"Sin asignar"`), `materia`, `aula` (ídem o `"Sin asignar"`), `estado` (texto: `Pendiente` | `Disponible` | `Completo` | `Cancelado`, ya disponible vía `ETIQUETA_ESTADO_TURNO`, adelantado por HU-C-03). **Nota:** HU-C-03 ya agregó `cupo_maximo` al `presentar()` (para precargar el formulario de modificación) y lo mostró también en el detalle del turno; `alumnos_inscriptos` en sí sigue pendiente de esta HU-C-01. **D4 (Revisión 3):** mientras el turno no tiene aula (`cupoMaximoTurno` es `null`), no hay ocupación que mostrar — `alumnos_inscriptos` muestra el texto `"Sin asignar"` en vez de `"0/N"`, ya que todavía no existe un `N` contra el cual expresar la ocupación.
-- Orden por defecto: `fecha, hora_inicio` ascendente desde la fecha actual en adelante; `profesor_id` como segundo criterio de desempate — sin cambios respecto a `listarTurnos()` actual.
-- Los turnos `PENDIENTE` se distinguen con la etiqueta "Pendiente" y ofrecen continuar su configuración — **Revisión 3, orden invertido (HU-C-01 criterio 3):** primero asignar aula (2.3) si todavía no la tiene, y recién si ya la tiene, asignar profesor y alumnos (2.2). **Revisión 5:** el orden de continuación es el del wizard nuevo (el profesor y la fecha/horario ya están; falta aula, 2.3, y después alumnos, 2.2) y el listado ofrece también «Descartar» (2.10, N-1).
+- **Período y orden (HU-C-27):** el listado ya no se limita a la fecha actual en adelante. El parámetro `periodo` (2.7) corta por día calendario del centro: `anteriores` (días anteriores a hoy), `hoy` (por defecto, aunque ya hayan terminado), `proximas` (de mañana en adelante) y `todas`; o un rango `desde`–`hasta` inclusive. «Hoy» lo calcula el servicio con `ahora()` y `fechaCentro`/`finDelDiaCentro`. Orden por defecto: `fecha, hora_inicio` ascendente, `profesor_id` (nulos al final) e `id` como desempates; con `anteriores`, `fecha, hora_inicio` **descendente** con los mismos desempates.
+- Los turnos `PENDIENTE` se distinguen con la etiqueta "Pendiente" y ofrecen continuar su configuración — **Revisión 3, orden invertido (HU-C-01 criterio 3):** primero asignar aula (2.3) si todavía no la tiene, y recién si ya la tiene, asignar profesor y alumnos (2.2). **Revisión 5:** el orden de continuación es el del wizard nuevo (el profesor y la fecha/horario ya están; falta aula, 2.3, y después alumnos, 2.2) y el listado ofrece también «Descartar» (2.10, N-1). **HU-C-27:** un `PENDIENTE` de un día anterior (`es_dia_anterior: true`) no ofrece continuar su configuración (ya no puede pasar a Disponible); sigue ofreciendo «Descartar».
 - Paginación server-side con metadatos, sin cambios respecto a lo ya implementado.
 - El detalle sigue mostrando el listado completo de alumnos inscriptos (`turno.alumnos`, ya incluido en `turnoInclude`), no solo la ocupación.
 
@@ -630,10 +641,10 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
     "items": [
       { "id": "cuid", "fecha": "2026-04-10", "hora_inicio": "10:00", "hora_fin": "11:00",
         "alumnos_inscriptos": "3/5", "profesor": "Gómez, Ana", "materia": "Matemática", "aula": "Aula 2", "estado": "DISPONIBLE",
-        "prioridad": "NORMAL", "creado_en": "2026-04-01T13:20:00Z" },
+        "prioridad": "NORMAL", "creado_en": "2026-04-01T13:20:00Z", "es_dia_anterior": false },
       { "id": "cuid", "fecha": "2026-04-11", "hora_inicio": "14:00", "hora_fin": "15:00",
         "alumnos_inscriptos": "Sin asignar", "profesor": "Sin asignar", "materia": "Física", "aula": "Sin asignar", "estado": "PENDIENTE",
-        "prioridad": "NORMAL", "creado_en": "2026-04-02T10:05:00Z" }
+        "prioridad": "NORMAL", "creado_en": "2026-04-02T10:05:00Z", "es_dia_anterior": false }
     ],
     "paginacion": { "total": 15, "pagina_actual": 1, "total_paginas": 1, "por_pagina": 20 }
   },
@@ -642,7 +653,7 @@ export type AsignarAulaTurnoInput = z.infer<typeof AsignarAulaTurnoSchema>;
 ```
 
 **Errores esperados:**
-- `400 VALIDATION_ERROR` — parámetros de paginación inválidos en el listado.
+- `400 VALIDACION` — parámetros de paginación o de filtro inválidos en el listado (2.7).
 - `403 SIN_PERMISO` — falta `turnos:leer`; además, el rol Profesor recibe este código en el detalle de un turno ajeno **o inexistente** (respuesta neutra) y si su cuenta no tiene ficha de profesor.
 - `404 TURNO_NO_ENCONTRADO` — detalle de un id inexistente (Gerente y Mesa de Entrada).
 
@@ -756,9 +767,9 @@ Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al c
 
 ---
 
-### 2.7. Búsqueda en el listado y filtro por profesor (HU-C-02, HU-C-08) — NUEVA en Revisión 5
+### 2.7. Búsqueda en el listado y filtros por profesor, período, fechas y materia (HU-C-02, HU-C-08, HU-C-27) — NUEVA en Revisión 5, ampliada el 13/10/2026
 
-> **Revisión 6.** Contrato sin cambios. El filtro de búsqueda por alumno (relación `alumnos`) considera solo inscripciones **vigentes** (`sqlVigenteEn`): un alumno quitado o con una reserva vencida no hace aparecer la clase.
+> **Revisión 6.** Contrato sin cambios. *(Corregido el 13/10/2026, HU-C-27: esta nota decía que la búsqueda filtraba por alumno considerando solo inscripciones vigentes; la búsqueda **no** busca por alumno —punto 3—, así que la vigencia de las inscripciones no interviene en el filtro, solo en `alumnos_inscriptos`.)*
 
 
 **Ruta:** la misma de 2.4, `GET /api/turnos` — **no es una pantalla nueva** (mapa de pantallas §1, filas HU-C-02 y HU-C-08).
@@ -767,32 +778,58 @@ Filtra de entrada el selector de profesor de 2.2, en vez de validar recién al c
 **Permiso requerido:** `turnos:leer` (sin cambios: Mesa de Entrada, Gerente y Profesor).
 
 ```typescript
-// src/server/turnos/turno.schema.ts — se amplía ListarTurnosQuerySchema
+// src/server/turnos/turno.schema.ts — se amplía ListarTurnosQuerySchema (HU-C-27)
+export const PERIODOS_LISTADO_TURNOS = ["anteriores", "hoy", "proximas", "todas"] as const;
+
+// Fecha de la clase en AAAA-MM-DD: se valida con el schema compartido y se conserva como texto.
+const fechaFiltroTurnosSchema = z.string().trim().refine(
+  (valor) => fechaCalendarioValidaSchema.safeParse(valor).success,
+  { message: textoC19("ui.clases.errores.listado.fechaInvalida") },
+);
+
 export const ListarTurnosQuerySchema = z.object({
   pagina: z.coerce.number().int().positive().default(1),
-  por_pagina: z.coerce.number().int().positive().max(20).default(20),
+  por_pagina: z.coerce.number().int().positive().max(20).optional(), // ver «Nota de sincronización — por_pagina»
   q: z.string().trim().max(100).optional(),        // HU-C-02
   profesor_id: z.string().cuid().optional(),        // HU-C-08 (CUID como el resto de los ids de profesor, ver Convenciones)
-  // Sin `materia_id`, `estados` ni `solo_futuros`: HU-C-02 AC6 excluye los filtros por estado, fecha u otro criterio.
-  // `.strict()` los rechaza con 400. El modal «Ver turnos» de HU-D-07 usa listarTurnosFuturosDeProfesorPorMateria (2.15).
-}).strict();
+  // HU-C-27: período o rango (excluyentes) y materia. Sin `estados` ni
+  // `solo_futuros`: el filtro por estado sigue fuera del producto y
+  // `solo_futuros` lo reemplaza `periodo`; `.strict()` los rechaza con 400.
+  periodo: z.enum(PERIODOS_LISTADO_TURNOS).optional(),
+  desde: fechaFiltroTurnosSchema.optional(),
+  hasta: fechaFiltroTurnosSchema.optional(),
+  materia_id: z.string().cuid().optional(),
+}).strict()
+  .refine((f) => !(f.periodo && (f.desde || f.hasta)), { message: textoC19("ui.clases.errores.listado.periodoYRango"), path: ["periodo"] })
+  .refine((f) => !f.desde || !f.hasta || f.desde <= f.hasta, { message: textoC19("ui.clases.listado.rango.desdePosteriorAHasta"), path: ["desde"] });
 ```
 
 **Comportamiento esperado — búsqueda (`q`):**
 1. Si `q` tiene menos de 2 caracteres tras el `trim`, se **ignora** (equivale a no filtrar). La UI no lo envía; la regla del servidor evita que un `q` de un carácter devuelva una lista rara. Mismo umbral que HU-B-05 y el selector de HU-C-04.
 2. Se normaliza con `normalizarTexto(q)` (minúsculas, sin acentos) y se parte en **tokens** por espacios (máximo 5; el resto se descarta).
-3. **Cada token** debe coincidir (parcialmente, `contains`) con **al menos uno** de estos campos: apellido o nombre normalizado de algún alumno inscripto, apellido o nombre normalizado del profesor, `nombreNormalizadaMateria`, `nombreNormalizadaAula`. Entre tokens es **AND**; entre campos, **OR**. Así "Ana" devuelve los turnos donde coincide una alumna o una profesora (HU-C-02 AC2).
-4. Devuelve los turnos en cualquier estado, con el mismo formato de fila de 2.4, mismo orden por defecto (fecha/hora ascendente desde hoy, `profesor_id` como desempate) y paginación sobre el resultado filtrado (la UI vuelve a la página 1 al escribir).
-5. Sin coincidencias: `200` con `items: []`. Los mensajes "No se encontraron turnos para «texto»" y el vaciado de la búsqueda son responsabilidad de la UI.
+3. **Cada token** debe coincidir (parcialmente, `contains`) con **al menos uno** de estos campos: apellido o nombre normalizado del profesor, `nombreNormalizadaMateria`, `nombreNormalizadaAula`. **No** busca por alumno (decisión del equipo, 29/09/2026, `turno.busqueda.ts`; corregido en la spec el 13/10/2026, HU-C-27). Entre tokens es **AND**; entre campos, **OR**. Así "Ana" devuelve las clases donde coincide una profesora, una materia o un aula (HU-C-02 AC2).
+4. Devuelve los turnos en cualquier estado, con el mismo formato de fila de 2.4, mismo orden y mismo período o rango que el resto de los filtros (2.4) y paginación sobre el resultado filtrado (la UI vuelve a la página 1 al escribir).
+5. Sin coincidencias: `200` con `items: []`. Los mensajes y el vaciado de la búsqueda son responsabilidad de la UI; desde HU-C-27 (criterio 10) son «No hay clases para hoy» (Período «Hoy» sin otros filtros, con la acción «Ver próximas») y, en cualquier otro caso, «No se encontraron clases para los filtros elegidos».
 6. **Actualización al escribir (HU-C-02 AC3):** mientras el usuario escribe (mínimo 2 caracteres, con *debounce* de 300 ms), la UI vuelve a consultar `GET /api/turnos?q=` y reemplaza solo el listado, **sin recargar la pantalla completa**; al vaciar el campo se consulta sin `q` y vuelve el listado original.
 
 **Comportamiento esperado — filtro por profesor (`profesor_id`):**
 1. **Alcance por rol, resuelto siempre en el servidor** (R5-12): un `PROFESOR` ve automáticamente **solo sus turnos** (el profesor vinculado a la sesión, `obtenerOpcionProfesorDeUsuario()`; si su cuenta no tiene ficha de profesor: `403 SIN_PERMISO`). Si envía `profesor_id`, el propio se acepta y equivale a no enviarlo; **uno ajeno (o inexistente) responde `403 SIN_PERMISO`**, sin revelar si existe: el parámetro no se «ignora». `GERENTE` y `MESA_ENTRADA` pueden enviar el `profesor_id` de cualquier profesor activo (`404 PROFESOR_NO_ENCONTRADO` si no existe o está inactivo).
 2. Se combina con `q` y con la paginación.
 3. Incluye turnos en **cualquier estado** (`PENDIENTE`, `DISPONIBLE`, `COMPLETO`, `CANCELADO`), a diferencia del calendario (que solo muestra `DISPONIBLE`/`COMPLETO`). Esa es la diferencia que justifica HU-C-08 (AC3).
-4. Sin resultados con `profesor_id` y sin `q`: la UI muestra "Este profesor no tiene turnos registrados".
+4. Sin resultados con `profesor_id`: la UI muestra «No se encontraron clases para los filtros elegidos» (HU-C-27, criterio 10; reemplaza a «Este profesor no tiene turnos registrados»).
 
-**Uso por HU-D-07 (Profesor, `spec_modulo_D.md` §2.7):** el modal «Ver turnos» que aparece cuando la baja de una materia se rechaza por turnos futuros **no usa este listado**: HU-C-02 AC6 excluye del listado los filtros por estado, fecha o materia, así que `materia_id`, `estados` y `solo_futuros` no existen aquí y `.strict()` los rechaza con `400`. El modal usa la ruta propia de D, `GET /api/profesores/[id]/materias/[materiaId]/turnos-futuros?pagina=n` (permiso `profesores:leer`, `por_pagina` fijo en 10, backlog del 28/09), que llama a `listarTurnosFuturosDeProfesorPorMateria()` (2.15). Cada fila trae fecha, hora, aula, ocupación (p. ej. 3/5) y estado, con enlace al Detalle de turno **en una pestaña nueva**, donde Mesa de Entrada puede cancelarlo (HU-C-05). Los turnos pasados, cancelados y `PENDIENTE` no bloquean la baja ni se listan (HU-D-07 AC3).
+**Comportamiento esperado — período, rango y materia (HU-C-27, 13/10/2026):**
+1. **Período por defecto.** Sin `periodo`, `desde` ni `hasta`, el servicio usa `hoy`. Con `desde` o `hasta` (sin `periodo`) se aplica el rango, inclusive en ambos bordes; se puede enviar una sola fecha.
+2. **Período y rango son excluyentes:** enviarlos juntos es `400`. La UI nunca lo hace: al cargar una fecha deja de enviar `periodo` («Rango personalizado») y al elegir un período vacía las fechas.
+3. **Validación (400 `VALIDACION`):** `periodo` fuera de `anteriores | hoy | proximas | todas`; `desde`/`hasta` que no son una fecha `AAAA-MM-DD` real; `desde` posterior a `hasta` (mensaje «La fecha Desde no puede ser posterior a Hasta», en `detalles.fieldErrors.desde`); `materia_id` mal formado, o un CUID sin materia (lo valida el servicio con `obtenerMateriasPorIds`). Una materia existente sin clases para ese usuario no es error: `200` con lista vacía.
+4. **Corte por día del centro** con el reloj del dominio: `hoy = fechaCentro(ahora())`, `mañana = fechaCentro(finDelDiaCentro(ahora()))`. `anteriores` = `fechaTurno < hoy`; `hoy` = `fechaTurno = hoy`; `proximas` = `fechaTurno >= mañana`; `todas` sin condición de fecha.
+5. **Orden:** el de 2.4 (ascendente); con `anteriores`, fecha y hora descendente.
+6. **Combinación:** período o rango, `materia_id`, `q` y `profesor_id` se suman con AND sobre el mismo `where` de `count` y `findMany`; el alcance por rol se evalúa antes que la materia. La UI vuelve a la página 1 en cada cambio y actualiza la URL (`periodo`, `desde`, `hasta`, `materia_id`, `q`, `profesor_id`, `pagina`; sin `orden`), que se conserva en el retorno del detalle y de los pasos de configuración.
+7. **Cada ítem** suma `es_dia_anterior: boolean` (`fechaTurno < hoy`): la UI no ofrece «Continuar configuración» en un `PENDIENTE` de un día anterior.
+8. **Opciones del selector «Materia»** (`listarOpcionesFiltroMateria`, sin endpoint propio: la página las pide en el servidor). C calcula los ids de las materias con clases en su propia tabla y `listarMateriasParaFiltroDeClases` (L) devuelve las materias: Gerente y Mesa de Entrada ven las activas más las inactivas con alguna clase; el Profesor, solo las materias de sus clases, activas o inactivas. Las inactivas se muestran con «Inactiva».
+9. **Índices** (rendimiento, HU-C-27 criterio 12): `turnos(fechaTurno, horaInicioTurno)`, `turnos(profesorId, fechaTurno)` y `turnos(materiaId, fechaTurno)`.
+
+**Uso por HU-D-07 (Profesor, `spec_modulo_D.md` §2.7):** el modal «Ver turnos» que aparece cuando la baja de una materia se rechaza por turnos futuros **no usa este listado**: el listado no tiene filtro por estado (`estados`) ni `solo_futuros` (reemplazado por `periodo`, HU-C-27), y su filtro por materia no está acotado a un profesor y a turnos futuros como pide el modal. El modal usa la ruta propia de D, `GET /api/profesores/[id]/materias/[materiaId]/turnos-futuros?pagina=n` (permiso `profesores:leer`, `por_pagina` fijo en 10, backlog del 28/09), que llama a `listarTurnosFuturosDeProfesorPorMateria()` (2.15). Cada fila trae fecha, hora, aula, ocupación (p. ej. 3/5) y estado, con enlace al Detalle de turno **en una pestaña nueva**, donde Mesa de Entrada puede cancelarlo (HU-C-05). Los turnos pasados, cancelados y `PENDIENTE` no bloquean la baja ni se listan (HU-D-07 AC3).
 
 **Selector de profesores (solo Gerente y Mesa de Entrada):** `GET /api/turnos/filtros/profesores` (`withPermission("turnos:leer")` **más** verificación de rol en el handler: solo `GERENTE` y `MESA_ENTRADA`; el rol `PROFESOR`, que también tiene `turnos:leer`, recibe `403 SIN_PERMISO`, porque su listado ya está acotado a sus turnos y no tiene selector, HU-C-08 AC1 y R5-12) devuelve `[{ id, nombre, apellido }]` de los profesores activos vía `listarOpcionesProfesoresActivos()` (Módulo D, 2.8; unificada con la de 2.5, `nombreParaMostrar` se ignora acá). No se usa `profesores:leer` porque el Gerente no lo tiene (`seed.ts`, `ACCIONES_SOLO_MESA_ENTRADA`).
 
@@ -802,7 +839,7 @@ export const ListarTurnosQuerySchema = z.object({
 
 **Respuesta `200 OK`:** igual a 2.4, con los campos ampliados por la nota de Revisión 5.
 
-**Errores esperados:** `400` (parámetro inválido o ajeno al schema: `pagina`, `por_pagina`, `q`, `profesor_id` mal formado, `materia_id`, `estados`, `solo_futuros`) · `403 SIN_PERMISO` (incluye el `profesor_id` ajeno de un Profesor) · `404 PROFESOR_NO_ENCONTRADO` (solo Gerente y Mesa de Entrada).
+**Errores esperados:** `400 VALIDACION` (parámetro inválido o ajeno al schema: `pagina`, `por_pagina`, `q`, `profesor_id` mal formado, `periodo` desconocido, `desde`/`hasta` inválidas, `desde` posterior a `hasta`, `periodo` junto con `desde`/`hasta`, `materia_id` mal formado o inexistente, `estados`, `solo_futuros`, `orden`) · `403 SIN_PERMISO` (incluye el `profesor_id` ajeno de un Profesor) · `404 PROFESOR_NO_ENCONTRADO` (solo Gerente y Mesa de Entrada).
 
 ---
 
@@ -1365,7 +1402,8 @@ Mapeo de nombres: el campo `origen` del payload de los eventos de 2.15/§4 conse
 
 `Turno.estado` (`DISPONIBLE`/`COMPLETO`) **se sigue guardando y manteniendo** (`crearInscripcion`, `finalizarInscripcion`, `marcarVencidas` y `marcarVencidasDelAlumno` lo recalculan en la misma transacción, con la clase bloqueada). Pero el valor guardado puede quedar viejo por el vencimiento perezoso (una reserva vence a una hora exacta aunque nadie opere sobre la clase). Por eso **ninguna lectura decide con él** (HU-C-24, criterio 2):
 
-- Las lecturas que **ofrecen o muestran** clases (opciones de «Solicitar clase», listado y detalle de 2.4, «Mis clases», calendario y servicios públicos de 2.15) filtran `estadoTurno IN ("DISPONIBLE","COMPLETO")` y deciden Disponible/Completa con `ocupacion(db, turnoId, ahora())`.
+- Las lecturas que **ofrecen** clases (opciones de «Solicitar clase», «Mis clases», calendario y servicios públicos de 2.15) filtran `estadoTurno IN ("DISPONIBLE","COMPLETO")` y deciden Disponible/Completa con `ocupacion(db, turnoId, ahora())`.
+- El **listado y el detalle** de 2.4 muestran los cuatro estados (`PENDIENTE`, `DISPONIBLE`, `COMPLETO`, `CANCELADO`): `PENDIENTE` y `CANCELADO` tal cual y Disponible/Completa según la ocupación vigente (`estadoSegunOcupacion`). El listado no filtra por estado (HU-C-02 y HU-C-27). *(Corregido el 13/10/2026: este punto incluía el listado y el detalle entre las lecturas que filtran por `DISPONIBLE`/`COMPLETO`, en contradicción con 2.4.)*
 - Una clase guardada como `COMPLETO` que solo está llena por reservas vencidas se **ofrece y se muestra como Disponible**.
 - El campo `estado` de las respuestas de 2.4, 2.5, 2.14 y 2.15 conserva su nombre y sus valores; lo único que cambia es de dónde sale. `PENDIENTE` y `CANCELADO` se muestran tal cual.
 - **Un `PENDIENTE` nunca cambia de estado por una inscripción.** `crearInscripcion` y `finalizarInscripcion` solo recalculan `DISPONIBLE ⇄ COMPLETO` en clases ya confirmadas. La salida de `PENDIENTE` sigue siendo exclusiva de 2.2 paso 8 (y de la generación masiva, 2.9) — ver 3.1. *(Pedido al PR 0, ver Revisión 6.)*
@@ -2028,9 +2066,11 @@ Ninguna operación de este módulo saca a un turno de `CANCELADO`. Sus `reservas
 
 ### 3.11. Lecturas del listado y detalle: excepciones documentadas a la Regla N.° 3 (Revisión 5, R5-7 y HU-C-09)
 
+> **Reevaluación HU-C-27 (13/10/2026).** Se agregan filtros combinados (período, rango, materia) y **la excepción no se amplía**: período y rango filtran `fechaTurno` (columna propia de C) y materia filtra `materiaId` (FK propia de C), sin leer columnas de otros módulos. Las opciones del selector de materia salen de la fachada `materia.publico.ts` (L, `listarMateriasParaFiltroDeClases`), y C solo aporta los ids de las materias con clases de su propia tabla (todas para Gerente y Mesa de Entrada, las del profesor de la sesión para el Profesor). La búsqueda de 2.7 sigue siendo la única que filtra por columnas de otros módulos (profesor, materia, aula); moverla a servicios públicos se descarta otra vez por el mismo motivo (listas de ids potencialmente enormes para un patrón de 2 letras).
+
 > **Revisión 6.** La excepción no se amplía. El filtro por alumno de la pantalla de reservas (2.20.2) se resuelve con el criterio de P-C6 (publicar `construirFiltroBusquedaAlumno` en el módulo B o, si no, esta misma excepción de solo lectura).
 
-`listarTurnos()` ya lee de otros módulos, por relaciones de Prisma, los datos que muestra (profesor, materia, aula, alumnos). La búsqueda de 2.7 filtra por las **columnas normalizadas** de esas mismas relaciones (`apellidoNormalizadoAlumno`, `nombreNormalizadoAlumno`, `apellidoNormalizadoProfesor`, `nombreNormalizadoProfesor`, `nombreNormalizadaMateria`, `nombreNormalizadaAula`). Se documenta como **excepción de solo lectura**, en vez de crear cuatro servicios públicos que devuelvan listas de ids potencialmente enormes para un patrón de 2 letras. Si en Sprint 3 se agregan filtros combinados (HU-C-02 AC6), se reevalúa mover el filtro a servicios públicos. La excepción **no** se extiende a escrituras.
+`listarTurnos()` ya lee de otros módulos, por relaciones de Prisma, los datos que muestra (profesor, materia, aula, alumnos). La búsqueda de 2.7 filtra por las **columnas normalizadas** de esas mismas relaciones (`apellidoNormalizadoProfesor`, `nombreNormalizadoProfesor`, `nombreNormalizadaMateria`, `nombreNormalizadaAula`; no busca por alumno, corregido el 13/10/2026). Se documenta como **excepción de solo lectura**, en vez de crear cuatro servicios públicos que devuelvan listas de ids potencialmente enormes para un patrón de 2 letras. Si en Sprint 3 se agregan filtros combinados (HU-C-02 AC6), se reevalúa mover el filtro a servicios públicos. La excepción **no** se extiende a escrituras.
 
 **Extensión aprobada para HU-C-09 (29/09/2026):** el detalle que reutiliza `presentar()` puede leer por las relaciones existentes los campos básicos enumerados en §2.4 de Alumno, Materia, Profesor y Aula. La alternativa de crear consultas públicas separadas para cada relación se descarta para esta HU porque duplicaría la composición ya compartida con el listado; el alcance queda restringido a proyección de datos para mostrar, después de `turnos:leer` y del control de turno propio para Profesor. No se consulta directamente `usuarios` (creador/modificador), `pagos` ni `clases_dictadas`: A/I/E conservan sus servicios públicos. No se autoriza ampliar el filtro de búsqueda, consultar campos de contacto, validar ni escribir en dominios externos mediante esta excepción.
 
