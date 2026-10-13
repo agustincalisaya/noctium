@@ -20,14 +20,14 @@ const { TurnosListado } = await import("./turnos-listado");
 const { TurnoDetalleVista } = await import("./[id]/turno-detalle");
 const item = (estado: "PENDIENTE" | "DISPONIBLE" | "COMPLETO", extra: Record<string, unknown> = {}) => ({
   id: estado.toLowerCase(), fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", alumnos_inscriptos: "0/5",
-  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, prioridad: "NORMAL", acciones_habilitadas: [], ...extra,
+  alumnos: [], profesor: "Sin asignar", profesor_id: null, materia: "Física", aula: "Sin asignar", aula_id: null, estado, prioridad: "NORMAL", acciones_habilitadas: [], es_dia_anterior: false, ...extra,
 });
 const datos = (items: unknown[], pagina = 2) => ({ items, paginacion: { total: 3, pagina_actual: pagina, total_paginas: 2, por_pagina: 2 } });
 const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: async () => ({ data, error }) });
 let root: Root;
 let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-const montar = async () => { await act(async () => root.render(<TurnosListado pagina={2} orden="fecha_hora_asc" puedeConfigurar />)); await esperar(); };
+const montar = async () => { await act(async () => root.render(<TurnosListado pagina={2} puedeConfigurar />)); await esperar(); };
 
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,12 +53,12 @@ describe("HU-C-01 interfaz", () => {
     expect(estados[2].className).toContain("bg-success");
     expect(estados[3].className).toContain("bg-secondary");
     const enlaces = [...container.querySelectorAll("a")];
-    expect(enlaces.find((a) => a.textContent === "Ver detalle")?.getAttribute("href")).toBe("/turnos/pendiente?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc");
+    expect(enlaces.find((a) => a.textContent === "Ver detalle")?.getAttribute("href")).toBe("/turnos/pendiente?volver=%2Fturnos%3Fperiodo%3Dhoy%26pagina%3D2");
     expect(enlaces.filter((a) => a.textContent === "Continuar configuración").map((a) => a.getAttribute("href"))).toEqual([
-      "/turnos/pendiente/configuracion?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
-      "/turnos/con-aula/participantes?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc",
+      "/turnos/pendiente/configuracion?volver=%2Fturnos%3Fperiodo%3Dhoy%26pagina%3D2",
+      "/turnos/con-aula/participantes?volver=%2Fturnos%3Fperiodo%3Dhoy%26pagina%3D2",
     ]);
-    expect(enlaces.find((a) => a.textContent === "Anterior")?.getAttribute("href")).toBe("/turnos?pagina=1&orden=fecha_hora_asc");
+    expect(enlaces.find((a) => a.textContent === "Anterior")?.getAttribute("href")).toBe("/turnos?periodo=hoy&pagina=1");
     const paginacion = container.querySelector("nav[aria-label=\"Páginas de clases\"]")!;
     const anterior = [...paginacion.querySelectorAll("a")].find((a) => a.textContent === "Anterior")!;
     expect(anterior.className).toContain("bg-background");
@@ -82,26 +82,26 @@ describe("HU-C-01 interfaz", () => {
 
   it("deshabilita Anterior en la primera página y conserva Siguiente habilitado", async () => {
     fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE")], 1)));
-    await act(async () => root.render(<TurnosListado pagina={1} orden="fecha_hora_asc" puedeConfigurar />));
+    await act(async () => root.render(<TurnosListado pagina={1} puedeConfigurar />));
     await esperar();
     const paginacion = container.querySelector("nav[aria-label=\"Páginas de clases\"]")!;
     expect(paginacion.querySelector('[aria-disabled="true"]')?.textContent).toBe("Anterior");
-    expect(paginacion.querySelector('a[href="/turnos?pagina=2&orden=fecha_hora_asc"]')?.textContent).toBe("Siguiente");
+    expect(paginacion.querySelector('a[href="/turnos?periodo=hoy&pagina=2"]')?.textContent).toBe("Siguiente");
   });
 
   it("muestra carga, vacío, error y permite reintentar", async () => {
     let liberar!: (value: ReturnType<typeof respuesta>) => void;
     fetch.mockImplementationOnce(() => new Promise((resolve) => { liberar = resolve; }));
-    await act(async () => root.render(<TurnosListado pagina={2} orden="fecha_hora_asc" puedeConfigurar />));
+    await act(async () => root.render(<TurnosListado pagina={2} puedeConfigurar />));
     expect(container.textContent).toContain("Cargando clases");
     await esperar();
     await act(async () => liberar(respuesta(datos([]))));
-    expect(container.textContent).toContain("No hay clases registradas");
+    expect(container.textContent).toContain("No hay clases para hoy");
     fetch.mockResolvedValueOnce(respuesta(null, false, { message: "Falló la consulta" })).mockResolvedValueOnce(respuesta(datos([item("COMPLETO")])));
     await act(async () => document.dispatchEvent(new Event("visibilitychange")));
     await esperar();
     expect(container.textContent).toContain("Falló la consulta");
-    await act(async () => (container.querySelector("button") as HTMLButtonElement).click());
+    await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "Reintentar")!.click());
     expect(container.textContent).toContain("Completa");
   });
 
@@ -113,7 +113,7 @@ describe("HU-C-01 interfaz", () => {
     await act(async () => document.dispatchEvent(new Event("visibilitychange")));
     await esperar();
     expect(container.textContent).toContain("5/5");
-    expect(fetch).toHaveBeenLastCalledWith("/api/turnos?pagina=2", { cache: "no-store", signal: expect.any(AbortSignal) });
+    expect(fetch).toHaveBeenLastCalledWith("/api/turnos?pagina=2&periodo=hoy", { cache: "no-store", signal: expect.any(AbortSignal) });
     expect(container.textContent).not.toContain("Cargando clases");
   });
 
@@ -126,7 +126,7 @@ describe("HU-C-01 interfaz", () => {
       creado_en: "2026-09-24T12:00:00.000Z", actualizado_en: "2026-09-24T12:00:00.000Z",
       creado_por: "mesa@example.com", modificado_por: "mesa@example.com",
     }));
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar={false} puedeGestionarAlumnos={false} />));
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?periodo=hoy&pagina=2" puedeConfigurar={false} puedeGestionarAlumnos={false} />));
     await esperar();
     expect(container.textContent).toContain("Pérez, Juan");
     expect(container.textContent).toContain("Disponible");
@@ -135,7 +135,7 @@ describe("HU-C-01 interfaz", () => {
     const estado = [...container.querySelectorAll("dt")].find((elemento) => elemento.textContent === "Estado")?.nextElementSibling?.querySelector("span");
     expect(estado?.textContent).toBe("Disponible");
     expect(estado?.className).toContain("bg-success");
-    expect(container.querySelector("a")?.getAttribute("href")).toBe("/turnos?pagina=2&orden=fecha_hora_asc");
+    expect(container.querySelector("a")?.getAttribute("href")).toBe("/turnos?periodo=hoy&pagina=2");
     expect(fetch).toHaveBeenCalledWith("/api/turnos/turno-1", { cache: "no-store" });
   });
 
@@ -145,11 +145,11 @@ describe("HU-C-01 interfaz", () => {
       creado_en: "2026-09-24T12:00:00.000Z", actualizado_en: "2026-09-24T12:00:00.000Z",
       creado_por: "mesa@example.com", modificado_por: "mesa@example.com",
     });
-    const volver = "?volver=%2Fturnos%3Fpagina%3D2%26orden%3Dfecha_hora_asc";
+    const volver = "?volver=%2Fturnos%3Fperiodo%3Dhoy%26pagina%3D2";
     const enlace = (texto: string) => [...container.querySelectorAll("a")].find((a) => a.textContent === texto);
     const cupo = () => [...container.querySelectorAll("dt")].find((elemento) => elemento.textContent === "Cupo máximo")?.nextElementSibling?.textContent;
     fetch.mockResolvedValue(detalle({ cupo_maximo: null, alumnos_inscriptos: "Sin asignar" }));
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar puedeGestionarAlumnos />));
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?periodo=hoy&pagina=2" puedeConfigurar puedeGestionarAlumnos />));
     await esperar();
     expect(enlace("Modificar configuración y asignar aula")?.getAttribute("href")).toBe(`/turnos/turno-1/configuracion${volver}`);
     expect(enlace("Asignar profesor y alumnos")).toBeUndefined();
@@ -157,7 +157,7 @@ describe("HU-C-01 interfaz", () => {
     fetch.mockResolvedValue(detalle({ aula: "Aula 1", aula_id: "aula-1", aula_capacidad: 10, cupo_maximo: 10, alumnos_inscriptos: "0/10" }));
     await act(async () => root.unmount());
     root = createRoot(container);
-    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?pagina=2&orden=fecha_hora_asc" puedeConfigurar puedeGestionarAlumnos />));
+    await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno="/turnos?periodo=hoy&pagina=2" puedeConfigurar puedeGestionarAlumnos />));
     await esperar();
     expect(enlace("Modificar configuración o aula")?.getAttribute("href")).toBe(`/turnos/turno-1/configuracion${volver}`);
     expect(enlace("Asignar profesor y alumnos")?.getAttribute("href")).toBe(`/turnos/turno-1/participantes${volver}`);
@@ -181,7 +181,7 @@ describe("HU-C-02 búsqueda en el listado", () => {
   // La espera de la búsqueda y, después, el turno de la consulta (setTimeout 0).
   const buscar = async () => { await avanzar(300); await avanzar(0); };
   const render = (props: { pagina?: number; q?: string } = {}) =>
-    act(async () => root.render(<TurnosListado pagina={props.pagina ?? 1} q={props.q ?? ""} orden="fecha_hora_asc" puedeConfigurar />));
+    act(async () => root.render(<TurnosListado pagina={props.pagina ?? 1} q={props.q ?? ""} puedeConfigurar />));
   const escribir = async (valor: string) => {
     const input = container.querySelector("input")!;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
@@ -201,11 +201,11 @@ describe("HU-C-02 búsqueda en el listado", () => {
     await render();
     await avanzar(0);
     expect(container.textContent).toContain("Buscá por profesor, materia o aula (desde 2 letras, sin distinguir mayúsculas ni tildes).");
-    expect(container.textContent).toContain("Desde hoy · Orden: fecha y hora ascendente, luego profesor");
+    expect(container.textContent).toContain("Hoy · Orden: fecha y hora ascendente");
     expect(container.querySelector("input")?.getAttribute("placeholder")).toBe("Ej.: matematica, aula 2, gimenez…");
     expect(container.querySelector("input[aria-label=\"Buscar clase\"]")).not.toBeNull();
     expect(container.textContent).toContain("25 clases");
-    expect(url()).toBe("/api/turnos?pagina=1");
+    expect(url()).toBe("/api/turnos?pagina=1&periodo=hoy");
   });
 
   it("busca una sola vez, 300 ms después de la última tecla, en la página 1, y actualiza la URL", async () => {
@@ -219,20 +219,20 @@ describe("HU-C-02 búsqueda en el listado", () => {
     await avanzar(1);
     await avanzar(0);
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(url()).toBe("/api/turnos?pagina=1&q=rossi");
+    expect(url()).toBe("/api/turnos?pagina=1&q=rossi&periodo=hoy");
     expect(container.textContent).toContain("7 clases");
-    expect(replaceState).toHaveBeenLastCalledWith(null, "", "/turnos?q=rossi&pagina=1&orden=fecha_hora_asc");
+    expect(replaceState).toHaveBeenLastCalledWith(null, "", "/turnos?q=rossi&periodo=hoy&pagina=1");
   });
 
   it("con un carácter no filtra y al borrar vuelve al listado completo en la página 1", async () => {
     await render({ q: "rossi", pagina: 2 });
     await avanzar(0);
-    expect(url()).toBe("/api/turnos?pagina=2&q=rossi");
+    expect(url()).toBe("/api/turnos?pagina=2&q=rossi&periodo=hoy");
     expect(container.querySelector("input")?.value).toBe("rossi");
     await escribir("r");
     await buscar();
-    expect(url()).toBe("/api/turnos?pagina=1");
-    expect(replaceState).toHaveBeenLastCalledWith(null, "", "/turnos?pagina=1&orden=fecha_hora_asc");
+    expect(url()).toBe("/api/turnos?pagina=1&periodo=hoy");
+    expect(replaceState).toHaveBeenLastCalledWith(null, "", "/turnos?periodo=hoy&pagina=1");
   });
 
   it("descarta respuestas viejas al buscar", async () => {
@@ -261,10 +261,10 @@ describe("HU-C-02 búsqueda en el listado", () => {
     fetch.mockReturnValueOnce(pagina2.promesa).mockReturnValueOnce(pagina3.promesa);
     await render({ q: "aula", pagina: 2 });
     await avanzar(0);
-    expect(url()).toBe("/api/turnos?pagina=2&q=aula");
+    expect(url()).toBe("/api/turnos?pagina=2&q=aula&periodo=hoy");
     await render({ q: "aula", pagina: 3 });
     await avanzar(0);
-    expect(url()).toBe("/api/turnos?pagina=3&q=aula");
+    expect(url()).toBe("/api/turnos?pagina=3&q=aula&periodo=hoy");
     // Mientras llega la respuesta: mismas filas, sin "Cargando turnos".
     expect(container.textContent).not.toContain("Cargando clases");
     expect(filas()).toEqual(["Materia a", "Materia b"]);
@@ -285,19 +285,20 @@ describe("HU-C-02 búsqueda en el listado", () => {
     await render({ q: "quim", pagina: 2 });
     await avanzar(0);
     const href = (texto: string) => [...container.querySelectorAll("a")].find((a) => a.textContent === texto)?.getAttribute("href");
-    const volver = encodeURIComponent("/turnos?q=quim&pagina=2&orden=fecha_hora_asc");
+    const volver = encodeURIComponent("/turnos?q=quim&periodo=hoy&pagina=2");
     expect(href("Ver detalle")).toBe(`/turnos/pend?volver=${volver}`);
     expect(href("Continuar configuración")).toBe(`/turnos/pend/configuracion?volver=${volver}`);
-    expect(href("Anterior")).toBe("/turnos?q=quim&pagina=1&orden=fecha_hora_asc");
+    expect(href("Anterior")).toBe("/turnos?q=quim&periodo=hoy&pagina=1");
   });
 
-  it("sin coincidencias muestra el texto buscado", async () => {
+  it("sin coincidencias con búsqueda muestra el mensaje de filtros (HU-C-27 c10)", async () => {
     await render();
     await avanzar(0);
     fetch.mockResolvedValue(respuesta(pagina([], 0)));
     await escribir("  mendez ");
     await buscar();
-    expect(container.textContent).toContain("No se encontraron clases para «mendez»");
+    expect(container.textContent).toContain("No se encontraron clases para los filtros elegidos");
+    expect(container.textContent).not.toContain("Ver próximas");
     expect(container.textContent).not.toContain("0 clases");
   });
 
@@ -321,7 +322,7 @@ describe("HU-C-02 búsqueda en el listado", () => {
 
 describe("HU-C-05 listado: Descartar y etiqueta Cancelado", () => {
   const montarCon = async (puedeDescartar: boolean) => {
-    await act(async () => root.render(<TurnosListado pagina={2} q="fisica" orden="fecha_hora_asc" puedeConfigurar puedeDescartar={puedeDescartar} />));
+    await act(async () => root.render(<TurnosListado pagina={2} q="fisica" puedeConfigurar puedeDescartar={puedeDescartar} />));
     await esperar();
   };
   const botonFila = (nombre: string) => [...container.querySelectorAll("tbody button")].find((b) => b.textContent === nombre) as HTMLButtonElement | undefined;
@@ -354,8 +355,172 @@ describe("HU-C-05 listado: Descartar y etiqueta Cancelado", () => {
     await act(async () => ([...dialogo.querySelectorAll("button")].find((b) => b.textContent === "Descartar clase") as HTMLButtonElement).click());
     await esperar();
     expect(fetch.mock.calls[0][0]).toBe("/api/turnos/pendiente/cancelacion");
-    expect(fetch.mock.calls[1][0]).toBe("/api/turnos?pagina=2&q=fisica");
+    expect(fetch.mock.calls[1][0]).toBe("/api/turnos?pagina=2&q=fisica&periodo=hoy");
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(container.textContent).toContain("Cancelada");
+  });
+});
+
+describe("HU-C-27 filtros de período, fechas y materia", () => {
+  const replaceState = vi.spyOn(window.history, "replaceState");
+  const MATERIAS = [{ id: "ckmat1", nombre: "Física", activa: true }, { id: "ckmat2", nombre: "Historia de la Ciencia", activa: false }];
+  const llamadas = () => fetch.mock.calls.map(([url]) => url as string).filter((url) => url.startsWith("/api/turnos?"));
+  const boton = (texto: string) => [...container.querySelectorAll("button")].find((b) => b.textContent === texto) as HTMLButtonElement | undefined;
+  const clic = async (texto: string) => { await act(async () => boton(texto)!.click()); await esperar(); };
+  const fecha = (etiqueta: "Desde" | "Hasta") => [...container.querySelectorAll("label")].find((l) => l.querySelector('input[type="date"]') && l.textContent?.startsWith(etiqueta))!.querySelector("input")!;
+  const cargarFecha = async (etiqueta: "Desde" | "Hasta", valor: string) => {
+    const input = fecha(etiqueta);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, valor);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await esperar();
+  };
+  const materia = () => container.querySelector<HTMLSelectElement>('select[aria-label="Filtrar por materia"]')!;
+  const elegirMateria = async (valor: string) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(materia(), valor);
+      materia().dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await esperar();
+  };
+  const render = async (props: Record<string, unknown> = {}) => {
+    await act(async () => root.render(<TurnosListado pagina={1} materias={MATERIAS} puedeConfigurar puedeDescartar {...props} />));
+    await esperar();
+  };
+  const pulsado = () => [...container.querySelectorAll('[role="group"] button[aria-pressed="true"]')].map((b) => b.textContent);
+
+  beforeEach(() => {
+    replaceState.mockImplementation(() => {});
+    fetch.mockResolvedValue(respuesta(datos([item("DISPONIBLE")], 1)));
+  });
+
+  it("entra con «Hoy» por defecto y lo describe en el subtítulo", async () => {
+    await render();
+    expect(llamadas()).toEqual(["/api/turnos?pagina=1&periodo=hoy"]);
+    expect(pulsado()).toEqual(["Hoy"]);
+    expect(container.textContent).toContain("Hoy · Orden: fecha y hora ascendente");
+  });
+
+  it.each([
+    ["Anteriores", "anteriores", "Anteriores · Orden: fecha y hora descendente"],
+    ["Próximas", "proximas", "Próximas · Orden: fecha y hora ascendente"],
+    ["Todas", "todas", "Todas · Orden: fecha y hora ascendente"],
+  ])("«%s» consulta la página 1 sin recargar, actualiza la URL y el subtítulo", async (etiqueta, periodo, subtitulo) => {
+    await render({ pagina: 3 });
+    await clic(etiqueta);
+    expect(llamadas().at(-1)).toBe(`/api/turnos?pagina=1&periodo=${periodo}`);
+    expect(replaceState).toHaveBeenLastCalledWith(null, "", `/turnos?periodo=${periodo}&pagina=1`);
+    expect(pulsado()).toEqual([etiqueta]);
+    expect(container.textContent).toContain(subtitulo);
+    // Informa la cantidad de clases del resultado (criterio 5).
+    expect(container.textContent).toContain("3 clases");
+  });
+
+  it("cargar Desde pasa a «Rango personalizado» y consulta sin período; elegir un período vacía las fechas", async () => {
+    await render();
+    await cargarFecha("Desde", "2026-10-01");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&desde=2026-10-01");
+    expect(pulsado()).toEqual([]);
+    expect(container.textContent).toContain("Rango personalizado");
+    expect(container.textContent).toContain("Desde el 01/10/2026 · Orden: fecha y hora ascendente");
+    await cargarFecha("Hasta", "2026-10-13");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&desde=2026-10-01&hasta=2026-10-13");
+    expect(replaceState).toHaveBeenLastCalledWith(null, "", "/turnos?desde=2026-10-01&hasta=2026-10-13&pagina=1");
+    expect(container.textContent).toContain("Del 01/10/2026 al 13/10/2026");
+    await clic("Hoy");
+    expect(fecha("Desde").value).toBe("");
+    expect(fecha("Hasta").value).toBe("");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&periodo=hoy");
+    expect(container.textContent).not.toContain("Rango personalizado");
+  });
+
+  it("se puede cargar solo Hasta", async () => {
+    await render();
+    await cargarFecha("Hasta", "2026-10-13");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&hasta=2026-10-13");
+    expect(container.textContent).toContain("Hasta el 13/10/2026");
+  });
+
+  it("Desde posterior a Hasta: aviso junto al campo, pide corregir y no consulta", async () => {
+    await render();
+    await cargarFecha("Hasta", "2026-10-01");
+    const consultas = llamadas().length;
+    await cargarFecha("Desde", "2026-10-20");
+    expect(llamadas()).toHaveLength(consultas);
+    expect(container.textContent).toContain("La fecha Desde no puede ser posterior a Hasta");
+    expect(container.textContent).toContain("Corregí el rango de fechas para ver las clases");
+    expect(fecha("Desde").getAttribute("aria-invalid")).toBe("true");
+    expect(container.querySelector("table")).toBeNull();
+  });
+
+  it("un enlace con el rango invertido muestra el aviso sin consultar", async () => {
+    await render({ desde: "2026-10-20", hasta: "2026-10-01" });
+    expect(llamadas()).toEqual([]);
+    expect(container.textContent).toContain("Corregí el rango de fechas para ver las clases");
+  });
+
+  it("filtro «Materia»: «Todas» y las opciones, la inactiva con «Inactiva»; elegir consulta la página 1", async () => {
+    await render({ pagina: 2 });
+    expect([...materia().options].map((opcion) => opcion.textContent)).toEqual(["Todas", "Física", "Historia de la Ciencia · Inactiva"]);
+    await elegirMateria("ckmat2");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&periodo=hoy&materia_id=ckmat2");
+  });
+
+  it("combina búsqueda, profesor, período y materia en la consulta, la URL y el retorno de cada fila", async () => {
+    await render({ q: "fisica", profesorId: "ckprof1", periodo: "anteriores", materiaId: "ckmat1", pagina: 2 });
+    expect(llamadas()).toEqual(["/api/turnos?pagina=2&q=fisica&profesor_id=ckprof1&periodo=anteriores&materia_id=ckmat1"]);
+    const volver = encodeURIComponent("/turnos?q=fisica&profesor_id=ckprof1&periodo=anteriores&materia_id=ckmat1&pagina=1");
+    expect([...container.querySelectorAll("a")].find((a) => a.textContent === "Ver detalle")?.getAttribute("href")).toBe(`/turnos/disponible?volver=${volver}`);
+    await clic("Todas");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&q=fisica&profesor_id=ckprof1&periodo=todas&materia_id=ckmat1");
+  });
+
+  it("«Limpiar filtros» vuelve a Hoy, sin materia, búsqueda ni profesor", async () => {
+    await render({ q: "fisica", profesorId: "ckprof1", periodo: "todas", materiaId: "ckmat1" });
+    await clic("Limpiar filtros");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&periodo=hoy");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Buscar clase"]')!.value).toBe("");
+    expect(materia().value).toBe("");
+    expect(pulsado()).toEqual(["Hoy"]);
+    expect(boton("Limpiar filtros")).toBeUndefined();
+  });
+
+  it("vacío con «Hoy» y sin filtros: «No hay clases para hoy» y «Ver próximas» cambia el período", async () => {
+    fetch.mockResolvedValue(respuesta(datos([], 1)));
+    await render();
+    expect(container.textContent).toContain("No hay clases para hoy");
+    await clic("Ver próximas");
+    expect(llamadas().at(-1)).toBe("/api/turnos?pagina=1&periodo=proximas");
+    expect(pulsado()).toEqual(["Próximas"]);
+    expect(container.textContent).toContain("No se encontraron clases para los filtros elegidos");
+  });
+
+  it("vacío con «Hoy» y una materia elegida: mensaje de filtros, sin «Ver próximas»", async () => {
+    fetch.mockResolvedValue(respuesta(datos([], 1)));
+    await render({ materiaId: "ckmat1" });
+    expect(container.textContent).toContain("No se encontraron clases para los filtros elegidos");
+    expect(boton("Ver próximas")).toBeUndefined();
+  });
+
+  it("un Pendiente de un día anterior no ofrece «Continuar configuración» pero sí «Descartar»", async () => {
+    fetch.mockResolvedValue(respuesta(datos([
+      item("PENDIENTE", { id: "anterior", es_dia_anterior: true }),
+      item("PENDIENTE", { id: "de-hoy", es_dia_anterior: false }),
+    ], 1)));
+    await render({ periodo: "todas" });
+    const fila = (id: string) => [...container.querySelectorAll("tbody tr")].find((tr) => tr.querySelector(`a[href^="/turnos/${id}?"]`))!;
+    expect(fila("anterior").textContent).not.toContain("Continuar configuración");
+    expect(fila("anterior").textContent).toContain("Descartar");
+    expect(fila("de-hoy").textContent).toContain("Continuar configuración");
+    expect(fila("de-hoy").textContent).toContain("Descartar");
+  });
+
+  it("filtrar no abre ningún diálogo de confirmación (HU-C-25 c5)", async () => {
+    await render();
+    await clic("Anteriores");
+    await elegirMateria("ckmat1");
+    await cargarFecha("Desde", "2026-10-01");
+    expect(document.querySelector('[role="alertdialog"], [role="dialog"]')).toBeNull();
   });
 });

@@ -19,7 +19,7 @@ const MARCO = "ckprofesormarco0000000001";
 const PROFESORES = [{ id: LAURA, nombre: "Laura", apellido: "Méndez" }, { id: MARCO, nombre: "Marco", apellido: "Rossi" }];
 const item = (id: string, estado: string) => ({
   id, fecha: "2026-10-01", hora_inicio: "10:00", hora_fin: "11:00", alumnos_inscriptos: "1/5", alumnos: [], profesor: "Méndez, Laura",
-  profesor_id: LAURA, materia: "Física", aula: "Aula 1", aula_id: "a1", estado, prioridad: "NORMAL", acciones_habilitadas: [],
+  profesor_id: LAURA, materia: "Física", aula: "Aula 1", aula_id: "a1", estado, prioridad: "NORMAL", acciones_habilitadas: [], es_dia_anterior: false,
 });
 const datos = (items: unknown[]) => ({ items, paginacion: { total: items.length, pagina_actual: 1, total_paginas: 1, por_pagina: 10 } });
 const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: async () => ({ data, error }) });
@@ -27,8 +27,8 @@ const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: as
 let root: Root;
 let container: HTMLDivElement;
 const esperar = (ms = 20) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
-const montar = async ({ pagina = 1, ...props }: { pagina?: number; profesorId?: string; puedeFiltrarProfesor?: boolean; esProfesor?: boolean; q?: string } = {}) => {
-  await act(async () => root.render(<TurnosListado pagina={pagina} orden="fecha_hora_asc" puedeConfigurar={false} {...props} />));
+const montar = async ({ pagina = 1, ...props }: { pagina?: number; profesorId?: string; puedeFiltrarProfesor?: boolean; q?: string; materias?: { id: string; nombre: string; activa: boolean }[] } = {}) => {
+  await act(async () => root.render(<TurnosListado pagina={pagina} puedeConfigurar={false} {...props} />));
   await esperar();
 };
 const selector = () => container.querySelector<HTMLSelectElement>('select[aria-label="Filtrar por profesor"]');
@@ -64,41 +64,46 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
   it("elegir un profesor vuelve a la página 1, conserva q, muestra todos los estados, el chip y actualiza la URL", async () => {
     await montar({ puedeFiltrarProfesor: true, q: "fisica" });
     await elegir(LAURA);
-    expect(llamadasListado().at(-1)).toBe(`/api/turnos?pagina=1&q=fisica&profesor_id=${LAURA}`);
+    expect(llamadasListado().at(-1)).toBe(`/api/turnos?pagina=1&q=fisica&profesor_id=${LAURA}&periodo=hoy`);
     for (const estado of ["Disponible", "Cancelada", "Pendiente"]) expect(container.querySelector("tbody")?.textContent).toContain(estado);
     expect(container.textContent).toContain("3 clases");
     expect(container.textContent).toContain("Profesor: Laura Méndez");
-    expect(window.location.search).toBe(`?q=fisica&profesor_id=${LAURA}&pagina=1&orden=fecha_hora_asc`);
+    expect(window.location.search).toBe(`?q=fisica&profesor_id=${LAURA}&periodo=hoy&pagina=1`);
     const verDetalle = [...container.querySelectorAll("a")].find((a) => a.textContent === "Ver detalle")!;
     expect(decodeURIComponent(verDetalle.getAttribute("href")!)).toContain(`profesor_id=${LAURA}`);
   });
 
-  it("la × del chip quita el filtro y «Limpiar» quita filtro y búsqueda", async () => {
+  it("la × del chip quita el filtro y «Limpiar filtros» quita filtro y búsqueda", async () => {
     await montar({ puedeFiltrarProfesor: true, profesorId: LAURA, q: "fisica" });
-    expect(llamadasListado()[0]).toBe(`/api/turnos?pagina=1&q=fisica&profesor_id=${LAURA}`);
+    expect(llamadasListado()[0]).toBe(`/api/turnos?pagina=1&q=fisica&profesor_id=${LAURA}&periodo=hoy`);
     await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Quitar filtro de profesor"]')!.click());
     await esperar();
-    expect(llamadasListado().at(-1)).toBe("/api/turnos?pagina=1&q=fisica");
+    expect(llamadasListado().at(-1)).toBe("/api/turnos?pagina=1&q=fisica&periodo=hoy");
     await elegir(MARCO);
-    await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "Limpiar")!.click());
+    await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "Limpiar filtros")!.click());
     await esperar();
-    expect(llamadasListado().at(-1)).toBe("/api/turnos?pagina=1");
+    expect(llamadasListado().at(-1)).toBe("/api/turnos?pagina=1&periodo=hoy");
     expect(selector()!.value).toBe("");
   });
 
-  it("AC4: profesor sin turnos → «Este profesor no tiene turnos registrados», con el chip para quitar el filtro", async () => {
+  it("profesor sin clases → mensaje de filtros (HU-C-27 c10), con el chip para quitar el filtro", async () => {
     fetch.mockImplementation(async (url: string) => url === "/api/turnos/filtros/profesores" ? respuesta(PROFESORES) : respuesta(datos([])));
     await montar({ puedeFiltrarProfesor: true, profesorId: MARCO });
-    expect(container.textContent).toContain("Este profesor no tiene clases registradas");
+    expect(container.textContent).toContain("No se encontraron clases para los filtros elegidos");
+    expect(container.textContent).not.toContain("Ver próximas");
     expect(container.textContent).toContain("Profesor: Marco Rossi");
   });
 
-  it("Profesor: sin selector ni consulta de opciones; vacío con el texto de AC4", async () => {
+  it("Profesor: sin selector de profesor ni consulta de opciones; con selector de materia; vacío de «Hoy» con «Ver próximas»", async () => {
     fetch.mockResolvedValue(respuesta(datos([])));
-    await montar({ esProfesor: true });
+    await montar({ materias: [{ id: "m1", nombre: "Física", activa: true }, { id: "m2", nombre: "Historia de la Ciencia", activa: false }] });
     expect(selector()).toBeNull();
     expect(fetch).not.toHaveBeenCalledWith("/api/turnos/filtros/profesores", expect.anything());
-    expect(container.textContent).toContain("Este profesor no tiene clases registradas");
+    const materia = container.querySelector<HTMLSelectElement>('select[aria-label="Filtrar por materia"]')!;
+    expect([...materia.options].map((opcion) => opcion.textContent)).toEqual(["Todas", "Física", "Historia de la Ciencia · Inactiva"]);
+    // El alcance implícito del Profesor no es un filtro (HU-C-27 c10).
+    expect(container.textContent).toContain("No hay clases para hoy");
+    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Ver próximas")).toBe(true);
   });
 
   it("un 403/404 del filtro se informa con el aviso del listado", async () => {
@@ -111,9 +116,9 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
 
   it("cambiar el profesor desde la página 2 consulta la página 1", async () => {
     await montar({ puedeFiltrarProfesor: true, pagina: 2 });
-    expect(llamadasListado()[0]).toBe("/api/turnos?pagina=2");
+    expect(llamadasListado()[0]).toBe("/api/turnos?pagina=2&periodo=hoy");
     await elegir(MARCO);
-    expect(llamadasListado().at(-1)).toBe(`/api/turnos?pagina=1&profesor_id=${MARCO}`);
+    expect(llamadasListado().at(-1)).toBe(`/api/turnos?pagina=1&profesor_id=${MARCO}&periodo=hoy`);
   });
 
   it("con más de una página, el paginador conserva profesor_id", async () => {
@@ -124,12 +129,12 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
     const paginador = container.querySelector("nav[aria-label=\"Páginas de clases\"]")!;
     const hrefs = [...paginador.querySelectorAll("a")].map((a) => a.getAttribute("href"));
     expect(hrefs).toEqual([
-      `/turnos?profesor_id=${LAURA}&pagina=1&orden=fecha_hora_asc`,
-      `/turnos?profesor_id=${LAURA}&pagina=3&orden=fecha_hora_asc`,
+      `/turnos?profesor_id=${LAURA}&periodo=hoy&pagina=1`,
+      `/turnos?profesor_id=${LAURA}&periodo=hoy&pagina=3`,
     ]);
   });
 
-  it("sin las opciones todavía, no muestra el chip sin nombre pero sí «Limpiar»", async () => {
+  it("sin las opciones todavía, no muestra el chip sin nombre pero sí «Limpiar filtros»", async () => {
     fetch.mockImplementation(async (url: string) => url === "/api/turnos/filtros/profesores"
       ? new Promise(() => {})
       : respuesta(datos([item("t1", "DISPONIBLE")])));
@@ -137,6 +142,6 @@ describe("HU-C-08 filtro por profesor (mockup pág. 4)", () => {
     expect(container.textContent).toContain("1 clase");
     expect(container.textContent).not.toContain("Profesor:");
     expect(container.querySelector('button[aria-label="Quitar filtro de profesor"]')).toBeNull();
-    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Limpiar")).toBe(true);
+    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Limpiar filtros")).toBe(true);
   });
 });

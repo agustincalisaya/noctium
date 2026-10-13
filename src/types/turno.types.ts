@@ -111,7 +111,20 @@ export type TurnoDetalle = Omit<Turno, "alumnos"> & {
   acciones_habilitadas: AccionTurno[];
 };
 
-export type TurnosData = { items: Turno[]; paginacion: { total: number; pagina_actual: number; total_paginas: number; por_pagina: number } };
+/**
+ * Fila del listado de clases (HU-C-27): `es_dia_anterior` lo decide el
+ * servidor con el día del centro, así un Pendiente de un día anterior no
+ * ofrece «Continuar configuración» sin depender del reloj del navegador.
+ */
+export type TurnoListado = Turno & { es_dia_anterior: boolean };
+
+export type TurnosData = { items: TurnoListado[]; paginacion: { total: number; pagina_actual: number; total_paginas: number; por_pagina: number } };
+
+/** Períodos del listado de clases (HU-C-27; mismos valores que `PERIODOS_LISTADO_TURNOS` del schema). */
+export type PeriodoListadoTurnos = "anteriores" | "hoy" | "proximas" | "todas";
+
+/** Opción del filtro «Materia» del listado (HU-C-27); `activa: false` se muestra con «Inactiva». */
+export type OpcionMateriaFiltro = { id: string; nombre: string; activa: boolean };
 
 /**
  * Alta de inscripción al confirmar participantes desde el centro (HU-C-24,

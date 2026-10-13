@@ -201,6 +201,8 @@ Backlog completo de Sprint 2, redactado por el PO (28/09/2026). Orden de priorid
 5. Al borrar la búsqueda, vuelve al listado completo con el orden original (fecha/hora ascendente).
 6. Esta historia no incluye filtros combinados por estado, rango de fechas u otro criterio adicional (queda para una historia futura).
 
+> **Modificado por HU-C-27 (13/10/2026, pedido del PO):** el listado suma filtros por período, rango de fechas y materia. El filtro por estado sigue fuera del producto.
+
 **Justificación de secuencia:** Depende de HU-C-01. Mismo patrón ya resuelto por HU-B-05 — se ubica justo después para reutilizar el mismo componente de búsqueda.
 
 ---

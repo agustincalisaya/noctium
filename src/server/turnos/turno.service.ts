@@ -3,8 +3,9 @@ import { texto } from "@/lib/textos";
 import { prisma } from "@/lib/prisma";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import type { EstadoTurno, Prisma, PrioridadTurno, RolUsuario, TurnoAlumno } from "@prisma/client";
-import type { InscripcionPropia } from "@/types/turno.types";
-import { inicioDeTurno, isoCentro } from "@/server/shared/fechas-centro";
+import type { InscripcionPropia, OpcionMateriaFiltro } from "@/types/turno.types";
+import { fechaCentro, finDelDiaCentro, inicioDeTurno, isoCentro } from "@/server/shared/fechas-centro";
+import { listarMateriasParaFiltroDeClases, obtenerMateriasPorIds } from "@/server/materias/materia.publico";
 import { ServiceError } from "@/server/shared/service-error";
 import { listarMateriasActivas, verificarMateriaActiva } from "@/server/materias/materia.service";
 import { obtenerOpcionProfesorActivo, profesorActivoDictaMateria, estaDentroDeHorarioAtencion, listarProfesoresActivosPorMateria } from "@/server/profesores/profesor.publico";
@@ -18,7 +19,7 @@ import { turnoSigueVigente, validarConfiguracionTurno } from "./turno.validacion
 import { alumnosConTurnoSuperpuesto, aulaConTurnoSuperpuesto, ESTADOS_AGENDADOS, horaDeMinutos, intervaloTurno, profesoresConTurnoSuperpuesto } from "./turno.disponibilidad";
 import { conflictoDeRecurso, errorDeReserva, esConflictoDeReserva } from "./turno.reserva-error";
 import { construirFiltroBusquedaTurno } from "./turno.busqueda";
-import type { ActualizarPrioridadInput, AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, MisTurnosQuery, OpcionesInscripcionQuery } from "./turno.schema";
+import type { ActualizarPrioridadInput, AgregarAlumnoTurnoInput, AsignarParticipantesTurnoInput, ConfigurarTurnoInput, MisTurnosQuery, OpcionesInscripcionQuery, PeriodoListadoTurnos } from "./turno.schema";
 import { bloquear } from "@/server/shared/bloquear";
 import { actorUsuario } from "@/server/shared/historial";
 import { ahora as relojAhora } from "@/server/shared/reloj";
@@ -660,14 +661,41 @@ function presentar(turno: TurnoConRelaciones) {
 
 /**
  * Filtros opcionales del listado (spec_modulo_C.md §2.7). Cada uno se suma
- * con AND al alcance base (desde hoy + rol). `profesor_id` (HU-C-08) se
- * combina con `q` y con la paginación e incluye turnos en cualquier estado.
+ * con AND al alcance por rol y al período o rango (HU-C-27). `profesor_id`
+ * (HU-C-08), `materia_id`, el período o rango y `q` se combinan entre sí y con
+ * la paginación, e incluyen clases en cualquier estado. Sin período ni rango,
+ * el período es «hoy».
  */
-export type FiltrosListadoTurnos = { q?: string; profesor_id?: string };
+export type FiltrosListadoTurnos = {
+  q?: string; profesor_id?: string; // HU-C-02, HU-C-08
+  periodo?: PeriodoListadoTurnos; desde?: string; hasta?: string; materia_id?: string; // HU-C-27
+};
 
 /** Opciones del selector «Profesor» del listado (HU-C-08): activos, por apellido y nombre (Módulo D). */
 export async function listarOpcionesFiltroProfesor(): Promise<{ id: string; nombre: string; apellido: string }[]> {
   return (await listarOpcionesProfesoresActivos()).map(({ id, nombre, apellido }) => ({ id, nombre, apellido }));
+}
+
+/** Ids de las materias con al menos una clase que cumple `where` (tabla propia de C). */
+async function idsMateriasConClases(where: Prisma.TurnoWhereInput): Promise<string[]> {
+  const filas = await prisma.turno.findMany({ where, distinct: ["materiaId"], select: { materiaId: true } });
+  return filas.map(({ materiaId }) => materiaId);
+}
+
+/**
+ * Opciones del selector «Materia» del listado (HU-C-27, criterio 4). C calcula
+ * los ids de las materias con clases y L devuelve las materias (Regla N.° 3):
+ * Gerente y Mesa de Entrada ven las activas más las inactivas con alguna
+ * clase; el Profesor, solo las materias de sus clases, activas o inactivas.
+ * Un Profesor sin ficha no tiene opciones (el listado le responde SIN_PERMISO).
+ */
+export async function listarOpcionesFiltroMateria(usuario: { id: string; rol: RolUsuario }): Promise<OpcionMateriaFiltro[]> {
+  if (usuario.rol === "PROFESOR") {
+    const propio = await obtenerOpcionProfesorDeUsuario(usuario.id);
+    if (!propio) return [];
+    return listarMateriasParaFiltroDeClases(await idsMateriasConClases({ profesorId: propio.id }), { incluirActivasSinClases: false });
+  }
+  return listarMateriasParaFiltroDeClases(await idsMateriasConClases({}), { incluirActivasSinClases: true });
 }
 
 const MENSAJE_SIN_PERMISO_LISTADO = textoC19("ui.clases.errores.noTenesPermisosParaVerLasClasesDeEseProfesor");
@@ -692,33 +720,70 @@ async function alcanceProfesorListado(usuario: { id: string; rol: RolUsuario }, 
   return { profesorId };
 }
 
+// HU-C-27: orden por defecto (fecha y hora ascendente) y el de «Anteriores»
+// (la más reciente primero), con el mismo desempate estable.
+const ORDEN_LISTADO_ASC: Prisma.TurnoOrderByWithRelationInput[] = [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }];
+const ORDEN_LISTADO_ANTERIORES: Prisma.TurnoOrderByWithRelationInput[] = [{ fechaTurno: "desc" }, { horaInicioTurno: "desc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }];
+
+/** "AAAA-MM-DD" como valor @db.Date (medianoche UTC), igual que `fechaCentro`. */
+const diaUtc = (valor: string) => new Date(`${valor}T00:00:00.000Z`);
+
+/**
+ * Condición de fecha del listado (HU-C-27): período por día calendario del
+ * centro, o rango `desde`–`hasta` inclusive. Sin período ni rango, «hoy».
+ */
+function condicionFechaListado(filtros: FiltrosListadoTurnos, hoy: Date, manana: Date): Prisma.TurnoWhereInput {
+  if (filtros.periodo && (filtros.desde || filtros.hasta)) {
+    throw new ServiceError("VALIDACION", textoC19("ui.clases.errores.listado.periodoYRango"));
+  }
+  if (filtros.desde || filtros.hasta) {
+    if (filtros.desde && filtros.hasta && filtros.desde > filtros.hasta) {
+      throw new ServiceError("VALIDACION", textoC19("ui.clases.listado.rango.desdePosteriorAHasta"));
+    }
+    return { fechaTurno: { ...(filtros.desde && { gte: diaUtc(filtros.desde) }), ...(filtros.hasta && { lte: diaUtc(filtros.hasta) }) } };
+  }
+  switch (filtros.periodo ?? "hoy") {
+    case "anteriores": return { fechaTurno: { lt: hoy } };
+    case "hoy": return { fechaTurno: hoy };
+    case "proximas": return { fechaTurno: { gte: manana } };
+    case "todas": return {};
+  }
+}
+
 export async function listarTurnos(pagina: number, porPaginaSolicitado: number | undefined, usuario: { id: string; rol: RolUsuario }, filtros: FiltrosListadoTurnos = {}) {
   const configurado = await getParametroNumerico("paginacion_limite_default", 10);
   const porPagina = porPaginaSolicitado ?? Math.min(20, Math.max(1, Math.trunc(configurado)));
-  const partes = new Intl.DateTimeFormat("en-US", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const parte = (tipo: string) => partes.find(({ type }) => type === tipo)!.value;
-  const inicioHoy = new Date(`${parte("year")}-${parte("month")}-${parte("day")}T00:00:00.000Z`);
-  // Sin filtros el `where` es el de HU-C-01; la búsqueda (HU-C-02) mantiene el
-  // mismo alcance de fechas y rol. count y findMany usan el mismo `where`, así
-  // el total y la paginación son los del resultado filtrado.
+  // HU-C-27: «hoy» sale del reloj del dominio y del día del centro; el mismo
+  // momento decide el corte, la vigencia de los inscriptos y es_dia_anterior.
+  const momento = relojAhora();
+  const hoy = fechaCentro(momento);
+  const manana = fechaCentro(finDelDiaCentro(momento));
+  const condicionFecha = condicionFechaListado(filtros, hoy, manana);
+  // El alcance por rol va antes que la materia: un profesor_id ajeno responde
+  // SIN_PERMISO aunque la materia no exista. count y findMany usan el mismo
+  // `where`, así el total y la paginación son los del resultado filtrado.
   const alcanceProfesor = await alcanceProfesorListado(usuario, filtros.profesor_id);
+  if (filtros.materia_id !== undefined && (await obtenerMateriasPorIds([filtros.materia_id])).length === 0) {
+    throw new ServiceError("VALIDACION", textoC19("ui.clases.errores.listado.materiaInexistente"));
+  }
   const condiciones = [construirFiltroBusquedaTurno(filtros.q)].filter((condicion) => condicion !== undefined);
   const where: Prisma.TurnoWhereInput = {
-    fechaTurno: { gte: inicioHoy },
+    ...condicionFecha,
     ...alcanceProfesor,
+    ...(filtros.materia_id !== undefined ? { materiaId: filtros.materia_id } : {}),
     ...(condiciones.length ? { AND: condiciones } : {}),
   };
   const total = await prisma.turno.count({ where });
   const paginaActual = total === 0 ? 1 : Math.min(pagina, Math.ceil(total / porPagina));
   const turnos = await prisma.turno.findMany({
       where,
-      include: incluirTurno(relojAhora()),
-      orderBy: [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }],
+      include: incluirTurno(momento),
+      orderBy: filtros.periodo === "anteriores" ? ORDEN_LISTADO_ANTERIORES : ORDEN_LISTADO_ASC,
       skip: (paginaActual - 1) * porPagina,
       take: porPagina,
     });
   return {
-    items: turnos.map(presentar),
+    items: turnos.map((turno) => ({ ...presentar(turno), es_dia_anterior: turno.fechaTurno.getTime() < hoy.getTime() })),
     paginacion: { total, pagina_actual: paginaActual, total_paginas: Math.ceil(total / porPagina), por_pagina: porPagina },
   };
 }
