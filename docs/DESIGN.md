@@ -299,6 +299,8 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Cierres de caja del gerente (HU-I-12 c10 y c11, `/cajas`) | Página completa de consulta: «Cajas abiertas» (integrante, desde, antigüedad; sin montos) y «Cierres» con filtro por integrante (selector simple, no buscador) y fechas de cierre desde/hasta, que navegan a la página 1; `Pagination` de a 10 | Ninguno; sin filas, estado vacío inline |
 | Mis cierres y detalle de un cierre (HU-I-12 c8 y c11, `/caja`, `/caja/cierres/[id]`, `/cajas/[id]`) | Tabla «Mis cierres» bajo la caja, de a 10, con «Ver cierre» por fila. El detalle es una página de solo lectura con «Imprimir» (`window.print()`): imprime solo `[data-cierre-caja]` (misma regla de `globals.css` que el comprobante de HU-I-11), con los datos del centro y la fecha de impresión | Ninguno: no modifica datos |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
+| Reservas (HU-C-26, `/reservas`, fotos «Reservas · Pendientes» y «Reservas · Vencidas · últimos 7 días») | Página completa de mesa de entrada: cuatro totales arriba, pestañas «Pendientes» / «Vencidas · últimos 7 días» como enlaces (`?tab=`, vuelven a la página 1 sin filtros, subrayado activo como Mis clases) y filtros en cliente (alumno o DNI desde 2 caracteres con debounce, «Materia» y, solo en Pendientes, «Vencen»: selectores simples como «Cierres de caja»), que se combinan, vuelven a la página 1 y actualizan la URL con `replaceState`; «Limpiar filtros» solo con algún filtro. `Pagination` de a 10. El vencimiento a 3 horas o menos va en `--destructive` con ícono y texto para lectores, no solo color. En Vencidas, `Badge` «Reserva vencida» con el aspecto de «Cancelado» (6.5) y «Vencida · sin marcar todavía» en `warning`; sin acciones. Pie con el aviso del proceso automático | Ninguno propio («Registrar pago» navega a `/pagos/registrar?alumno=&clase=`, el wizard de HU-I-10, sin modal propio; la clase enlaza a su detalle). Sin resultados: estado vacío inline por pestaña, con el texto buscado si solo se filtró por alumno; si una consulta falla, aviso inline con «Reintentar» (sin toast) |
+| Quitar una reserva pendiente (HU-C-26 c6, `/reservas`, foto «Quitar una reserva pendiente») | `ConfirmarAccionDialog` irreversible con `confirmaciones.inscripcion.quitar` (la de HU-C-04, sin cambios) y el párrafo propio «La reserva no está pagada. La inscripción no se borra…»; botones «Volver» / «Quitar de la clase». `RESERVA_NO_PENDIENTE` («Esta reserva ya no está pendiente: se pagó o venció.») se muestra dentro del diálogo y no quita nada; al cerrarlo después de un rechazo, la pantalla se refresca | Toast «Reserva quitada» y `router.refresh()` (6.1: modal sobre la misma pantalla): la fila desaparece de Pendientes y los totales se actualizan |
 
 **Excepción específica HU-C-20 (09/10/2026):** el resumen confirma la
 inscripción de la página completa C-12 y, tras el POST exitoso, navega a
@@ -544,6 +546,13 @@ sus consumidores, sin editar sus fuentes.
   10 y el texto de «sin resultados» propuesto, pendiente de validar por el PO
   (P-F6). Corrige en la fila del listado mínimo de HU-G-01 la cláusula «sin
   búsqueda ni paginación», que deja de ser cierta.
+- **13/10/2026:** HU-C-26 agrega en 6.4 las filas de la pantalla «Reservas»
+  (página completa con totales, pestañas como enlaces, filtros en cliente y
+  paginación de a 10; «Registrar pago» navega al wizard de HU-I-10) y de
+  «Quitar una reserva pendiente» (confirmación irreversible de C-25 con el
+  rechazo dentro del diálogo y toast «Reserva quitada»). Sin tokens ni
+  variantes de `Badge` nuevas. En el menú de mesa de entrada, «Reservas» es un
+  enlace de primer nivel entre «Registrar pago» y «Mi caja», como el prototipo.
 - **HU-G-05:** corrige en 6.4 la cláusula de la fila de la ficha del gerente
   que decía «Sin "Desactivar", "Reactivar" ni historial de estados (los suma
   HU-G-05)»: junto a «Editar», «Desactivar» (nunca en la ficha propia) o

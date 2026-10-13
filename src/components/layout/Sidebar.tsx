@@ -16,6 +16,7 @@ import {
   UserCog,
   Banknote,
   BriefcaseBusiness,
+  Hourglass,
   type LucideIcon
 } from "lucide-react";
 import { texto } from "@/lib/textos";
@@ -74,6 +75,8 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
     },
     // HU-I-10: registrar pago buscando al alumno (pagos:crear, solo Mesa de Entrada).
     { label: textoC19("ui.turnos.reserva.registrarPago"), href: "/pagos/registrar", prefijoActivo: "/pagos", icon: Wallet },
+    // HU-C-26: reservas pendientes de todas las clases (reservas:leer), entre «Registrar pago» y «Mi caja» como el prototipo.
+    { label: texto("ui.reservas.menu"), href: "/reservas", prefijoActivo: "/reservas", icon: Hourglass },
     // HU-I-12: «Mi caja» (cajas:leer), activo también en el detalle de mis cierres.
     { label: texto("ui.caja.menu"), href: "/caja", prefijoActivo: "/caja", icon: Banknote },
         {

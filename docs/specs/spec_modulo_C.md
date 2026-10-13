@@ -1856,6 +1856,8 @@ export const ReservasPendientesQuerySchema = z.object({
 ```
 - Reservas vencidas en los últimos 7 días (días del centro), de la más reciente a la más antigua por `vencio_el`. Incluye las `RESERVA_VENCIDA` y las **vencidas que el proceso todavía no marcó** (`sin_marcar = true`, etiqueta «Vencida · sin marcar todavía»). En una clase `CANCELADO` no vence nada (2.18.6): sus reservas pendientes no se listan acá.
 
+> **Nota de sincronización (HU-C-26, 13/10/2026).** El prototipo («Reservas · Vencidas · últimos 7 días») muestra el profesor y el aula de cada clase. Se agregan al ítem de forma **aditiva**, con la misma forma que en 2.20.2: `clase.aula` (`{ id, nombre } | null`) y `profesor` (`{ id, nombre_para_mostrar } | null`). Solo cambia el armado de la respuesta de `listarReservasVencidas`; la condición de la consulta, el orden y la vigencia siguen iguales.
+
 #### 2.20.4. Acciones por fila
 
 - **«Registrar pago»** (criterio 5): sin endpoint propio. Si el alumno tiene **una sola** reserva pendiente, abre el registro de pago de esa clase (atajo de HU-I-10, criterio 9); si tiene varias, abre HU-I-10 con el alumno elegido y esa clase marcada, para pagar varias en una operación. **Exige caja abierta** del usuario (HU-I-12, criterio 2): si no la tiene, la pantalla de pago responde `409 CAJA_NO_ABIERTA` (`spec_modulo_I.md`). La lista da `alumno.id`, `clase.turno_id` y `alumno.reservas_pendientes` para decidir el atajo.

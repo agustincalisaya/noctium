@@ -176,14 +176,16 @@ _Ejecutado por Claude Code con `newman` contra `npm run dev` y la base local con
 
 ## 7. Checklist de Definition of Done
 
-- [ ] Relevamiento previo (sección 0) confirmado antes de implementar, incluido el feedback de éxito (0.4.1).
-- [ ] Los dos schemas Zod implementados.
-- [ ] Los dos Route Handlers responden `{ data, error }` con los status codes de §2.10.5, reutilizando `respuesta-error.ts`.
-- [ ] Ningún cambio a `caja.service.ts` (ya implementa todo lo necesario).
-- [ ] Frontend: "Registrar movimiento" y "Anular" funcionales sobre `/caja` (HU-I-12.md).
-- [ ] Ningún mensaje de error de egreso/anulación revela el efectivo esperado (arqueo ciego).
-- [ ] Textos nuevos agregados a `textos.ts` bajo `ui.caja.movimiento.*`, ninguno hardcodeado.
-- [ ] Fila nueva en `DESIGN.md` §6.4 (0.4.1).
-- [ ] Ningún `DELETE`/`UPDATE` directo sobre `MovimientoCaja` (Regla N.° 8): la anulación es siempre un registro nuevo.
-- [ ] Tests de los 3 niveles en verde, con evidencia.
-- [ ] PR con diff acotado exclusivamente a esta task (sin tocar nada de HU-I-12.md salvo los dos puntos de 0.3).
+- [x] Relevamiento previo (sección 0) confirmado antes de implementar, incluido el feedback de éxito (0.4.1).
+- [x] Los dos schemas Zod implementados.
+- [x] Los dos Route Handlers responden `{ data, error }` con los status codes de §2.10.5, reutilizando `respuesta-error.ts`.
+- [x] Ningún cambio a `caja.service.ts` (ya implementa todo lo necesario).
+- [x] Frontend: "Registrar movimiento" y "Anular" funcionales sobre `/caja` (HU-I-12.md) — verificado a mano (ver abajo).
+- [x] Ningún mensaje de error de egreso/anulación revela el efectivo esperado (arqueo ciego) — verificado a mano con un egreso de $900.000.000.
+- [x] Textos nuevos agregados a `textos.ts` bajo `ui.caja.movimiento.*`, ninguno hardcodeado.
+- [x] Fila nueva en `DESIGN.md` §6.4 (0.4.1).
+- [x] Ningún `DELETE`/`UPDATE` directo sobre `MovimientoCaja` (Regla N.° 8): la anulación es siempre un registro nuevo.
+- [x] Tests de los 3 niveles en verde, con evidencia (`docs/testing/Modulo I/hu-i-12-b/`).
+- [x] PR con diff acotado exclusivamente a esta task (sin tocar nada de HU-I-12.md salvo los dos puntos de 0.3).
+
+**Verificación visual manual (8 partes, confirmadas 2026-10-12):** botón "Registrar movimiento" y validaciones del modal; registro de ingreso válido con toast y actualización sin recarga; egreso que supera el efectivo esperado rechazado sin revelar el monto esperado; anulación con motivo obligatorio y leyenda irreversible sin duplicar; fila anulada con monto tachado y sin la acción; motivo de más de 300 caracteres bloqueado; RBAC del gerente (sin "Registrar movimiento" ni "Anular"); `CAJA_NO_ABIERTA` mostrando el texto de UI `ui.caja.movimiento.cajaCerrada` en vez del texto de servidor sobre cobros. Todo OK.

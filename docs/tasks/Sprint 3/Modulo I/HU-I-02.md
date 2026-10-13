@@ -3,9 +3,11 @@
 **Módulo:** I (Pagos) · **Sprint:** 3 · **Responsable:** Cali · **SP:** 2
 **Rama solicitada:** `HU-F-02`. Es el nombre de rama indicado por el usuario; la HU de esta task es I-02, no F-02.
 **Base relevada:** `develop`, commit `be491e4` (13/10/2026). Revalidar contra develop actualizado antes de implementar.
+
 **Estado:** Fase 2 implementada y verificada en el worktree `noctium-codex`; cambios staged para revisión, sin commit.
 **Contrato:** `docs/specs/spec_modulo_I.md` §2.13, §2.6.2 y §2.17; `docs/specs/spec_modulo_C.md` §2.18.4 y sus lecturas públicas; `docs/tasks/Sprint 3/PR-0.md` §2.13; `docs/tasks/Sprint 3/HU-Sprint-3.md` HU-I-02; `docs/RULES.md`, `docs/DESIGN.md`, `docs/adicionales/sdd-metodologia.md`.
 **Referencia visual usada en Fase 2:** fotos provistas `Historial de pagos.png` y `Filtro por estado de pago.png`, en `C:\Users\agust\Desktop\Imagenes HU\HU-F-02`.
+
 **RBAC:** `pagos:leer` para consultar; `pagos:crear` para ofrecer el atajo a Registrar pago. Profesor y Alumno no acceden a esta API. Gerente consulta sin registrar pagos.
 **Schema:** reutilizar el PR 0; sin migraciones, cambios de schema ni seed base.
 
@@ -138,6 +140,7 @@ Lecturas: no agregar Server Actions de escritura, eventos de mutación, bloqueos
 ## 5. Frontend
 
 - Fotos provistas de historial y estado de pago: encabezado del alumno, pestañas de ficha, filtros y tabla. Usar tokens y componentes existentes; verificar escritorio y móvil.
+
 - Historial: Fecha, Clase enlazada a detalle (fecha/hora/materia), Precio, Monto cobrado, Forma, Registrado por y Comprobante. Mostrar ajuste con motivo/actor cuando corresponda; Anulado textual y exclusión del total.
 - Estado: Fecha, Materia, Profesor, Precio, Estado textual y atajo de cobro si habilitado. Reservada muestra «pagar antes del <fecha y hora>».
 - Activar estado limpia/deshabilita forma y materia y muestra la leyenda contractual. Volver a historial no restaura silenciosamente filtros que se limpiaron.
