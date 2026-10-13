@@ -1,13 +1,16 @@
 import type { PrismaClient } from "@prisma/client";
-import { abrirCaja, cajaAbiertaDe, cerrarCaja, declararEfectivo, type CajaCerrada } from "@/server/pagos/caja.service";
+import {
+  abrirCaja, anularMovimiento, cajaAbiertaDe, cerrarCaja, declararEfectivo, registrarMovimiento, type CajaCerrada,
+} from "@/server/pagos/caja.service";
 import { conIntegrante } from "@/server/pagos/caja.lecturas";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
 import { isoCentro } from "@/server/shared/fechas-centro";
 import { transaccion, type Tx } from "@/server/shared/transaccion";
-import type { CajaCerradaDto, ResumenCierreDto } from "@/types/caja.types";
+import type { CajaCerradaDto, MovimientoCajaDto, ResumenCierreDto } from "@/types/caja.types";
 
 /**
- * Flujos HTTP de la caja (HU-I-12, spec_modulo_I.md §2.10.1, §2.11 y §2.12):
+ * Flujos HTTP de la caja (HU-I-12 y HU-I-12-b, spec_modulo_I.md §2.10.1,
+ * §2.10.3, §2.10.4, §2.11 y §2.12):
  * cada uno abre su `transaccion()`, resuelve qué caja corresponde (la abierta
  * del usuario, o la del integrante en el cierre por ausencia) y llama al
  * servicio del PR 0, que es el dueño de todas las reglas (bloqueo, alcance,
@@ -42,6 +45,37 @@ async function cajaParaAusencia(tx: Tx, cajaId: string) {
   if (!caja) throw new ErrorDeDominio("errores.caja.noEncontrada");
   if (caja.estado !== "ABIERTA") throw new ErrorDeDominio("errores.caja.yaCerrada");
   return caja;
+}
+
+/**
+ * Registra un ingreso o egreso manual en la caja abierta propia (§2.10.3,
+ * HU-I-12-b). El servicio bloquea la caja, revalida que siga abierta y, en un
+ * egreso, compara con el efectivo esperado dentro de esta misma transacción.
+ */
+export async function registrarMiMovimiento(
+  usuarioId: string,
+  datos: { tipo: "INGRESO" | "EGRESO"; monto: string; concepto: string },
+  opciones: Opciones = {},
+): Promise<MovimientoCajaDto> {
+  const movimiento = await transaccion(async (tx) => {
+    const abierta = await cajaAbiertaPropia(tx, usuarioId, "errores.caja.sinCajaAbierta");
+    return registrarMovimiento(tx, { cajaId: abierta.id, usuarioId, ...datos });
+  }, opciones);
+  return { ...movimiento, momento: isoCentro(movimiento.momento) };
+}
+
+/**
+ * Anula un movimiento de la caja abierta propia con un registro nuevo
+ * (§2.10.4, HU-I-12-b; Regla N.° 8). El alcance (que sea de la caja propia,
+ * si no 404) y que la caja siga abierta los decide el servicio.
+ */
+export async function anularMiMovimiento(
+  usuarioId: string,
+  movimientoId: string,
+  motivo: string,
+  opciones: Opciones = {},
+): Promise<{ id: string }> {
+  return transaccion((tx) => anularMovimiento(tx, { movimientoId, usuarioId, motivo }), opciones);
 }
 
 const respuestaCierre = (cerrada: CajaCerrada): CajaCerradaDto => ({ ...cerrada, cerrada_el: isoCentro(cerrada.cerrada_el) });

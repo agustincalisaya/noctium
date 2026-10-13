@@ -34,16 +34,34 @@ Antes de escribir código, Claude Code debe reportar y **esperar confirmación e
 
 ### 0.3. Archivos existentes a modificar (ruta exacta + qué cambia)
 
-- `src/app/(dashboard)/caja/page.tsx` (de HU-I-12.md) — agrega el botón "Registrar movimiento" junto a "Cerrar caja", y en cada fila de tipo `MOVIMIENTO` del listado de ítems (ya existente) agrega la acción "Anular" cuando no está anulado y la caja sigue abierta.
+- `src/server/pagos/caja.flujos.ts` (de HU-I-12.md) — **se amplía** (no figuraba en el relevamiento original de esta task, pero hace falta): agrega `registrarMiMovimiento` y `anularMiMovimiento`, que abren la transacción (`transaccion()`), resuelven la caja abierta propia (`cajaAbiertaDe`) y delegan en `caja.service.ts` (que no se toca). Las rutas de 0.2 no abren transacciones directamente — ese patrón vive en este archivo, igual que para abrir/declarar/cerrar en HU-I-12.md.
+- `src/app/(dashboard)/caja/mi-caja.tsx` (de HU-I-12.md, **no `page.tsx`**: la tabla de ítems vive en este componente) — agrega el botón "Registrar movimiento" junto a "Cerrar caja", y en cada fila de tipo `MOVIMIENTO` del listado de ítems (ya existente) agrega la columna/acción "Anular" (sin encabezado) cuando no está anulado; se muestra solo con el permiso `cajas:movimiento`.
+- `src/app/(dashboard)/caja/page.tsx` — agrega `tienePermiso("cajas:movimiento")` para pasarlo a `mi-caja.tsx`.
 - `src/lib/textos.ts` — agrega las claves de `ui.caja.movimiento.*` (modal, confirmaciones) bajo el mismo grupo que ya creó HU-I-12.md.
 - `docs/DESIGN.md` §6.4 — agrega la fila de "Registrar/anular movimiento manual" (ver 0.4.1).
 
-### 0.4. Relevar antes de asumir
+### 0.4. Resuelto así
 
-1. **Feedback de "Registrar movimiento" y "Anular movimiento" en `DESIGN.md` §6.4.** Por el patrón ya fijado en HU-I-12.md (modal sobre una pantalla que no recarga del todo — `/caja` sigue mostrando el arqueo ciego debajo) y por la foto `Registrar_movimiento_manual.png` (un `Dialog` simple, sin segundo paso), esta task propone **toast** para ambas acciones (igual que "Nueva forma de pago" o "Asignar prioridad", 6.1) — a diferencia de "Cerrar caja" (HU-I-12.md, 0.4.3), acá no hace falta banner porque el usuario se queda en la misma pantalla de `/caja` y el ítem nuevo aparece directamente en la lista. Confirmar antes de implementar.
-2. **Quién puede anular qué movimiento.** El criterio 3 dice "se anula con un motivo mientras la caja está abierta", sin aclarar si cualquier integrante de mesa de entrada puede anular un movimiento de **otra** caja (no la propia). `anularMovimiento` en el servicio ya rechaza eso con `404 MOVIMIENTO_NO_ENCONTRADO` si el movimiento no pertenece a la caja de quien lo pide (0.1) — esta task solo necesita confirmar que la UI nunca ofrece anular un movimiento que no sea de la caja propia abierta (no debería poder pasar, porque `/caja` solo muestra la caja propia, pero vale confirmarlo explícitamente antes de implementar la acción "Anular" en la fila).
+1. **Feedback de "Registrar movimiento" y "Anular movimiento":** toast para las dos acciones (igual que "Abrir caja", HU-I-12.md §6.4), seguido de `router.refresh()` para actualizar la lista sin recargar la página completa — a diferencia de "Cerrar caja" (HU-I-12.md, 0.4.3), acá no hace falta banner porque el usuario se queda en la misma pantalla de `/caja` y el ítem nuevo aparece directamente en la lista. Se agregan dos filas a `DESIGN.md` §6.4: "Registrar movimiento manual" y "Anular movimiento manual".
+2. **Quién puede anular qué movimiento:** `/caja` solo trae la caja propia (`obtenerCajaPropia(usuarioId)`), así que la UI nunca puede ofrecer anular un movimiento ajeno. Se muestra "Anular" solo en ítems `MOVIMIENTO` con `anulado: false` y con el permiso `cajas:movimiento`. Que la caja esté abierta ya está garantizado porque la tabla de ítems solo existe cuando hay una caja abierta. Si alguien intenta un id ajeno por API, el servicio responde `404 MOVIMIENTO_NO_ENCONTRADO` (0.1).
+3. **Leyenda duplicada:** `ConfirmarAccionDialog` con `irreversible` ya agrega "Esta acción no se puede deshacer." — por eso el texto de `confirmaciones.caja.anularMovimiento` (§4.3) **no** debe incluir esa frase; queda solo "¿Estás seguro de que querés anular este movimiento?" y el componente agrega la leyenda. Mismo criterio que HU-I-12.md.
+4. **`CAJA_NO_ABIERTA` en el contexto de un movimiento:** el texto de servidor para ese código ("No se puede registrar un cobro hasta que abras una caja.") no aplica acá — puede pasar, por ejemplo, si el gerente cierra la caja por ausencia con el modal de movimiento todavía abierto. Se agrega un texto nuevo, **solo de UI** (no se toca el texto del servidor): `ui.caja.movimiento.cajaCerrada`: "Tu caja se cerró. Recargá la pantalla para ver su estado." El diálogo lo usa cuando el `code` de la respuesta es `CAJA_NO_ABIERTA`.
+5. **Redacción del monto en la confirmación:** `confirmaciones.caja.registrarMovimiento` usa la plantilla "registrar {tipo} de {monto}" con `tipo` = "un ingreso" / "un egreso" (el artículo va en el valor de `tipo`, no en la plantilla). Ej.: "¿Estás seguro de que querés registrar un egreso de $ 1.000?".
+6. **Evidencia de testing (nivel 2 y 3):** Claude Code corre la colección de Postman con `newman` contra `npm run dev` y la base local con el seed, y arma la evidencia SQL — igual que en HU-I-12.md. Las capturas de pantalla (nivel visual) no se generan por esta vía: se verifican a mano, en la conversación, igual que se hizo con HU-I-12.
 
 No se procede a la implementación (sección 4 en adelante) hasta recibir el OK sobre este relevamiento.
+
+---
+
+## 0.5. Resultado de la implementación (agregado post-implementación)
+
+Confirmado contra el código ya escrito en `feature/HU-I-12-b` (working tree, sin commit):
+
+- `src/server/pagos/caja.schema.ts`: `AnularMovimientoSchema` reutiliza directamente `motivoSchema` de `pago.schema.ts` (ya tiene `min(1)`/`max(300)` idéntico al de esta task) en vez de redeclarar la validación — más alineado con el reuso de `montoSchema` que ya pedía §4.1, mismo resultado.
+- `src/app/(dashboard)/caja/enviar-movimiento.ts` (nuevo, no estaba en 0.2): helper de envío para los dos diálogos, análogo a `fetchOLanzar` pero que traduce `CAJA_NO_ABIERTA` al texto de UI `ui.caja.movimiento.cajaCerrada` (0.4.4) en vez del texto de servidor sobre cobros. Hacía falta porque el helper existente no expone el `code` del error.
+- `src/server/pagos/caja.movimientos.pg.test.ts` (nuevo, no `caja.flujos.pg.test.ts` ampliado): los tests de integración con Postgres de `registrarMiMovimiento`/`anularMiMovimiento` se separaron en su propio archivo para no tocar los tests pg existentes de HU-I-12.
+- Columna "Anular" en `mi-caja.tsx`: sin encabezado visible (como pide la foto), pero con un `<span class="sr-only">` para accesibilidad — no estaba explícitamente pedido, es un agregado razonable.
+- Todo lo demás (rutas, dialogs, textos, `caja.flujos.ts`) coincide con 0.2/0.3/0.4 tal como quedaron redactados arriba.
 
 ---
 
@@ -111,9 +129,10 @@ Mismo helper `respuesta-error.ts` que el resto del módulo I (HU-I-10/HU-I-12.md
 
 ### 4.3. Textos nuevos en `src/lib/textos.ts`
 
-- `confirmaciones.caja.registrarMovimiento`: `"¿Estás seguro de que querés registrar {tipo} de {monto}?"` (Ingreso/Egreso en minúscula según corresponda).
-- `confirmaciones.caja.anularMovimiento`: `"¿Estás seguro de que querés anular este movimiento? Esta acción no se puede deshacer."`.
+- `confirmaciones.caja.registrarMovimiento`: `"¿Estás seguro de que querés registrar {tipo} de {monto}?"`, con `tipo` = `"un ingreso"` / `"un egreso"` (el artículo va en el valor de `tipo`, no en la plantilla — ver 0.4.5).
+- `confirmaciones.caja.anularMovimiento`: `"¿Estás seguro de que querés anular este movimiento?"` (sin la leyenda "Esta acción no se puede deshacer.": la agrega `ConfirmarAccionDialog` con `irreversible`, ver 0.4.3).
 - `ui.caja.movimiento.tipo.ingreso` / `.egreso`, `ui.caja.movimiento.conceptoPlaceholder` (ej. "Ingreso de cambio para la caja").
+- `ui.caja.movimiento.cajaCerrada`: `"Tu caja se cerró. Recargá la pantalla para ver su estado."` — texto de UI, no de servidor; usado cuando la respuesta de registrar/anular trae `code: CAJA_NO_ABIERTA` (ver 0.4.4).
 
 ---
 
@@ -136,6 +155,8 @@ Mismo helper `respuesta-error.ts` que el resto del módulo I (HU-I-10/HU-I-12.md
 - Componentes: el modal de "Registrar movimiento" no deja confirmar con concepto vacío; el de "Anular" no deja confirmar sin motivo; tras anular, la fila se ve con el estado "Anulado" y sin la acción "Anular" disponible de nuevo.
 
 ### Nivel 2 — Postman
+
+_Ejecutado por Claude Code con `newman` contra `npm run dev` y la base local con el seed (0.4.6); las capturas de pantalla se verifican a mano, por fuera de esta vía._
 
 - `POST .../movimientos` con `tipo: INGRESO`, monto válido → `201`.
 - `POST .../movimientos` con `tipo: EGRESO` que supera el efectivo esperado → `409 EGRESO_SUPERA_EFECTIVO`, sin `detalles` con el monto esperado (verificar que el cuerpo de la respuesta no lo expone en ningún campo).

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { montoSchema, motivoSchema } from "@/server/pagos/pago.schema";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
 
 /**
@@ -23,6 +24,16 @@ export const ConfirmarCierreSchema = z.object({
   // Vacío equivale a no enviado; el servicio decide si es obligatorio (criterio 7).
   motivo: z.string().trim().max(300, "El motivo no puede superar los 300 caracteres").optional(),
 }).strict();
+
+/** HU-I-12-b (§2.10.3): ingreso o egreso manual de efectivo. Monto con la constante compartida de §2.7.3. */
+export const RegistrarMovimientoSchema = z.object({
+  tipo: z.enum(["INGRESO", "EGRESO"], { error: "Elegí si es un ingreso o un egreso" }),
+  monto: montoSchema,
+  concepto: z.string().trim().min(1, "Ingresá el concepto").max(200, "El concepto no puede superar los 200 caracteres"),
+}).strict();
+
+/** HU-I-12-b (§2.10.4): el motivo es el `motivoSchema` de §2.7.3 (obligatorio, hasta 300). */
+export const AnularMovimientoSchema = z.object({ motivo: motivoSchema }).strict();
 
 /** Ids de la ruta y de los filtros: los del seed no son CUID, así que solo se acota el largo (un id inexistente es 404). */
 export const idCajaSchema = z.string().trim().min(1).max(64);
@@ -51,3 +62,5 @@ export type AbrirCajaInput = z.infer<typeof AbrirCajaSchema>;
 export type DeclararEfectivoInput = z.infer<typeof DeclararEfectivoSchema>;
 export type ConfirmarCierreInput = z.infer<typeof ConfirmarCierreSchema>;
 export type ListarCajasQuery = z.infer<typeof ListarCajasQuerySchema>;
+export type RegistrarMovimientoInput = z.infer<typeof RegistrarMovimientoSchema>;
+export type AnularMovimientoInput = z.infer<typeof AnularMovimientoSchema>;

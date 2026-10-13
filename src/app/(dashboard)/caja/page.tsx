@@ -10,6 +10,7 @@ import { MiCaja } from "./mi-caja";
  * «Mi caja» de mesa de entrada (P-34; HU-I-12 criterios 1, 5 y 11;
  * spec_modulo_I.md §2.10.2 y §2.12): la caja abierta en arqueo ciego (o el
  * estado vacío con «Abrir caja»), y debajo «Mis cierres», paginados de a 10.
+ * HU-I-12-b: «Registrar movimiento» y «Anular», con `cajas:movimiento`.
  */
 export default async function MiCajaPage({ searchParams }: { searchParams: Promise<{ pagina?: string | string[] }> }) {
   const { id: usuarioId } = await exigirPermiso("cajas:leer");
@@ -17,11 +18,12 @@ export default async function MiCajaPage({ searchParams }: { searchParams: Promi
   const consulta = PaginaQuerySchema.safeParse(typeof pagina === "string" ? { pagina } : {});
   const paginaPedida = consulta.success ? consulta.data.pagina : 1;
 
-  const [{ caja }, cierres, puedeAbrir, puedeCerrar] = await Promise.all([
+  const [{ caja }, cierres, puedeAbrir, puedeCerrar, puedeMovimientos] = await Promise.all([
     obtenerCajaPropia(usuarioId),
     listarMisCierres(usuarioId, paginaPedida),
     tienePermiso("cajas:abrir"),
     tienePermiso("cajas:cerrar"),
+    tienePermiso("cajas:movimiento"),
   ]);
 
   return (
@@ -31,7 +33,7 @@ export default async function MiCajaPage({ searchParams }: { searchParams: Promi
         <p className="text-sm text-muted-foreground">{texto("ui.caja.subtitulo")}</p>
       </header>
 
-      <MiCaja caja={caja} puedeAbrir={puedeAbrir} puedeCerrar={puedeCerrar} />
+      <MiCaja caja={caja} puedeAbrir={puedeAbrir} puedeCerrar={puedeCerrar} puedeMovimientos={puedeMovimientos} />
 
       <section className="rounded-xl border border-border bg-card text-card-foreground" aria-labelledby="mis-cierres-titulo">
         <h2 id="mis-cierres-titulo" className="px-5 pt-5 pb-3 text-lg font-semibold">{texto("ui.caja.misCierres.titulo")}</h2>

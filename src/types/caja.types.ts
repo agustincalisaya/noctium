@@ -46,6 +46,9 @@ export type ItemCajaDto =
     forma_pago: { id: string; nombre: string }; monto: string; anulado: false;
   };
 
+/** Movimiento manual recién registrado (`POST /api/cajas/mia/movimientos`, HU-I-12-b). */
+export type MovimientoCajaDto = { id: string; tipo: "INGRESO" | "EGRESO"; monto: string; concepto: string; momento: string };
+
 /** La caja abierta propia (`GET /api/cajas/mia`). */
 export type CajaPropiaDto = {
   id: string;
