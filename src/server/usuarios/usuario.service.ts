@@ -79,3 +79,27 @@ export async function crearCuentaConCredenciales(
   });
   return { id: usuario.idUsuario };
 }
+
+/** Nombre público de autores del historial mediante fachadas; nunca email/id. */
+export async function obtenerNombresPublicosDeUsuarios(ids: string[], db: Prisma.TransactionClient = prisma): Promise<Map<string, string>> {
+  if (!ids.length) return new Map();
+  const [{ obtenerOpcionProfesorDeUsuario }, { obtenerNombresPersonal }, { obtenerAlumnoDeUsuario, obtenerAlumnoBasico }] = await Promise.all([
+    import("@/server/profesores/profesor.publico"),
+    import("@/server/personal/personal.publico"),
+    import("@/server/alumnos/alumno.publico"),
+  ]);
+  const usuarios = await db.usuario.findMany({ where: { idUsuario: { in: ids } }, select: { idUsuario: true, rolUsuario: true } });
+  const personal = await obtenerNombresPersonal(usuarios.filter(u => u.rolUsuario === "MESA_ENTRADA" || u.rolUsuario === "GERENTE").map(u => u.idUsuario), db);
+  const nombres = new Map(personal.map(u => [u.usuario_id, u.nombre_completo]));
+  await Promise.all(usuarios.map(async u => {
+    if (u.rolUsuario === "PROFESOR") {
+      const profesor = await obtenerOpcionProfesorDeUsuario(u.idUsuario, db);
+      if (profesor) nombres.set(u.idUsuario, profesor.nombreParaMostrar);
+    } else if (u.rolUsuario === "ALUMNO") {
+      const vinculado = await obtenerAlumnoDeUsuario(u.idUsuario, db);
+      const alumno = vinculado ? await obtenerAlumnoBasico(vinculado.id, db) : null;
+      if (alumno) nombres.set(u.idUsuario, `${alumno.apellido}, ${alumno.nombre}`);
+    }
+  }));
+  return nombres;
+}

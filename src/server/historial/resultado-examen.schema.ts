@@ -8,6 +8,7 @@ export const RegistrarResultadoExamenSchema = z.object({
   materia_id: z.string().trim().min(1, "Seleccioná una materia"),
   fecha_examen: FechaExamenSchema,
   nota: NotaExamenSchema,
+  descripcion_publica: z.string().trim().max(1000, "Máximo 1000 caracteres").optional(),
   observaciones: z.string().trim().optional(),
 }).strict();
 

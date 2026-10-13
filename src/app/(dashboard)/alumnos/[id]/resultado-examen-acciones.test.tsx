@@ -67,7 +67,7 @@ describe("HU-E-10 acciones del historial académico", () => {
     await enviarFormulario();
 
     const confirmacion = alerta()!;
-    expect(confirmacion.textContent).toContain("¿Corregir el resultado de Matemática?");
+    expect(confirmacion.textContent).toContain("¿Estás seguro de que querés corregir el resultado de Matemática?");
     expect(confirmacion.textContent).toContain("Registrado: 03/10/2026, nota 8,0. Nuevo valor: 04/10/2026, nota 9,5.");
     expect(confirmacion.textContent).toContain("La nota se cargó mal");
     await act(async () => boton(confirmacion, "Guardar corrección").click());
@@ -89,7 +89,7 @@ describe("HU-E-10 acciones del historial académico", () => {
     await enviarFormulario();
 
     const confirmacion = alerta()!;
-    expect(confirmacion.textContent).toContain("¿Anular el resultado de Matemática del 03/10/2026?");
+    expect(confirmacion.textContent).toContain("¿Estás seguro de que querés anular el resultado de Matemática del 03/10/2026?");
     expect(confirmacion.textContent).toContain("Esta acción no se puede deshacer.");
     const botonAnular = boton(confirmacion, "Anular resultado");
     expect(botonAnular.className).toContain("bg-destructive");

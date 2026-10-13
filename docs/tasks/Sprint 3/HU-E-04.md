@@ -63,3 +63,8 @@ El criterio de «Mi historial» se completa al integrar HU-E-08. Si HU-E-11 anul
 - [x] Rama y PR exclusivos de HU-E-04 hacia `develop`; sin auto-merge.
 
 Detalles y resultados: [`docs/testing/HU-E-04-evidencia.md`](../../testing/HU-E-04-evidencia.md).
+
+
+## Revisión PO del 13/10/2026
+
+Se exige contexto de origen firmado para Profesor, validado por sesión/alumno/materia/turno y primer dictado propio vigente; el vínculo `clase_dictada_id` continúa opcional. Mesa de Entrada no requiere contexto. Ver la revisión PO y el contrato de `contexto_origen` en `docs/specs/spec_modulo_E.md`, y evidencia reproducible en `docs/testing/Modulo E/revision-po/README.md`. También se corrigen menú Profesor y confirmación C-25 con resumen de texto/clase vinculada.

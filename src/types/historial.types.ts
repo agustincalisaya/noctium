@@ -8,7 +8,7 @@ export type ItemHistorialAcademico = {
 } & (
   | {
     tipo: "CLASE_DICTADA";
-    profesor: string;
+    profesor: string | null;
     turno_id: string;
     asistencia: EstadoAsistencia | null;
     observacion?: ObservacionHistorial;
@@ -61,11 +61,12 @@ export type OpcionesExamenData = {
 };
 
 export type ItemMiHistorial = { id: string; fecha: string; materia: { id: string; nombre: string } } & (
-  | { tipo: "CLASE_DICTADA"; profesor: string; asistencia: EstadoAsistencia | null; temas_vistos: string | null }
-  | { tipo: "EXAMEN"; nota: string }
-  | { tipo: "INDICACION"; indicacion: string }
+  | { tipo: "CLASE_DICTADA"; profesor: string | null; aula: string | null; hora_inicio: string | null; hora_fin: string | null; asistencia: EstadoAsistencia | null; temas_vistos: string | null }
+  | { tipo: "EXAMEN"; nota: string; descripcion_publica: string | null; registrado_por: string | null }
+  | { tipo: "INDICACION"; indicacion: string; registrada_en: string; registrada_por: string | null }
 );
 export type MiHistorialData = {
+  desglose: { clases_dictadas: number; examenes: number; indicaciones: number };
   materias_disponibles: { id: string; nombre: string }[];
   asistencia_por_materia: AsistenciaPorMateria[];
   items: ItemMiHistorial[];

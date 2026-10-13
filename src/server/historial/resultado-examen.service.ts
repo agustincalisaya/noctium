@@ -116,9 +116,10 @@ export async function registrarResultadoExamen(
         fechaExamen: input.fecha_examen,
         notaExamen: input.nota,
         observaciones: input.observaciones?.trim() || null,
+        descripcionPublica: input.descripcion_publica?.trim() || null,
         creadoPorUsuarioId: usuario.id,
       },
-      select: { idResultadoExamen: true, alumnoId: true, materiaId: true, fechaExamen: true, notaExamen: true, observaciones: true },
+      select: { idResultadoExamen: true, alumnoId: true, materiaId: true, fechaExamen: true, notaExamen: true, observaciones: true, descripcionPublica: true },
     });
     return {
       id: resultado.idResultadoExamen,
@@ -127,6 +128,7 @@ export async function registrarResultadoExamen(
       fecha_examen: resultado.fechaExamen.toISOString().slice(0, 10),
       nota: resultado.notaExamen.toFixed(1),
       observaciones: resultado.observaciones,
+      descripcion_publica: resultado.descripcionPublica,
     };
   });
 }

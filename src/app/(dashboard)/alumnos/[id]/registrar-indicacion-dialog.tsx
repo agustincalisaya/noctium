@@ -15,6 +15,7 @@ type OpcionClase = { id: string; materia_id: string; fecha: string };
 
 export function RegistrarIndicacionDialog({
   alumnoId,
+  contextoOrigen,
   nombreAlumno,
   materias,
   clases,
@@ -26,6 +27,7 @@ export function RegistrarIndicacionDialog({
   onRegistrado,
 }: {
   alumnoId: string;
+  contextoOrigen?: string;
   nombreAlumno: string;
   materias: OpcionMateria[];
   clases: OpcionClase[];
@@ -67,7 +69,7 @@ export function RegistrarIndicacionDialog({
     const respuesta = await fetchAutenticado(`/api/alumnos/${encodeURIComponent(alumnoId)}/indicaciones`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ materia_id: materiaId, indicacion: indicacion.trim(), ...(claseId ? { clase_dictada_id: claseId } : {}) }),
+      body: JSON.stringify({ ...(contextoOrigen ? { contexto_origen: contextoOrigen } : {}), materia_id: materiaId, indicacion: indicacion.trim(), ...(claseId ? { clase_dictada_id: claseId } : {}) }),
     });
     const valor = await respuesta.json().catch(() => null);
     if (!respuesta.ok) throw new Error(valor?.error?.message ?? texto("ui.historial.indicacion.error"));
@@ -144,6 +146,10 @@ export function RegistrarIndicacionDialog({
     <ConfirmarAccionDialog
       abierto={confirmacion}
       titulo={texto("ui.historial.indicacion.confirmar", { alumno: nombreAlumno, materia: materiaElegida?.nombre ?? "" })}
+      detalle={<div className="space-y-2 break-words [overflow-wrap:anywhere]">
+        <p className="whitespace-pre-wrap">{indicacion.trim()}</p>
+        {claseId && <p>{texto("ui.historial.indicacion.claseRelacionada", { fecha: fechaCorta(clases.find(c => c.id === claseId)?.fecha ?? "") })}</p>}
+      </div>}
       textoConfirmar={texto("ui.historial.indicacion.confirmarAccion")}
       onConfirmar={guardar}
       onCerrar={() => setConfirmacion(false)}

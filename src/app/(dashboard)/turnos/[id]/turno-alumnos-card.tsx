@@ -148,7 +148,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
       <textarea id="motivo-correccion-clase" maxLength={300} disabled={guardandoAsistencia} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder={texto("ui.historial.correccionClase.placeholderCorreccion")} className="min-h-20 w-full rounded-md border border-input bg-card p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       <p className="text-right text-xs tabular-nums text-muted-foreground">{motivo.length} / 300</p>
       <div className="flex justify-end gap-2"><Button variant="outline" disabled={guardandoAsistencia} onClick={() => setCorrigiendo(false)}>{texto("ui.historial.correccionClase.cancelar")}</Button><Button disabled={guardandoAsistencia || !motivo.trim()} onClick={() => setConfirmarCorreccion(true)}>{texto("ui.historial.correccionClase.guardar")}</Button></div>
-      <ConfirmarAccionDialog abierto={confirmarCorreccion} onCerrar={() => setConfirmarCorreccion(false)} titulo={texto("ui.historial.correccionClase.tituloCorregir", { materia: turno.materia, fecha: fechaCorta(turno.fecha) })} textoConfirmar={texto("ui.historial.correccionClase.guardar")} onConfirmar={async () => {
+      <ConfirmarAccionDialog abierto={confirmarCorreccion} onCerrar={() => setConfirmarCorreccion(false)} titulo={texto("ui.historial.correccionClase.tituloCorregir", { materia: turno.materia, fecha: fechaCorta(turno.fecha), hora: turno.hora_inicio })} detalle={<div className="space-y-2"><p>{motivo.trim()}</p><ul>{asistencias.map(a => <li key={a.alumno_id}>{alumnosLista.find(x => x.id === a.alumno_id)?.nombre ?? registroVisible?.alumnos.find(x => x.id === a.alumno_id)?.nombre_completo}: {texto(a.estado === "PRESENTE" ? "ui.historial.asistencia.presente" : "ui.historial.asistencia.ausente")}</li>)}</ul></div>} textoConfirmar={texto("ui.historial.correccionClase.guardar")} onConfirmar={async () => {
         setGuardandoAsistencia(true);
         try { await fetchOLanzar(`/api/turnos/${encodeURIComponent(turno.id)}/clase-dictada/correccion-asistencia`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ asistencias, motivo: motivo.trim() }) }); }
         finally { setGuardandoAsistencia(false); }
@@ -169,7 +169,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
             {!turno.alumnos.some(({ id }) => id === alumnoRegistro.id) && <Link className="text-xs text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={esProfesor
               ? `/turnos/${encodeURIComponent(turno.id)}/alumnos/${encodeURIComponent(alumnoRegistro.id)}/historial`
               : `/alumnos/${encodeURIComponent(alumnoRegistro.id)}?tab=historial&materia_id=${encodeURIComponent(turno.materia_id)}&volver=${encodeURIComponent(`/turnos/${turno.id}`)}`} prefetch={false}>{textoC19("ui.clases.interfaz.verHistorial")}</Link>}
-            <RegistrarIndicacionDialog
+            {!esProfesor && <RegistrarIndicacionDialog
               alumnoId={alumnoRegistro.id}
               nombreAlumno={alumnoRegistro.nombre_completo}
               materias={[{ id: turno.materia_id, nombre: turno.materia }]}
@@ -178,7 +178,7 @@ export function TurnoAlumnosCard({ turno, gestionable, puedeRegistrarClase = fal
               materiaFija={esProfesor}
               claseInicial={registroVisible.id}
               onRegistrado={onCambio}
-            />
+            />}
           </div>
         </li>)}
       </ul>

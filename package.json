@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:pg": "node scripts/test-pg.mjs",
+    "test:e2e:historial": "node scripts/testing/run-historial-po.mjs",
     "caja:abrir": "tsx scripts/caja-abrir.ts"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
