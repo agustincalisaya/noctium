@@ -1,0 +1,1018 @@
+{
+  "info": {
+    "name": "HU-I-12-b — Movimientos manuales de caja",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Nivel 2 de la §6 de docs/tasks/Sprint 3/Modulo I/HU-I-12-b.md (spec_modulo_I.md §2.10.3 a §2.10.5). Tres carpetas, cada una con su propio login de NextAuth (csrf + callback/credentials): correr cada carpeta en una corrida aparte (cookie jar nuevo), en el orden A → B → C, pasando el environment exportado de una a la siguiente (mov_ajeno_id). «mesa» = mesa.entrada2@noctium.local, «mesa_otra» = mesa.entrada@noctium.local, «gerente» = gerente@noctium.local. La contraseña NO se guarda: pasarla con --env-var password=… (o en un environment local). Si la cuenta no tiene caja abierta, el primer pedido de la carpeta la abre con fondo 0. B15 a B19 arman el caso ANULACION_DEJA_EFECTIVO_NEGATIVO con un ingreso y un egreso de $ 1.000.000 y después los anulan, así la caja queda con el mismo efectivo esperado (supone que el esperado previo de «mesa» es menor a $ 1.000.000). Ejecutada con newman: ver HU-I-12-b-evidencia.md."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "email_mesa",
+      "value": "mesa.entrada2@noctium.local"
+    },
+    {
+      "key": "email_mesa_otra",
+      "value": "mesa.entrada@noctium.local"
+    },
+    {
+      "key": "email_gerente",
+      "value": "gerente@noctium.local"
+    },
+    {
+      "key": "csrf",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "A · mesa_otra (correr primero, sesión propia)",
+      "item": [
+        {
+          "name": "A mesa_otra · GET csrf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrf', pm.response.json().csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A mesa_otra · POST login (credenciales)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/callback/credentials",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "csrfToken",
+                  "value": "{{csrf}}"
+                },
+                {
+                  "key": "email",
+                  "value": "{{email_mesa_otra}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login sin error', () => pm.expect(pm.response.code).to.be.below(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A mesa_otra · GET sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('sesión con rol MESA_ENTRADA', () => pm.expect(u.rol).to.eql('MESA_ENTRADA'));",
+                  "pm.environment.set('usuario_mesa_otra', u.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A mesa_otra · POST abrir caja si no hay (201 o 409 CAJA_YA_ABIERTA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('caja abierta', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A01 mesa_otra · POST ingreso — 201 (movimiento de otra caja, para B11)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"10\",\n  \"concepto\": \"Movimiento de otra caja (HU-I-12-b)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "pm.environment.set('mov_ajeno_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "B · mesa (caso principal)",
+      "item": [
+        {
+          "name": "B mesa · GET csrf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrf', pm.response.json().csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B mesa · POST login (credenciales)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/callback/credentials",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "csrfToken",
+                  "value": "{{csrf}}"
+                },
+                {
+                  "key": "email",
+                  "value": "{{email_mesa}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login sin error', () => pm.expect(pm.response.code).to.be.below(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B mesa · GET sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('sesión con rol MESA_ENTRADA', () => pm.expect(u.rol).to.eql('MESA_ENTRADA'));",
+                  "pm.environment.set('usuario_mesa', u.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B mesa · (control) otra cuenta que A",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('mesa ≠ mesa_otra', () => pm.expect(pm.response.json().user.id).to.not.eql(pm.environment.get('usuario_mesa_otra')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B mesa · POST abrir caja si no hay (201 o 409 CAJA_YA_ABIERTA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('caja abierta', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B01 mesa · POST ingreso válido — 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"1000\",\n  \"concepto\": \"  Ingreso de cambio para la caja  \"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('datos devueltos', () => { pm.expect(d.tipo).to.eql('INGRESO'); pm.expect(d.monto).to.eql('1000.00'); pm.expect(d.concepto).to.eql('Ingreso de cambio para la caja'); pm.expect(d.momento).to.match(/-03:00$/); });",
+                  "pm.environment.set('mov_ingreso_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B02 mesa · GET caja propia — el movimiento al tope, sin totales",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/cajas/mia"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json().data.caja;",
+                  "pm.test('primer ítem es el movimiento nuevo', () => { pm.expect(c.items[0].tipo).to.eql('MOVIMIENTO'); pm.expect(c.items[0].id).to.eql(pm.environment.get('mov_ingreso_id')); pm.expect(c.items[0].anulado).to.eql(false); });",
+                  "pm.test('sin totales (arqueo ciego)', () => pm.expect(JSON.stringify(c)).to.not.include('efectivo_esperado'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B03 mesa · POST egreso que supera el efectivo — 409 EGRESO_SUPERA_EFECTIVO sin el esperado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"EGRESO\",\n  \"monto\": \"999999999\",\n  \"concepto\": \"Retiro imposible\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('code EGRESO_SUPERA_EFECTIVO', () => pm.expect(pm.response.json().error.code).to.eql('EGRESO_SUPERA_EFECTIVO'));",
+                  "const cuerpo = pm.response.json();",
+                  "pm.test('sin detalles (arqueo ciego)', () => pm.expect(cuerpo.error).to.not.have.property('detalles'));",
+                  "pm.test('el cuerpo no expone el esperado ni ningún total', () => { const t = JSON.stringify(cuerpo); ['efectivo_esperado','esperado','resumen','total'].forEach((k) => pm.expect(t).to.not.include(k)); });",
+                  "pm.test('el mensaje no tiene montos', () => pm.expect(cuerpo.error.message).to.not.match(/\\d/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B04 mesa · POST monto 0 — 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"0\",\n  \"concepto\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));",
+                  "pm.test('error en monto', () => pm.expect(pm.response.json().error.detalles.fieldErrors).to.have.property('monto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B05 mesa · POST concepto vacío — 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"10\",\n  \"concepto\": \"   \"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Ingresá el concepto', () => pm.expect(pm.response.json().error.detalles.fieldErrors.concepto[0]).to.eql('Ingresá el concepto'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B06 mesa · POST concepto de 201 — 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"10\",\n  \"concepto\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('máximo 200', () => pm.expect(pm.response.json().error.detalles.fieldErrors.concepto[0]).to.eql('El concepto no puede superar los 200 caracteres'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B07 mesa · POST tipo inválido y campo extra — 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"AJUSTE\",\n  \"monto\": \"10\",\n  \"concepto\": \"x\",\n  \"caja_id\": \"c1\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B08 mesa · POST anular el ingreso — 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ingreso_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Se cargó por error\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+                  "pm.environment.set('anulacion_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B09 mesa · POST anular otra vez — 409 MOVIMIENTO_YA_ANULADO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ingreso_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Otra vez\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('code MOVIMIENTO_YA_ANULADO', () => pm.expect(pm.response.json().error.code).to.eql('MOVIMIENTO_YA_ANULADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B10 mesa · GET caja propia — el movimiento figura anulado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/cajas/mia"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const it = pm.response.json().data.caja.items.find((i) => i.id === pm.environment.get('mov_ingreso_id'));",
+                  "pm.test('anulado: true y monto intacto', () => { pm.expect(it.anulado).to.eql(true); pm.expect(it.monto).to.eql('1000.00'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B11 mesa · POST anular un movimiento de la caja de otro integrante — 404 MOVIMIENTO_NO_ENCONTRADO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ajeno_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"No es mío\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('code MOVIMIENTO_NO_ENCONTRADO', () => pm.expect(pm.response.json().error.code).to.eql('MOVIMIENTO_NO_ENCONTRADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B12 mesa · POST anular un id inexistente — 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/no-existe/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('code MOVIMIENTO_NO_ENCONTRADO', () => pm.expect(pm.response.json().error.code).to.eql('MOVIMIENTO_NO_ENCONTRADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B13 mesa · POST anular sin motivo — 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ingreso_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"  \"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Ingresá el motivo', () => pm.expect(pm.response.json().error.detalles.fieldErrors.motivo[0]).to.eql('Ingresá el motivo'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B14 mesa · POST motivo de 301 — 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ingreso_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('máximo 300', () => pm.expect(pm.response.json().error.detalles.fieldErrors.motivo[0]).to.eql('El motivo no puede superar los 300 caracteres'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B15 mesa · POST ingreso grande (preparación del caso negativo) — 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"1000000\",\n  \"concepto\": \"Ingreso grande de prueba\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('mov_ingreso_grande_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B16 mesa · POST egreso del mismo monto — 201 (no supera el esperado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"EGRESO\",\n  \"monto\": \"1000000\",\n  \"concepto\": \"Egreso grande de prueba\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('mov_egreso_grande_id', pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B17 mesa · POST anular el ingreso grande — 409 ANULACION_DEJA_EFECTIVO_NEGATIVO sin el esperado",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ingreso_grande_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Prueba\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('code ANULACION_DEJA_EFECTIVO_NEGATIVO', () => pm.expect(pm.response.json().error.code).to.eql('ANULACION_DEJA_EFECTIVO_NEGATIVO'));",
+                  "const cuerpo = pm.response.json();",
+                  "pm.test('sin detalles (arqueo ciego)', () => pm.expect(cuerpo.error).to.not.have.property('detalles'));",
+                  "pm.test('el cuerpo no expone el esperado ni ningún total', () => { const t = JSON.stringify(cuerpo); ['efectivo_esperado','esperado','resumen','total'].forEach((k) => pm.expect(t).to.not.include(k)); });",
+                  "pm.test('el mensaje no tiene montos', () => pm.expect(cuerpo.error.message).to.not.match(/\\d/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B18 mesa · POST anular el egreso grande — 201 (limpieza)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_egreso_grande_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Limpieza de la prueba\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B19 mesa · POST anular el ingreso grande — 201 (ahora sí; limpieza)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ingreso_grande_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Limpieza de la prueba\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "C · sin sesión y gerente",
+      "item": [
+        {
+          "name": "C01 sin sesión · POST movimiento — 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"1\",\n  \"concepto\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C gerente · GET csrf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/csrf"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('csrf', pm.response.json().csrfToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C gerente · POST login (credenciales)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/auth/callback/credentials",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "csrfToken",
+                  "value": "{{csrf}}"
+                },
+                {
+                  "key": "email",
+                  "value": "{{email_gerente}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login sin error', () => pm.expect(pm.response.code).to.be.below(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C gerente · GET sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/auth/session"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('sesión con rol GERENTE', () => pm.expect(u.rol).to.eql('GERENTE'));",
+                  "pm.environment.set('usuario_gerente', u.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C02 gerente · POST movimiento — 403 SIN_PERMISO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"INGRESO\",\n  \"monto\": \"1\",\n  \"concepto\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "C03 gerente · POST anulación — 403 SIN_PERMISO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cajas/mia/movimientos/{{mov_ajeno_id}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"x\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
