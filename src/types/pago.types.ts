@@ -26,12 +26,6 @@ export type PagoRegistrado = {
   fecha_pago: string;
 };
 
-export type PagoDeTurno = Omit<PagoRegistrado, "turno_id"> & {
-  registrado_en: string;
-  /** Comprobante vigente del pago (HU-I-11). */
-  comprobante: { id: string; numero: string } | null;
-};
-
 /**
  * Comprobante tal como lo muestran `GET /api/comprobantes/[id]` y sus dos
  * variantes (spec_modulo_I.md §2.9.3). Las marcas se derivan al leer (§2.9.4).
@@ -159,4 +153,64 @@ export type HistorialPagosData =
 export type OpcionesHistorialPagos = {
   formas_pago: { id: string; nombre: string; is_active: boolean }[];
   materias: { id: string; nombre: string }[];
+};
+/** HU-I-06: respuesta de `POST /api/pagos/[id]/correccion` (spec_modulo_I.md §2.14.2), con los valores vigentes. */
+export type PagoCorregidoDto = {
+  pago_id: string;
+  monto: string;
+  forma_pago: { id: string; nombre: string; is_active: boolean };
+  /** `YYYY-MM-DD`. */
+  fecha_pago: string;
+  /** Pagos no anulados de la operación (aviso «alcanza a N clases»). */
+  clases_abarcadas: number;
+  /** El último comprobante de reemplazo emitido. */
+  comprobante: { id: string; numero: string };
+};
+
+/** HU-I-06: respuesta de `POST /api/pagos/[id]/anulacion` (spec_modulo_I.md §2.14.3). */
+export type PagoAnuladoDto = {
+  pago_id: string;
+  anulado: true;
+  inscripcion: {
+    id: string;
+    estado_pago: "PAGADA" | "RESERVADA" | "PAGO_SIN_REGISTRAR";
+    /** ISO con el offset del centro; `null` si no se reabrió ninguna reserva. */
+    vence_el: string | null;
+  };
+  /** `null` si no se emitió ninguno (el vigente queda «ANULADO»). */
+  comprobante: { id: string; numero: string; reemplazo: true } | null;
+};
+
+export type TipoCambioPago = "CORRECCION_MONTO" | "CORRECCION_FORMA" | "CORRECCION_FECHA" | "ANULACION";
+
+/** Usuario del personal; `nombre_completo` es `null` si la cuenta no tiene ficha. */
+export type PersonaHistorialPago = { usuario_id: string; nombre_completo: string | null };
+
+/** HU-I-06: `GET /api/pagos/[id]/historial` (DEC-27, spec_modulo_I.md §2.14.6). */
+export type HistorialPagoDto = {
+  /** Valores vigentes del pago y quién y cuándo lo registró. */
+  registro: {
+    monto: string;
+    forma_pago: { id: string; nombre: string };
+    fecha_pago: string;
+    registrado_por: PersonaHistorialPago;
+    /** ISO con el offset del centro. */
+    registrado_en: string;
+  };
+  /**
+   * Cada evento con su propio anterior → nuevo, tal como quedó grabado: el
+   * monto como decimal, la forma por su nombre y la fecha `YYYY-MM-DD`. En la
+   * anulación, `valor_anterior` es el monto vigente del pago y `valor_nuevo`
+   * es `null`. Más nuevos primero.
+   */
+  cambios: {
+    tipo: TipoCambioPago;
+    valor_anterior: string | null;
+    valor_nuevo: string | null;
+    motivo: string;
+    /** `null` solo si la anuló un proceso automático (sin usuario). */
+    usuario: PersonaHistorialPago | null;
+    /** ISO con el offset del centro. */
+    fecha: string;
+  }[];
 };

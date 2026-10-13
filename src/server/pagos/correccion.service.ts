@@ -1,5 +1,6 @@
-import { Prisma, type RolUsuario } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { registrarAjuste } from "@/server/pagos/caja.service";
+import { puedeCorregirPago, type UsuarioOperador } from "@/server/pagos/correccion.alcance";
 import { comprobanteVigenteDe, emitirReemplazo, type ComprobanteEmitido } from "@/server/pagos/comprobante.service";
 import { existeFormaPago, verificarFormaPagoActiva } from "@/server/pagos/forma-pago.publico";
 import { contarPagosNoAnulados, operacionVigente, type OperacionVigente, type PagoVigente } from "@/server/pagos/pago.vigente";
@@ -21,27 +22,9 @@ import { recalcularEstadoPago, type CambioEstadoPago } from "@/server/turnos/ins
  * transacción: el segundo pedido de los mismos bloqueos no hace nada.
  */
 
-export type UsuarioOperador = { id: string; rol: RolUsuario };
-
-const DIAS_CORRECCION_MESA = 30;
-
-/**
- * Alcance de HU-I-06 (spec_modulo_I.md §2.14.1): el Gerente corrige o anula
- * cualquier pago no anulado; Mesa de Entrada, solo uno registrado hace 30 días
- * o menos y cuya caja siga abierta. El resto, nunca. Las pantallas lo usan
- * para mostrar los botones; el servidor lo vuelve a evaluar con todo bloqueado.
- */
-export function puedeCorregirPago(
-  usuario: UsuarioOperador,
-  pago: { anulado: boolean; registradoEn: Date; cajaAbierta: boolean },
-  momento: Date = ahora(),
-): boolean {
-  if (pago.anulado) return false;
-  if (usuario.rol === "GERENTE") return true;
-  if (usuario.rol !== "MESA_ENTRADA") return false;
-  const limite = momento.getTime() - DIAS_CORRECCION_MESA * 24 * 60 * 60 * 1000;
-  return pago.registradoEn.getTime() >= limite && pago.cajaAbierta;
-}
+// El alcance (§2.14.1) vive en `correccion.alcance.ts`, sin dependencias de
+// otros módulos, para que `pago.publico.ts` lo use (HU-I-06).
+export { puedeCorregirPago, type UsuarioOperador } from "@/server/pagos/correccion.alcance";
 
 type Contexto = { pago: PagoVigente; operacion: OperacionVigente; cajaPagoAbierta: boolean };
 

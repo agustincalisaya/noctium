@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { abrirCajaDePrueba } from "@/server/testing/fabricas";
-import { listarPagosDeTurno, sumarPagosPorMes } from "./pago.publico";
+import { listarPagosDeClase, sumarPagosPorMes } from "./pago.publico";
 
 // Inscripción vigente sin plazo de pago (PR-0.md §2.1 y §2.15): los campos que la fila exige desde el PR 0.
 const SIN_PLAZO = { estadoPago: "PAGO_SIN_REGISTRAR", precio: 10000, reservadaEl: new Date() } as const;
@@ -98,29 +98,31 @@ describe.skipIf(!habilitada)("pago.publico: PostgreSQL real aislado", () => {
   });
 
   it("lista todos los pagos del turno, más recientes primero, incluido el de un alumno no inscripto", async () => {
-    await expect(listarPagosDeTurno(id("t"), db!)).resolves.toEqual([
+    await expect(listarPagosDeClase(id("t"), null, db!)).resolves.toEqual([
       {
         id: id("p2"), alumno: { id: id("s2"), nombre_completo: "Gómez, Ana" }, monto: "12000.00",
-        forma_pago: { id: id("fi"), nombre: id("fi") }, fecha_pago: "2026-09-21", registrado_en: "2026-09-21T13:00:00.000Z",
+        forma_pago: { id: id("fi"), nombre: id("fi"), is_active: expect.any(Boolean) }, fecha_pago: "2026-09-21", registrado_en: "2026-09-21T13:00:00.000Z",
         // Pagos insertados directo, sin operación cobrada: no tienen comprobante (HU-I-11).
-        comprobante: null,
+        comprobante_vigente: null, anulado: false, anulacion: null, cambios: 0, puede_corregir: false,
+        inscripcion_id: expect.any(String), operacion_id: expect.any(String), clases_de_la_operacion: expect.any(Number),
       },
       {
         id: id("p1"), alumno: { id: id("s1"), nombre_completo: "Pérez, Ana" }, monto: "15000.50",
-        forma_pago: { id: id("fa"), nombre: id("fa") }, fecha_pago: "2026-09-20", registrado_en: "2026-09-20T13:00:00.000Z",
+        forma_pago: { id: id("fa"), nombre: id("fa"), is_active: expect.any(Boolean) }, fecha_pago: "2026-09-20", registrado_en: "2026-09-20T13:00:00.000Z",
         // Pagos insertados directo, sin operación cobrada: no tienen comprobante (HU-I-11).
-        comprobante: null,
+        comprobante_vigente: null, anulado: false, anulacion: null, cambios: 0, puede_corregir: false,
+        inscripcion_id: expect.any(String), operacion_id: expect.any(String), clases_de_la_operacion: expect.any(Number),
       },
     ]);
   });
 
   it("devuelve [] para un turno sin pagos y para un id inexistente", async () => {
-    await expect(listarPagosDeTurno(id("t-vacio"), db!)).resolves.toEqual([]);
-    await expect(listarPagosDeTurno(id("inexistente"), db!)).resolves.toEqual([]);
+    await expect(listarPagosDeClase(id("t-vacio"), null, db!)).resolves.toEqual([]);
+    await expect(listarPagosDeClase(id("inexistente"), null, db!)).resolves.toEqual([]);
   });
 
   it("funciona dentro de una transacción del llamador", async () => {
-    const pagos = await db!.$transaction((tx) => listarPagosDeTurno(id("t"), tx));
+    const pagos = await db!.$transaction((tx) => listarPagosDeClase(id("t"), null, tx));
     expect(pagos.map(({ id: pagoId }) => pagoId)).toEqual([id("p2"), id("p1")]);
   });
 

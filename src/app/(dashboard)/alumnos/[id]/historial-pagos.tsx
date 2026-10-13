@@ -11,8 +11,10 @@ import { TablaHistorialPagos } from "./tabla-historial-pagos";
 
 const opcionesVacias: OpcionesHistorialPagos = { formas_pago: [], materias: [] };
 
-export function HistorialPagos({ alumnoId, puedeRegistrarPago, iniciales }: {
+export function HistorialPagos({ alumnoId, alumnoNombre, puedeRegistrarPago, iniciales }: {
   alumnoId: string;
+  /** «Nombre Apellido», para los diálogos de corregir y anular (HU-I-06). */
+  alumnoNombre: string;
   puedeRegistrarPago: boolean;
   iniciales: Record<string, string | undefined>;
 }) {
@@ -133,7 +135,8 @@ export function HistorialPagos({ alumnoId, puedeRegistrarPago, iniciales }: {
       </div>}
       {data && !cargando && !error && (
         <>
-          {data.items.length > 0 ? <TablaHistorialPagos data={data} alumnoId={alumnoId} puedeRegistrarPago={puedeRegistrarPago} /> :
+          {data.items.length > 0 ? <TablaHistorialPagos data={data} alumnoId={alumnoId} alumnoNombre={alumnoNombre} puedeRegistrarPago={puedeRegistrarPago}
+            onActualizado={() => { iniciarCarga(); setIntento((n) => n + 1); }} /> :
             <div className="rounded-lg border border-border bg-card">
               {!modoEstado && <div className="flex items-center justify-between border-b border-border px-4 py-4 text-sm"><strong>{texto("ui.pagos.historial.titulo")}</strong><span>{texto("ui.pagos.historial.total")} <strong>{data.modo === "HISTORIAL" && formatearDineroHistorial(data.total_pagado)}</strong></span></div>}
               <p className="py-12 text-center text-sm text-muted-foreground">

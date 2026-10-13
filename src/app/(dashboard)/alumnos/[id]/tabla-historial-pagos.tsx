@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { PagoAcciones } from "@/components/pagos/pago-acciones";
 import { Badge } from "@/components/ui/badge";
 import { texto } from "@/lib/textos";
 import { formatearDineroHistorial } from "@/lib/pagos-historial-listado";
+import { diaAbreviadoYFecha } from "@/lib/turno-detalle";
 import type { HistorialPagosData } from "@/types/pago.types";
 
 const dia = (valor: string) => valor.slice(0, 10).split("-").reverse().join("/");
@@ -14,10 +16,14 @@ const fechaHora = (valor: string) => new Intl.DateTimeFormat("es-AR", {
   timeZone: "America/Argentina/Buenos_Aires",
 }).format(new Date(valor));
 
-export function TablaHistorialPagos({ data, alumnoId, puedeRegistrarPago }: {
+export function TablaHistorialPagos({ data, alumnoId, alumnoNombre, puedeRegistrarPago, onActualizado }: {
   data: HistorialPagosData;
   alumnoId: string;
+  /** «Nombre Apellido», para los títulos de Corregir/Anular (HU-I-06). */
+  alumnoNombre: string;
   puedeRegistrarPago: boolean;
+  /** Recarga el historial después de corregir o anular un pago (HU-I-06). */
+  onActualizado: () => void;
 }) {
   const columnasHistorial = [
     texto("ui.pagos.historial.columna.fecha"),
@@ -27,6 +33,7 @@ export function TablaHistorialPagos({ data, alumnoId, puedeRegistrarPago }: {
     texto("ui.pagos.historial.columna.forma"),
     texto("ui.pagos.historial.columna.registrado"),
     texto("ui.pagos.historial.columna.comprobante"),
+    texto("ui.pagos.historial.columna.acciones"),
   ];
   const columnasEstado = [
     texto("ui.pagos.historial.columna.fecha"),
@@ -42,7 +49,7 @@ export function TablaHistorialPagos({ data, alumnoId, puedeRegistrarPago }: {
         <h2 className="text-sm font-semibold">{texto("ui.pagos.historial.titulo")}</h2>
         <p className="text-xs text-muted-foreground">{texto("ui.pagos.historial.total")} <strong className="ml-1 text-foreground">{formatearDineroHistorial(data.total_pagado)}</strong></p>
       </div>
-      <table className="w-full min-w-[850px] text-left text-sm">
+      <table className="w-full min-w-[1000px] text-left text-sm">
         <thead className="border-y border-border text-xs uppercase text-muted-foreground">
           <tr>{columnasHistorial.map((nombre) =>
             <th key={nombre} scope="col" className="px-3 py-3 font-medium">{nombre}</th>)}</tr>
@@ -70,6 +77,17 @@ export function TablaHistorialPagos({ data, alumnoId, puedeRegistrarPago }: {
               </td>
               <td className="px-3 py-3 align-top">
                 {pago.comprobante ? <Link className="text-primary underline underline-offset-4" href={`/comprobantes/${encodeURIComponent(pago.comprobante.id)}`}>{pago.comprobante.numero}</Link> : "—"}
+              </td>
+              <td className="px-3 py-3 align-top">
+                <PagoAcciones
+                  pago={{
+                    id: pago.pago_id, monto: pago.monto, forma_pago: pago.forma_pago, fecha_pago: pago.fecha_pago,
+                    anulado: pago.anulado, puede_corregir: pago.puede_corregir, clases_de_la_operacion: pago.operacion.clases,
+                  }}
+                  alumnoNombre={alumnoNombre}
+                  claseEtiqueta={texto("ui.pagos.correccion.claseEtiqueta", { materia: pago.clase.materia.nombre, dia: diaAbreviadoYFecha(pago.clase.fecha) })}
+                  onActualizado={onActualizado}
+                />
               </td>
             </tr>
           ))}

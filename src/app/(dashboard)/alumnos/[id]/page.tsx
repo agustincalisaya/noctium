@@ -140,7 +140,7 @@ export default async function AlumnoDetallePage({
         />
       )}
       {mostrarClases && <HistorialClases alumnoId={id} />}
-      {mostrarPagos && <HistorialPagos alumnoId={id} puedeRegistrarPago={usuarioCrearPago?.rol === "MESA_ENTRADA"} iniciales={{ pagina, desde, hasta, forma_pago_id, materia_id, estado_pago }} />}
+      {mostrarPagos && <HistorialPagos alumnoId={id} alumnoNombre={alumno ? `${alumno.nombre} ${alumno.apellido}` : ""} puedeRegistrarPago={usuarioCrearPago?.rol === "MESA_ENTRADA"} iniciales={{ pagina, desde, hasta, forma_pago_id, materia_id, estado_pago }} />}
       {!mostrarHistorial && !mostrarClases && !mostrarPagos && alumno && (
         <>
           <FichaContacto

@@ -16,9 +16,11 @@ vi.mock("next/link", async () => {
 const { TurnoDetalleVista } = await import("./turno-detalle");
 
 const RETORNO = "/turnos?pagina=2&orden=fecha_hora_asc";
+// HU-I-06: campos de corrección (sin alcance: solo «Ver detalle»).
+const DE_HU_I06 = { operacion_id: "op", anulado: false, anulacion: null, cambios: 0, clases_de_la_operacion: 1, puede_corregir: false };
 const PAGOS = [
-  { id: "pago-2", alumno: { id: "alumno-2", nombre_completo: "Gómez, Lucía" }, monto: "12000.00", forma_pago: { id: "fp-1", nombre: "Transferencia" }, fecha_pago: "2026-10-02", registrado_en: "2026-10-02T15:00:00.000Z", comprobante: { id: "comp-2", numero: "0001-00000124" } },
-  { id: "pago-1", alumno: { id: "alumno-1", nombre_completo: "Pérez, Juan" }, monto: "15000.50", forma_pago: { id: "fp-2", nombre: "Efectivo" }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z", comprobante: null },
+  { id: "pago-2", alumno: { id: "alumno-2", nombre_completo: "Gómez, Lucía" }, monto: "12000.00", forma_pago: { id: "fp-1", nombre: "Transferencia", is_active: true }, fecha_pago: "2026-10-02", registrado_en: "2026-10-02T15:00:00.000Z", comprobante: { id: "comp-2", numero: "0001-00000124" }, ...DE_HU_I06 },
+  { id: "pago-1", alumno: { id: "alumno-1", nombre_completo: "Pérez, Juan" }, monto: "15000.50", forma_pago: { id: "fp-2", nombre: "Efectivo", is_active: true }, fecha_pago: "2026-10-01", registrado_en: "2026-10-01T15:00:00.000Z", comprobante: null, ...DE_HU_I06 },
 ];
 const detalle = (extra: Record<string, unknown> = {}) => ({
   id: "turno-1", fecha: "2026-10-06", hora_inicio: "16:00", hora_fin: "17:00", duracion_minutos: 60, cupo_maximo: 6,
@@ -34,8 +36,8 @@ const respuesta = (data: unknown, ok = true, error?: unknown) => ({ ok, json: as
 let root: Root;
 let container: HTMLDivElement;
 const esperar = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarPago?: boolean; puedeRegistrarClase?: boolean } = {}) => {
-  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarPago={props.puedeRegistrarPago ?? false} puedeRegistrarClase={props.puedeRegistrarClase ?? false} />));
+const montar = async (props: { puedeConfigurar?: boolean; puedeGestionarAlumnos?: boolean; puedeRegistrarClase?: boolean } = {}) => {
+  await act(async () => root.render(<TurnoDetalleVista id="turno-1" retorno={RETORNO} puedeConfigurar={props.puedeConfigurar ?? false} puedeGestionarAlumnos={props.puedeGestionarAlumnos ?? false} puedeRegistrarClase={props.puedeRegistrarClase ?? false} />));
   await esperar();
 };
 const valor = (etiqueta: string) => [...container.querySelectorAll("dt")].find((dt) => dt.textContent === etiqueta)?.nextElementSibling?.textContent;
@@ -417,9 +419,26 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(tarjeta.querySelector("h2")?.textContent).toBe("Pago");
     expect(tarjeta.textContent).toContain("Pagos registrados");
     expect([...tarjeta.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
-      "Gómez, Lucía02/10/2026 · TransferenciaComprobante 0001-00000124$ 12.000", "Pérez, Juan01/10/2026 · Efectivo$ 15.000,50",
+      "Gómez, Lucía02/10/2026 · TransferenciaComprobante 0001-00000124$ 12.000Ver detalle", "Pérez, Juan01/10/2026 · Efectivo$ 15.000,50Ver detalle",
     ]);
     expect(tarjeta.textContent).toContain("Total registrado$ 27.000,50");
+  });
+
+  it("HU-I-06: Corregir y Anular solo con puede_corregir; el pago anulado se ve tachado con «Anulado», sin acciones y fuera del total y del aviso N-3", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ pagos: [
+      { ...PAGOS[0], puede_corregir: true },
+      { ...PAGOS[1], anulado: true, anulacion: { fecha: "2026-10-03T12:00:00.000Z", motivo: "Reintegro" } },
+    ] })));
+    await montar();
+    const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
+    const [vigente, anulado] = [...tarjeta.querySelectorAll("li")];
+    expect([...vigente!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Corregir", "Anular", "Ver detalle"]);
+    expect([...anulado!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Ver detalle"]);
+    expect(anulado!.textContent).toContain("Anulado");
+    expect(anulado!.querySelector(".line-through")?.textContent).toBe("$ 15.000,50");
+    expect(tarjeta.textContent).toContain("Total registrado$ 12.000");
+    await act(async () => ([...container.querySelectorAll("header button")].find((b) => b.textContent === "Cancelar clase") as HTMLButtonElement).click());
+    expect(document.querySelector('[role="alertdialog"]')!.textContent).toContain("Esta clase tiene 1 pago registrado");
   });
 
   it("HU-I-11: cada pago con comprobante enlaza a /comprobantes/[id]; sin comprobante no hay link", async () => {
@@ -429,20 +448,23 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
     expect(links).toEqual([["Comprobante 0001-00000124", "/comprobantes/comp-2"]]);
   });
 
-  it("HU-I-01 ofrece registro solo con permiso y elegibilidad; conserva la lectura en un turno cancelado", async () => {
-    await montar({ puedeRegistrarPago: true });
-    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Registrar pago")).toBe(true);
-    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
-    await act(async () => root.unmount()); root = createRoot(container);
-    await montar({ puedeRegistrarPago: true });
-    expect([...container.querySelectorAll("button")].some((b) => b.textContent === "Registrar pago")).toBe(false);
-    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
+  it("HU-I-10: la tarjeta Pago solo informa pagos; el cobro se ofrece por alumno", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({
+      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: true }],
+    })));
+    await montar();
+    const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
+    expect(tarjeta.textContent).toContain("Total registrado");
+    expect(tarjeta.querySelector("button")).toBeNull();
+    expect(container.querySelector('a[aria-label="Registrar pago de Pérez, Juan"]')?.getAttribute("href"))
+      .toBe("/pagos/registrar?alumno=alumno-1&clase=turno-1");
   });
 
-  it("HU-I-01 deshabilita registro cuando no hay inscriptos", async () => {
-    fetch.mockResolvedValue(respuesta(detalle({ alumnos: [], acciones_habilitadas: [] })));
-    await montar({ puedeRegistrarPago: true });
-    expect(([...container.querySelectorAll("button")].find((b) => b.textContent === "Registrar pago") as HTMLButtonElement).disabled).toBe(true);
+  it("HU-I-10: la tarjeta Pago conserva la lectura en una clase cancelada", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    await montar();
+    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
+    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"] button')).toBeNull();
   });
 
   it("tarjeta «Pago» vacía → «Ninguno todavía.»", async () => {

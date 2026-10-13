@@ -28,7 +28,7 @@ vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnosBasicos: mocks
 vi.mock("@/server/materias/materia.publico", () => ({ obtenerTarifasPorIds: mocks.tarifas }));
 vi.mock("@/server/pagos/forma-pago.publico", () => ({ verificarFormaPagoActiva: mocks.forma, listarFormasPagoActivas: mocks.formas }));
 const { registrarPago, obtenerOpcionesPago, fechaHoyArgentina, buscarAlumnosParaCobro, listarClasesPendientesDePago, registrarOperacionDePago } = await import("./pago.service");
-const { listarPagosDeTurno } = await import("./pago.publico");
+const { listarPagosDeClase } = await import("./pago.publico");
 const { ErrorDeDominio } = await import("@/server/shared/error-dominio");
 const input = { turno_id: "seed-turno-02", alumno_id: "a1", forma_pago_id: "f1", monto: "1500.50" };
 const alumno = { id: "a1", apellido: "Domínguez", nombre: "Lara", dni: "45976577", activo: false, forma_pago_preferida_id: "f1" };
@@ -141,7 +141,7 @@ describe("consulta histórica", () => {
         fechaPago: new Date("2026-09-30"), createdAtPago: new Date("2026-10-01"), motivoAjuste: null, ajustadoPorUsuarioId: null, anulacion: null, correcciones: [],
       }],
     })));
-    const pagos = await listarPagosDeTurno("t1");
+    const pagos = await listarPagosDeClase("t1");
     expect(pagos).toHaveLength(2); expect(pagos[0]).toMatchObject({ monto: "0.10", alumno: { id: "a1", nombre_completo: "Domínguez, Lara" }, forma_pago: { nombre: "Efectivo" } });
     expect(mocks.alumnos).toHaveBeenCalledTimes(1);
     expect(mocks.operaciones).toHaveBeenCalledWith(expect.objectContaining({ where: { pagos: { some: { turnoId: "t1" } } } }));
