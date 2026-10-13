@@ -1,0 +1,282 @@
+[
+  {
+    "caso": "3-desktop-2",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 528,
+      "scrollWidth": 528,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 0,
+      "top": 0,
+      "overflowX": "hidden"
+    },
+    "sinRegistros": 2,
+    "resumen": {
+      "inscriptos": 100,
+      "presentes": 50,
+      "ausentes": 50,
+      "indice": 50
+    }
+  },
+  {
+    "caso": "6-desktop-3",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 528,
+      "scrollWidth": 528,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 0,
+      "top": 0,
+      "overflowX": "hidden"
+    },
+    "sinRegistros": 2,
+    "resumen": {
+      "inscriptos": 520,
+      "presentes": 210,
+      "ausentes": 310,
+      "indice": 40.4
+    }
+  },
+  {
+    "caso": "12-desktop-8",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 528,
+      "scrollWidth": 944,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 416,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 5,
+    "resumen": {
+      "inscriptos": 1090,
+      "presentes": 464,
+      "ausentes": 626,
+      "indice": 42.6
+    }
+  },
+  {
+    "caso": "13-desktop-8",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 1104,
+      "scrollWidth": 1104,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 0,
+      "top": 0,
+      "overflowX": "hidden"
+    },
+    "sinRegistros": 6,
+    "resumen": {
+      "inscriptos": 1090,
+      "presentes": 464,
+      "ausentes": 626,
+      "indice": 42.6
+    }
+  },
+  {
+    "caso": "24-desktop-16",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 1104,
+      "scrollWidth": 1808,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 704,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 10,
+    "resumen": {
+      "inscriptos": 3010,
+      "presentes": 1214,
+      "ausentes": 1796,
+      "indice": 40.3
+    }
+  },
+  {
+    "caso": "6-desktop-8-altos",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 528,
+      "scrollWidth": 1172,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 644,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 2,
+    "resumen": {
+      "inscriptos": 40011984,
+      "presentes": 16004992,
+      "ausentes": 24006992,
+      "indice": 40
+    }
+  },
+  {
+    "caso": "6-desktop-0-sin-registros",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 528,
+      "scrollWidth": 528,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 0,
+      "top": 0,
+      "overflowX": "hidden"
+    },
+    "sinRegistros": 6,
+    "resumen": {
+      "inscriptos": 0,
+      "presentes": 0,
+      "ausentes": 0,
+      "indice": null
+    }
+  },
+  {
+    "caso": "3-mobile-2",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 326,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 0,
+      "top": 0,
+      "overflowX": "hidden"
+    },
+    "sinRegistros": 2,
+    "resumen": {
+      "inscriptos": 100,
+      "presentes": 50,
+      "ausentes": 50,
+      "indice": 50
+    }
+  },
+  {
+    "caso": "6-mobile-3",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 512,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 186,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 2,
+    "resumen": {
+      "inscriptos": 520,
+      "presentes": 210,
+      "ausentes": 310,
+      "indice": 40.4
+    }
+  },
+  {
+    "caso": "12-mobile-8",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 944,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 618,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 5,
+    "resumen": {
+      "inscriptos": 1090,
+      "presentes": 464,
+      "ausentes": 626,
+      "indice": 42.6
+    }
+  },
+  {
+    "caso": "13-mobile-8",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 1016,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 690,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 6,
+    "resumen": {
+      "inscriptos": 1090,
+      "presentes": 464,
+      "ausentes": 626,
+      "indice": 42.6
+    }
+  },
+  {
+    "caso": "24-mobile-16",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 1808,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 1482,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 10,
+    "resumen": {
+      "inscriptos": 3010,
+      "presentes": 1214,
+      "ausentes": 1796,
+      "indice": 40.3
+    }
+  },
+  {
+    "caso": "6-mobile-8-altos",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 1172,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 846,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 2,
+    "resumen": {
+      "inscriptos": 40011984,
+      "presentes": 16004992,
+      "ausentes": 24006992,
+      "indice": 40
+    }
+  },
+  {
+    "caso": "6-mobile-0-sin-registros",
+    "resultado": "aprobado",
+    "meses": {
+      "width": 326,
+      "scrollWidth": 512,
+      "height": 250,
+      "scrollHeight": 250,
+      "left": 186,
+      "top": 0,
+      "overflowX": "auto"
+    },
+    "sinRegistros": 6,
+    "resumen": {
+      "inscriptos": 0,
+      "presentes": 0,
+      "ausentes": 0,
+      "indice": null
+    }
+  }
+]

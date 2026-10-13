@@ -158,30 +158,32 @@
   }
 }
 /*
- * Impresión del comprobante de pago (HU-I-11, spec_modulo_I.md §2.9.3): solo
- * en la página que contiene `[data-comprobante]` (ComprobanteCard). Oculta
- * sidebar, navbar y el resto de la pantalla, y libera el alto fijo y el
- * overflow del layout del dashboard para que la tarjeta no salga recortada.
- * La impresión de cualquier otra pantalla no cambia.
+ * Impresión del comprobante de pago (HU-I-11, spec_modulo_I.md §2.9.3) y del
+ * cierre de caja (HU-I-12 criterio 8, §2.12): solo en la página que contiene
+ * `[data-comprobante]` (ComprobanteCard) o `[data-cierre-caja]`
+ * (DetalleCierreCaja). Oculta sidebar, navbar y el resto de la pantalla, y
+ * libera el alto fijo y el overflow del layout del dashboard para que el
+ * documento no salga recortado. La impresión de cualquier otra pantalla no
+ * cambia.
  */
 @media print {
-  body:has([data-comprobante]) {
+  body:has(:is([data-comprobante], [data-cierre-caja])) {
     background: var(--card);
   }
-  body:has([data-comprobante]) * {
+  body:has(:is([data-comprobante], [data-cierre-caja])) * {
     visibility: hidden;
   }
-  body:has([data-comprobante]) div:has([data-comprobante]),
-  body:has([data-comprobante]) main:has([data-comprobante]) {
+  body:has(:is([data-comprobante], [data-cierre-caja])) div:has(:is([data-comprobante], [data-cierre-caja])),
+  body:has(:is([data-comprobante], [data-cierre-caja])) main:has(:is([data-comprobante], [data-cierre-caja])) {
     height: auto;
     overflow: visible;
   }
   /* Misma especificidad que la regla que oculta todo, para que esta le gane por orden. */
-  body:has([data-comprobante]) [data-comprobante],
-  body:has([data-comprobante]) [data-comprobante] * {
+  body:has(:is([data-comprobante], [data-cierre-caja])) :is([data-comprobante], [data-cierre-caja]),
+  body:has(:is([data-comprobante], [data-cierre-caja])) :is([data-comprobante], [data-cierre-caja]) * {
     visibility: visible;
   }
-  [data-comprobante] {
+  :is([data-comprobante], [data-cierre-caja]) {
     position: absolute;
     inset: 0 0 auto 0;
   }

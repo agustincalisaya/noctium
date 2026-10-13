@@ -1,0 +1,370 @@
+[
+  {
+    "caso": "datos-reales",
+    "resultado": "idénticos antes y después; totales mensuales y por materia coinciden"
+  },
+  {
+    "caso": "6-desktop-2",
+    "meses": {
+      "ancho": 528,
+      "contenido": 528,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "hidden",
+      "tabIndex": -1
+    },
+    "materias": {
+      "ancho": 528,
+      "contenido": 528,
+      "alto": 88,
+      "contenidoAlto": 88,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "12-desktop-3",
+    "meses": {
+      "ancho": 528,
+      "contenido": 914,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 386,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 528,
+      "contenido": 528,
+      "alto": 124,
+      "contenidoAlto": 124,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "13-desktop-8",
+    "meses": {
+      "ancho": 1104,
+      "contenido": 1104,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "hidden",
+      "tabIndex": -1
+    },
+    "materias": {
+      "ancho": 1104,
+      "contenido": 1104,
+      "alto": 304,
+      "contenidoAlto": 304,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "24-desktop-16",
+    "meses": {
+      "ancho": 1104,
+      "contenido": 1778,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 674,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 1104,
+      "contenido": 1104,
+      "alto": 320,
+      "contenidoAlto": 592,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": 0
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "22-desktop-3",
+    "meses": {
+      "ancho": 1104,
+      "contenido": 1634,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 530,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 1104,
+      "contenido": 1104,
+      "alto": 124,
+      "contenidoAlto": 124,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "6-desktop-8-altos",
+    "meses": {
+      "ancho": 528,
+      "contenido": 2138,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 1610,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 528,
+      "contenido": 528,
+      "alto": 304,
+      "contenidoAlto": 304,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "6-desktop-1-singular",
+    "meses": {
+      "ancho": 528,
+      "contenido": 528,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "hidden",
+      "tabIndex": -1
+    },
+    "materias": {
+      "ancho": 528,
+      "contenido": 528,
+      "alto": 80,
+      "contenidoAlto": 80,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "6-mobile-2",
+    "meses": {
+      "ancho": 326,
+      "contenido": 482,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 156,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 88,
+      "contenidoAlto": 88,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "12-mobile-3",
+    "meses": {
+      "ancho": 326,
+      "contenido": 914,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 588,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 124,
+      "contenidoAlto": 124,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "13-mobile-8",
+    "meses": {
+      "ancho": 326,
+      "contenido": 986,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 660,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 304,
+      "contenidoAlto": 304,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "24-mobile-16",
+    "meses": {
+      "ancho": 326,
+      "contenido": 1778,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 1452,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 320,
+      "contenidoAlto": 592,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": 0
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "22-mobile-3",
+    "meses": {
+      "ancho": 326,
+      "contenido": 1634,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 1308,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 124,
+      "contenidoAlto": 124,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "6-mobile-8-altos",
+    "meses": {
+      "ancho": 326,
+      "contenido": 2138,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 1812,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 304,
+      "contenidoAlto": 304,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  },
+  {
+    "caso": "6-mobile-1-singular",
+    "meses": {
+      "ancho": 326,
+      "contenido": 482,
+      "alto": 200,
+      "contenidoAlto": 200,
+      "izquierda": 156,
+      "arriba": 0,
+      "overflowX": "auto",
+      "overflowY": "hidden",
+      "tabIndex": 0
+    },
+    "materias": {
+      "ancho": 326,
+      "contenido": 326,
+      "alto": 80,
+      "contenidoAlto": 80,
+      "izquierda": 0,
+      "arriba": 0,
+      "overflowX": "hidden",
+      "overflowY": "auto",
+      "tabIndex": -1
+    },
+    "resultado": "aprobado"
+  }
+]

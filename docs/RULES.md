@@ -121,7 +121,7 @@ La baja y reactivación toman primero el bloqueo canónico del alumno y validan 
 
 El permiso `profesores:cambiar_estado` se comprueba en las rutas y actions. Baja/reactivación bloquean al profesor y validan versión y estado; la ficha y su cuenta cambian en la misma transacción. C toma ese mismo recurso antes de crear, confirmar, generar o reprogramar clases y vuelve a comprobar actividad. Los lotes usan una transacción por clase, conservan pagos e inscripciones y reportan fallos por fila. El historial de estados se encola después del commit. La revocación de A conserva milisegundos y el guard compara `iat_sesion` sin truncar; renovar no cambia ese inicio y reactivar no borra el umbral.
 
-Textos nuevos centralizados en `ui.profesores.estado.*`; selección de M-40 limitada al filtro y página visible (diez), por decisión explícita del usuario documentada en la task. Los ids de clase admiten los identificadores estables del seed, con pertenencia validada antes del lote.
+Textos nuevos centralizados en `ui.profesores.estado.*`; selección de M-40 sobre todas las clases del filtro (`seleccion.items`, hasta 500), independiente de la página visible. Cambiar página conserva las marcas; cambiar materia descarta solo las que quedan fuera. Contadores, alumnos y pagos usan los ítems marcados completos. Vista previa y mutaciones se envían en tandas secuenciales de hasta 100, sumando resultados y conservando las fallidas seleccionadas con su motivo. La UI informa si la selección está truncada y recarga tras procesar para ofrecer las restantes. Los ids de clase admiten los identificadores estables del seed, con pertenencia validada antes del lote.
 
 ## Aplicación HU-F-01 — Personal de mesa de entrada
 
@@ -150,6 +150,16 @@ Textos nuevos centralizados en `ui.profesores.estado.*`; selección de M-40 limi
 - Nada se borra (Regla N.° 1): la ficha y la cuenta quedan inactivas, el DNI y el email siguen reservados, las operaciones conservan su `usuarioId` y todas las bajas y reactivaciones quedan en el historial.
 - El detalle (`obtenerDetalleIntegrante`) suma `historialEstados` (con el nombre de quien actuó, por `obtenerNombresPersonal`), `cajaAbierta` y `motivoObligatorioAlDesactivar`: indicadores de solo lectura, sin bloqueo, calculados solo con la ficha activa y con cuenta. El servidor repite la validación al desactivar.
 - La pantalla usa `ConfirmarAccionDialog` reversible (`destructiva`, sin `irreversible`) con el motivo en `contenido`; con la caja abierta muestra un `Dialog` informativo en lugar de la confirmación. Los rechazos se ven dentro del modal y, al cerrarlo después de un rechazo, la ficha se refresca; el éxito, con toast y `router.refresh()`. Textos en `ui.personal.ficha.*`, `ui.personal.baja.*`, `ui.personal.reactivacion.*` y `ui.personal.historial.*`.
+
+## Aplicación HU-I-12 — Abrir y cerrar la caja con arqueo ciego
+
+- Permisos (Regla N.° 10): `cajas:abrir`, `cajas:leer` y `cajas:cerrar` (mesa de entrada) y `cajas:leer_todas` y `cajas:cerrar_ausencia` (gerente), con `withPermission` en las 11 rutas de `/api/cajas/**` y `exigirPermiso` en las páginas. `/caja` (mesa de entrada) y `/cajas` (gerente) están en el `matcher` del proxy y en `rutas-por-rol.ts`; el detalle de un cierre propio vive en `/caja/cierres/[id]`.
+- Toda la regla de negocio sigue en `caja.service.ts` del PR 0 (Regla N.° 4), que esta HU no modifica. `caja.flujos.ts` solo abre la `transaccion()`, resuelve la caja (la abierta del usuario, o la de otro integrante en el cierre por ausencia) y llama al servicio. `caja.lecturas.ts` son lecturas sin bloqueo: el resumen y la huella los arma siempre `calcularResumen`.
+- Arqueo ciego: mientras la caja está abierta ninguna respuesta trae totales, subtotales ni el efectivo esperado (tampoco al gerente, que ve las abiertas solo con su antigüedad). El resumen sale recién con el efectivo declarado (`EFECTIVO_NO_DECLARADO` antes).
+- La declaración es única y la caja sigue abierta; el cierre compara la huella y, si cambió, responde `CAJA_CAMBIO` con el resumen y la huella nuevos en `detalles` (expuestos por `respuestaDeError`), sin cerrar. Concurrencia y unicidad: las del PR 0 (bloqueo de la caja, índice único parcial, `updateMany` condicionado; Regla N.° 7).
+- Nada se borra ni se modifica después del cierre (Reglas N.° 1 y N.° 8): el detalle muestra el `resumen` guardado al cerrar, nunca uno recalculado. La trazabilidad es la de la propia fila (opción a de la Regla N.° 2: quién y cuándo abrió, declaró y cerró, y si fue por ausencia).
+- Los nombres del personal, los alumnos y las clases del arqueo se leen por las fachadas de F, B y C (Regla N.° 3); el filtro de integrantes del gerente se arma desde las cajas, no desde las fichas.
+- Textos en `ui.caja.*`, `ui.cajas.*` y `confirmaciones.caja.*` (HU-C-23); no hay códigos de error nuevos. Feedback según DESIGN.md §6.4: toast al abrir y al cerrar (acciones en modal).
 
 ## Aplicación HU-G-01 — Gerentes
 

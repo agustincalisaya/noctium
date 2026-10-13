@@ -75,5 +75,8 @@ export const config = {
     "/mis-pagos/:path*",
     // HU-I-10: registrar pago (solo mesa de entrada)
     "/pagos/:path*",
+    // HU-I-12: «Mi caja» (mesa de entrada) y «Cierres de caja» (gerente).
+    "/caja/:path*",
+    "/cajas/:path*",
   ],
 };

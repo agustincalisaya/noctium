@@ -36,6 +36,12 @@ type ConfirmarAccionDialogProps = {
   destructiva?: boolean;
   confirmarDeshabilitado?: boolean;
   contenido?: ReactNode;
+  /**
+   * Acción que acompaña al rechazo del servidor (p. ej. el enlace «Abrir caja»
+   * de CAJA_NO_ABIERTA, HU-I-12 criterio 2). Se muestra debajo del error, solo
+   * mientras hay un error; el llamador decide según el `code` que recibió.
+   */
+  accionError?: ReactNode;
   className?: string;
   /**
    * Se llama al tocar el botón de confirmar. Si el servidor rechaza, debe
@@ -69,6 +75,7 @@ export function ConfirmarAccionDialog({
   destructiva = false,
   confirmarDeshabilitado = false,
   contenido,
+  accionError,
   className = "",
   onConfirmar,
   onExito,
@@ -123,6 +130,7 @@ export function ConfirmarAccionDialog({
               {error}
             </p>
           )}
+          {error && accionError && <div className="mt-2">{accionError}</div>}
           <div className="mt-6 flex justify-end gap-2">
             <Button ref={volverRef} type="button" variant="outline" disabled={enviando} onClick={onCerrar}>
               {TEXTO_VOLVER}

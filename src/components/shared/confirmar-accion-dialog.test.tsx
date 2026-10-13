@@ -114,6 +114,21 @@ describe("HU-C-25 ConfirmarAccionDialog", () => {
     expect(onCerrar).toHaveBeenCalledOnce();
   });
 
+  it("accionError (HU-I-12): se muestra debajo del rechazo, solo mientras hay un error", async () => {
+    const onConfirmar = vi.fn().mockRejectedValueOnce(new Error("No se puede registrar un cobro hasta que abras una caja."));
+    await act(async () => {
+      root.render(
+        <ConfirmarAccionDialog abierto titulo={TITULO} textoConfirmar="Registrar pago" onConfirmar={onConfirmar} onCerrar={onCerrar}
+          accionError={<a href="/caja">Abrir caja</a>} />,
+      );
+    });
+    expect(dialogo()!.querySelector('a[href="/caja"]')).toBeNull();
+    await act(async () => boton("Registrar pago").click());
+    const enlace = dialogo()!.querySelector('a[href="/caja"]');
+    expect(enlace?.textContent).toBe("Abrir caja");
+    expect(dialogo()!.querySelector('[role="alert"]')?.textContent).toBe("No se puede registrar un cobro hasta que abras una caja.");
+  });
+
   it("irreversible: muestra la leyenda, botón en rojo y foco inicial en «Volver»", async () => {
     await montar(async () => {}, true);
     expect(dialogo()!.textContent).toContain("Esta acción no se puede deshacer.");

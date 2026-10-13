@@ -20,6 +20,21 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); el.remove(); vi.unstubAllGlobals(); });
 async function render() { await act(async () => root.render(<CancelacionesIndicadores rango={rango} />)); }
 describe("HU-H-10 tarjetas, unidades y tasas", () => {
+  it("un registro usa inscripción y clase en totales y denominadores", async () => {
+    m.datos["/api/indicadores/cancelaciones-por-mes"] = {
+      meses: [{ mes: "2026-05", clases_canceladas_centro: 1, inscripciones_canceladas_alumno: 1, reservas_vencidas: 1, bajas: 1 }],
+      totales: { clases_canceladas_centro: 1, inscripciones_canceladas_alumno: 1, reservas_vencidas: 1, bajas: 1 },
+      tasas: { clases: { canceladas: 1, totales: 1, tasa: 100 }, inscripciones: { canceladas_alumno: 1, totales: 1, tasa: 100 } },
+    };
+    m.datos["/api/indicadores/cancelaciones-por-materia"] = { items: [{ materia_id: "m", nombre: "Física", activa: true, clases_canceladas_centro: 1, inscripciones_canceladas_alumno: 1 }] };
+    await render();
+    const cards = el.querySelectorAll('[role="region"]');
+    expect([...cards[0].querySelectorAll("strong")].map(n => n.textContent)).toEqual(["1 clase", "1 inscripción", "1 inscripción", "1 inscripción"]);
+    expect([...cards[1].querySelectorAll("strong")].map(n => n.textContent)).toEqual(["1 clase", "1 inscripción"]);
+    expect(cards[2].textContent).toContain("1 de 1 clase");
+    expect(cards[3].textContent).toContain("1 de 1 inscripción (");
+    expect(cards[3].textContent).not.toContain("1 inscripciones");
+  });
   it("período común, cuatro series mensuales y dos por materia, tabla exacta y tasas separadas", async () => {
     await render(); expect(m.rangos).toEqual([rango, rango]);
     const cards = el.querySelectorAll('[role="region"]'); expect(cards).toHaveLength(4);
