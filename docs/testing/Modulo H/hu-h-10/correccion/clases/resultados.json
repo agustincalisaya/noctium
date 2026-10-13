@@ -1,0 +1,26 @@
+[
+  {
+    "caso": "6-desktop",
+    "resultado": "aprobado",
+    "desde": "2026-05",
+    "hasta": "2026-10"
+  },
+  {
+    "caso": "24-desktop",
+    "resultado": "aprobado",
+    "desde": "2024-11",
+    "hasta": "2026-10"
+  },
+  {
+    "caso": "6-mobile",
+    "resultado": "aprobado",
+    "desde": "2026-05",
+    "hasta": "2026-10"
+  },
+  {
+    "caso": "24-mobile",
+    "resultado": "aprobado",
+    "desde": "2024-11",
+    "hasta": "2026-10"
+  }
+]

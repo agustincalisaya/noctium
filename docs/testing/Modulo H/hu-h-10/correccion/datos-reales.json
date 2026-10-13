@@ -1,0 +1,92 @@
+{
+  "monthly": {
+    "data": {
+      "meses": [
+        {
+          "mes": "2026-05",
+          "clases_canceladas_centro": 2,
+          "inscripciones_canceladas_alumno": 3,
+          "reservas_vencidas": 11,
+          "bajas": 1
+        },
+        {
+          "mes": "2026-06",
+          "clases_canceladas_centro": 2,
+          "inscripciones_canceladas_alumno": 2,
+          "reservas_vencidas": 5,
+          "bajas": 1
+        },
+        {
+          "mes": "2026-07",
+          "clases_canceladas_centro": 2,
+          "inscripciones_canceladas_alumno": 1,
+          "reservas_vencidas": 13,
+          "bajas": 1
+        },
+        {
+          "mes": "2026-08",
+          "clases_canceladas_centro": 2,
+          "inscripciones_canceladas_alumno": 3,
+          "reservas_vencidas": 8,
+          "bajas": 1
+        },
+        {
+          "mes": "2026-09",
+          "clases_canceladas_centro": 2,
+          "inscripciones_canceladas_alumno": 2,
+          "reservas_vencidas": 16,
+          "bajas": 1
+        },
+        {
+          "mes": "2026-10",
+          "clases_canceladas_centro": 3,
+          "inscripciones_canceladas_alumno": 2,
+          "reservas_vencidas": 2,
+          "bajas": 1
+        }
+      ],
+      "totales": {
+        "clases_canceladas_centro": 13,
+        "inscripciones_canceladas_alumno": 13,
+        "reservas_vencidas": 55,
+        "bajas": 6
+      },
+      "tasas": {
+        "clases": {
+          "canceladas": 13,
+          "totales": 85,
+          "tasa": 15.3
+        },
+        "inscripciones": {
+          "canceladas_alumno": 13,
+          "totales": 189,
+          "tasa": 6.9
+        }
+      }
+    },
+    "error": null
+  },
+  "subjects": {
+    "data": {
+      "items": [
+        {
+          "materia_id": "cmv331u0r004kjmki4tgg7g22",
+          "nombre": "Física",
+          "codigo": "FIS101",
+          "activa": true,
+          "clases_canceladas_centro": 7,
+          "inscripciones_canceladas_alumno": 5
+        },
+        {
+          "materia_id": "cmv331u0n004jjmkihozm39bz",
+          "nombre": "Matemática",
+          "codigo": "MAT101",
+          "activa": true,
+          "clases_canceladas_centro": 6,
+          "inscripciones_canceladas_alumno": 8
+        }
+      ]
+    },
+    "error": null
+  }
+}
