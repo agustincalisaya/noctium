@@ -63,13 +63,14 @@ export async function listarTurnosFuturosDeProfesor(profesorId: string, query: {
       (SELECT count(*) FROM turno_alumno ta WHERE ta."turnoId" = t."idTurno" AND ${sqlVigenteEn("ta", momento)}) AS inscriptos
     FROM turnos t WHERE ${filtrado} ORDER BY t."fechaTurno", t."horaInicioTurno", t."idTurno" LIMIT ${limit} OFFSET ${offset}`);
   const [filas, seleccion] = await Promise.all([leer(query.porPagina, (query.pagina - 1) * query.porPagina), leer(500, 0)]);
-  return {
-    items: filas.map((fila) => ({ turno_id: fila.idTurno, materia_id: fila.materiaId,
+  const serializar = (fila: FilaFutura) => ({ turno_id: fila.idTurno, materia_id: fila.materiaId,
       fecha: fila.fechaTurno.toISOString().slice(0, 10), hora_inicio: fila.horaInicioTurno.toISOString().slice(11, 16),
       hora_fin: horaDeMinutos(intervaloTurno(fila).fin), inscriptos: Number(fila.inscriptos),
       alumnos_inscriptos: `${fila.inscriptos}/${fila.cupoMaximoTurno ?? 0}`,
-      estado: estadoSegunOcupacion(fila.estadoTurno, Number(fila.inscriptos), fila.cupoMaximoTurno) as "DISPONIBLE" | "COMPLETO" })),
-    total, materias, seleccion: { items: seleccion.map((t) => ({ turno_id: t.idTurno, inscriptos: Number(t.inscriptos) })),
+      estado: estadoSegunOcupacion(fila.estadoTurno, Number(fila.inscriptos), fila.cupoMaximoTurno) as "DISPONIBLE" | "COMPLETO" });
+  return {
+    items: filas.map(serializar),
+    total, materias, seleccion: { items: seleccion.map(serializar),
       total, total_inscriptos: seleccion.reduce((s, t) => s + Number(t.inscriptos), 0), truncada: total > 500 },
   };
 }

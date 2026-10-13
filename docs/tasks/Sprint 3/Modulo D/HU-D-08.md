@@ -1,6 +1,6 @@
 # TASK: HU-D-08 — Desactivar y reactivar profesor
 
-**Estado:** implementada y validada localmente; revisión e integración mediante PR exclusiva. Relevamiento, rescate y selección por página confirmados explícitamente por el usuario.
+**Estado:** implementada y validada localmente; revisión e integración mediante PR exclusiva. Corrección de selección global según criterio 2 y comentario de la issue #169; la HU es la fuente de verdad.
 **Issue:** https://github.com/agustincalisaya/noctium/issues/169 · 5 SP.
 **Base comprobada:** `develop` / `origin/develop`, `10e3ffb101d63e5c4aee7d8cac1a9ead643b9de0`.
 **Rama:** `feat/hu-d-08-baja-reactivacion-profesor`.
@@ -14,7 +14,7 @@ Los PDF de reparto y dependencias ubican D-08 al final del carril de Tomás y co
 
 No existe `docs/adicionales/mapa-pantallas-sprint-3.md` en este checkout. Se usarán los códigos P-41, M-40 y M-43 de la spec y las figuras del prototipo; no se inventará el documento.
 
-**Diferencia resuelta por confirmación del usuario:** spec D §2.10.2.4 selecciona todas las clases del filtro, incluso fuera de la página, y expone `seleccion` hasta 500. `siguientepasos.md` limita «Seleccionar todas» al filtro y página visibles. Decisión: respetar el alcance explícito del traspaso (página visible, hasta 10), mantener el contrato aditivo de lectura de la spec y documentar la diferencia con una nota de sincronización. La etiqueta y cantidad de selección deben indicar el conjunto real; nunca anunciar 27 y operar sobre 10 silenciosamente.
+**Corrección de alcance (issue #169):** “Seleccionar todas” usa `seleccion.items` y marca todas las clases del filtro, hasta 500. La tabla pagina de a diez, pero las marcas persisten entre páginas. Cambiar materia descarta solo clases que quedan fuera; ampliar el filtro no restaura marcas descartadas. Etiqueta: “Seleccionar todas de Matemática I (12)”, con el total del filtro. Contador, confirmación de cancelación, alumnos y aviso de pagos se calculan sobre toda la selección. Vista previa y mutaciones se envían secuencialmente en tandas de hasta 100, se suman resultados y se conservan las fallidas seleccionadas con su motivo. Se informa el tope de 500 y se recarga después de procesar. La limitación anterior a una página se elimina: no tenía aprobación del PO y contradecía el criterio 2.
 
 **Datos y arquitectura comprobados:**
 - `obtenerDetalleProfesor` ya expone estado y versión; `obtenerCuentaDeProfesor` y `CuentaAccesoCard` ya están integrados.
@@ -99,7 +99,7 @@ Cada clase del lote se procesa en una transacción independiente. Cambio bloquea
 | Criterio | Implementación/vista | Prueba prevista |
 |---|---|---|
 | 1 | Impacto y confirmación M-43, figura 64 | Motivo obligatorio según historia, límite 300, opcional sin historia; errores dentro del modal; teclado/foco |
-| 2 | M-40, figuras 59–63; servicios D/C | Conteos, 10 por página, filtro, selección acordada, pagos, preview, éxito parcial, alcance, carreras por fila |
+| 2 | M-40, figuras 59–63; servicios D/C | Conteos, 10 por página, filtro, selección completa entre páginas, pagos, preview, éxito parcial, alcance, carreras por fila |
 | 3 | Ficha P-41 e historial, figura 58 | Baja lógica, actor/fecha/motivo, conflicto/doble envío, historial posterior al commit |
 | 4 | Cuenta de A y guards | Misma transacción; sesión previa y token renovado rechazados, login inactivo; rollback |
 | 5 | Selectores C-18/C-17/C-12/J-01 | Excluir inactivos; Pendiente requiere activo; nombres históricos, materias y horarios conservados |
@@ -118,7 +118,7 @@ Usar ConfirmarAccionDialog (C-25), CuentaAccesoCard, tabla/badges/paginación ex
 - Checks secuenciales: lint, tsc, npm test, npm run test:pg y build según CI; no ejecutar suites pesadas simultáneamente.
 - Revisión de diff sin secretos ni artefactos temporales; PR exclusiva, evidencia de los tres niveles y checks del SHA final. I-06 se informa como verificación diferida del reintegro si aún no está integrada.
 
-**Resultado actual:** implementación autorizada por el usuario; selección limitada a la página visible y rescate confirmados. Verificación en curso; la evidencia final se incorporará al concluir.
+**Resultado actual:** implementación corregida conforme a la HU y a la revisión del PO; selección completa del filtro. Verificación en curso; la evidencia final se incorporará al concluir.
 
 ### Hallazgos adicionales durante implementación
 
@@ -140,10 +140,17 @@ Fixtures D-08: dos profesores sin futuras, con cuenta, para consulta y reactivac
 - PostgreSQL específico D-08: diez aprobados, incluido rollback de ficha/cuenta/revocación, pago intacto, reprogramación simultánea y bloqueos de creación/confirmación.
 - PostgreSQL completo: fase general 256 aprobados, 34 omitidos y dos fallos de H-03/E-10; regresiones de bases nombradas 18 y 16 aprobadas. Checkout limpio del commit base reproduce ambos fallos (246 aprobados en fase general, mismos dos fallos). La interferencia inicial del seed por alumnos creados en tests D-08 fue corregida; seed completo vuelve a pasar.
 - HTTP: Gerente oficial y siete rutas; los otros tres roles reciben 403. Baja/reactivación real con cuenta, sesión vieja 401 antes y después de reactivar, login inactivo y nuevo login correcto.
-- UI: diez visibles seleccionadas, página/filtro limpian selección; previews y dos resultados parciales; cancelación, motivo obligatorio, cero futuras ofrece baja, historial y reactivación sin restaurar clases. Escritorio y 390 × 844, modal con scroll, foco visible, Tab contenido y Escape. Estados de carga observados; error de API permanece legible y permite reintentar.
+- UI (evidencia histórica de la implementación anterior, reemplazada por la corrección de #169): diez visibles seleccionadas, página/filtro limpiaban selección; previews y dos resultados parciales; cancelación, motivo obligatorio, cero futuras ofrece baja, historial y reactivación sin restaurar clases. Escritorio y 390 × 844, modal con scroll, foco visible, Tab contenido y Escape. Estados de carga observados; error de API permanece legible y permite reintentar.
 - Selectores: Nueva clase y generación excluyen al inactivo y lo restituyen; calendario también. Solicitar clase solo ofrece activos con clases disponibles; se verificó ausencia durante baja, sin inventar clases al reactivar.
 - Lint: cero errores, advertencia previa `CALENDARIO` sin usar en Sidebar (constante ya presente en base). Claves centralizadas verificadas. TypeScript aprobado tras regenerar tipos con `next typegen`. Build de producción aprobada con webpack; Turbopack local no pudo abrir su puerto interno. CI por defecto se verificará en el SHA final.
 
 No se certifica el resto del sistema. I-06 queda fuera; los dos fallos PostgreSQL previos se registran explícitamente y no se ocultan ni se debilitan sus tests. El estado de PR y checks del SHA final se consulta en GitHub antes de integrar.
 
 Las respuestas de lotes conservan `canceladas`/`cambiadas` según spec y agregan `procesadas` como contador compartido de la UI. Las pruebas reales verifican ambos campos.
+
+
+## Corrección de la revisión #169 (12/10/2026)
+
+Implementada la selección completa del filtro y eliminada la restricción a una página. Se amplía de forma aditiva `seleccion.items` con los datos de fila, materia y pagos para operar y previsualizar fuera de la página sin lecturas adicionales. Vista previa, cancelación y cambio usan tandas secuenciales de hasta 100; los resultados se agregan y las fallidas permanecen seleccionadas con su motivo. Se informa el límite de 500. Se corrige también el filtro oculto cuando se termina de resolver una materia y queda solo otra.
+
+Playwright verificó escritorio y móvil, selección de 205 clases, cambio de 204 con una fallida y cancelación masiva de 204, conservación de pagos/inscripciones en SQL, baja y reactivación sin restaurar canceladas. Evidencia y scripts reproducibles: [seleccion-filtro/README.md](../../../testing/Modulo%20D/hu-d-08/seleccion-filtro/README.md). 41 pruebas específicas y 10 PostgreSQL aprobadas; detalle de la suite general y demás verificaciones en la evidencia.
