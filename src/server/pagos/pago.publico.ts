@@ -75,11 +75,20 @@ export type PagoDeAlumno = {
   comprobante_vigente: { id: string; numero: string } | null;
   cambios: number;
   clases_de_la_operacion: number;
+  /** Dato interno del módulo I para calcular el alcance de corrección. */
+  caja_abierta: boolean;
 };
 
 async function pagosDeOperaciones(db: Db, operaciones: OperacionLeida[], filtroPago: (pagoId: string, turnoId: string) => boolean): Promise<PagoDeAlumno[]> {
   const vigentes = operaciones.map((operacion) => ({ operacion, vigente: vigenteDeOperacion(operacion as OperacionConVigente) }));
-  const formas = await formasPorId(db, vigentes.map((v) => v.vigente.formaPagoId));
+  const [formas, cajas] = await Promise.all([
+    formasPorId(db, vigentes.map((v) => v.vigente.formaPagoId)),
+    operaciones.length ? db.caja.findMany({
+      where: { idCaja: { in: [...new Set(operaciones.map((o) => o.cajaId))] } },
+      select: { idCaja: true, estado: true },
+    }) : [],
+  ]);
+  const cajasAbiertas = new Set(cajas.filter((c) => c.estado === "ABIERTA").map((c) => c.idCaja));
   const items: PagoDeAlumno[] = [];
   for (const { operacion, vigente } of vigentes) {
     const clases = vigente.pagos.filter((p) => !p.anulado).length;
@@ -104,6 +113,7 @@ async function pagosDeOperaciones(db: Db, operaciones: OperacionLeida[], filtroP
         comprobante_vigente: comprobanteDelPagoEnOperacion(operacion, pago.pagoId, pago.anulado),
         cambios: pago.cambios,
         clases_de_la_operacion: clases,
+        caja_abierta: cajasAbiertas.has(vigente.cajaId),
       });
     }
   }
