@@ -34,7 +34,7 @@ describe("HU-E-04 registrarIndicacion", () => {
   it("crea un registro nuevo con autor, fecha y vínculo opcional", async () => {
     const resultado = await registrarIndicacion(tx as never, "alumno-1", { ...entrada, clase_dictada_id: "clase-1" }, { id: "mesa-1", rol: "MESA_ENTRADA" });
     expect(m.verificar).toHaveBeenCalledWith("alumno-1", tx);
-    expect(m.clase).toHaveBeenCalledWith(expect.objectContaining({ where: { idClaseDictada: "clase-1", anuladaEl: null } }));
+    expect(m.clase).toHaveBeenCalledWith(expect.objectContaining({ where: { idClaseDictada: "clase-1", anuladaEl: null, anulacion: { is: null } } }));
     expect(m.crear).toHaveBeenCalledWith({
       data: expect.objectContaining({ alumnoId: "alumno-1", materiaId: "materia-1", texto: entrada.indicacion, claseDictadaId: "clase-1", creadoPorUsuarioId: "mesa-1" }),
       select: expect.any(Object),

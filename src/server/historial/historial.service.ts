@@ -39,6 +39,7 @@ type FilaHistorial = {
   indicacion: string | null;
   registrada_en: Date | null;
   clase_dictada_id: string | null;
+  clase_dictada_fecha: Date | null;
   creado_por_usuario_id: string | null;
   turno_id: string | null;
   registro_id: string | null;
@@ -107,6 +108,7 @@ export async function obtenerHistorialAlumno(
         NULL::text AS indicacion,
         NULL::timestamp AS registrada_en,
         NULL::text AS clase_dictada_id,
+        NULL::date AS clase_dictada_fecha,
         NULL::text AS creado_por_usuario_id,
         clase."turnoId" AS turno_id,
         clase."createdAtClaseDictada" AS creado_en,
@@ -139,6 +141,7 @@ export async function obtenerHistorialAlumno(
         NULL::text AS indicacion,
         NULL::timestamp AS registrada_en,
         NULL::text AS clase_dictada_id,
+        NULL::date AS clase_dictada_fecha,
         NULL::text AS creado_por_usuario_id,
         NULL::text AS turno_id,
         examen."createdAtResultadoExamen" AS creado_en,
@@ -168,7 +171,7 @@ export async function obtenerHistorialAlumno(
       UNION ALL
       SELECT
         'INDICACION'::text AS tipo,
-        (indicacion."createdAtIndicacion" AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS fecha,
+        (indicacion."createdAtIndicacion" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS fecha,
         indicacion."materiaId" AS materia_id,
         NULL::text AS profesor_id,
         NULL::numeric AS nota,
@@ -179,8 +182,10 @@ export async function obtenerHistorialAlumno(
         NULL::text AS observacion_creada_por_id,
         indicacion."texto" AS indicacion,
         indicacion."createdAtIndicacion" AS registrada_en,
-        CASE WHEN clase."idClaseDictada" IS NOT NULL AND clase."anuladaEl" IS NULL
+        CASE WHEN clase."idClaseDictada" IS NOT NULL AND ${sqlClaseDictadaVigente("clase")}
           THEN indicacion."claseDictadaId" ELSE NULL END AS clase_dictada_id,
+        CASE WHEN clase."idClaseDictada" IS NOT NULL AND ${sqlClaseDictadaVigente("clase")}
+          THEN clase."fechaClaseDictada" ELSE NULL END AS clase_dictada_fecha,
         indicacion."creadoPorUsuarioId" AS creado_por_usuario_id,
         NULL::text AS turno_id,
         indicacion."createdAtIndicacion" AS creado_en,
@@ -215,7 +220,7 @@ export async function obtenerHistorialAlumno(
     SELECT conteo.total, materias.ids AS materias_disponibles,
       pagina.tipo, pagina.fecha, pagina.materia_id, pagina.profesor_id,
       pagina.nota, pagina.observaciones, pagina.indicacion, pagina.registrada_en,
-      pagina.clase_dictada_id, pagina.creado_por_usuario_id,
+      pagina.clase_dictada_id, pagina.clase_dictada_fecha, pagina.creado_por_usuario_id,
       pagina.turno_id, pagina.registro_id, pagina.asistencia,
       pagina.temas_vistos, pagina.observaciones_internas, pagina.observacion_registrada_en,
       pagina.observacion_creada_por_id, pagina.creado_en, pagina.corregido, pagina.anulado,
@@ -311,6 +316,7 @@ export async function obtenerHistorialAlumno(
       registrada_en: fila.registrada_en.toISOString(),
       registrada_por: fila.creado_por_usuario_id ? emailsPorUsuario.get(fila.creado_por_usuario_id) ?? null : null,
       clase_dictada_id: fila.clase_dictada_id,
+      clase_dictada_fecha: fila.clase_dictada_fecha ? fechaCalendario(fila.clase_dictada_fecha) : null,
     };
   }));
 

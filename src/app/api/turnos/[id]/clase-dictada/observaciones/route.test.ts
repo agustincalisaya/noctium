@@ -33,13 +33,13 @@ describe("HU-E-07 Route Handler", () => {
   });
 
   it("normaliza el contenido y responde 201 en el sobre contractual", async () => {
-    const response = await solicitar(JSON.stringify({ temas_vistos: "  Álgebra  ", observaciones_internas: "  " }));
+    const response = await solicitar(JSON.stringify({ temas_vistos: "  Álgebra  ", observaciones_internas: "" }));
     expect(response.status).toBe(201);
     expect(m.registrar).toHaveBeenCalledWith({}, "turno-1", { temas_vistos: "Álgebra", observaciones_internas: "" }, { id: "usuario-1", rol: "MESA_ENTRADA" });
     expect(await response.json()).toMatchObject({ data: { id: "obs-1", temas_vistos: "Álgebra" }, error: null });
   });
 
-  it.each(["{", "null", "{}", JSON.stringify({ temas_vistos: " ".repeat(5) }), JSON.stringify({ temas_vistos: "x", extra: true })])(
+  it.each(["{", "null", "{}", JSON.stringify({ temas_vistos: " ".repeat(5) }), JSON.stringify({ temas_vistos: "x", observaciones_internas: " \n\t" }), JSON.stringify({ temas_vistos: "x", extra: true })])(
     "rechaza cuerpo inválido antes del servicio (%s)", async (body) => {
       expect((await solicitar(body)).status).toBe(400);
       expect(m.registrar).not.toHaveBeenCalled();

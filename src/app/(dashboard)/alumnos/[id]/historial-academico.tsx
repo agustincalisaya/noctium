@@ -135,9 +135,9 @@ export function HistorialAcademico({
                 <time dateTime={item.fecha} className="pt-1 font-mono text-xs text-muted-foreground">{fechaCorta(item.fecha)}</time>
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span aria-hidden="true" className={`size-2 rounded-full ${item.tipo === "CLASE_DICTADA" ? "bg-muted-foreground" : "bg-primary"}`} />
+                    <span aria-hidden="true" className={`size-2 rounded-full ${item.tipo === "CLASE_DICTADA" ? "bg-muted-foreground" : item.tipo === "INDICACION" ? "bg-warning-foreground" : "bg-primary"}`} />
                     <span className="text-sm font-semibold">{item.materia.nombre}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${item.tipo === "CLASE_DICTADA" ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${item.tipo === "CLASE_DICTADA" ? "bg-muted text-muted-foreground" : item.tipo === "INDICACION" ? "bg-warning text-warning-foreground" : "bg-primary text-primary-foreground"}`}>
                       {item.tipo === "CLASE_DICTADA" ? "Clase dictada" : item.tipo === "EXAMEN" ? "Examen" : texto("ui.historial.indicacion.etiqueta")}
                     </span>
                   </div>
@@ -160,11 +160,11 @@ export function HistorialAcademico({
                     <p className="whitespace-pre-wrap break-words text-sm text-foreground">{item.indicacion}</p>
                     <p>{texto("ui.historial.indicacion.registradaEn", { fecha: fechaHoraDeInstante(item.registrada_en) })}</p>
                     {item.registrada_por && <p>{texto("ui.historial.indicacion.registradaPor", { autor: item.registrada_por })}</p>}
-                    {item.clase_dictada_id && <p>{texto("ui.historial.indicacion.claseRelacionada", {
-                      fecha: fechaCorta(datos.indicaciones_opciones?.clases.find(({ id }) => id === item.clase_dictada_id)?.fecha ?? item.fecha),
+                    {item.clase_dictada_id && item.clase_dictada_fecha && <p>{texto("ui.historial.indicacion.claseRelacionada", {
+                      fecha: fechaCorta(item.clase_dictada_fecha),
                     })}</p>}
                   </div>}
-                  {item.tipo === "EXAMEN" && <ResultadoExamenAcciones alumnoId={alumnoId} item={item} onActualizado={alRegistrar} />}
+                  {item.tipo === "EXAMEN" && <ResultadoExamenAcciones alumnoId={alumnoId} nombreAlumno={datos.alumno.nombre_completo} item={item} onActualizado={alRegistrar} />}
                 </div>
                 {item.tipo === "EXAMEN" && <span className="whitespace-nowrap pt-1 text-sm font-semibold">{item.nota.replace(".", ",")} / 10</span>}
               </li>

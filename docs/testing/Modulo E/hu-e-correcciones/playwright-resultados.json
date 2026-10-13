@@ -1,0 +1,20 @@
+{
+  "checks": [
+    "E04/E08: día local 12/10 a las 23:37; fecha propia de clase vinculada; indicación ámbar; alumno sin datos privados y otro ID 403",
+    "E07: espacios internos 400 y error local accesible; confirmación y registro reales; duplicado 409; profesor ajeno 403; alumno recibe solo temas",
+    "E10: acciones compactas subrayadas; fecha y nota alineadas en escritorio, adaptadas a móvil; Guardar corrección y confirmación; nuevo valor sin modificar original",
+    "E11 criterio 5: fila nueva con referencia, estados y auditoría; original/alumnos intactos; pagos e inscripciones intactos; observación oculta e indicación sin vínculo; nuevo registro con otro ID"
+  ],
+  "screenshots": [
+    "e04-historial-desktop",
+    "e04-historial-mobile",
+    "e07-validacion-desktop",
+    "e07-validacion-mobile",
+    "e10-correccion-desktop",
+    "e10-correccion-mobile",
+    "e11-anulacion-desktop",
+    "e11-anulacion-mobile"
+  ],
+  "pageErrors": [],
+  "result": "PASS"
+}

@@ -15,12 +15,12 @@
 
 | Lo que ya existe | Qué se conserva | Qué cambia (y quién lo manda) |
 |---|---|---|
-| 2.1 `POST /api/turnos/[id]/clase-dictada` y `GET` | Ruta, método, **pedido sin cuerpo**, respuesta `201`/`200` con `id`, `turno_id`, `fecha`, `alumnos_registrados` y `ya_existia`, y los `code` de error. Q7c (se registra recién cuando la clase terminó) y el `ON CONFLICT` (una sola clase por turno, sin duplicar bajo concurrencia). **Sin cuerpo, el comportamiento es el de Sprint 2** (sin control de asistencia, T4) | Cuerpo **opcional** con `asistencias` (HU-E-09); campos extra en la respuesta; el `GET` suma `asistencia` por alumno, totales, observaciones y acciones. Internamente: la unicidad pasa al índice parcial de `PR-0.md` §2.8 (T3), el bloqueo a `bloquear` (T9) y el alumno quitado ya no figura (T10) |
+| 2.1 `POST /api/turnos/[id]/clase-dictada` y `GET` | Ruta, método, **pedido sin cuerpo**, respuesta `201`/`200` con `id`, `turno_id`, `fecha`, `alumnos_registrados` y `ya_existia`, y los `code` de error. Q7c (se registra recién cuando la clase terminó) y la garantía de una sola clase vigente por turno, sin duplicar bajo concurrencia. **Sin cuerpo, el comportamiento es el de Sprint 2** (sin control de asistencia, T4) | Cuerpo **opcional** con `asistencias` (HU-E-09); campos extra en la respuesta; el `GET` suma `asistencia` por alumno, totales, observaciones y acciones. Internamente: la unicidad pasa a la proyección de vigencia de HU-E-11 criterio 5 (T3), el bloqueo a `bloquear` (T9) y el alumno quitado ya no figura (T10) |
 | 2.2 `POST /api/alumnos/[id]/examenes` y `GET …/opciones` | Ruta, cuerpo, respuesta, `code` de error (incluido el `422 NOTA_FUERA_DE_RANGO`), escala, observaciones y los chequeos de materia cursada y de fecha | **Para el Profesor**, el alcance pasa de «alumnos que atendió» a la materia de su clase (convención 8 g, T1): es el único cambio de comportamiento sobre lo existente y lo manda el backlog. Para los demás roles, nada. «Materia cursada» deja de contar las clases dictadas anuladas (HU-E-04, criterio 2): sin anulaciones es idéntico |
 | 2.3 `GET /api/alumnos/[id]/historial` | Ruta, parámetros (`materia_id`, `pagina`, `por_pagina`), paginación de a 10, `materias_disponibles`, el `UNION ALL` en una sola consulta, `tipo`, `fecha`, `materia`, `profesor`, `turno_id`, `nota` y `observaciones` del examen, y los `code` | Campos extra en la respuesta (`asistencia_por_materia` y, por ítem, `id`, `asistencia`, `observacion`, `corregido`, `anulado`, `puede_corregir`) y un tipo de ítem nuevo, `INDICACION` (HU-E-04, criterio 5; HU-E-08, criterio 3). Las clases dictadas anuladas no figuran (HU-E-11, criterio 4). **Profesor:** alcance de 8 g (T1) |
 | 2.4 funciones públicas | `obtenerClaseDictadaDeTurno(turnoId, db?)` y `profesorAtendioAlumno(profesorId, alumnoId, db?)` conservan **firma y forma del resultado** | Ambas ignoran las clases dictadas anuladas. `profesorAtendioAlumno` deja de ser la regla de alcance (la reemplaza el helper de 2.5.3), pero **se conserva exportada** y con sus tests. Funciones nuevas en 2.13 |
 | Permisos `clases:registrar`, `examenes:registrar`, `historial:leer` | Roles y significado | `historial:leer` y `alumnos:leer` del Profesor y el Gerente cambian como manda la convención 8 (d) y (g), ya cargado en `PR-0.md` §2.9. Permisos nuevos (2.5.2), propuestos para la tabla cerrada |
-| Modelos `ClaseDictada`, `ClaseDictadaAlumno`, `ResultadoExamen` | Columnas, claves y significado de cada una, inmutables | Solo se **suman** columnas y tablas (2.5.1; `PR-0.md` §2.8 y §2.14). El único `UPDATE` sobre un registro de hecho es la marca de anulación de la clase dictada (T3) |
+| Modelos `ClaseDictada`, `ClaseDictadaAlumno`, `ResultadoExamen` | Columnas, claves y significado de cada una, inmutables | Solo se **suman** columnas y tablas (2.5.1; `PR-0.md` §2.8 y §2.14). La anulación se guarda en un registro referenciado; no se actualiza ningún hecho original (T3) |
 | Pantallas del tab «Historial académico» y del detalle de la clase | Lo que muestran hoy mientras no haya datos del modelo nuevo | Asistencia, observaciones, indicaciones, corrección y anulación (mapa P-21, P-27, M-22 y M-23). Sin datos nuevos, se ven como hoy: las clases de Sprint 2 figuran «Asistió (sin control de asistencia)» |
 
 **Contradicciones entre Sprint 2, el backlog y el PR 0, y cómo se resuelven.** Una sola obliga a cambiar un comportamiento existente porque lo manda el backlog (T1); las demás son de reglas internas o de redacción y se resuelven a favor de lo existente.
@@ -29,7 +29,7 @@
 |---|---|---|
 | T1 | Q7b y las convenciones de 2.2 y 2.3: el Profesor ve el historial **completo** y registra exámenes de **cualquier materia** de los alumnos que **atendió**. La convención 8 (g) del backlog **reemplaza** ese alcance: el Profesor accede al historial de un alumno inscripto en una clase suya, solo desde el detalle de esa clase y solo en la materia de esa clase | **Cambio inevitable, lo manda el backlog y ya figura en `PR-0.md` §1.1.** El Profesor pasa a `profesorPuedeVerHistorial(profesorId, alumnoId, materiaId)` (2.5.3). Se mantienen: la ruta, el cuerpo y los `code` de 2.2 y 2.3, y el `403 SIN_PERMISO` sin revelar si el alumno existe. El `materia_id` (que ya existía en la query) es **obligatorio para el Profesor**. El resto de los roles no cambia |
 | T2 | Q7c: la clase se registra recién cuando **terminó** (`CLASE_NO_FINALIZADA`). HU-E-09 (criterio 1) habla de «una clase que ya empezó y todavía no se registró» | Se conserva Q7c (P-E1). La lista con Presente/Ausente aparece desde que la clase **empezó** (así se toma asistencia durante la clase) y «Registrar clase dictada» guarda cuando la clase terminó, como hoy. No se cambia el momento de registro de Sprint 2 |
-| T3 | 3.1 y 3.3: `ClaseDictada` no admite `UPDATE` y la unicidad es el `UNIQUE` sobre `turnoId` con `ON CONFLICT ("turnoId")`. HU-E-11 exige anular y poder registrar de nuevo | Se cumplen las dos cosas sin tocar la Regla N.° 8 para lo demás: el registro original no se edita; la **corrección de asistencia** es un registro nuevo (2.11.1) y la **anulación** es la marca `anuladaEl`/`anuladaPor`/`motivo` que fijó `PR-0.md` §2.8 como excepción documentada a la Regla N.° 8 (se hace una sola vez, con condición atómica). El `UNIQUE` pasa al **índice único parcial** «una clase dictada no anulada por turno»; el `INSERT … ON CONFLICT ("turnoId")` pasa a `ON CONFLICT ("turnoId") WHERE "anuladaEl" IS NULL DO NOTHING` (inferencia del índice parcial). El comportamiento visible es el mismo |
+| T3 | HU-E-11 debe anular y permitir registrar de nuevo conservando el original (criterio 5) | Correcciones y anulaciones son registros nuevos referenciados. `AnulacionClaseDictada` contiene motivo, usuario, fecha y estado anterior/nuevo. La proyección `RegistroClaseDictadaVigente`, con clave por turno y triggers transaccionales, reemplaza el índice parcial; el bloqueo canónico serializa registrar/corregir/anular. Las marcas anteriores se conservan y migran sin editar hechos |
 | T4 | 3.4 y HU-E-01 criterio 5: «todos los inscriptos se consideran presentes». HU-E-09 lo reemplaza | Conviven (P-E4): sin cuerpo, `conControlAsistencia = false` y el alumno figura «Asistió (sin control de asistencia)»; con `asistencias`, `conControlAsistencia = true`. Las clases de Sprint 2 y los clientes que no mandan cuerpo siguen funcionando igual |
 | T5 | «Fuera de alcance» y 3.1: no hay edición ni anulación (Q7e); las indicaciones quedaron para Sprint 3 (Q7a) | Cumplido por HU-E-10, HU-E-11 y HU-E-04. Se agregan las rutas de 2.9 a 2.11; el valor que se muestra es el vigente (3.6) |
 | T6 | 2.3: «el Profesor ve el historial completo» y el enlace «Ver historial» del detalle se calcula con `profesorAtendioAlumno` | El helper nuevo reemplaza la regla. El detalle de **su propia clase** ya contiene los datos para decidirlo (el alumno es un inscripto vigente de una clase suya, primera condición de 8 g): el cálculo de `puede_ver_historial` queda en el módulo C, sin que C importe a E (Regla N.° 3, 2.5.3). El `403` del `GET` se mantiene como defensa ante una URL escrita a mano |
@@ -78,14 +78,14 @@
 
 | # | Pedido | Dónde |
 |---|---|---|
-| R2-PR0-1 | **Esquema** de 2.5.1: en `ClaseDictada`, `conControlAsistencia`, `anuladaEl`, `anuladaPor`, `motivoAnulacion` y el índice único parcial; `ClaseDictadaAlumno.estadoAsistencia` (enum `EstadoAsistencia`, admite vacío); tablas `CorreccionAsistencia` y `CorreccionAsistenciaAlumno`, `ObservacionClase`, `Indicacion`, `CorreccionResultadoExamen` y `AnulacionResultadoExamen`, con sus índices. Los nombres son una propuesta; la forma (columnas y unicidades) es la que usa esta spec | 2.5.1; `PR-0.md` §2.8 y §2.14 |
+| R2-PR0-1 | **Esquema** de 2.5.1: en `ClaseDictada`, `conControlAsistencia`, `anuladaEl`, `anuladaPor`, `motivoAnulacion` y las marcas legacy; `AnulacionClaseDictada` y la proyección `RegistroClaseDictadaVigente`; `ClaseDictadaAlumno.estadoAsistencia` (enum `EstadoAsistencia`, admite vacío); tablas `CorreccionAsistencia` y `CorreccionAsistenciaAlumno`, `ObservacionClase`, `Indicacion`, `CorreccionResultadoExamen` y `AnulacionResultadoExamen`, con sus índices. Los nombres son una propuesta; la forma (columnas y unicidades) es la que usa esta spec | 2.5.1; `PR-0.md` §2.8 y §2.14 |
 | R2-PR0-2 | **Tabla cerrada de permisos** con los nombres de 2.5.2 (más `historial:leer_propio` para «Mi historial») y las rutas de 2.6 a 2.12 en `rutas-por-rol.ts` y el `matcher` del proxy (`/mi-historial`, `/alumnos/[id]/clases`, `/turnos/[turnoId]/alumnos/[alumnoId]/historial`) | 2.5.2; `PR-0.md` §2.9 |
 | R2-PR0-3 | **Lecturas de C** que E necesita (todas de solo lectura, en lote y sin bloqueo): (a) `listarInscripcionesDeAlumno(alumnoId, { desde?, hasta? })` devuelve, por inscripción, `{ inscripcion_id, turno_id, fecha, hora_inicio, hora_fin, estado_clase, materia: { id, nombre }, profesor: { id, nombre_para_mostrar } \| null, aula: { id, nombre } \| null, vigencia, vigente_ahora, finalizada_el, cancelada_el }`, donde `vigente_ahora` es `esVigenteEn(inscripcion, ahora())`, `finalizada_el` es la fecha de fin de la vigencia y `cancelada_el` es el momento de cancelación de la clase; E no usa su parámetro `resultado`, porque ese resultado depende de datos de E; (b) `existeInscripcionVigenteConProfesor(alumnoId, profesorId, materiaId, db?)`; (c) `inscripcionesVigentes(db, turnoId, momento)` y `marcarVencidas(tx, turnoId)` en `inscripcion.publico.ts`, con `{ id, alumnoId }` por inscripción; (d) `obtenerClasesBasicas(turnoIds, db?)` (ya pedida por `spec_modulo_I.md` P-I9) | 2.5.3, 2.6, 2.7; `PR-0.md` §2.13 |
 | R2-PR0-4 | **`profesorPuedeVerHistorial` vive en E** (`src/server/historial/alcance-profesor.ts`), no en una fachada: combina `existeInscripcionVigenteConProfesor` (C) con `profesorPuedeRegistrarIndicacion` (E) y ninguna `*.publico.ts` puede importar a otra (Regla N.° 3). `PR-0.md` §2.9 lo llama «helper compartido»: queda así precisado | 2.5.3; `PR-0.md` §2.9 |
 | R2-PR0-5 | **Lecturas públicas de E** de 2.13 (`asistenciaDeAlumno`, `contarAsistenciasPorMes`, `profesorPuedeRegistrarIndicacion`) con sus pruebas; `registrarClaseDictada(tx, { turnoId, actor, asistencias? })` con la rama de asistencias, sin cambiar la firma. Si HU-H-07 necesita otra lectura, la agrega en esta misma fachada | 2.13; `PR-0.md` §2.13 |
 | R2-PR0-6 | **`ErrorDeDominio`** con los `code` y HTTP de las secciones 2.6 a 2.12; los textos son los literales de los criterios, y los códigos de Sprint 2 conservan su texto de hoy. `errores.transaccion.ocupada` mapea a `409 TRANSACCION_OCUPADA` | 2.6 a 2.12; `PR-0.md` §2.13 |
 | R2-PR0-7 | **Seed de historial académico** (`PR-0.md` §2.13 ya prevé uno): clases dictadas con control de asistencia (presentes y ausentes) y sin control, una con corrección y una anulada, observaciones, indicaciones vinculadas y sin vincular, exámenes corregidos y anulados, y alumnos con inscripciones en cada uno de los resultados de 2.7.3. Es la base de las pruebas de HU-E-02, HU-E-08 y HU-H-07 | `PR-0.md` §2.16 |
-| R2-PR0-8 | **Pruebas**: los tests de Sprint 2 de 2.1 a 2.4 siguen pasando (solo cambian los mocks de persistencia); una prueba con PostgreSQL real del `ON CONFLICT … WHERE "anuladaEl" IS NULL` (registrar, anular, registrar de nuevo, y dos registros simultáneos) y otra de la equivalencia entre `asistenciaDeAlumno` y el historial | 3.14; `PR-0.md` §4 |
+| R2-PR0-8 | **Pruebas**: los tests de Sprint 2 de 2.1 a 2.4 siguen pasando (solo cambian los mocks de persistencia); una prueba con PostgreSQL real de la unicidad de la proyección de vigencia (registrar, anular, registrar de nuevo, y dos registros simultáneos) y otra de la equivalencia entre `asistenciaDeAlumno` y el historial | 3.14; `PR-0.md` §4 |
 
 **Efectos en otras specs (se anotan al escribirlas o corregirlas):** `spec_modulo_A.md` (§2.4: permisos de 2.5.2, que el Profesor pierde `alumnos:leer` y el Gerente lo gana, y rutas por rol), `spec_modulo_B.md` (el Gerente ve la ficha con las pestañas Clases, Historial académico y Pagos en modo consulta, sin acciones de escritura; E usa `obtenerAlumnoDeUsuario` para «Mi historial»), `spec_modulo_C.md` (`puede_ver_historial` del Profesor lo calcula C con los datos del detalle de su propia clase, sin llamar a E; `registrar_clase` conserva la condición de Sprint 2; las lecturas de R2-PR0-3), `spec_modulo_H.md` (HU-H-07 lee `contarAsistenciasPorMes` y `asistenciaDeAlumno`, que excluyen las clases dictadas anuladas y las «sin control»; el enlace a «Historial académico» del Gerente es la ruta de la ficha), `spec_modulo_D.md` y `spec_modulo_L.md` (sin cambios: E reutiliza `obtenerNombresProfesores`, `obtenerOpcionProfesorDeUsuario` y `obtenerMateriasPorIds`).
 
@@ -117,7 +117,9 @@
 
 ## Sincronización HU-E-11 — 09/10/2026
 
-Relevamiento y decisiones aprobados por el usuario antes del código. §2.11 se implementa con las dos rutas POST previstas y el servicio de clase dictada. Correcciones append-only con una fila anterior/nuevo por alumno del snapshot. La anulación aplica la excepción T3 de PR0: marca única atómica `anuladaEl`/`anuladaPorUsuarioId`/`motivoAnulacion` en la clase; no modifica contenido ni asistencias originales. Se conserva la discrepancia del criterio 5 del backlog como excepción contractual aprobada, sin tabla nueva.
+Actualización del 13/10/2026: se corrige el criterio 5 de #175. La anulación crea `AnulacionClaseDictada`; ya no actualiza los tres campos legacy de la clase. La migración copia las anulaciones previas, conserva todas las filas originales y reconstruye la proyección única por turno. Repetir la última anulación con el mismo actor y motivo devuelve su auditoría original (permisos, propiedad y plazo se vuelven a validar); otro intento sin clase vigente devuelve `CLASE_NO_REGISTRADA`.
+
+Se corrigen también #172 (observaciones internas opcionales: vacío permitido, solo espacios rechazado), #173/#176 (día local de la indicación desde el timestamp UTC, fecha propia de la clase vinculada) y #174 (acciones compactas subrayadas, fecha/nota en dos columnas y «Guardar corrección», con confirmación). La seed y los módulos externos permanecen sin cambios. Estas decisiones reemplazan las notas históricas de T3 que describían una marca sobre el original.
 
 | Sección | Estado previo | Acción |
 |---|---|---|
@@ -185,7 +187,7 @@ Implementación estándar: Route Handlers delgados que delegan en `src/server/hi
 
 ### 2.1. Registrar clase dictada (HU-E-01)
 
-> **Revisión 2.** Ruta, método, **pedido sin cuerpo** y `code` **sin cambios**; el `201`/`200` conserva sus campos (`id`, `turno_id`, `fecha`, `alumnos_registrados`, `ya_existia`) y suma tres (2.6.2). Q7c y el paso 4 (registro recién cuando la clase terminó, `CLASE_NO_FINALIZADA`) **se conservan** (T2). Sin cuerpo, la clase queda sin control de asistencia, igual que hoy (T4); con `asistencias` (HU-E-09), se guarda la asistencia en la misma transacción (2.6). Por dentro cambian, sin efecto visible: el `FOR SHARE` del paso 1 pasa a `bloquear` con `marcarVencidas` (T9); el `ON CONFLICT ("turnoId")` del paso 5 pasa a la forma del índice único parcial (T3); el paso 6 copia las inscripciones vigentes (T10). Las respuestas del `GET` suman campos (2.6.3).
+> **Revisión 2.** Ruta, método, **pedido sin cuerpo** y `code` **sin cambios**; el `201`/`200` conserva sus campos (`id`, `turno_id`, `fecha`, `alumnos_registrados`, `ya_existia`) y suma tres (2.6.2). Q7c y el paso 4 (registro recién cuando la clase terminó, `CLASE_NO_FINALIZADA`) **se conservan** (T2). Sin cuerpo, la clase queda sin control de asistencia, igual que hoy (T4); con `asistencias` (HU-E-09), se guarda la asistencia en la misma transacción (2.6). Por dentro cambian, sin efecto visible: el `FOR SHARE` del paso 1 pasa a `bloquear` con `marcarVencidas` (T9); el registro del paso 5 queda bajo el bloqueo canónico con proyección única por turno (T3); el paso 6 copia las inscripciones vigentes (T10). Las respuestas del `GET` suman campos (2.6.3).
 
 
 **Ruta:** `POST /api/turnos/[id]/clase-dictada` (sin body) · `GET` de la misma ruta devuelve el registro existente.
@@ -406,16 +408,16 @@ La condición de `registrar_clase` que C evalúa para `acciones_habilitadas` es 
 
 #### 2.5.1. Modelo que crea el PR 0 (R2-PR0-1)
 
-Las HU no agregan migraciones (convención 8 i): el esquema lo crea el PR 0 (`PR-0.md` §2.8 y §2.14). Los nombres de abajo son la propuesta de esta spec; lo que importa es la **forma** (columnas, claves y unicidades). Todo es **aditivo**: no se quita ni se renombra ninguna columna de `ClaseDictada`, `ClaseDictadaAlumno` ni `ResultadoExamen`.
+El esquema inicial lo creó PR 0 (`PR-0.md` §2.8 y §2.14). La corrección de HU-E-11 autorizada el 13/10/2026 añade la migración `20261013040000_hu_e11_anulacion_append_only` para cumplir el criterio 5; reemplaza la excepción de marca sobre el original y el índice parcial. Los nombres de abajo son la propuesta de esta spec; lo que importa es la **forma** (columnas, claves y unicidades). Todo es **aditivo**: no se quita ni se renombra ninguna columna de `ClaseDictada`, `ClaseDictadaAlumno` ni `ResultadoExamen`.
 
 ```prisma
 enum EstadoAsistencia { PRESENTE AUSENTE }
 
 model ClaseDictada {
   // …columnas de Sprint 2, sin cambios…
-  // turnoId deja de ser @unique: la unicidad pasa al índice parcial de abajo (PR-0.md §2.8)
+  // turnoId deja de ser @unique: la proyección RegistroClaseDictadaVigente reserva un único turno.
   conControlAsistencia Boolean   @default(false)   // fijada al crear el registro (2.6)
-  anuladaEl            DateTime?                   // marca de anulación (2.11.3)
+  anuladaEl            DateTime?                   // marca legacy, no usada en nuevas anulaciones
   anuladaPor           String?                     // usuario que anuló
   motivoAnulacion      String?   @db.VarChar(300)
   turno          Turno @relation(fields: [turnoId], references: [idTurno])   // relación 1:N: Turno.clasesDictadas
@@ -424,8 +426,27 @@ model ClaseDictada {
   indicaciones   Indicacion[]
   @@index([turnoId])
   @@index([profesorId, materiaId])
-  // SQL de la migración (Prisma no modela índices parciales):
-  // CREATE UNIQUE INDEX "clases_dictadas_turno_no_anulada_key" ON "clases_dictadas" ("turnoId") WHERE "anuladaEl" IS NULL;
+  anulacion AnulacionClaseDictada?
+  registroVigente RegistroClaseDictadaVigente?
+}
+
+// HU-E-11, criterio 5: auditoría propia y referencia única al original.
+model AnulacionClaseDictada {
+  idAnulacionClase String @id @default(cuid())
+  claseDictadaId String @unique
+  anuladoAnterior Boolean @default(false)
+  anuladoNuevo Boolean @default(true)
+  motivo String @db.VarChar(300)
+  createdAtAnulacion DateTime @default(now())
+  creadoPorUsuarioId String?
+  clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada])
+  @@map("anulaciones_clase_dictada")
+}
+model RegistroClaseDictadaVigente {
+  turnoId String @id
+  claseDictadaId String @unique
+  clase ClaseDictada @relation(fields: [claseDictadaId], references: [idClaseDictada], onDelete: Cascade)
+  @@map("clases_dictadas_vigentes")
 }
 
 model ClaseDictadaAlumno {
@@ -497,7 +518,7 @@ model AnulacionResultadoExamen {
 }
 ```
 
-Todas las claves foráneas son `RESTRICT` (Regla N.° 1: un historial nunca se pierde). Los registros de arriba no tienen `updatedAt…`: no se actualizan (3.1, con la única excepción de la marca de anulación de la clase, T3). Las tablas siguen el mapeo de nombres de `schema.prisma` (`@@map`, snake_case plural).
+Las claves foráneas de los hechos académicos son `RESTRICT` (Regla N.° 1: un historial nunca se pierde). La proyección reconstruible `RegistroClaseDictadaVigente` usa `CASCADE` hacia la clase: una limpieza de datos temporales elimina también su proyección; la aplicación no elimina hechos académicos. Los registros de arriba no tienen `updatedAt…`: no se actualizan (3.1; correcciones y anulaciones referenciadas, T3). Las tablas siguen el mapeo de nombres de `schema.prisma` (`@@map`, snake_case plural).
 
 #### 2.5.2. Permisos
 
@@ -935,7 +956,7 @@ La **materia no se cambia** (criterio 2): no es un campo de la corrección; para
 
 ### 2.11. Corregir la asistencia y anular el registro de clase dictada (HU-E-11) — NUEVA en Revisión 2
 
-> **Regla N.° 8.** La **corrección de asistencia** es un registro nuevo que no toca al original (2.5.1, `CorreccionAsistencia`). La **anulación** es la marca `anuladaEl` / `anuladaPor` / `motivoAnulacion` de `ClaseDictada`, que `PR-0.md` §2.8 fija como la **única excepción documentada** a la Regla N.° 8 de este módulo (T3): se escribe una sola vez, con condición atómica, y el registro conserva todos sus datos. Ambas dejan valor anterior, valor nuevo, usuario, fecha y motivo (criterio 5).
+> **Regla N.° 8.** Tanto la corrección como la anulación son registros nuevos que referencian a la clase y no la modifican. `CorreccionAsistencia` conserva los estados anterior/nuevo por alumno; `AnulacionClaseDictada` conserva `anuladoAnterior=false`, `anuladoNuevo=true`, usuario, fecha y motivo (criterio 5).
 
 **Rutas:**
 - `POST /api/turnos/[id]/clase-dictada/correccion-asistencia` (HU-E-11, criterios 1 y 2)
@@ -985,15 +1006,9 @@ export const AnularClaseDictadaSchema = z.object({
 
 #### 2.11.3. Anular el registro de clase dictada
 
-4. **Marca atómica** (Regla N.° 7), sin leer-y-escribir por separado:
-   ```sql
-   UPDATE clases_dictadas
-      SET "anuladaEl" = $ahora, "anuladaPor" = $usuarioId, "motivoAnulacion" = $motivo
-    WHERE "idClaseDictada" = $id AND "anuladaEl" IS NULL;   -- $executeRaw parametrizado
-   ```
-   Si afectó 0 filas (otra persona la anuló en el mismo instante): `409 CLASE_DICTADA_YA_ANULADA`.
+4. **Registro nuevo y atómico** (Reglas N.° 7 y 8): bajo el bloqueo del turno, insertar `AnulacionClaseDictada` con referencia única a la clase, motivo, usuario, fecha y estado anterior/nuevo. El trigger libera exclusivamente esa clase de la proyección de vigencia en la misma transacción. No hay `UPDATE` sobre `ClaseDictada`, sus alumnos ni sus observaciones. Si no hay clase vigente, solo la repetición exacta de la última anulación se responde idempotentemente; cualquier otro intento da `404 CLASE_NO_REGISTRADA`.
 5. **Efectos** (criterio 4 y 3):
-   - La clase **vuelve a «Sin registrar como dictada»** y puede registrarse de nuevo si corresponde (2.1, 2.6): el índice único parcial ya no la cuenta, y la clase nueva es otro registro con otro id. Para el `POST` de registro, las condiciones (b) y (c) de 2.1 paso 4 se evalúan sobre la clase **vigente**: `obtenerClaseDictadaDeTurno` devuelve `null`.
+   - La clase **vuelve a «Sin registrar como dictada»** y puede registrarse de nuevo si corresponde (2.1, 2.6): la proyección de vigencia ya no la cuenta, y la clase nueva es otro registro con otro id. Para el `POST` de registro, las condiciones (b) y (c) de 2.1 paso 4 se evalúan sobre la clase **vigente**: `obtenerClaseDictadaDeTurno` devuelve `null`.
    - **Deja de aparecer** en el historial académico de los alumnos (2.3), en «Mi historial» (2.12), en la pestaña Clases (donde la inscripción pasa a «Sin registrar como dictada», 2.7.3) y **no se cuenta** en los indicadores de clases dictadas ni en la asistencia (2.13, HU-H-07; `asistenciaDeAlumno` y `contarAsistenciasPorMes` la excluyen).
    - Las **observaciones** (2.8) quedan ocultas junto con el registro: están colgadas del id anulado.
    - Los **resultados de examen** ya cargados **no se modifican**.
@@ -1042,7 +1057,7 @@ export const AnularClaseDictadaSchema = z.object({
 | `puede_corregir` de cada examen | `true` si no está anulado | `false` | `true` solo si lo registró él y sigue dentro de los 7 días (3.9) |
 
 **Qué trae la consulta unificada** (`$queryRaw` parametrizado; orden `fecha DESC`, `createdAt DESC` y, para que sea determinista, el tipo y el id como último desempate):
-- **Clases dictadas** del alumno (`ClaseDictadaAlumno`) con `anuladaEl IS NULL` (3.7), con su asistencia vigente (3.6).
+- **Clases dictadas** del alumno (`ClaseDictadaAlumno`) sin marca legacy ni anulación referenciada (3.7), con su asistencia vigente (3.6).
 - **Resultados de examen** del alumno con su valor vigente (3.6): la `fecha` y la `nota` de la última corrección o, si no hay, las del original. Los anulados se excluyen salvo que el rol sea Mesa de Entrada o Gerente.
 - **Indicaciones** del alumno (nuevo, HU-E-04 criterio 5): su `fecha` es la de registro en `America/Argentina/Buenos_Aires`.
 - `materia_id` filtra los tres tipos **dentro** de la consulta, antes de paginar.
@@ -1171,7 +1186,7 @@ Toda la lógica listada reside exclusivamente en `src/server/historial/*.service
 
 ### 3.1. Inmutabilidad de los registros de hecho consumado (Regla N.° 8)
 
-> **Revisión 2.** La inmutabilidad **se mantiene**: `ClaseDictada`, `ClaseDictadaAlumno` y `ResultadoExamen` siguen sin admitir `UPDATE` ni `DELETE` de sus datos. Quedan superadas las frases «no hay corrección desde la aplicación» y «una HU que el PO planificó para Sprint 3 (Q7e, a definir)»: HU-E-10 y HU-E-11 agregan las rutas de 2.10 y 2.11, que crean el **registro compensatorio** que esta sección anticipaba. La **única** escritura sobre un registro de hecho es la marca de anulación de la clase dictada (`anuladaEl`, `anuladaPor`, `motivoAnulacion`), la excepción documentada de `PR-0.md` §2.8 (T3). El valor que se muestra es el vigente (3.6).
+> **Revisión 2.** La inmutabilidad **se mantiene**: `ClaseDictada`, `ClaseDictadaAlumno` y `ResultadoExamen` siguen sin admitir `UPDATE` ni `DELETE` de sus datos. Quedan superadas las frases «no hay corrección desde la aplicación» y «una HU que el PO planificó para Sprint 3 (Q7e, a definir)»: HU-E-10 y HU-E-11 agregan las rutas de 2.10 y 2.11, que crean el **registro compensatorio** que esta sección anticipaba. La anulación también es un registro compensatorio nuevo; los campos legacy se conservan solo por compatibilidad. El valor que se muestra es el vigente (3.6).
 
 `ClaseDictada`, `ClaseDictadaAlumno` y `ResultadoExamen` **no admiten `UPDATE` ni `DELETE`** una vez insertados: ningún servicio ni ruta los modifica. Un error de carga se corregirá con un registro compensatorio que referencie al original, en una HU que el PO planificó para Sprint 3 (Q7e, a definir). Hasta entonces **no hay corrección desde la aplicación**; hay que saberlo antes de la demo.
 
@@ -1183,7 +1198,7 @@ La lista de alumnos, la fecha, la materia y el profesor se copian al registrar. 
 
 ### 3.3. Un turno, una clase dictada
 
-> **Revisión 2.** Se mantiene **como regla**: una sola clase dictada **no anulada** por turno, garantizada por el índice único parcial y por el `INSERT … ON CONFLICT ("turnoId") WHERE "anuladaEl" IS NULL DO NOTHING` (T3). Repetir la acción no duplica ni falla. Tras anular el registro (2.11), el turno vuelve a poder registrarse; el registro nuevo es otra fila.
+> **Revisión 2.** Se mantiene **como regla**: una sola clase dictada **no anulada** por turno, garantizada por la proyección única por turno y el bloqueo canónico (T3). Repetir la acción no duplica ni falla. Tras anular el registro (2.11), el turno vuelve a poder registrarse; el registro nuevo es otra fila.
 
 Garantizado por el constraint `UNIQUE` sobre `turnoId` y por el `INSERT … ON CONFLICT DO NOTHING` de 2.1. Repetir la acción no duplica ni falla: devuelve el registro existente.
 
@@ -1217,7 +1232,7 @@ Una corrección o una anulación **nunca** actualiza el registro que corrige: se
   ```
 
 ### 3.7. Clase dictada anulada — NUEVA en Revisión 2
-Una clase dictada con `anuladaEl` no vacío **no existe** para el resto del sistema. El predicado `anuladaEl IS NULL` es único (`sqlClaseDictadaVigente`) y lo aplican, sin excepción: el historial de los tres modos (2.12), la pestaña Clases (2.7), «Mi historial», `asistenciaDeAlumno` y `contarAsistenciasPorMes` (2.13), `obtenerClaseDictadaDeTurno` y `profesorAtendioAlumno` (2.4), «materia cursada» (2.2 y 2.9), `profesorPuedeRegistrarIndicacion` (2.5.3) y el `GET` de 2.1/2.6. Las observaciones, que cuelgan del id anulado, quedan ocultas; las indicaciones y los exámenes **no** se modifican (2.11.3).
+Una clase dictada con una `AnulacionClaseDictada` o una marca legacy `anuladaEl` **no existe** para las lecturas de vigencia. `sqlClaseDictadaVigente` y `claseDictadaVigente` aplican la misma condición en SQL y Prisma: marca legacy nula y ausencia de anulación referenciada. La aplican historial, pestaña Clases, Mi historial, asistencia, opciones de indicación, permisos por clases y GET de registro. Las observaciones se ocultan; indicaciones y exámenes no se modifican y el vínculo de una indicación a una clase anulada se devuelve nulo.
 
 ### 3.8. Alcance del Profesor y respuesta que no revela existencia — NUEVA en Revisión 2
 - Todo alcance del Profesor se resuelve en el servidor con la ficha de la sesión (`obtenerOpcionProfesorDeUsuario()`), nunca por parámetro (2.5.3).
@@ -1246,8 +1261,8 @@ La consulta unificada recibe un **modo** (`PERSONAL` para Mesa de Entrada y Gere
 
 ### 3.11. Concurrencia y bloqueos — NUEVA en Revisión 2
 - **Orden canónico** (`PR-0.md` §2.10): las operaciones de E que combinan recursos toman primero la clase con `bloquear(tx, { clases: [turnoId] })` (`FOR UPDATE`); si hay que tocar inscripciones (`marcarVencidas`), eso lo hace el servicio de inscripción **después**, en su orden. Las escrituras que solo dependen de su propia fila (observación, indicación, corrección y anulación de examen) no combinan bloqueos.
-- **Registrar, corregir, anular** una clase dictada de un mismo turno se serializan entre sí con el bloqueo de la clase. Un registro nuevo posterior a una anulación es otro registro (índice único parcial, T3).
-- **Condiciones atómicas** (Regla N.° 7): la unicidad de la clase dictada es `INSERT … ON CONFLICT ("turnoId") WHERE "anuladaEl" IS NULL DO NOTHING`; la de la observación, `ON CONFLICT ("claseDictadaId") DO NOTHING`; la anulación de la clase, `UPDATE … WHERE "anuladaEl" IS NULL` con conteo de filas; la anulación de un examen, el bloqueo de su fila más el `UNIQUE` por resultado. Nunca captura de `P2002` dentro de la transacción.
+- **Registrar, corregir, anular** una clase dictada de un mismo turno se serializan entre sí con el bloqueo de la clase. Un registro nuevo posterior a una anulación es otro registro (proyección de vigencia, T3).
+- **Condiciones atómicas** (Regla N.° 7): la unicidad de la clase dictada es la clave por turno de la proyección mantenida en la misma transacción; la de la observación, `ON CONFLICT ("claseDictadaId") DO NOTHING`; la anulación de la clase, bloqueo del turno y `UNIQUE` por clase en `AnulacionClaseDictada`; la anulación de un examen, el bloqueo de su fila más el `UNIQUE` por resultado. Nunca captura de `P2002` dentro de la transacción.
 - Todas las transacciones usan `transaccion` del PR 0 (`maxWait` 2000 ms, `timeout` 8000 ms, `lock_timeout` 5 s); un bloqueo que no se obtiene responde `409 TRANSACCION_OCUPADA`. Los registros de hecho consumado no necesitan eventos posteriores al commit (§4).
 
 ### 3.12. La asistencia no mueve pagos ni inscripciones — NUEVA en Revisión 2
@@ -1267,7 +1282,7 @@ Este módulo sigue sin leer `turnos`, `turno_alumno`, `alumnos`, `profesores`, `
 1. **Los tests de Sprint 2 de 2.1 a 2.4 siguen pasando.** Solo se tocan los mocks de persistencia; las aserciones de respuesta, `code` y regla se mantienen (`PR-0.md` §1.1, regla 3). La única aserción que cambia es el alcance del Profesor (T1), y se anota en «Decisiones tomadas».
 2. **Contrato de 2.1 sin cuerpo:** un `POST` sin cuerpo registra la clase sin control y responde lo mismo que en Sprint 2 (más los tres campos nuevos).
 3. **Registro con asistencia:** guarda la clase y los estados en una transacción; un `asistencias` incompleto, con sobrantes o repetidos responde `400 ASISTENCIA_INCOMPLETA` y no escribe nada; un alumno Ausente no cambia su pago.
-4. **`ON CONFLICT` parcial con PostgreSQL real:** registrar, anular, registrar de nuevo; dos registros simultáneos (uno gana, el otro `ya_existia`); una anulación y un registro simultáneos.
+4. **Unicidad transaccional con PostgreSQL real:** registrar, anular, registrar de nuevo; dos registros simultáneos (uno gana, el otro `ya_existia`); una anulación y un registro simultáneos.
 5. **Valor vigente:** la asistencia y el examen corregidos se leen con el valor nuevo en el historial, la pestaña Clases, «Mi historial» y las lecturas de 2.13, y esas cuatro dan los mismos números (prueba de equivalencia).
 6. **Clasificación de 2.7.3:** una prueba por cada fila de la tabla, incluidos la reserva vencida sin marcar, la clase en curso (no es «Próxima»), la inscripción cancelada y vuelta a hacer en la misma clase (dos filas), la inscripción finalizada antes y después de la cancelación de la clase, y «Asistió (sin control)».
 7. **Alcance del Profesor:** `profesorPuedeVerHistorial` con la condición 1 sola, la 2 sola, ninguna, y una clase dictada anulada; `403` antes de la existencia; `materia_id` obligatorio; indicación antes y después de la primera clase propia (con el alumno ausente); exámenes solo en la materia; observaciones internas solo de clases suyas.
@@ -1282,7 +1297,7 @@ Este módulo sigue sin leer `turnos`, `turno_alumno`, `alumnos`, `profesores`, `
 
 Conforme a `docs/RULES.md` Regla N.° 2, este módulo usa la **opción (a) — columnas de auditoría en la propia entidad**, que se persisten en la misma operación: la trazabilidad (qué, cuándo, quién) queda en las columnas de la propia fila (`createdAtClaseDictada` / `createdAtResultadoExamen` y `creadoPorUsuarioId`). Al ser registros inmutables de un solo evento por fila, no se necesita tabla de eventos ni se emiten eventos de dominio en este sprint.
 
-> **Revisión 2.** El módulo sigue en la **opción (a)**: cada registro nuevo es su propia traza (qué, cuándo y quién) en sus columnas de auditoría y se persiste en la misma operación. Valen para las correcciones de asistencia, las observaciones, las indicaciones, las correcciones y anulaciones de exámenes (`createdAt…` y `creadoPorUsuarioId`) y para la anulación de la clase dictada (`anuladaEl`, `anuladaPor`, `motivoAnulacion`). Como cada fila tiene un solo evento, no se necesita tabla de eventos ni se emiten eventos de dominio. Que una clase dictada se registre, se corrija o se anule **no** es un cambio de estado de la inscripción y no escribe en el historial de estados de C (3.12).
+> **Revisión 2.** El módulo sigue en la **opción (a)**: cada registro nuevo es su propia traza (qué, cuándo y quién) en sus columnas de auditoría y se persiste en la misma operación. Valen para las correcciones de asistencia, las observaciones, las indicaciones, las correcciones y anulaciones de exámenes (`createdAt…` y `creadoPorUsuarioId`) y para la anulación de la clase dictada (`AnulacionClaseDictada`). Como cada fila tiene un solo evento, no se necesita tabla de eventos ni se emiten eventos de dominio. Que una clase dictada se registre, se corrija o se anule **no** es un cambio de estado de la inscripción y no escribe en el historial de estados de C (3.12).
 
 ---
 

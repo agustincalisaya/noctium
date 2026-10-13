@@ -58,6 +58,9 @@ describe("HU-E-10 acciones del historial académico", () => {
     await act(async () => root.render(<ResultadoExamenAcciones alumnoId="alumno-1" item={ITEM} onActualizado={actualizar} />));
     await act(async () => boton(container, "Corregir").click());
     expect(dialogo()!.textContent).toContain("Corregir resultado de examen");
+    expect(dialogo()!.textContent).toContain("La materia no se cambia");
+    expect(dialogo()!.textContent).toContain("Motivo de la corrección");
+    expect(boton(dialogo()!, "Guardar corrección")).not.toBeUndefined();
     await cambiarValor("#fecha-examen-examen-1", "2026-10-04");
     await cambiarValor("#nota-examen-examen-1", "9,5");
     await cambiarValor("#motivo-examen-examen-1", "La nota se cargó mal");

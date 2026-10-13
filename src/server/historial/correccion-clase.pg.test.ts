@@ -25,6 +25,15 @@ describe.skipIf(!basePgHabilitada)("E11 operaciones reales e integraciones", () 
   const corregir = (estado: "PRESENTE" | "AUSENTE") => corregirAsistenciaClaseDictada(turno.idTurno, actor, { motivo: "Error real", asistencias: [{ alumno_id: alumno.idAlumno, estado }] });
   return { turno, alumno, clase, guardar, corregir };
  }
+ it("indicación nocturna usa el calendario local y Gerente recibe la fecha real de la clase", async () => {
+  const e = await escenario();
+  await conReloj(new Date("2026-10-13T02:37:00Z"), () => transaccion(tx => registrarIndicacion(tx, e.alumno.idAlumno,
+    { materia_id: e.turno.materiaId, indicacion: "Indicación nocturna", clase_dictada_id: e.clase.id }, actor)));
+  const gerente = { id: (await crearUsuarioDePrueba(db, { rol: "GERENTE" })).idUsuario, rol: "GERENTE" as const };
+  const h = await obtenerHistorialAlumno(e.alumno.idAlumno, { pagina: 1, por_pagina: 10 }, gerente);
+  expect(h.items.find(i => i.tipo === "INDICACION")).toMatchObject({ fecha: "2026-10-12", registrada_en: "2026-10-13T02:37:00.000Z", clase_dictada_fecha: e.turno.fechaTurno.toISOString().slice(0, 10) });
+  expect(h.indicaciones_opciones).toEqual({ materias: [], clases: [] });
+ });
  it("correcciones sucesivas guardan anteriores vigentes y no modifican snapshot", async () => {
   const e = await escenario(); const snapshot = await db.claseDictadaAlumno.findMany({ where: { claseDictadaId: e.clase.id } });
   await e.corregir("AUSENTE");
@@ -54,6 +63,7 @@ describe.skipIf(!basePgHabilitada)("E11 operaciones reales e integraciones", () 
   const examen = await registrarResultadoExamen(e.alumno.idAlumno, { materia_id: e.turno.materiaId, fecha_examen: e.turno.fechaTurno, nota: "8" }, actor);
   const inscripciones = await db.turnoAlumno.findMany({ where: { turnoId: e.turno.idTurno } });
   const pagos = await db.pago.count(); const momento = new Date();
+  const original = await db.claseDictada.findUniqueOrThrow({ where: { idClaseDictada: e.clase.id }, include: { alumnos: true } });
   await anularClaseDictada(e.turno.idTurno, actor, "No se dio");
   await expect(obtenerRegistroClaseDictada(e.turno.idTurno, actor)).rejects.toMatchObject({ code: "CLASE_NO_REGISTRADA" });
   expect(await asistenciaDeAlumno(e.alumno.idAlumno)).toEqual([]);
@@ -67,9 +77,48 @@ describe.skipIf(!basePgHabilitada)("E11 operaciones reales e integraciones", () 
   expect(await db.observacionClase.count({ where: { claseDictadaId: e.clase.id } })).toBe(1);
   expect(await db.turnoAlumno.findMany({ where: { turnoId: e.turno.idTurno } })).toEqual(inscripciones); expect(await db.pago.count()).toBe(pagos);
   expect(await profesorPuedeRegistrarIndicacion(e.turno.profesorId!, e.alumno.idAlumno, e.turno.materiaId)).toBe(false);
-  const anulada = await db.claseDictada.findUniqueOrThrow({ where: { idClaseDictada: e.clase.id } });
-  expect(anulada.motivoAnulacion).toBe("No se dio"); expect(anulada.anuladaPorUsuarioId).toBe(actor.id); expect(anulada.anuladaEl!.getTime()).toBeGreaterThanOrEqual(momento.getTime());
+  expect(await db.claseDictada.findUniqueOrThrow({ where: { idClaseDictada: e.clase.id }, include: { alumnos: true } })).toEqual(original);
+  const anulacion = await db.anulacionClaseDictada.findUniqueOrThrow({ where: { claseDictadaId: e.clase.id } });
+  expect(anulacion).toMatchObject({ motivo: "No se dio", creadoPorUsuarioId: actor.id, anuladoAnterior: false, anuladoNuevo: true });
+  expect(anulacion.createdAtAnulacion.getTime()).toBeGreaterThanOrEqual(momento.getTime());
+  expect(await db.registroClaseDictadaVigente.findUnique({ where: { turnoId: e.turno.idTurno } })).toBeNull();
+  await expect(anularClaseDictada(e.turno.idTurno, actor, "No se dio")).resolves.toMatchObject({ id: e.clase.id, anulada_en: anulacion.createdAtAnulacion.toISOString() });
+  expect(await db.anulacionClaseDictada.count({ where: { claseDictadaId: e.clase.id } })).toBe(1);
   const nueva = await e.guardar(); expect(nueva.id).not.toBe(e.clase.id);
+  expect(await db.registroClaseDictadaVigente.findUnique({ where: { turnoId: e.turno.idTurno } })).toMatchObject({ claseDictadaId: nueva.id });
+
+ });
+ it("unicidad PostgreSQL y rollback protegen la vigencia sin modificar originales", async () => {
+  const e = await escenario();
+  const original = await db.claseDictada.findUniqueOrThrow({ where: { idClaseDictada: e.clase.id } });
+  const datos = { ...original, idClaseDictada: `${original.idClaseDictada}-duplicada` };
+  await expect(db.claseDictada.create({ data: datos })).rejects.toMatchObject({ code: "P2002" });
+  expect(await db.claseDictada.count({ where: { turnoId: e.turno.idTurno } })).toBe(1);
+  await expect(db.$transaction(async tx => {
+    await tx.anulacionClaseDictada.create({ data: { claseDictadaId: e.clase.id, motivo: "Rollback", creadoPorUsuarioId: actor.id } });
+    throw new Error("Revertir");
+  })).rejects.toThrow("Revertir");
+  expect(await db.registroClaseDictadaVigente.findUnique({ where: { turnoId: e.turno.idTurno } })).toMatchObject({ claseDictadaId: e.clase.id });
+  expect(await db.anulacionClaseDictada.count({ where: { claseDictadaId: e.clase.id } })).toBe(0);
+ });
+ it("limpiar una clase de prueba elimina su proyección, pero un hecho anulado protege el original", async () => {
+  const e = await escenario();
+  await db.claseDictadaAlumno.deleteMany({ where: { claseDictadaId: e.clase.id } });
+  await db.claseDictada.delete({ where: { idClaseDictada: e.clase.id } });
+  expect(await db.registroClaseDictadaVigente.findUnique({ where: { turnoId: e.turno.idTurno } })).toBeNull();
+  const otra = await escenario();
+  await anularClaseDictada(otra.turno.idTurno, actor, "Conservar hecho");
+  await db.claseDictadaAlumno.deleteMany({ where: { claseDictadaId: otra.clase.id } });
+  await expect(db.claseDictada.delete({ where: { idClaseDictada: otra.clase.id } })).rejects.toMatchObject({ code: "P2003" });
+  expect(await db.anulacionClaseDictada.count({ where: { claseDictadaId: otra.clase.id } })).toBe(1);
+ });
+ it("anulación y registro simultáneos conservan una sola clase vigente", async () => {
+  const e = await escenario();
+  await Promise.all([anularClaseDictada(e.turno.idTurno, actor, "No se dio"), e.guardar()]);
+  const nueva = await e.guardar();
+  expect(nueva.id).not.toBe(e.clase.id);
+  expect(await db.claseDictada.count({ where: { turnoId: e.turno.idTurno, anuladaEl: null, anulacion: { is: null } } })).toBe(1);
+  expect(await db.anulacionClaseDictada.count({ where: { claseDictadaId: e.clase.id } })).toBe(1);
  });
  it("anulación simultánea y profesor fuera de plazo no duplican ni mutan", async () => {
   const e = await escenario(); const r = await Promise.allSettled([anularClaseDictada(e.turno.idTurno, actor, "A"), anularClaseDictada(e.turno.idTurno, actor, "B")]);

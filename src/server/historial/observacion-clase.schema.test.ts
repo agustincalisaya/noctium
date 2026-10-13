@@ -4,7 +4,11 @@ import { RegistrarObservacionClaseSchema } from "./observacion-clase.schema";
 describe("RegistrarObservacionClaseSchema", () => {
   it("recorta ambos textos y admite observación interna omitida o vacía", () => {
     expect(RegistrarObservacionClaseSchema.parse({ temas_vistos: "  Funciones lineales  " })).toEqual({ temas_vistos: "Funciones lineales" });
-    expect(RegistrarObservacionClaseSchema.parse({ temas_vistos: "Álgebra", observaciones_internas: "  " })).toEqual({ temas_vistos: "Álgebra", observaciones_internas: "" });
+    expect(RegistrarObservacionClaseSchema.parse({ temas_vistos: "Álgebra", observaciones_internas: "" })).toEqual({ temas_vistos: "Álgebra", observaciones_internas: "" });
+  });
+
+  it.each([" ", "\n\t"]) ("rechaza observaciones internas con solo espacios (%j)", (observaciones_internas) => {
+    expect(RegistrarObservacionClaseSchema.safeParse({ temas_vistos: "Álgebra", observaciones_internas }).success).toBe(false);
   });
 
   it("acepta 1000 caracteres por campo y rechaza 1001", () => {

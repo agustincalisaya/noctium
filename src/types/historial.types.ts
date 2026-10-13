@@ -22,7 +22,7 @@ export type ItemHistorialAcademico = {
     puede_corregir: boolean;
     anulacion?: { motivo: string; anulada_en: string; anulada_por: string | null };
   }
-  | { tipo: "INDICACION"; indicacion: string; registrada_en: string; registrada_por: string | null; clase_dictada_id: string | null }
+  | { tipo: "INDICACION"; indicacion: string; registrada_en: string; registrada_por: string | null; clase_dictada_id: string | null; clase_dictada_fecha: string | null }
 );
 
 export type EstadoAsistencia = "PRESENTE" | "AUSENTE";
