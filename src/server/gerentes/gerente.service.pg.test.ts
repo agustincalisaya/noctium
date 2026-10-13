@@ -262,20 +262,110 @@ describe.skipIf(!basePgHabilitada)("gerentes, con PostgreSQL real", () => {
     expect((await obtenerDetalleGerente(creado.id, gerente, db)).esVos).toBe(false);
   });
 
-  it("listado mínimo: activas e inactivas, ordenado por apellido, nombre y DNI, con total", async () => {
+  it("listado: activas e inactivas, ordenado por apellido, nombre y DNI, con total", async () => {
     const sufijo = unico("orden").toLowerCase().replace(/[^a-z]/g, "");
     const a = await crearGerente({ ...alta(), apellido: `Zeta${sufijo}`, nombre: "Beto" }, gerente, IP);
     const b = await crearGerente({ ...alta(), apellido: `zeta${sufijo}`, nombre: "Ana" }, gerente, IP);
     await db.fichaGerente.update({ where: { idFichaGerente: a.id }, data: { activoFichaGerente: false } });
 
-    const { items, total } = await listarGerentes(db);
+    // HU-G-03: el listado pagina de a 10 y la base de pruebas es compartida
+    // (y el seed suma fichas de prueba); la búsqueda por el sufijo acota el
+    // resultado a las fichas de esta prueba, y el conteo usa el mismo filtro.
+    const { items, total } = await listarGerentes({ pagina: 1, q: sufijo }, gerente, db);
     expect(total).toBe(items.length);
-    expect(total).toBe(await db.fichaGerente.count());
+    expect(total).toBe(await db.fichaGerente.count({ where: { apellidoNormalizadoFichaGerente: { contains: sufijo } } }));
     const propios = items.filter((i) => i.id === a.id || i.id === b.id);
     expect(propios.map((i) => [i.nombre, i.activo])).toEqual([
       ["Ana", true],
       ["Beto", false],
     ]);
+  });
+
+  describe("búsqueda, paginación y «(vos)» (HU-G-03)", () => {
+    // Doce fichas con un sufijo propio en el apellido: la búsqueda por el
+    // sufijo las separa de las demás fichas de la base compartida.
+    const sufijo = unico("busq").toLowerCase().replace(/[^a-z]/g, "");
+    const APELLIDOS = ["Álvarez", "Núñez", "Ferreyra", "Ferrero", "Ruiz", "Sosa", "Paz", "Luna", "Mena", "Ortiz", "Quiroga", "Vera"];
+    let creados: { id: string; apellido: string; nombre: string; dni: string }[] = [];
+
+    beforeAll(async () => {
+      creados = [];
+      for (const [i, apellido] of APELLIDOS.entries()) {
+        const r = await crearGerente({ ...alta(), apellido: `${apellido}${sufijo}`, nombre: i % 2 ? "Beatriz" : "Andrés" }, gerente, IP);
+        creados.push({ id: r.id, apellido: r.apellido, nombre: r.nombre, dni: r.dni });
+      }
+      // Una inactiva: la búsqueda opera sobre activos e inactivos.
+      await db.fichaGerente.update({ where: { idFichaGerente: creados[1]!.id }, data: { activoFichaGerente: false } });
+    });
+
+    const apellidosDe = (items: { apellido: string }[]) => items.map((i) => i.apellido.replace(sufijo, ""));
+
+    it("sin distinguir tildes: «alvarez» encuentra «Álvarez» y «nunez», «Núñez» (inactiva)", async () => {
+      expect(apellidosDe((await listarGerentes({ pagina: 1, q: `alvarez ${sufijo}` }, gerente, db)).items)).toEqual(["Álvarez"]);
+      const nunez = await listarGerentes({ pagina: 1, q: `NUNEZ ${sufijo}` }, gerente, db);
+      expect(nunez.items).toEqual([expect.objectContaining({ apellido: `Núñez${sufijo}`, activo: false })]);
+    });
+
+    it("coincidencia parcial y AND entre palabras", async () => {
+      expect(apellidosDe((await listarGerentes({ pagina: 1, q: `ferr ${sufijo}` }, gerente, db)).items)).toEqual(["Ferrero", "Ferreyra"]);
+      expect(apellidosDe((await listarGerentes({ pagina: 1, q: `ferrey ${sufijo}` }, gerente, db)).items)).toEqual(["Ferreyra"]);
+      // «Ferreyra» se creó con «Andrés» (índice 2): AND con el nombre.
+      expect(apellidosDe((await listarGerentes({ pagina: 1, q: `andres ferr ${sufijo}` }, gerente, db)).items)).toEqual(["Ferreyra"]);
+      expect((await listarGerentes({ pagina: 1, q: `beatriz ferrey ${sufijo}` }, gerente, db)).total).toBe(0);
+    });
+
+    it("por nombre y por DNI (parcial)", async () => {
+      const andres = await listarGerentes({ pagina: 1, q: `andres ${sufijo}` }, gerente, db);
+      expect(andres.total).toBe(6);
+      const objetivo = creados[5]!;
+      expect((await listarGerentes({ pagina: 1, q: objetivo.dni }, gerente, db)).items.map((i) => i.id)).toEqual([objetivo.id]);
+      const parcial = await listarGerentes({ pagina: 1, q: `${objetivo.dni.slice(0, 6)} ${sufijo}` }, gerente, db);
+      expect(parcial.items.map((i) => i.id)).toContain(objetivo.id);
+    });
+
+    it("pagina de a 10 con el total filtrado, sin repetidos ni faltantes, en orden", async () => {
+      const p1 = await listarGerentes({ pagina: 1, q: sufijo }, gerente, db);
+      const p2 = await listarGerentes({ pagina: 2, q: sufijo }, gerente, db);
+      expect(p1).toMatchObject({ pagina: 1, por_pagina: 10, total: 12, total_paginas: 2 });
+      expect(p1.items).toHaveLength(10);
+      expect(p2).toMatchObject({ pagina: 2, total: 12, total_paginas: 2 });
+      expect(p2.items).toHaveLength(2);
+      const todos = [...p1.items, ...p2.items];
+      expect(new Set(todos.map((i) => i.id)).size).toBe(12);
+      expect(apellidosDe(todos)).toEqual(["Álvarez", "Ferrero", "Ferreyra", "Luna", "Mena", "Núñez", "Ortiz", "Paz", "Quiroga", "Ruiz", "Sosa", "Vera"]);
+      // Fuera de rango: la última página.
+      expect(await listarGerentes({ pagina: 7, q: sufijo }, gerente, db)).toMatchObject({ pagina: 2, items: p2.items });
+    });
+
+    it("sin resultados: total 0, total_paginas 0 y página 1", async () => {
+      expect(await listarGerentes({ pagina: 3, q: `${sufijo}zzz` }, gerente, db)).toEqual({
+        items: [],
+        pagina: 1,
+        por_pagina: 10,
+        total: 0,
+        total_paginas: 0,
+      });
+    });
+
+    it("esVos solo en la ficha de la cuenta que consulta; el ítem no trae usuarioId", async () => {
+      const objetivo = creados[6]!;
+      const propio = (await ficha(objetivo.id)).usuarioId!;
+      const comoPropio = [
+        ...(await listarGerentes({ pagina: 1, q: sufijo }, propio, db)).items,
+        ...(await listarGerentes({ pagina: 2, q: sufijo }, propio, db)).items,
+      ];
+      expect(comoPropio.filter((i) => i.esVos).map((i) => i.id)).toEqual([objetivo.id]);
+      for (const item of comoPropio) expect(item).not.toHaveProperty("usuarioId");
+      // Con una cuenta que no tiene ficha en el resultado, ninguna fila es «(vos)».
+      expect((await listarGerentes({ pagina: 1, q: sufijo }, gerente, db)).items.some((i) => i.esVos)).toBe(false);
+    });
+
+    it("una ficha sin cuenta nunca es «(vos)»", async () => {
+      const objetivo = creados[7]!;
+      await db.fichaGerente.update({ where: { idFichaGerente: objetivo.id }, data: { usuarioId: null } });
+      const { items } = await listarGerentes({ pagina: 1, q: `${objetivo.dni}` }, gerente, db);
+      expect(items).toEqual([expect.objectContaining({ id: objetivo.id, esVos: false })]);
+    });
   });
 
   it("detalle inexistente: GERENTE_NO_ENCONTRADO", async () => {

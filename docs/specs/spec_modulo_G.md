@@ -38,6 +38,17 @@ Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código rea
 9. **Disponibilidad al salir del campo.** Se suma la Server Action `verificarDisponibilidadGerente({ dni?, email?, excluirId? })`: devuelve solo `{ dni_disponible, email_disponible }`, pide `gerentes:crear` en el alta y `gerentes:editar` con `excluirId`, y un `excluirId` inexistente es `404 GERENTE_NO_ENCONTRADO`. Sin Route Handler.
 10. **DEC-44.** La confirmación de la edición usa un aviso propio cuando el gerente cambia su propio email (`ui.gerentes.edicion.avisoEmailPropio`, propuesto, pendiente del PO).
 
+### Nota de implementación HU-G-03
+
+Aditiva: no cambia ningún contrato de esta spec. Registra lo que el código real tuvo que acomodar respecto de §1 y §2.3; las mismas diferencias que registró HU-F-03 en `spec_modulo_F.md`.
+
+1. **`tokenizarBusqueda`.** §1 («Utilidades compartidas») la ubica, por `spec_modulo_F.md` §1, en `src/server/shared/busqueda-persona.ts`. En el repo vive en `src/lib/busqueda-texto.ts` (la usan alumnos, turnos y personal): se reutiliza esa y no se crea `busqueda-persona.ts`. El filtro propio es `construirFiltroBusquedaGerentes(q)` en `src/server/gerentes/gerente.busqueda.ts`.
+2. **Firma de `listarGerentes`.** Es `listarGerentes(query, sesionUsuarioId, db?)`, con `query = { pagina, q? }`: la de §2.3 con `db` al final, como el resto del servicio. Reemplaza a la de HU-G-01 (`listarGerentes(db?)`, punto 8 de la nota anterior); los llamadores se adaptaron. La respuesta es `{ items, pagina, por_pagina, total, total_paginas }`.
+3. **`por_pagina` no es parámetro.** Es fijo (`POR_PAGINA_GERENTES = 10`); enviarlo, como cualquier otro parámetro, es `400 VALIDATION_ERROR` (`.strict()`). Una página mayor que la última devuelve la última y, sin resultados, `pagina: 1` y `total_paginas: 0`, como en el personal y en alumnos. Los errores de `pagina` y `q` salen con los mensajes por defecto de Zod (la spec da el schema sin mensajes propios), igual que en F.
+4. **`esVos` por ítem**, en camelCase como en el ejemplo de §2.3: `ficha.usuarioId !== null && ficha.usuarioId === sesionUsuarioId`. El ítem no devuelve `usuarioId`.
+5. **Texto de «sin resultados».** `ui.gerentes.listado.sinResultados` = «No se encontraron gerentes para «{q}»», propuesto, pendiente de validar por el PO (P-F6). No hay estado vacío sin búsqueda: siempre figura al menos el gerente autenticado.
+6. **Fichas de prueba sin cuenta.** La fixture `hu-g-03.ts` crea 12 fichas con `usuarioId` nulo (DNI 88065001 a 88065012), la excepción de la regla 3.1 para fichas de prueba, como en F-03. Para HU-G-05: las activas entran en el bloqueo de «todas las fichas de gerente activas», pero no cuentan para «al menos un gerente activo», que cuenta fichas activas con cuenta activa (§2.5, paso 4).
+
 ---
 
 ## 1. Visión General

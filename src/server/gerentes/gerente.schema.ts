@@ -61,3 +61,20 @@ export function construirModificarGerenteSchema(dniLongitudMin: number, dniLongi
 }
 
 export type ModificarGerenteInput = z.infer<ReturnType<typeof construirModificarGerenteSchema>>;
+
+/** Tamaño de página fijo del listado (spec_modulo_G.md §2.3, HU-G-03). */
+export const POR_PAGINA_GERENTES = 10;
+
+/**
+ * Query de `GET /api/gerentes` (spec_modulo_G.md §2.3, HU-G-03), igual que la
+ * del personal. `q` de menos de 2 caracteres no es un error: el servicio la
+ * ignora. `.strict()`: `por_pagina` no se acepta (400).
+ */
+export const ListarGerentesQuerySchema = z
+  .object({
+    pagina: z.coerce.number().int().positive().default(1),
+    q: z.string().trim().max(100).optional(),
+  })
+  .strict();
+
+export type ListarGerentesQuery = z.infer<typeof ListarGerentesQuerySchema>;
