@@ -295,6 +295,11 @@ function claseDeReserva(f: FilaReserva) {
   };
 }
 
+const aulaDeReserva = (f: FilaReserva) => (f.turno.aula ? { id: f.turno.aula.idAula, nombre: f.turno.aula.nombreAula } : null);
+const profesorDeReserva = (f: FilaReserva) => (f.turno.profesor
+  ? { id: f.turno.profesor.idProfesor, nombre_para_mostrar: `${f.turno.profesor.apellidoProfesor}, ${f.turno.profesor.nombreProfesor}` }
+  : null);
+
 /** Reservas pendientes: RESERVADA, vigente, de clase Disponible o Completa y con vencimiento posterior a `momento`. */
 const condicionPendiente = (momento: Date): Prisma.TurnoAlumnoWhereInput => ({
   vigencia: "VIGENTE", estadoPago: "RESERVADA", venceEl: { gt: momento },
@@ -361,10 +366,8 @@ export async function listarReservasPendientes(
         id: f.alumnoId, nombre_para_mostrar: `${f.alumno.apellidoAlumno}, ${f.alumno.nombreAlumno}`,
         dni: f.alumno.dniAlumno, reservas_pendientes: pendientesDe.get(f.alumnoId) ?? 0,
       },
-      clase: { ...claseDeReserva(f), aula: f.turno.aula ? { id: f.turno.aula.idAula, nombre: f.turno.aula.nombreAula } : null },
-      profesor: f.turno.profesor
-        ? { id: f.turno.profesor.idProfesor, nombre_para_mostrar: `${f.turno.profesor.apellidoProfesor}, ${f.turno.profesor.nombreProfesor}` }
-        : null,
+      clase: { ...claseDeReserva(f), aula: aulaDeReserva(f) },
+      profesor: profesorDeReserva(f),
       precio: f.precio,
     };
   });
@@ -376,7 +379,8 @@ export type ReservaVencida = {
   vencio_el: string;
   sin_marcar: boolean;
   alumno: { id: string; nombre_para_mostrar: string; dni: string };
-  clase: ReturnType<typeof claseDeReserva>;
+  clase: ReturnType<typeof claseDeReserva> & { aula: { id: string; nombre: string } | null };
+  profesor: { id: string; nombre_para_mostrar: string } | null;
   precio: number;
 };
 
@@ -419,7 +423,9 @@ export async function listarReservasVencidas(
     vencio_el: isoCentro(f.venceEl!),
     sin_marcar: f.vigencia === "VIGENTE",
     alumno: { id: f.alumnoId, nombre_para_mostrar: `${f.alumno.apellidoAlumno}, ${f.alumno.nombreAlumno}`, dni: f.alumno.dniAlumno },
-    clase: claseDeReserva(f),
+    // Aula y profesor: aditivo, como en Pendientes (foto del prototipo; nota de sincronización en spec §2.20.3).
+    clase: { ...claseDeReserva(f), aula: aulaDeReserva(f) },
+    profesor: profesorDeReserva(f),
     precio: f.precio,
   }));
   return { items, paginacion: paginacion(total, pagina) };

@@ -124,6 +124,17 @@ describe("HU-I-10 pagos", () => {
   });
 });
 
+// HU-C-26 (spec_modulo_C.md §2.20, criterio 8): «Reservas» solo mesa de entrada.
+describe("HU-C-26 reservas", () => {
+  it("/reservas: solo mesa de entrada, con cualquier pestaña o filtro", () => {
+    expect(rolPuedeAccederRuta("MESA_ENTRADA", "/reservas")).toBe(true);
+    for (const rol of ["GERENTE", "PROFESOR", "ALUMNO"] as const) {
+      expect(rolPuedeAccederRuta(rol, "/reservas")).toBe(false);
+      expect(rolPuedeAccederRuta(rol, "/reservas/x")).toBe(false);
+    }
+  });
+});
+
 // HU-I-12 (spec_modulo_I.md §2.10 a §2.12): «Mi caja» solo mesa de entrada;
 // «Cierres de caja» solo el Gerente. Se compara por segmento: /caja ≠ /cajas.
 describe("HU-I-12 caja", () => {

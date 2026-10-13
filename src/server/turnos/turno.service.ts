@@ -613,9 +613,10 @@ export async function quitarAlumnoTurno(turnoId: string, alumnoId: string, usuar
     const estado = finalizada.estadoTurno?.nuevo ?? estadoAntes;
     const liberado = estadoAntes === "COMPLETO" && estado === "DISPONIBLE";
     const inscriptos = (await inscripcionesVigentes(tx, turnoId, momento)).length;
-    return { liberado, cupo: turno.cupoMaximoTurno, inscriptos, estado };
+    return { liberado, cupo: turno.cupoMaximoTurno, inscriptos, estado, inscripcionId: inscripcion.id };
   });
-  await emitirEventoTurno("turno:alumno_quitado", turnoId, usuarioId, { turno_id: turnoId, alumno_id: alumnoId, usuario_id: usuarioId });
+  // Payload ampliado con `inscripcion_id` (spec_modulo_C.md §4, Revisión 6; HU-C-26).
+  await emitirEventoTurno("turno:alumno_quitado", turnoId, usuarioId, { turno_id: turnoId, alumno_id: alumnoId, inscripcion_id: resultado.inscripcionId, usuario_id: usuarioId });
   if (resultado.liberado) {
     await emitirEventoTurno("turno:disponible_nuevamente", turnoId, usuarioId, { turno_id: turnoId, alumno_id_liberado: alumnoId, usuario_id: usuarioId });
   }
