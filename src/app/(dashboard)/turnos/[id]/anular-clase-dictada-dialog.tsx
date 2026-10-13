@@ -11,7 +11,7 @@ export function AnularClaseDictadaDialog({ turno, onAnulada }: { turno: TurnoDet
   const [abierto, setAbierto] = useState(false);
   const [motivo, setMotivo] = useState("");
   return <>
-    <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive-soft" onClick={() => { setMotivo(""); setAbierto(true); }}>{texto("ui.historial.correccionClase.accionAnular")}</Button>
+    <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => { setMotivo(""); setAbierto(true); }}>{texto("ui.historial.correccionClase.accionAnular")}</Button>
     <ConfirmarAccionDialog abierto={abierto} onCerrar={() => setAbierto(false)} irreversible
       titulo={texto("ui.historial.correccionClase.tituloAnular", { materia: turno.materia, fecha: diaAbreviadoYFecha(turno.fecha), hora: turno.hora_inicio })}
       detalle={<p>{texto("ui.historial.correccionClase.detalleAnular")}</p>}

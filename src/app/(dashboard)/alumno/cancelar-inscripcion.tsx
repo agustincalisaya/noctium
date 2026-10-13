@@ -32,7 +32,7 @@ export function CancelarInscripcion({ turnoId, materia, fecha, hora, conPagos }:
   };
   const cerrar = () => { setAbierto(false); router.refresh(); };
   return <>
-    <Button type="button" variant="outline" className="border-destructive text-destructive hover:bg-destructive-soft" onClick={() => setAbierto(true)}>
+    <Button type="button" variant="outline" className="border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => setAbierto(true)}>
       {texto("ui.turnos.cancelacion.accion")}
     </Button>
     <ConfirmarAccionDialog

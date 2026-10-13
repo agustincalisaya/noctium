@@ -35,7 +35,7 @@ export function EstadoProfesorDialog({ profesor }: { profesor: { id: string; nom
   const nombre = `${profesor.nombre} ${profesor.apellido}`;
   return <>
     <div className="space-y-2">
-      <Button variant="outline" size="sm" className={profesor.activo ? "border-destructive text-destructive hover:bg-destructive-soft" : undefined} disabled={cargando} onClick={() => void iniciar()}>
+      <Button variant="outline" size="sm" className={profesor.activo ? "border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive" : undefined} disabled={cargando} onClick={() => void iniciar()}>
         <Power aria-hidden className="size-4" />{texto(profesor.activo ? "ui.profesores.estado.desactivar" : "ui.profesores.estado.reactivar")}
       </Button>
       {error && <p role="alert" className="max-w-sm text-sm text-destructive">{error}</p>}
