@@ -43,7 +43,7 @@ afterEach(async () => {
 
 describe("HU-I-02 pestaña Pagos", () => {
   it("muestra el vacío literal, total y reintenta un error", async () => {
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago iniciales={{}} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{}} />));
     await esperar();
     expect(contenedor.textContent).toContain("Este alumno no tiene pagos registrados");
     expect(contenedor.textContent).toContain("Total pagado");
@@ -56,7 +56,7 @@ describe("HU-I-02 pestaña Pagos", () => {
     expect(contenedor.textContent).toContain("No hay pagos para los filtros elegidos");
   });
   it("estado limpia y deshabilita forma/materia, cambia etiquetas y vuelve a página 1", async () => {
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago iniciales={{ pagina: "3" }} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{ pagina: "3" }} />));
     await esperar();
     await elegir('select', "f1");
     const selects = contenedor.querySelectorAll("select");
@@ -83,11 +83,11 @@ describe("HU-I-02 pestaña Pagos", () => {
         estado_pago: "RESERVADA", vence_el: "2026-10-14T14:00:00-03:00", puede_registrar_pago: true }],
       paginacion: { total: 1, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
     })));
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago={false} iniciales={{ estado_pago: "RESERVADA" }} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago={false} iniciales={{ estado_pago: "RESERVADA" }} />));
     await esperar();
     expect(contenedor.textContent).toContain("pagar antes del");
     expect(contenedor.querySelector('a[href="/pagos/registrar?alumno=a&clase=t1"]')).toBeNull();
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago iniciales={{ estado_pago: "RESERVADA" }} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{ estado_pago: "RESERVADA" }} />));
     expect(contenedor.querySelector('a[href="/pagos/registrar?alumno=a&clase=t1"]')).not.toBeNull();
   });
 
@@ -98,7 +98,7 @@ describe("HU-I-02 pestaña Pagos", () => {
       if (url.includes("forma_pago_id=f1")) return Promise.resolve(ok({ ...vacio(), total_pagado: "123.45" }));
       return new Promise((resolve) => { resolverVieja = resolve; });
     });
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago iniciales={{}} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{}} />));
     await esperar();
     await elegir(0, "f1");
     expect(contenedor.textContent).toContain("$ 123,45");
@@ -108,7 +108,7 @@ describe("HU-I-02 pestaña Pagos", () => {
   });
   it("informa error de opciones y permite reintento", async () => {
     m.fetch.mockImplementationOnce(() => Promise.resolve({ ok: false }));
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago iniciales={{}} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{}} />));
     await esperar();
     expect(contenedor.textContent).toContain("No se pudieron cargar las opciones de filtros.");
     await act(async () => Array.from(contenedor.querySelectorAll("button")).find((b) => b.textContent === "Reintentar")!.click());
@@ -131,11 +131,52 @@ describe("HU-I-02 pestaña Pagos", () => {
       ? { formas_pago: [], materias: [] }
       : { modo: "HISTORIAL", total_pagado: "0.00", items: [fila],
         paginacion: { total: 1, pagina_actual: 1, total_paginas: 1, por_pagina: 10 } })));
-    await act(async () => root.render(<HistorialPagos alumnoId="a" puedeRegistrarPago iniciales={{}} />));
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{}} />));
     await esperar();
     expect(contenedor.querySelector('a[href="/turnos/t1"]')).not.toBeNull();
     expect(contenedor.querySelector('a[href="/comprobantes/c1"]')).not.toBeNull();
     expect(contenedor.textContent).toContain("Anulado");
     expect(contenedor.textContent).toContain("Beca");
+  });
+});
+
+describe("HU-I-06 acciones del historial de pagos", () => {
+  const item = (extra: Record<string, unknown>) => ({
+    pago_id: "p1", fecha_pago: "2026-10-08", registrado_en: "2026-10-08T10:00:00-03:00",
+    clase: { turno_id: "t1", fecha: "2026-10-08", hora_inicio: "16:00", materia: { id: "m1", nombre: "Física I" } },
+    precio: 12000, monto: "12000.00", monto_original: null, forma_pago: { id: "f1", nombre: "Efectivo", is_active: true },
+    registrado_por: { usuario_id: "u1", nombre_completo: "Ferreyra, Julián" }, ajuste: null, anulado: false,
+    comprobante: { id: "c1", numero: "0001-00002495" }, operacion: { id: "op1", clases: 2 }, cambios: 0, puede_corregir: true,
+    ...extra,
+  });
+
+  it("columna «Acciones»: Corregir y Anular según puede_corregir, Ver detalle siempre; tras anular recarga el historial", async () => {
+    let consultas = 0;
+    m.fetch.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/opciones?")) return Promise.resolve(ok({ formas_pago: [], materias: [] }));
+      if (init?.method === "POST") return Promise.resolve(ok({}));
+      consultas += 1;
+      return Promise.resolve(ok({
+        modo: "HISTORIAL", total_pagado: "12000.00",
+        items: [item({}), item({ pago_id: "p2", anulado: true, puede_corregir: false })],
+        paginacion: { total: 2, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
+      }));
+    });
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago iniciales={{}} />));
+    await esperar();
+    expect([...contenedor.querySelectorAll("thead th")].map((th) => th.textContent)).toContain("Acciones");
+    const filas = [...contenedor.querySelectorAll("tbody tr")];
+    expect([...filas[0]!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Corregir", "Anular", "Ver detalle"]);
+    expect([...filas[1]!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Ver detalle"]);
+
+    await act(async () => [...filas[0]!.querySelectorAll("button")].find((b) => b.textContent === "Anular")!.click());
+    const confirmacion = document.querySelector('[role="alertdialog"]')!;
+    expect(confirmacion.textContent).toContain("¿Estás seguro de que querés anular el pago de $ 12.000 de Sofía Acosta (Física I del Jue 08/10)?");
+    await act(async () => [...confirmacion.querySelectorAll("button")].find((b) => b.textContent === "Usar el motivo «Reintegro»")!.click());
+    const antes = consultas;
+    await act(async () => [...confirmacion.querySelectorAll("button")].find((b) => b.textContent === "Anular pago")!.click());
+    await esperar();
+    expect(m.fetch).toHaveBeenCalledWith("/api/pagos/p1/anulacion", expect.objectContaining({ method: "POST", body: JSON.stringify({ motivo: "Reintegro" }) }));
+    expect(consultas).toBe(antes + 1);
   });
 });

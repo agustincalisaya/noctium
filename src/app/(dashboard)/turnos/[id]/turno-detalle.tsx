@@ -56,7 +56,7 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
     {cancelacion && turnoActual?.acciones_habilitadas.includes(cancelacion) && <CancelarTurnoDialog
       turnoId={turnoActual.id} modo={cancelacion}
       resumen={cancelacion === "cancelar" ? resumenCancelacion(turnoActual) : undefined}
-      cantidadPagos={turnoActual.pagos?.length}
+      cantidadPagos={turnoActual.pagos?.filter((pago) => !pago.anulado).length}
       onCerrar={() => setCancelacion(null)} onCambio={() => cargar(true)}
     />}
     {turnoActual?.estado === "PENDIENTE" && (puedeConfigurar || (puedeGestionarAlumnos && turnoActual.aula_id)) && <div className="flex flex-wrap gap-3">{puedeConfigurar && <Link className="inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/configuracion?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{turnoActual.aula_id ? textoC19("ui.clases.interfaz.modificarConfiguracionOAula") : textoC19("ui.clases.interfaz.modificarConfiguracionYAsignarAula")}</Link>}{puedeGestionarAlumnos && turnoActual.aula_id && <Link className="inline-flex rounded-md border border-border px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={`/turnos/${encodeURIComponent(id)}/participantes?volver=${encodeURIComponent(retorno)}`} prefetch={false}>{textoC19("ui.clases.interfaz.asignarProfesorYAlumnos")}</Link>}</div>}
@@ -69,7 +69,10 @@ export function TurnoDetalleVista({ id, retorno, puedeConfigurar, puedeGestionar
           <TurnoAlumnosCard turno={turnoActual} gestionable={gestionable} puedeRegistrarClase={puedeRegistrarClase} puedeRegistrarIndicacion={puedeRegistrarIndicacion} esProfesor={esProfesor} onCambio={() => cargar(true)} />
         </div>
         {(turnoActual.pagos) && <aside aria-label={textoC19("ui.clases.interfaz.pagoYClase")} className="min-w-0 space-y-[18px]">
-          {turnoActual.pagos && <TurnoPagoCard pagos={turnoActual.pagos} accion={puedeRegistrarPago && (turnoActual.estado === "DISPONIBLE" || turnoActual.estado === "COMPLETO") ? <RegistrarPagoDialog
+          {turnoActual.pagos && <TurnoPagoCard pagos={turnoActual.pagos}
+            claseEtiqueta={textoC19("ui.pagos.correccion.claseEtiqueta", { materia: turnoActual.materia, dia: diaAbreviadoYFecha(turnoActual.fecha) })}
+            onCambio={() => cargar(true)}
+            accion={puedeRegistrarPago && (turnoActual.estado === "DISPONIBLE" || turnoActual.estado === "COMPLETO") ? <RegistrarPagoDialog
             turnoId={turnoActual.id}
             contexto={`${turnoActual.materia} · ${diaAbreviadoYFecha(turnoActual.fecha)}, ${turnoActual.hora_inicio}–${turnoActual.hora_fin}`}
             deshabilitado={!turnoActual.acciones_habilitadas.includes("registrar_pago")}
