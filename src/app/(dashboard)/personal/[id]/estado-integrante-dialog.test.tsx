@@ -156,6 +156,9 @@ describe("caja abierta (aviso informativo)", () => {
     expect(dialogo.textContent).toContain("No se puede desactivar al integrante");
     expect(dialogo.textContent).toContain(CAJA_ABIERTA);
     expect(dialogo.querySelector("textarea")).toBeNull();
+    // HU-I-12: enlace a «Cierres de caja», donde el gerente hace el cierre por ausencia.
+    const enlace = [...dialogo.querySelectorAll("a")].find((e) => e.textContent === "Ir a Cierres de caja");
+    expect(enlace?.getAttribute("href")).toBe("/cajas");
     await click(boton("Cerrar", dialogo)!);
     expect(aviso()).toBeNull();
     expect(m.desactivar).not.toHaveBeenCalled();

@@ -228,7 +228,9 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
   al integrante» y el texto de `CAJA_ABIERTA`) en lugar de la confirmación.
   A diferencia del caso de HU-D-07, usa el botón «Cerrar» (no «Entendido»),
   y se abre directamente desde la acción de desactivar, no desde un link de
-  un aviso de error. No lleva lista ni tabla y no dispara toast.
+  un aviso de error. No lleva lista ni tabla y no dispara toast. Desde
+  HU-I-12 suma, junto a «Cerrar», el enlace «Ir a Cierres de caja» → `/cajas`
+  (donde el gerente hace el cierre por ausencia).
 
 ### 6.4 Tabla resumen — qué usa cada acción del producto
 
@@ -265,7 +267,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Edición de integrante de mesa de entrada (HU-F-01, P-46 edición, `/personal/[id]/editar`) | Página completa + `ConfirmarAccionDialog` siempre («Guardar cambios»), con el aviso de que cambia el usuario de ingreso si cambia el email | Navegación a la ficha `/personal/[id]?actualizada=1` con banner inline «Integrante actualizado correctamente» |
 | Ficha del integrante de mesa de entrada (HU-F-01 y HU-F-05, P-46 consulta, `/personal/[id]`) | Página completa de solo lectura; junto a «Editar», «Desactivar» (botón de contorno con estilo destructivo) si está activa o «Reactivar» si está inactiva, solo con `personal:cambiar_estado`. «Cuenta de acceso» e «Historial de estados» van en una grilla de dos columnas debajo de «Registro» | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
 | Desactivar integrante de mesa de entrada (HU-F-05, figura 94) | `ConfirmarAccionDialog` reversible: `destructiva` sin `irreversible` (sin leyenda «Esta acción no se puede deshacer.»), con el campo «Motivo de la baja» en `contenido` (hasta 300 caracteres, contador «n / 300»), obligatorio si el integrante registró operaciones (confirmar deshabilitado mientras esté vacío) u opcional. Los rechazos del servidor (caja abierta, motivo, conflicto de versión) se muestran dentro del mismo modal; al cerrarlo después de un rechazo, la ficha se refresca | Toast «Integrante desactivado correctamente» y `router.refresh()` |
-| Desactivar integrante con la caja abierta (HU-F-05 c2, HU-I-12 c10) | `Dialog` informativo de una acción rechazada (6.3), en lugar de la confirmación: «No se puede desactivar al integrante», el texto de `CAJA_ABIERTA` y un único botón «Cerrar» (y la X). Se abre al tocar «Desactivar» cuando la ficha ya indica la caja abierta; si la caja se abre después de cargar la ficha, el rechazo aparece dentro del modal de confirmación. Sin enlace a «Cierres de caja» mientras esa pantalla (HU-I-12) no exista | Ninguno: no modifica datos |
+| Desactivar integrante con la caja abierta (HU-F-05 c2, HU-I-12 c10) | `Dialog` informativo de una acción rechazada (6.3), en lugar de la confirmación: «No se puede desactivar al integrante», el texto de `CAJA_ABIERTA` y el botón «Cerrar» (y la X) y el enlace «Ir a Cierres de caja» → `/cajas` (HU-I-12). Se abre al tocar «Desactivar» cuando la ficha ya indica la caja abierta; si la caja se abre después de cargar la ficha, el rechazo aparece dentro del modal de confirmación | Ninguno: no modifica datos |
 | Reactivar integrante de mesa de entrada (HU-F-05) | `ConfirmarAccionDialog` sin motivo, con el aviso de que las sesiones cerradas en la baja no se restauran | Toast «Integrante reactivado correctamente» y `router.refresh()` |
 | Historial de estados del integrante (HU-F-05, figura 93) | Sección de la ficha, de solo lectura: cada baja o reactivación con la acción, la fecha y hora en la zona del centro, quien la hizo y el motivo, del más reciente al más antiguo (mismo formato de fecha y hora que «Registro» en la misma ficha) | Ninguno; sin entradas muestra «Sin bajas ni reactivaciones.» |
 | Listado mínimo de gerentes (HU-G-01, P-47, `/gerentes`) | Página completa, sin acciones propias que modifiquen datos, con la búsqueda, la paginación y la marca «(vos)» que suma HU-G-03; se entra desde la sección desplegable «Gerentes» del menú del Gerente, con su ítem «Listado» (activo también en el alta, la ficha y la edición; «Indicadores», `/gerente`, no queda activo en `/gerentes/…`). Sin estado vacío: siempre figura al menos el gerente autenticado | Ninguno propio («Nuevo gerente» y cada fila navegan) |
@@ -278,6 +280,12 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Ficha del gerente (HU-G-01, P-48 consulta, `/gerentes/[id]`) | Página completa de solo lectura, con «Editar» solo con `gerentes:editar` y «Cuenta de acceso» debajo de «Registro». Sin «Desactivar», «Reactivar» ni historial de estados (los suma HU-G-05) | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
+| Intento de cobro sin caja abierta (HU-I-12 c2) | El rechazo `CAJA_NO_ABIERTA` se muestra donde ya se mostraban los rechazos: dentro de la confirmación de `/pagos/registrar` (prop `accionError` de `ConfirmarAccionDialog`) y dentro del modal «Registrar pago» del detalle de la clase, con el enlace «Abrir caja» → `/caja` | Ninguno: no se registra nada |
+| Abrir caja (HU-I-12 c1, «Mi caja», `/caja`) | `Dialog` con «Fondo inicial en efectivo ($)» (acepta 0) y `ConfirmarAccionDialog` («Abrir caja») con el monto; «Volver» conserva lo cargado; los rechazos (`CAJA_YA_ABIERTA`, `INTEGRANTE_INACTIVO`) se ven dentro de la confirmación | Toast «Caja abierta correctamente» y `router.refresh()` (6.1: modal sobre una pantalla que ya existía) |
+| Cerrar caja con arqueo ciego (HU-I-12 c5 a c8, `/caja`) | Un único `Dialog` con dos pantallas: «paso 1 de 2» (efectivo contado, sin ningún total) y «paso 2 de 2» (resumen del criterio 6, `Badge` de diferencia y «Motivo de la diferencia» obligatorio, u «Observación» opcional si cuadra, hasta 300 con contador). «Cerrar caja» abre el `ConfirmarAccionDialog` irreversible con el texto del criterio 8 (sin diferencia: «…cerrar tu caja sin diferencia?»). `CAJA_CAMBIO` cierra la confirmación, reemplaza el resumen y la huella y muestra «La caja cambió mientras cerrabas. Revisá el resumen.» dentro del paso 2, con el mismo declarado; los demás rechazos, dentro de la confirmación. Si se cierra el diálogo después de declarar, al volver entra directo al paso 2 | Toast «Caja cerrada · la caja cuadra» / «Caja cerrada · faltante de $ N» / «… sobrante de $ N» (foto `Caja cerrada y mis cierres.png`) y `router.refresh()`: la pantalla pasa a «No tenés una caja abierta». Es 6.1 (la acción vive en un modal y vuelve a la misma pantalla); no hace falta un banner |
+| Cierre por ausencia (HU-I-12 c10, «Cierres de caja», `/cajas`) | Desde la fila de una caja abierta ajena, el mismo `Dialog` de dos pasos y la misma confirmación irreversible, con el integrante en el título («Cierre por ausencia de {integrante} · paso 1 de 2») y en la confirmación | Toast «Caja de {integrante} cerrada por ausencia · …» y `router.refresh()` |
+| Cierres de caja del gerente (HU-I-12 c10 y c11, `/cajas`) | Página completa de consulta: «Cajas abiertas» (integrante, desde, antigüedad; sin montos) y «Cierres» con filtro por integrante (selector simple, no buscador) y fechas de cierre desde/hasta, que navegan a la página 1; `Pagination` de a 10 | Ninguno; sin filas, estado vacío inline |
+| Mis cierres y detalle de un cierre (HU-I-12 c8 y c11, `/caja`, `/caja/cierres/[id]`, `/cajas/[id]`) | Tabla «Mis cierres» bajo la caja, de a 10, con «Ver cierre» por fila. El detalle es una página de solo lectura con «Imprimir» (`window.print()`): imprime solo `[data-cierre-caja]` (misma regla de `globals.css` que el comprobante de HU-I-11), con los datos del centro y la fecha de impresión | Ninguno: no modifica datos |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
 
 **Excepción específica HU-C-20 (09/10/2026):** el resumen confirma la
@@ -343,6 +351,21 @@ Las del paso 2 de «Registrar pago». Usan las variantes que ya tiene
 Los tokens `--sidebar-*` quedan solo para el sidebar, aunque compartan
 valor con `--brand-accent`.
 
+**Diferencia de un cierre de caja (HU-I-12 criterio 7, 12/10/2026)** —
+`DiferenciaCajaBadge`, sin variantes nuevas de `Badge`:
+
+| Diferencia | Aspecto | Tokens |
+|---|---|---|
+| La caja cuadra | `success` | fondo `--success`, texto `--success-foreground` |
+| Faltante de $ N | Contorno, como «Cancelado» (6.5) | borde y texto `--destructive`, fondo `--card` |
+| Sobrante de $ N | `warning` | fondo `--warning`, texto `--warning-foreground` |
+
+Los cierres por ausencia suman la etiqueta `muted` «Por ausencia». En el
+arqueo ciego, cada ítem lleva su tipo (`outline` «Cobro», `muted` «Ingreso
+manual»/«Egreso manual», `accent` «Ajuste por corrección/anulación») y los
+anulados la etiqueta «Anulado» con el aspecto de «Cancelado» y el monto
+tachado.
+
 ---
 
 ## 7. Deuda de diseño pendiente
@@ -374,6 +397,8 @@ tiene el listado de Alumnos.
   - **10** en las listas que viven dentro de otra pantalla o modal: el tab
     "Historial académico" de la ficha del alumno (HU-E-05), cada pestaña de
     "Mis turnos" (HU-C-13) y la lista del modal "Ver turnos" (HU-D-07).
+    También «Mis cierres» y los cierres de «Cierres de caja» (HU-I-12
+    criterio 11).
   - **20** en los listados principales que ya existen (Alumnos, Turnos,
     Materias, Aulas, Profesores). La diferencia es deliberada — son
     pantallas de trabajo donde conviene ver más filas — y no se unifica

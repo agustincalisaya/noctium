@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatearMonto } from "@/lib/moneda";
 import { texto } from "@/lib/textos";
@@ -24,6 +25,8 @@ type Props = {
   onCambiarForma: (formaPagoId: string) => void;
   onCambiarFecha: (fecha: string) => void;
   onVolver: () => void;
+  /** El último rechazo fue CAJA_NO_ABIERTA (HU-I-12 criterio 2): el diálogo ofrece «Abrir caja». */
+  sinCajaAbierta?: boolean;
   /** POST de la operación; si el servidor rechaza, lanza un Error con el texto a mostrar en el diálogo. */
   onRegistrar: () => Promise<void>;
   onRegistrado: () => void;
@@ -38,7 +41,7 @@ type Props = {
  */
 export function PasoConfirmacion({
   nombreAlumno, clases, total, formas, formaPagoId, fechaPago, hoy,
-  onCambiarForma, onCambiarFecha, onVolver, onRegistrar, onRegistrado,
+  onCambiarForma, onCambiarFecha, onVolver, sinCajaAbierta = false, onRegistrar, onRegistrado,
 }: Props) {
   const [abierto, setAbierto] = useState(false);
   const [intentado, setIntentado] = useState(false);
@@ -90,6 +93,7 @@ export function PasoConfirmacion({
       </>}
       textoConfirmar={texto("ui.pagos.acciones.registrar")}
       irreversible={false}
+      accionError={sinCajaAbierta ? <Link href="/caja" className={buttonVariants({ size: "sm" })}>{texto("ui.caja.abrir")}</Link> : undefined}
       onConfirmar={onRegistrar}
       onExito={onRegistrado}
       onCerrar={() => setAbierto(false)}

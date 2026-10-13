@@ -1,0 +1,993 @@
+{
+  "info": {
+    "name": "HU-I-12 — Abrir y cerrar mi caja con arqueo ciego",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Nivel 2 de la §6 de docs/tasks/Sprint 3/Modulo I/HU-I-12.md (spec_modulo_I.md §2.10 a §2.12). Sesiones por login real de NextAuth (Cookie Jar fuera de la colección; no exportar cookies ni contraseñas): «mesa» = mesa.entrada2@noctium.local, «mesa_otra» = mesa.entrada@noctium.local, «gerente» = gerente@noctium.local, profesor1@ y alumno01@. Cada carpeta de rol se corre con su sesión; el nombre de cada pedido indica el rol. Orden: correr del 01 al 35. El 02 requiere que «mesa» no tenga caja abierta (si la tiene, salteá el 02: el 03 igual da 409). Variables a completar: alumno_id con dos inscripciones sin pagar de clases futuras (inscripcion_id, inscripcion_id_2) y sus precios (monto_cobro, monto_cobro_2); integrante_id = usuarioId de «mesa»; desde/hasta = el día de la prueba. efectivo_declarado = el fondo con el que se abrió (así el cobro del 09 provoca la diferencia del 10 y 11). El 22 toma como caja_ajena_id una caja abierta de otro integrante para el cierre por ausencia. Ejecutada con curl el 12/10/2026: ver HU-I-12-evidencia.md. El cierre por ausencia sobre la propia caja (403 FUERA_DE_ALCANCE) no es alcanzable por HTTP (el gerente no tiene caja): lo cubren caja.flujos.pg.test.ts y caja.lecturas.test.ts."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "alumno_id",
+      "value": ""
+    },
+    {
+      "key": "inscripcion_id",
+      "value": ""
+    },
+    {
+      "key": "monto_cobro",
+      "value": ""
+    },
+    {
+      "key": "inscripcion_id_2",
+      "value": ""
+    },
+    {
+      "key": "monto_cobro_2",
+      "value": ""
+    },
+    {
+      "key": "efectivo_declarado",
+      "value": "0"
+    },
+    {
+      "key": "efectivo_ausencia",
+      "value": "0"
+    },
+    {
+      "key": "integrante_id",
+      "value": ""
+    },
+    {
+      "key": "desde",
+      "value": ""
+    },
+    {
+      "key": "hasta",
+      "value": ""
+    },
+    {
+      "key": "caja_id",
+      "value": ""
+    },
+    {
+      "key": "huella",
+      "value": ""
+    },
+    {
+      "key": "cierre_id",
+      "value": ""
+    },
+    {
+      "key": "caja_ajena_id",
+      "value": ""
+    },
+    {
+      "key": "huella_ausencia",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Mesa · GET caja propia — 200 sin totales",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "const c = pm.response.json().data.caja; if (c) { pm.test('sin totales (arqueo ciego)', () => pm.expect(JSON.stringify(c)).to.not.include('efectivo_esperado')); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Mesa · POST abrir con fondo 0 — 201 (correr con la caja cerrada)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.collectionVariables.set('caja_id', pm.response.json().data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Mesa · POST abrir otra vez — 409 CAJA_YA_ABIERTA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code CAJA_YA_ABIERTA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_YA_ABIERTA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Mesa · POST abrir con fondo negativo — 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fondo_inicial\": \"-1\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 400', () => pm.response.to.have.status(400));",
+              "pm.test('code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Mesa · POST abrir con campo extra — 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fondo_inicial\": \"1\",\n  \"usuario_id\": \"x\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 400', () => pm.response.to.have.status(400));",
+              "pm.test('code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Mesa · GET resumen antes de declarar — 409 EFECTIVO_NO_DECLARADO",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia/resumen",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code EFECTIVO_NO_DECLARADO', () => pm.expect(pm.response.json().error.code).to.eql('EFECTIVO_NO_DECLARADO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Mesa · POST declarar — 200 resumen + huella",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/declaracion",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"efectivo_declarado\": \"{{efectivo_declarado}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.collectionVariables.set('huella', pm.response.json().data.huella);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Mesa · POST declarar otra vez — 409 EFECTIVO_YA_DECLARADO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/declaracion",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"efectivo_declarado\": \"1\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code EFECTIVO_YA_DECLARADO', () => pm.expect(pm.response.json().error.code).to.eql('EFECTIVO_YA_DECLARADO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Mesa · POST cobro mientras se cierra — 201",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/operaciones",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"items\": [\n    {\n      \"inscripcion_id\": \"{{inscripcion_id}}\",\n      \"monto\": \"{{monto_cobro}}\"\n    }\n  ],\n  \"forma_pago_id\": \"formapago-efectivo\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Mesa · POST cierre con la huella vieja — 409 CAJA_CAMBIO con detalles",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/cierre",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"huella\": \"{{huella}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code CAJA_CAMBIO', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_CAMBIO'));",
+              "const d = pm.response.json().error.detalles; pm.test('detalles.resumen y detalles.huella', () => { pm.expect(d.resumen.efectivo_esperado).to.be.a('string'); pm.expect(d.huella).to.not.eql(pm.collectionVariables.get('huella')); }); pm.collectionVariables.set('huella', d.huella);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Mesa · POST cierre con diferencia sin motivo — 400 MOTIVO_DIFERENCIA_REQUERIDO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/cierre",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"huella\": \"{{huella}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 400', () => pm.response.to.have.status(400));",
+              "pm.test('code MOTIVO_DIFERENCIA_REQUERIDO', () => pm.expect(pm.response.json().error.code).to.eql('MOTIVO_DIFERENCIA_REQUERIDO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Mesa · POST cierre con motivo de 301 — 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/cierre",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"huella\": \"{{huella}}\",\n  \"motivo\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 400', () => pm.response.to.have.status(400));",
+              "pm.test('code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Mesa · POST cierre con motivo — 200 CERRADA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/cierre",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"huella\": \"{{huella}}\",\n  \"motivo\": \"Faltante de prueba\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.collectionVariables.set('cierre_id', pm.response.json().data.caja_id); pm.test('CERRADA', () => pm.expect(pm.response.json().data.estado).to.eql('CERRADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Mesa · POST doble cierre — 409 CAJA_YA_CERRADA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/mia/cierre",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"huella\": \"{{huella}}\",\n  \"motivo\": \"x\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code CAJA_YA_CERRADA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_YA_CERRADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Mesa · GET caja propia sin caja — { caja: null }",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.test('caja null', () => pm.expect(pm.response.json().data.caja).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Mesa · POST cobro sin caja abierta — 409 CAJA_NO_ABIERTA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/pagos/operaciones",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"alumno_id\": \"{{alumno_id}}\",\n  \"items\": [\n    {\n      \"inscripcion_id\": \"{{inscripcion_id_2}}\",\n      \"monto\": \"{{monto_cobro_2}}\"\n    }\n  ],\n  \"forma_pago_id\": \"formapago-efectivo\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code CAJA_NO_ABIERTA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_NO_ABIERTA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Mesa · GET mis cierres — 200 paginado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia/cierres?pagina=1",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.test('de a 10', () => pm.expect(pm.response.json().data.paginacion.por_pagina).to.eql(10));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Mesa · GET detalle de mi cierre — 200 resumen fijo y centro",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia/cierres/{{cierre_id}}",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.test('resumen y centro', () => { const d = pm.response.json().data; pm.expect(d.resumen).to.be.an('object'); pm.expect(d.centro.nombre).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Mesa (otra cuenta) · GET detalle de cierre ajeno — 403 FUERA_DE_ALCANCE",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia/cierres/{{cierre_id}}",
+        "description": "Sesión: mesa_otra (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 403', () => pm.response.to.have.status(403));",
+              "pm.test('code FUERA_DE_ALCANCE', () => pm.expect(pm.response.json().error.code).to.eql('FUERA_DE_ALCANCE'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Mesa · POST reabrir — 201",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 201', () => pm.response.to.have.status(201));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 Mesa · GET listado del gerente — 403 SIN_PERMISO",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 403', () => pm.response.to.have.status(403));",
+              "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Gerente · GET listado — 200 abiertas + cierres",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "const d = pm.response.json().data; pm.test('abiertas sin montos', () => d.abiertas.forEach((a) => pm.expect(Object.keys(a).sort()).to.eql(['abierta_el', 'antiguedad_minutos', 'id', 'integrante']))); const otra = d.abiertas.find((a) => a.integrante.id !== pm.collectionVariables.get('integrante_id')); if (otra) pm.collectionVariables.set('caja_ajena_id', otra.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 Gerente · GET listado filtrado por integrante y fechas — 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas?integrante_id={{integrante_id}}&desde={{desde}}&hasta={{hasta}}&pagina=1",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.test('solo ese integrante', () => pm.response.json().data.cierres.items.forEach((c) => pm.expect(c.integrante.id).to.eql(pm.collectionVariables.get('integrante_id'))));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 Gerente · GET rango invertido — 400",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas?desde=2026-10-31&hasta=2026-10-01",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 400', () => pm.response.to.have.status(400));",
+              "pm.test('code VALIDACION', () => pm.expect(pm.response.json().error.code).to.eql('VALIDACION'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 Gerente · GET detalle de cierre — 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/{{cierre_id}}",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 Gerente · GET detalle de caja abierta — 409 CAJA_NO_CERRADA",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/{{caja_ajena_id}}",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code CAJA_NO_CERRADA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_NO_CERRADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 Gerente · GET detalle inexistente — 404 CAJA_NO_ENCONTRADA",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/no-existe",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 404', () => pm.response.to.have.status(404));",
+              "pm.test('code CAJA_NO_ENCONTRADA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_NO_ENCONTRADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Gerente · GET ausencia/resumen sin declarar — 409 EFECTIVO_NO_DECLARADO",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/{{caja_ajena_id}}/ausencia/resumen",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code EFECTIVO_NO_DECLARADO', () => pm.expect(pm.response.json().error.code).to.eql('EFECTIVO_NO_DECLARADO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Mesa · POST ausencia/declaracion — 403 SIN_PERMISO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/{{caja_ajena_id}}/ausencia/declaracion",
+        "description": "Sesión: mesa (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"efectivo_declarado\": \"0\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 403', () => pm.response.to.have.status(403));",
+              "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 Gerente · POST ausencia/declaracion — 200",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/{{caja_ajena_id}}/ausencia/declaracion",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"efectivo_declarado\": \"{{efectivo_ausencia}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.collectionVariables.set('huella_ausencia', pm.response.json().data.huella);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 Gerente · POST ausencia/cierre con motivo — 200 por_ausencia",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/{{caja_ajena_id}}/ausencia/cierre",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"huella\": \"{{huella_ausencia}}\",\n  \"motivo\": \"Cierre por ausencia de prueba\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "pm.test('sobre { data, error: null }', () => pm.expect(pm.response.json().error).to.eql(null));",
+              "pm.test('por_ausencia', () => pm.expect(pm.response.json().data.por_ausencia).to.eql(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Gerente · POST ausencia/declaracion sobre caja cerrada — 409 CAJA_YA_CERRADA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas/{{caja_ajena_id}}/ausencia/declaracion",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"efectivo_declarado\": \"0\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 409', () => pm.response.to.have.status(409));",
+              "pm.test('code CAJA_YA_CERRADA', () => pm.expect(pm.response.json().error.code).to.eql('CAJA_YA_CERRADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 Gerente · POST abrir caja — 403 SIN_PERMISO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/cajas",
+        "description": "Sesión: gerente (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fondo_inicial\": \"0\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 403', () => pm.response.to.have.status(403));",
+              "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 Profesor · GET caja propia — 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia",
+        "description": "Sesión: profesor (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 403', () => pm.response.to.have.status(403));",
+              "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35 Alumno · GET caja propia — 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/api/cajas/mia",
+        "description": "Sesión: alumno (cookie de sesión de NextAuth en el Cookie Jar de Postman; no se exporta)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status 403', () => pm.response.to.have.status(403));",
+              "pm.test('code SIN_PERMISO', () => pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
