@@ -2,13 +2,37 @@ import { texto as textoC19 } from "@/lib/textos";
 import { z } from "zod";
 import { fechaCalendarioValidaSchema } from "@/server/shared/fecha.schema";
 
+/** HU-C-27: períodos del listado de clases (spec_modulo_C.md §2.4 y §2.7). */
+export const PERIODOS_LISTADO_TURNOS = ["anteriores", "hoy", "proximas", "todas"] as const;
+export type PeriodoListadoTurnos = (typeof PERIODOS_LISTADO_TURNOS)[number];
+
+// Fecha de la clase en AAAA-MM-DD: se valida con el schema compartido pero se
+// conserva como texto para compararla (mismo patrón que caja.schema.ts).
+const fechaFiltroTurnosSchema = z.string().trim().refine(
+  (valor) => fechaCalendarioValidaSchema.safeParse(valor).success,
+  { message: textoC19("ui.clases.errores.listado.fechaInvalida") },
+);
+
 export const ListarTurnosQuerySchema = z.object({
   pagina: z.coerce.number().int().positive().default(1),
   por_pagina: z.coerce.number().int().positive().max(20).optional(),
   q: z.string().trim().max(100).optional(), // HU-C-02
-  // HU-C-08. `.strict()`: sin `materia_id`, `estados` ni `solo_futuros` (HU-C-02 AC6, spec §2.7).
-  profesor_id: z.string().cuid().optional(),
-}).strict();
+  profesor_id: z.string().cuid().optional(), // HU-C-08
+  // HU-C-27: período o rango (excluyentes) y materia. Sin `estados` ni
+  // `solo_futuros`: el filtro por estado sigue fuera del producto y
+  // `solo_futuros` lo reemplaza `periodo`; `.strict()` los rechaza con 400.
+  periodo: z.enum(PERIODOS_LISTADO_TURNOS).optional(),
+  desde: fechaFiltroTurnosSchema.optional(),
+  hasta: fechaFiltroTurnosSchema.optional(),
+  materia_id: z.string().cuid().optional(),
+}).strict()
+  .refine((filtros) => !(filtros.periodo && (filtros.desde || filtros.hasta)), {
+    message: textoC19("ui.clases.errores.listado.periodoYRango"), path: ["periodo"],
+  })
+  .refine((filtros) => !filtros.desde || !filtros.hasta || filtros.desde <= filtros.hasta, {
+    message: textoC19("ui.clases.listado.rango.desdePosteriorAHasta"), path: ["desde"],
+  });
+export type ListarTurnosQuery = z.infer<typeof ListarTurnosQuerySchema>;
 
 export const PRIORIDADES_TURNO = ["NORMAL", "ALTA", "URGENTE"] as const;
 export const ActualizarPrioridadSchema = z.object({

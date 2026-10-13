@@ -1,19 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { turno, usuario, profesor, limite } = vi.hoisted(() => ({
+const { turno, usuario, profesor, limite, materiasPublico } = vi.hoisted(() => ({
   turno: { count: vi.fn(), findMany: vi.fn(), findFirst: vi.fn() },
   usuario: { findUnique: vi.fn() },
   profesor: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
   limite: vi.fn(),
+  materiasPublico: { obtenerMateriasPorIds: vi.fn(), listarMateriasParaFiltroDeClases: vi.fn(), obtenerTarifasPorIds: vi.fn() },
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: { turno, usuario, profesor } }));
+vi.mock("@/server/materias/materia.publico", () => materiasPublico);
 vi.mock("@/server/shared/parametros", () => ({ getParametroNumerico: limite }));
 vi.mock("@/server/materias/materia.service", () => ({ verificarMateriaActiva: vi.fn() }));
 vi.mock("@/server/profesores/profesor.service", () => ({ profesorActivoDictaMateria: vi.fn(), estaDentroDeHorarioAtencion: vi.fn(), intervalosSeSuperponen: vi.fn(), listarProfesoresActivosPorMateria: vi.fn() }));
 vi.mock("@/server/alumnos/alumno.service", () => ({ verificarAlumnoActivo: vi.fn() }));
 vi.mock("./turno.validaciones", () => ({ turnoSigueVigente: vi.fn(), validarConfiguracionTurno: vi.fn() }));
 
-const { listarOpcionesFiltroProfesor, listarTurnos, obtenerTurno } = await import("./turno.service");
+const { listarOpcionesFiltroMateria, listarOpcionesFiltroProfesor, listarTurnos, obtenerTurno } = await import("./turno.service");
+const { conReloj } = await import("@/server/shared/reloj");
+// Reloj del sistema: 2026-09-24 12:00 en el centro. Sin período, el listado es «hoy».
+const HOY = new Date("2026-09-24T00:00:00.000Z");
 const PROFESOR_PROPIO = "cmprofesorpropio0000000001";
 const PROFESOR_AJENO = "cmprofesorajeno00000000001";
 const fichaProfesor = (idProfesor: string) => ({ idProfesor, apellidoProfesor: "Giménez", nombreProfesor: "Laura" });
@@ -40,6 +45,8 @@ beforeEach(() => {
   turno.count.mockResolvedValue(3);
   turno.findMany.mockResolvedValue([registro("PENDIENTE", 0), registro("DISPONIBLE", 3), registro("COMPLETO", 5)]);
   turno.findFirst.mockResolvedValue(registro("DISPONIBLE", 3));
+  materiasPublico.obtenerMateriasPorIds.mockImplementation(async (ids: string[]) => ids.map((id) => ({ id, nombre: "Física", codigo: "FIS", activa: true })));
+  materiasPublico.listarMateriasParaFiltroDeClases.mockResolvedValue([]);
   usuario.findUnique.mockResolvedValue({ emailUsuario: "mesa@example.com" });
 });
 afterEach(() => vi.useRealTimers());
@@ -54,9 +61,9 @@ describe("HU-C-01 listado y detalle", () => {
     expect(resultado.items[1]).toMatchObject({ profesor: "Gómez, Ana", materia: "Física", aula: "Aula 1" });
   });
 
-  it("filtra desde hoy, ordena con desempates estables y pagina según el límite", async () => {
+  it("sin período filtra las clases de hoy (HU-C-27), ordena con desempates estables y pagina según el límite", async () => {
     const resultado = await listarTurnos(2, undefined, mesa);
-    expect(turno.count).toHaveBeenCalledWith({ where: { fechaTurno: { gte: new Date("2026-09-24T00:00:00.000Z") } } });
+    expect(turno.count).toHaveBeenCalledWith({ where: { fechaTurno: HOY } });
     expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({
       orderBy: [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }],
       skip: 2, take: 2,
@@ -72,11 +79,11 @@ describe("HU-C-01 listado y detalle", () => {
 });
 
 describe("HU-C-02 búsqueda en el listado", () => {
-  const base = { fechaTurno: { gte: new Date("2026-09-24T00:00:00.000Z") } };
+  const base = { fechaTurno: HOY };
   const orderBy = [{ fechaTurno: "asc" }, { horaInicioTurno: "asc" }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }];
 
   it.each([["sin filtros", undefined], ["con filtros vacíos", {}], ["con q de un carácter", { q: "a" }], ["con q en blanco", { q: "   " }]])(
-    "%s el where es el de HU-C-01", async (_caso, filtros) => {
+    "%s el where es el del período por defecto", async (_caso, filtros) => {
       await listarTurnos(1, undefined, mesa, filtros);
       expect(turno.count).toHaveBeenCalledWith({ where: base });
       expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: base, orderBy }));
@@ -116,7 +123,7 @@ describe("HU-C-02 búsqueda en el listado", () => {
 describe("HU-C-08 filtro por profesor (spec §2.7)", () => {
   const profesorRol = { id: "usuario-prof", rol: "PROFESOR" as const };
   const gerente = { id: "usuario-g", rol: "GERENTE" as const };
-  const desdeHoy = { gte: new Date("2026-09-24T00:00:00.000Z") };
+  const desdeHoy = HOY;
 
   it("Gerente y Mesa filtran por un profesor activo, en cualquier estado y con el mismo orden", async () => {
     profesor.findFirst.mockResolvedValue(fichaProfesor(PROFESOR_AJENO));
@@ -182,5 +189,111 @@ describe("HU-C-08 filtro por profesor (spec §2.7)", () => {
       { id: "p1", nombre: "Laura", apellido: "Giménez" }, { id: "p2", nombre: "Marco", apellido: "Rossi" },
     ]);
     expect(profesor.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { activoProfesor: true } }));
+  });
+});
+
+describe("HU-C-27 período, rango y materia", () => {
+  const orden = (direccion: "asc" | "desc") => [{ fechaTurno: direccion }, { horaInicioTurno: direccion }, { profesorId: { sort: "asc", nulls: "last" } }, { idTurno: "asc" }];
+  const MATERIA = "cmmateria00000000000000001";
+  // conReloj fija el reloj del dominio en otro día que el del sistema (24/09):
+  // así se prueba que el corte sale de ahora() y no de new Date().
+  const listarEl = (instante: string, ...args: Parameters<typeof listarTurnos>) => conReloj(new Date(instante), () => listarTurnos(...args));
+
+  it.each([
+    ["anteriores", { fechaTurno: { lt: new Date("2026-10-13T00:00:00.000Z") } }, "desc"],
+    ["hoy", { fechaTurno: new Date("2026-10-13T00:00:00.000Z") }, "asc"],
+    ["proximas", { fechaTurno: { gte: new Date("2026-10-14T00:00:00.000Z") } }, "asc"],
+    ["todas", {}, "asc"],
+  ] as const)("periodo=%s corta por el día del centro según ahora() y ordena %s", async (periodo, where, direccion) => {
+    await listarEl("2026-10-13T15:00:00.000Z", 1, undefined, mesa, { periodo });
+    expect(turno.count).toHaveBeenCalledWith({ where });
+    expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where, orderBy: orden(direccion) }));
+  });
+
+  it("corta a medianoche del centro (UTC−3), no a la de UTC", async () => {
+    await listarEl("2026-10-14T02:59:00.000Z", 1, undefined, mesa, { periodo: "hoy" });
+    await listarEl("2026-10-14T03:00:00.000Z", 1, undefined, mesa, { periodo: "hoy" });
+    expect(turno.count.mock.calls.map(([argumento]) => argumento.where.fechaTurno)).toEqual([
+      new Date("2026-10-13T00:00:00.000Z"), new Date("2026-10-14T00:00:00.000Z"),
+    ]);
+  });
+
+  it.each([
+    ["ambas fechas", { desde: "2026-10-01", hasta: "2026-10-13" }, { gte: new Date("2026-10-01T00:00:00.000Z"), lte: new Date("2026-10-13T00:00:00.000Z") }],
+    ["solo desde", { desde: "2026-10-01" }, { gte: new Date("2026-10-01T00:00:00.000Z") }],
+    ["solo hasta", { hasta: "2026-10-13" }, { lte: new Date("2026-10-13T00:00:00.000Z") }],
+  ])("rango con %s, inclusive y en orden ascendente", async (_caso, filtros, fechaTurno) => {
+    await listarTurnos(1, undefined, mesa, filtros);
+    expect(turno.count).toHaveBeenCalledWith({ where: { fechaTurno } });
+    expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy: orden("asc") }));
+  });
+
+  it.each([
+    ["período y rango juntos", { periodo: "hoy" as const, desde: "2026-10-01" }],
+    ["Desde posterior a Hasta", { desde: "2026-10-20", hasta: "2026-10-01" }],
+  ])("%s → VALIDACION sin consultar (defensa en profundidad)", async (_caso, filtros) => {
+    await expect(listarTurnos(1, undefined, mesa, filtros)).rejects.toMatchObject({ code: "VALIDACION" });
+    expect(turno.count).not.toHaveBeenCalled();
+  });
+
+  it("materia existente se suma al where; inexistente → VALIDACION sin contar", async () => {
+    await listarTurnos(1, undefined, mesa, { materia_id: MATERIA });
+    expect(materiasPublico.obtenerMateriasPorIds).toHaveBeenCalledWith([MATERIA]);
+    expect(turno.count).toHaveBeenCalledWith({ where: { fechaTurno: HOY, materiaId: MATERIA } });
+    vi.clearAllMocks();
+    materiasPublico.obtenerMateriasPorIds.mockResolvedValue([]);
+    await expect(listarTurnos(1, undefined, mesa, { materia_id: MATERIA })).rejects.toMatchObject({ code: "VALIDACION", message: "La materia elegida no existe" });
+    expect(turno.count).not.toHaveBeenCalled();
+  });
+
+  it("combina período, materia, búsqueda y profesor en un único where para count y findMany", async () => {
+    profesor.findFirst.mockResolvedValue(fichaProfesor(PROFESOR_AJENO));
+    await listarTurnos(1, undefined, mesa, { periodo: "todas", materia_id: MATERIA, q: "fisica", profesor_id: PROFESOR_AJENO });
+    const where = turno.count.mock.calls[0][0].where;
+    expect(where).toMatchObject({ profesorId: PROFESOR_AJENO, materiaId: MATERIA, AND: [expect.objectContaining({ AND: expect.any(Array) })] });
+    expect(where).not.toHaveProperty("fechaTurno");
+    expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+  });
+
+  it("el Profesor con profesor_id ajeno recibe SIN_PERMISO antes de validar la materia", async () => {
+    profesor.findUnique.mockResolvedValue(fichaProfesor(PROFESOR_PROPIO));
+    materiasPublico.obtenerMateriasPorIds.mockResolvedValue([]);
+    await expect(listarTurnos(1, undefined, { id: "usuario-prof", rol: "PROFESOR" }, { profesor_id: PROFESOR_AJENO, materia_id: MATERIA }))
+      .rejects.toMatchObject({ code: "SIN_PERMISO" });
+    expect(materiasPublico.obtenerMateriasPorIds).not.toHaveBeenCalled();
+  });
+
+  it("es_dia_anterior: true solo para las clases de días anteriores a hoy en el centro", async () => {
+    const del = (fecha: string) => ({ ...registro("PENDIENTE", 0), idTurno: fecha, fechaTurno: new Date(`${fecha}T00:00:00.000Z`) });
+    turno.findMany.mockResolvedValue([del("2026-10-12"), del("2026-10-13"), del("2026-10-14")]);
+    const resultado = await listarEl("2026-10-13T15:00:00.000Z", 1, undefined, mesa, { periodo: "todas" });
+    expect(resultado.items.map((item) => [item.id, item.es_dia_anterior])).toEqual([["2026-10-12", true], ["2026-10-13", false], ["2026-10-14", false]]);
+  });
+
+  describe("opciones del filtro «Materia» (criterio 4)", () => {
+    it("Mesa y Gerente: ids de todas las materias con clases, más las activas sin clases", async () => {
+      turno.findMany.mockResolvedValue([{ materiaId: "m1" }, { materiaId: "m2" }]);
+      const opciones = [{ id: "m1", nombre: "Física", activa: true }, { id: "m2", nombre: "Historia", activa: false }];
+      materiasPublico.listarMateriasParaFiltroDeClases.mockResolvedValue(opciones);
+      for (const rol of ["MESA_ENTRADA", "GERENTE"] as const) {
+        await expect(listarOpcionesFiltroMateria({ id: "u", rol })).resolves.toEqual(opciones);
+      }
+      expect(turno.findMany).toHaveBeenCalledWith({ where: {}, distinct: ["materiaId"], select: { materiaId: true } });
+      expect(materiasPublico.listarMateriasParaFiltroDeClases).toHaveBeenCalledWith(["m1", "m2"], { incluirActivasSinClases: true });
+    });
+
+    it("Profesor: solo las materias de sus clases, sin consultar sus materias asociadas", async () => {
+      profesor.findUnique.mockResolvedValue(fichaProfesor(PROFESOR_PROPIO));
+      turno.findMany.mockResolvedValue([{ materiaId: "m-inactiva" }]);
+      await listarOpcionesFiltroMateria({ id: "usuario-prof", rol: "PROFESOR" });
+      expect(turno.findMany).toHaveBeenCalledWith({ where: { profesorId: PROFESOR_PROPIO }, distinct: ["materiaId"], select: { materiaId: true } });
+      expect(materiasPublico.listarMateriasParaFiltroDeClases).toHaveBeenCalledWith(["m-inactiva"], { incluirActivasSinClases: false });
+    });
+
+    it("Profesor sin ficha: sin opciones y sin consultar clases", async () => {
+      profesor.findUnique.mockResolvedValue(null);
+      await expect(listarOpcionesFiltroMateria({ id: "usuario-prof", rol: "PROFESOR" })).resolves.toEqual([]);
+      expect(turno.findMany).not.toHaveBeenCalled();
+    });
   });
 });

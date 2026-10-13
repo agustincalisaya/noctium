@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DisponibilidadProfesorQuerySchema, OpcionesReprogramacionQuerySchema, ReprogramarTurnoSchema } from "./turno.schema";
+import { DisponibilidadProfesorQuerySchema, ListarTurnosQuerySchema, OpcionesReprogramacionQuerySchema, ReprogramarTurnoSchema } from "./turno.schema";
 
 const base = { materia_id: " ckmateria0000000000000001 ", duracion_min: "120" };
 
@@ -52,5 +52,41 @@ describe("HU-C-06 ReprogramarTurnoSchema y OpcionesReprogramacionQuerySchema", (
     expect(OpcionesReprogramacionQuerySchema.safeParse({ fecha: "2026-10-07" }).success).toBe(true);
     expect(OpcionesReprogramacionQuerySchema.safeParse({}).success).toBe(false);
     expect(OpcionesReprogramacionQuerySchema.safeParse({ fecha: "2026-10-07", hora: "10:00" }).success).toBe(false);
+  });
+});
+
+describe("HU-C-27 ListarTurnosQuerySchema", () => {
+  const MATERIA = "ckmateria0000000000000001";
+  const PROFESOR = "ckprofesor000000000000001";
+
+  it.each([
+    ["cada período", ["anteriores", "hoy", "proximas", "todas"].map((periodo) => ({ periodo }))],
+    ["rango con una o dos fechas", [{ desde: "2026-10-01" }, { hasta: "2026-10-13" }, { desde: "2026-10-01", hasta: "2026-10-13" }, { desde: "2026-10-13", hasta: "2026-10-13" }]],
+    ["todo combinado", [{ periodo: "todas", materia_id: MATERIA, q: "fisica", profesor_id: PROFESOR, pagina: "2" }]],
+  ])("acepta %s", (_caso, queries) => {
+    for (const query of queries) expect(ListarTurnosQuerySchema.safeParse(query).success).toBe(true);
+  });
+
+  it("conserva las fechas como texto AAAA-MM-DD", () => {
+    expect(ListarTurnosQuerySchema.parse({ desde: " 2026-10-01 ", hasta: "2026-10-13" })).toMatchObject({ desde: "2026-10-01", hasta: "2026-10-13" });
+  });
+
+  it("Desde posterior a Hasta: error en `desde` con el texto del criterio 3", () => {
+    const resultado = ListarTurnosQuerySchema.safeParse({ desde: "2026-10-20", hasta: "2026-10-01" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error!.flatten().fieldErrors).toMatchObject({ desde: ["La fecha Desde no puede ser posterior a Hasta"] });
+  });
+
+  it.each([
+    ["período desconocido", { periodo: "ayer" }],
+    ["fecha que no existe", { desde: "2026-02-30" }],
+    ["fecha con otro formato", { hasta: "13/10/2026" }],
+    ["período junto con rango", { periodo: "hoy", desde: "2026-10-01" }],
+    ["materia_id mal formado", { materia_id: "no-es-cuid" }],
+    ["estados (fuera del producto)", { estados: "CANCELADO" }],
+    ["solo_futuros (reemplazado por periodo)", { solo_futuros: "true" }],
+    ["orden (ya no se usa)", { orden: "fecha_hora_asc" }],
+  ])("rechaza %s", (_caso, query) => {
+    expect(ListarTurnosQuerySchema.safeParse(query).success).toBe(false);
   });
 });
