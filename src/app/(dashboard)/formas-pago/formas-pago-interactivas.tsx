@@ -51,8 +51,8 @@ export function FormasPagoInteractivas({ items, paginacion }: ListadoFormasPago)
       </div>
 
       <div className="max-w-[45rem] space-y-2">
-        <div className="overflow-hidden rounded-md border border-border bg-card">
-          <table className="w-full table-fixed text-sm">
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
+          <table className="w-full min-w-[32rem] table-fixed text-sm">
             <thead className="border-b border-border">
               <tr>
                 <th className="w-[30%] px-4 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -244,7 +244,7 @@ function AccionesFormaPago({ forma }: { forma: Forma }) {
   }).then(() => undefined);
 
   return <>
-    <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+    <div className="grid grid-cols-[4.5rem_6rem] justify-end gap-x-3">
       <Button size="sm" variant="ghost" className="h-8 px-1 text-primary" aria-label={`Editar ${forma.nombre}`} onClick={() => abrir("editar")}>
         <Pencil className="size-3.5" aria-hidden />{texto("ui.formasPago.editar")}
       </Button>
