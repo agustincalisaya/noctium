@@ -35,6 +35,10 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   "mi-cuenta": "CUALQUIERA",
   // HU-F-01 (spec_modulo_F.md §3.7): el personal de mesa de entrada lo gestiona solo el Gerente.
   personal: ["GERENTE"],
+  // HU-I-12 (spec_modulo_I.md §2.10 a §2.12): «Mi caja» (y el detalle de mis
+  // cierres) es de mesa de entrada; «Cierres de caja» de todo el personal, del Gerente.
+  caja: ["MESA_ENTRADA"],
+  cajas: ["GERENTE"],
 };
 
 /** Única página que admite una sesión con la marca «Debe cambiar la contraseña». */

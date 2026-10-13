@@ -102,3 +102,24 @@ describe("HU-I-10 pagos", () => {
     }
   });
 });
+
+// HU-I-12 (spec_modulo_I.md §2.10 a §2.12): «Mi caja» solo mesa de entrada;
+// «Cierres de caja» solo el Gerente. Se compara por segmento: /caja ≠ /cajas.
+describe("HU-I-12 caja", () => {
+  it("/caja y el detalle de mis cierres: solo mesa de entrada", () => {
+    expect(rolPuedeAccederRuta("MESA_ENTRADA", "/caja")).toBe(true);
+    expect(rolPuedeAccederRuta("MESA_ENTRADA", "/caja/cierres/c1")).toBe(true);
+    for (const rol of ["GERENTE", "PROFESOR", "ALUMNO"] as const) {
+      expect(rolPuedeAccederRuta(rol, "/caja")).toBe(false);
+      expect(rolPuedeAccederRuta(rol, "/caja/cierres/c1")).toBe(false);
+    }
+  });
+  it("/cajas y su detalle: solo el Gerente", () => {
+    expect(rolPuedeAccederRuta("GERENTE", "/cajas")).toBe(true);
+    expect(rolPuedeAccederRuta("GERENTE", "/cajas/c1")).toBe(true);
+    for (const rol of ["MESA_ENTRADA", "PROFESOR", "ALUMNO"] as const) {
+      expect(rolPuedeAccederRuta(rol, "/cajas")).toBe(false);
+      expect(rolPuedeAccederRuta(rol, "/cajas/c1")).toBe(false);
+    }
+  });
+});
