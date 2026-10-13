@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Power } from "lucide-react";
 import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { texto } from "@/lib/textos";
 import { desactivarIntegrante, reactivarIntegrante } from "@/server/personal/actions";
@@ -145,6 +146,8 @@ export function EstadoIntegranteDialog({ integrante }: { integrante: IntegranteP
             <Button variant="outline" onClick={() => setAvisoCaja(false)}>
               {texto("ui.personal.baja.cerrar")}
             </Button>
+            {/* HU-I-12: la pantalla donde se hace el cierre por ausencia. */}
+            <Link href="/cajas" className={buttonVariants()}>{texto("ui.personal.baja.irACierresDeCaja")}</Link>
           </DialogFooter>
         </DialogContent>
       </Dialog>

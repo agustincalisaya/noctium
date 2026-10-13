@@ -171,6 +171,17 @@ describe("HU-I-10 paso 3: forma de pago y confirmación", () => {
     await pulsar(boton("Confirmar pago"));
     await pulsar(boton("Registrar pago"));
     expect(dialogo()?.querySelector('[role="alert"]')?.textContent).toContain("No se puede registrar un cobro hasta que abras una caja.");
+    // HU-I-12 criterio 2: con acceso a «Abrir caja».
+    expect(dialogo()?.querySelector('a[href="/caja"]')?.textContent).toBe("Abrir caja");
+  });
+  it("HU-I-12: otro rechazo distinto de CAJA_NO_ABIERTA no ofrece «Abrir caja»", async () => {
+    rutas = (url) => url.startsWith("/api/pagos/pendientes") ? respuesta(pendientes())
+      : url === "/api/pagos/operaciones" ? respuesta(null, false, { code: "FORMA_PAGO_NO_DISPONIBLE", message: "La forma de pago no está disponible." }) : undefined;
+    await irAlPaso3();
+    await pulsar(boton("Confirmar pago"));
+    await pulsar(boton("Registrar pago"));
+    expect(dialogo()?.querySelector('[role="alert"]')?.textContent).toContain("La forma de pago no está disponible.");
+    expect(dialogo()?.querySelector('a[href="/caja"]')).toBeNull();
   });
   it("éxito: envía el body, muestra el banner en singular y vuelve al paso 1", async () => {
     rutas = (url) => url.startsWith("/api/pagos/pendientes") ? respuesta(pendientes())

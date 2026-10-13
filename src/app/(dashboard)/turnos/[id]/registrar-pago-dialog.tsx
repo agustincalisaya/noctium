@@ -3,9 +3,10 @@
 import { texto as textoC19 } from "@/lib/textos";
 
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -28,6 +29,8 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
   const [cargando, setCargando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
+  // HU-I-12 criterio 2: sin caja abierta, el rechazo ofrece «Abrir caja».
+  const [sinCaja, setSinCaja] = useState(false);
   const [errores, setErrores] = useState<Errores>({});
   const [texto, setTexto] = useState("");
   const [alumnoId, setAlumnoId] = useState("");
@@ -110,7 +113,7 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
     if (!/^\d{1,9}(\.\d{1,2})?$/.test(importe) || Number(importe) <= 0) validacion.monto = textoC19("ui.clases.interfaz.ingresaUnMontoMayorACeroConHastaNumeroDosDecimales");
     if (!formaId) validacion.forma_pago_id = textoC19("ui.pagos.confirmacion.elegirForma");
     if (!fecha) validacion.fecha_pago = textoC19("ui.clases.interfaz.ingresaLaFechaDePago");
-    setErrores(validacion); setError("");
+    setErrores(validacion); setError(""); setSinCaja(false);
     if (Object.keys(validacion).length) {
       document.getElementById(`${prefijo}-${Object.keys(validacion)[0]}`)?.focus();
       return;
@@ -126,6 +129,7 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
         const campos = resultado?.error?.detalles?.fieldErrors ?? {};
         setErrores(Object.fromEntries(Object.entries(campos).map(([campo, mensajes]) => [campo, (mensajes as string[])[0]])));
         setError(resultado?.error?.message ?? textoC19("ui.clases.interfaz.noSePudoRegistrarElPagoIntentaNuevamente"));
+        setSinCaja(resultado?.error?.code === "CAJA_NO_ABIERTA");
         return;
       }
       setAbierto(false);
@@ -154,6 +158,7 @@ export function RegistrarPagoDialog({ turnoId, contexto, deshabilitado, onRegist
         {cargando && <p role="status" className="text-xs text-muted-foreground">{textoC19("ui.clases.interfaz.cargandoOpcionesDePago")}</p>}
         {error && <div role="alert" className="space-y-2 rounded-md bg-destructive-soft p-3 text-sm text-destructive-soft-foreground">
           <p>{error}</p>{!opciones && !cargando && <Button size="sm" variant="outline" type="button" onClick={() => void cargarOpciones()}>{textoC19("ui.formasPago.reintentar")}</Button>}
+          {sinCaja && <Link href="/caja" className={buttonVariants({ size: "sm" })}>{textoC19("ui.caja.abrir")}</Link>}
         </div>}
         {sinAlumnos && <p role="status" className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.laClaseNoTieneAlumnosInscriptosNumeroDos")}</p>}
         {sinFormas && <p role="status" className="text-sm text-muted-foreground">{textoC19("ui.clases.interfaz.noHayFormasDePagoActivasConsultaConGerencia")}</p>}

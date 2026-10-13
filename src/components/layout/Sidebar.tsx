@@ -14,6 +14,7 @@ import {
   Wallet,
   BarChart3,
   UserCog,
+  Banknote,
   type LucideIcon
 } from "lucide-react";
 import { texto } from "@/lib/textos";
@@ -72,6 +73,8 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
     },
     // HU-I-10: registrar pago buscando al alumno (pagos:crear, solo Mesa de Entrada).
     { label: textoC19("ui.turnos.reserva.registrarPago"), href: "/pagos/registrar", prefijoActivo: "/pagos", icon: Wallet },
+    // HU-I-12: «Mi caja» (cajas:leer), activo también en el detalle de mis cierres.
+    { label: texto("ui.caja.menu"), href: "/caja", prefijoActivo: "/caja", icon: Banknote },
         {
       label: textoC19("ui.clases.menu.calendario"),
       icon: CalendarDays,
@@ -151,6 +154,8 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: Wallet,
       items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/formas-pago", icon: ListOrdered }],
     },
+    // HU-I-12: cajas abiertas y cierres de todo el personal (cajas:leer_todas, solo Gerente).
+    { label: texto("ui.cajas.menu"), href: "/cajas", prefijoActivo: "/cajas", icon: Banknote },
     // HU-F-01 y HU-F-03: personal de mesa de entrada (personal:*, solo Gerente).
     {
       label: texto("ui.personal.menu"),

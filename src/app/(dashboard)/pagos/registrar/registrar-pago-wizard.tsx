@@ -46,6 +46,8 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
   // Comprobante de la última operación registrada (HU-I-11): el banner enlaza a él.
   const [comprobanteId, setComprobanteId] = useState<string | null>(null);
   const resultado = useRef<OperacionDePagoRegistrada | null>(null);
+  // HU-I-12 criterio 2: el último rechazo fue CAJA_NO_ABIERTA; la confirmación ofrece «Abrir caja».
+  const [sinCaja, setSinCaja] = useState(false);
 
   useEffect(() => {
     if (!carga) return;
@@ -89,6 +91,7 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
 
   const registrar = async () => {
     if (!datos) return;
+    setSinCaja(false);
     const respuesta = await fetchAutenticado("/api/pagos/operaciones", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,6 +111,7 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
         });
         throw new Error(texto("ui.pagos.tarifaCambio", { materia: detalles.materia ?? "" }));
       }
+      setSinCaja(error?.code === "CAJA_NO_ABIERTA");
       throw new Error(error?.message ?? MENSAJE_ERROR_GENERICO);
     }
     resultado.current = cuerpo.data as OperacionDePagoRegistrada;
@@ -164,7 +168,7 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
             })}
             formaPagoId={formaPagoId} fechaPago={fechaPago} hoy={hoy}
             onCambiarForma={setFormaPagoId} onCambiarFecha={setFechaPago} onVolver={() => setPaso(2)}
-            onRegistrar={registrar} onRegistrado={registrado} />}
+            sinCajaAbierta={sinCaja} onRegistrar={registrar} onRegistrado={registrado} />}
       </div>
       <aside className="rounded-xl border border-border bg-card p-5 text-card-foreground" aria-labelledby="resumen-registrar-pago">
         <h2 id="resumen-registrar-pago" className="text-lg font-semibold">{texto("ui.pagos.resumen.titulo")}</h2>
