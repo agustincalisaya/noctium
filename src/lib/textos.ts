@@ -1243,6 +1243,16 @@ export const TEXTOS = {
   "errores.gerente.datosInvalidos": "Los datos del gerente no son válidos.",
   "errores.gerente.interno": "No se pudo completar la operación",
   "errores.gerente.comunicacion": "No se pudo conectar. Intentá nuevamente",
+  // HU-G-05: baja y reactivación (spec_modulo_G.md §2.5 y §2.6). El del último gerente activo es literal del backlog (criterio 3).
+  "errores.gerente.yaInactivo": "El gerente ya está inactivo.",
+  "errores.gerente.yaActivo": "El gerente ya está activo.",
+  "errores.gerente.ultimoGerenteActivo": "Debe quedar al menos un gerente activo",
+  // propuesto, pendiente de validar por el PO
+  "errores.gerente.noPuedeDesactivarseASiMismo": "No podés desactivarte a vos mismo.",
+  // propuesto, pendiente de validar por el PO (P-F6)
+  "errores.gerente.motivoRequerido": "Ingresá el motivo de la baja: el gerente registró operaciones.",
+  // propuesto
+  "errores.gerente.motivoDemasiadoLargo": "El motivo admite hasta 300 caracteres.",
   "ui.gerentes.contacto.emailRequerido": "Ingresá el email: con él se crea la cuenta de acceso",
 
   // --- Pantallas de gerentes (P-47 y P-48, HU-G-01) ---
@@ -1302,6 +1312,40 @@ export const TEXTOS = {
   "ui.gerentes.ficha.fechaAlta": "Fecha de alta",
   "ui.gerentes.ficha.ultimaModificacion": "Última modificación",
   "ui.gerentes.ficha.sinCambios": "Sin cambios",
+  // --- Baja y reactivación desde la ficha (P-48, HU-G-05). Literales de las
+  // figuras 97 y 98: «Desactivar», título y detalle de la baja, «Motivo de la
+  // baja», «Opcional», el contador, «Historial de estados» y «Sin bajas ni
+  // reactivaciones.». Los dos toasts de éxito son literales del backlog. El
+  // resto, propuesto.
+  "ui.gerentes.ficha.desactivar": "Desactivar",
+  // propuesto
+  "ui.gerentes.ficha.reactivar": "Reactivar",
+  "ui.gerentes.baja.titulo": "¿Estás seguro de que querés desactivar a {nombre} {apellido}? No podrá ingresar al sistema.",
+  "ui.gerentes.baja.detalle": "Las operaciones que registró se conservan con su nombre. Su cuenta pasa a inactiva y se cierran todas sus sesiones.",
+  // propuesto
+  "ui.gerentes.baja.detalleSinCuenta": "Las operaciones que registró se conservan con su nombre. No tiene una cuenta de acceso vinculada.",
+  "ui.gerentes.baja.motivo": "Motivo de la baja",
+  "ui.gerentes.baja.motivoOpcional": "Opcional",
+  // propuesto
+  "ui.gerentes.baja.motivoObligatorio": "Obligatorio: tiene operaciones registradas",
+  "ui.gerentes.baja.contador": "{cantidad} / 300",
+  "ui.gerentes.baja.confirmar": "Desactivar",
+  "ui.gerentes.baja.exito": "Gerente desactivado correctamente",
+  // propuestos
+  "ui.gerentes.baja.ultimoActivoTitulo": "No se puede desactivar al gerente",
+  "ui.gerentes.baja.cerrar": "Cerrar",
+  "ui.gerentes.reactivacion.titulo": "¿Estás seguro de que querés reactivar a {nombre} {apellido}?",
+  "ui.gerentes.reactivacion.detalle": "Su cuenta vuelve a quedar activa. Las sesiones cerradas en la baja no se restauran: tiene que iniciar sesión de nuevo.",
+  "ui.gerentes.reactivacion.detalleSinCuenta": "Vuelve a figurar como activo. No tiene una cuenta de acceso vinculada.",
+  "ui.gerentes.reactivacion.confirmar": "Reactivar",
+  // literal del backlog
+  "ui.gerentes.reactivacion.exito": "Gerente reactivado correctamente",
+  "ui.gerentes.historial.titulo": "Historial de estados",
+  "ui.gerentes.historial.vacio": "Sin bajas ni reactivaciones.",
+  // propuestos
+  "ui.gerentes.historial.desactivacion": "Desactivación",
+  "ui.gerentes.historial.reactivacion": "Reactivación",
+  "ui.gerentes.historial.usuario": "Usuario",
   // propuesto
   "ui.gerentes.error.cargar": "No se pudo cargar la información de los gerentes",
   "ui.gerentes.error.reintentar": "Reintentar",

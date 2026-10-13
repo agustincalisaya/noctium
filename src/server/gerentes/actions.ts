@@ -5,29 +5,38 @@ import { headers } from "next/headers";
 import { flattenError, type ZodError } from "zod";
 import { obtenerIp } from "@/auth";
 import { texto } from "@/lib/textos";
-import { construirAltaGerenteSchema, construirModificarGerenteSchema } from "@/server/gerentes/gerente.schema";
+import {
+  DesactivarGerenteSchema,
+  ReactivarGerenteSchema,
+  construirAltaGerenteSchema,
+  construirModificarGerenteSchema,
+} from "@/server/gerentes/gerente.schema";
 import {
   crearGerente as crearGerenteEnServicio,
+  desactivarGerente as desactivarGerenteEnServicio,
   modificarGerente as modificarGerenteEnServicio,
+  reactivarGerente as reactivarGerenteEnServicio,
   verificarDisponibilidadGerente as verificarDisponibilidadEnServicio,
 } from "@/server/gerentes/gerente.service";
 import { emailContactoSchema } from "@/server/shared/contacto.schema";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
+import { actorUsuario } from "@/server/shared/historial";
 import { construirIdentidadPersonaSchema } from "@/server/shared/identidad-persona.schema";
 import { getParametroNumerico } from "@/server/shared/parametros";
 import { PermisoError, verificarPermiso } from "@/server/shared/with-permission";
 import type {
   DisponibilidadGerente,
+  EstadoGerenteCambiado,
   GerenteCreado,
   GerenteModificado,
   ResultadoAccionGerente,
 } from "@/types/gerente.types";
 
-// Server Actions de gerentes (spec_modulo_G.md §2.1 y §2.2; HU-G-01). Capa
-// delgada (Regla N.° 4): permiso primero (el rechazo vale aunque la acción se
-// invoque sin pasar por la pantalla), después Zod con el mismo schema del
-// formulario y de la ruta, después el servicio, y el resultado como
-// { data, error } (Regla N.° 5). La pantalla las llama directo, sin
+// Server Actions de gerentes (spec_modulo_G.md §2.1, §2.2, §2.5 y §2.6;
+// HU-G-01 y HU-G-05). Capa delgada (Regla N.° 4): permiso primero (el rechazo
+// vale aunque la acción se invoque sin pasar por la pantalla), después Zod con
+// el mismo schema del formulario y de la ruta, después el servicio, y el
+// resultado como { data, error } (Regla N.° 5). La pantalla las llama directo, sin
 // useActionState, porque el diálogo de confirmación espera el resultado.
 
 async function longitudDni(): Promise<[number, number]> {
@@ -84,6 +93,52 @@ export async function modificarGerente(
       revalidatePath("/gerentes");
       revalidatePath(`/gerentes/${id}`);
     }
+    return { data: resultado, error: null };
+  } catch (error) {
+    return errorDeAccion(error);
+  }
+}
+
+/** Revalida el listado y la ficha después de un cambio de estado. */
+function revalidarFicha(id: string) {
+  revalidatePath("/gerentes");
+  revalidatePath(`/gerentes/${id}`);
+}
+
+/**
+ * Baja del gerente (HU-G-05 c1 a c4 y c6): `{ motivo?, version }`. La
+ * autodesactivación, el último gerente activo, el motivo obligatorio y la
+ * versión los decide el servicio.
+ */
+export async function desactivarGerente(
+  id: string,
+  datos: unknown,
+): Promise<ResultadoAccionGerente<EstadoGerenteCambiado>> {
+  try {
+    const { id: usuarioId } = await verificarPermiso("gerentes:cambiar_estado");
+    const parsed = DesactivarGerenteSchema.safeParse(datos);
+    if (!parsed.success) return validacion(parsed.error);
+
+    const resultado = await desactivarGerenteEnServicio(id, parsed.data, actorUsuario(usuarioId));
+    revalidarFicha(id);
+    return { data: resultado, error: null };
+  } catch (error) {
+    return errorDeAccion(error);
+  }
+}
+
+/** Reactivación del gerente (HU-G-05 c5 y c6): `{ version }`, sin motivo. */
+export async function reactivarGerente(
+  id: string,
+  datos: unknown,
+): Promise<ResultadoAccionGerente<EstadoGerenteCambiado>> {
+  try {
+    const { id: usuarioId } = await verificarPermiso("gerentes:cambiar_estado");
+    const parsed = ReactivarGerenteSchema.safeParse(datos);
+    if (!parsed.success) return validacion(parsed.error);
+
+    const resultado = await reactivarGerenteEnServicio(id, parsed.data, actorUsuario(usuarioId));
+    revalidarFicha(id);
     return { data: resultado, error: null };
   } catch (error) {
     return errorDeAccion(error);

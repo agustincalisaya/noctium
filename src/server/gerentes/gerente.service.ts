@@ -3,29 +3,41 @@ import { prisma } from "@/lib/prisma";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { ErrorDeDominio, esErrorDeDominio } from "@/server/shared/error-dominio";
 import { transaccion, type Tx } from "@/server/shared/transaccion";
+import { bloquear } from "@/server/shared/bloquear";
+import type { ActorDominio } from "@/server/shared/historial";
+import { listarHistorialEstados, registrarCambioEstado } from "@/server/shared/historial-estados";
+import { usuarioRegistroOperaciones } from "@/server/shared/actividad-usuario";
 import {
   cambiarEmailCuenta,
   crearCuentaParaFicha,
+  desactivarCuenta,
+  filtrarCuentasActivas,
   obtenerResumenCuenta,
+  reactivarCuenta,
   verificarEmailNoAsociadoAOtraCuenta,
 } from "@/server/usuarios/cuenta.service";
+import { obtenerNombresPersonal } from "@/server/personal/personal.publico";
 import { construirFiltroBusquedaGerentes } from "@/server/gerentes/gerente.busqueda";
 import {
   POR_PAGINA_GERENTES,
   type AltaGerenteInput,
+  type DesactivarGerenteInput,
   type ListarGerentesQuery,
   type ModificarGerenteInput,
+  type ReactivarGerenteInput,
 } from "@/server/gerentes/gerente.schema";
 import type {
   DetalleGerente,
   DisponibilidadGerente,
+  EntradaHistorialGerente,
+  EstadoGerenteCambiado,
   GerenteCreado,
   GerenteModificado,
   ListadoGerentes,
 } from "@/types/gerente.types";
 
 /**
- * Gerentes (spec_modulo_G.md, HU-G-01). Mismo diseño que
+ * Gerentes (spec_modulo_G.md, HU-G-01, G-03 y G-05). Mismo diseño que
  * `personal.service.ts` (HU-F-01) sobre `FichaGerente`: la duplicación es
  * deliberada (task HU-G-01, decisión 2). Toda la lógica del módulo vive acá
  * (Regla N.° 4); las rutas y las acciones ya validaron el payload con Zod y el
@@ -247,12 +259,59 @@ export async function modificarGerente(
 }
 
 /**
- * Ficha del gerente (spec_modulo_G.md §2.4, parte de HU-G-01): los datos,
+ * Historial de bajas y reactivaciones de la ficha (DEC-37), del más reciente
+ * al más antiguo, con el nombre de quien actuó (`obtenerNombresPersonal`:
+ * mesa de entrada y gerentes por `usuarioId`).
+ */
+async function historialDeLaFicha(id: string, db: Db): Promise<EntradaHistorialGerente[]> {
+  const historial = await listarHistorialEstados("FICHA_GERENTE", id, db);
+  const nombres = await obtenerNombresPersonal(historial.flatMap((r) => (r.usuario_id ? [r.usuario_id] : [])), db);
+  const porId = new Map(nombres.map((n) => [n.usuario_id, n.nombre_completo]));
+  return historial.map((r) => ({
+    id: r.id,
+    accion: r.accion,
+    motivo: r.motivo,
+    fecha: r.fecha,
+    usuarioId: r.usuario_id,
+    usuarioNombre: r.usuario_id ? (porId.get(r.usuario_id) ?? null) : null,
+  }));
+}
+
+type FichaParaConteo = { idFichaGerente: string; activoFichaGerente: boolean; usuarioId: string | null };
+
+/**
+ * «Al menos un gerente activo» (spec_modulo_G.md §2.5 paso 4): `true` si
+ * entre `fichas`, sin contar `excluirId`, no queda ninguna activa con cuenta
+ * activa (`filtrarCuentasActivas`, módulo A). Una ficha activa sin cuenta o
+ * con la cuenta inactiva no cuenta. No bloquea: quien llama decide si ya
+ * tiene los bloqueos.
+ */
+async function sinOtroGerenteActivo(db: Db, fichas: FichaParaConteo[], excluirId: string): Promise<boolean> {
+  const cuentas = fichas.flatMap((f) =>
+    f.idFichaGerente !== excluirId && f.activoFichaGerente && f.usuarioId ? [f.usuarioId] : [],
+  );
+  return (await filtrarCuentasActivas(db, cuentas)).length === 0;
+}
+
+/** Indicador de la ficha (sin bloqueo): las demás fichas activas con cuenta, pasadas por el conteo. */
+async function esUltimoGerenteActivoSinBloqueo(db: Db, id: string): Promise<boolean> {
+  const otras = await db.fichaGerente.findMany({
+    where: { activoFichaGerente: true, usuarioId: { not: null }, NOT: { idFichaGerente: id } },
+    select: { idFichaGerente: true, activoFichaGerente: true, usuarioId: true },
+  });
+  return sinOtroGerenteActivo(db, otras, id);
+}
+
+/**
+ * Ficha del gerente (spec_modulo_G.md §2.4, HU-G-01 y HU-G-05): los datos,
  * `version`, alta, última modificación (`null` si nunca se modificó), la
  * «Cuenta de acceso» con `obtenerResumenCuenta` (nunca el hash ni el DNI como
- * contraseña) y `esVos` (la ficha es la del gerente autenticado, DEC-44).
- * HU-G-05 le suma el historial de estados y sus indicadores sin cambiar la
- * firma. Solo lectura.
+ * contraseña), `esVos` (la ficha es la del gerente autenticado, DEC-44) y el
+ * historial de estados. HU-G-05 suma dos indicadores de solo lectura para que
+ * la pantalla decida antes de confirmar la baja, sin bloquear nada:
+ * `motivoObligatorioAlDesactivar` (solo con la ficha activa y con cuenta) y
+ * `esUltimoGerenteActivo` (solo con la ficha activa); si no, son `false`. La
+ * baja repite las dos validaciones.
  */
 export async function obtenerDetalleGerente(
   id: string,
@@ -261,6 +320,15 @@ export async function obtenerDetalleGerente(
 ): Promise<DetalleGerente> {
   const ficha = await db.fichaGerente.findUnique({ where: { idFichaGerente: id } });
   if (!ficha) throw new ErrorDeDominio("errores.gerente.noEncontrado");
+
+  const activa = ficha.activoFichaGerente;
+  const usuarioActivo = activa ? ficha.usuarioId : null;
+  const [cuenta, historialEstados, registroOperaciones, esUltimoGerenteActivo] = await Promise.all([
+    obtenerResumenCuenta(ficha.usuarioId, db),
+    historialDeLaFicha(id, db),
+    usuarioActivo ? usuarioRegistroOperaciones(db, usuarioActivo) : false,
+    activa ? esUltimoGerenteActivoSinBloqueo(db, id) : false,
+  ]);
 
   return {
     id: ficha.idFichaGerente,
@@ -276,9 +344,122 @@ export async function obtenerDetalleGerente(
     creadoEl: ficha.createdAtFichaGerente,
     // Una ficha nunca modificada no tiene modificador: el alta no cuenta como modificación.
     modificadoEl: ficha.modificadoPorUsuarioId ? ficha.updatedAtFichaGerente : null,
-    cuenta: await obtenerResumenCuenta(ficha.usuarioId, db),
+    cuenta,
     esVos: ficha.usuarioId !== null && ficha.usuarioId === sesionUsuarioId,
+    historialEstados,
+    motivoObligatorioAlDesactivar: registroOperaciones,
+    esUltimoGerenteActivo,
   };
+}
+
+/** `modificadoPorUsuarioId` solo si actúa un usuario. */
+function modificadoPor(actor: ActorDominio): string | null {
+  return actor.tipo === "USUARIO" ? actor.usuarioId : null;
+}
+
+/**
+ * Baja del gerente (spec_modulo_G.md §2.5 y §3.4, HU-G-05 c1 a c4 y c6), en
+ * una única `transaccion`, con el patrón de la baja de F-05:
+ * 1. Lectura simple de la ficha, sin bloqueo: inexistente, o la del propio
+ *    actor (NO_PUEDE_DESACTIVARSE_A_SI_MISMO, criterio 2). Lo decide el
+ *    servidor antes de tomar ningún bloqueo.
+ * 2. Bloquea, en una sola llamada (por id ascendente), todas las fichas de
+ *    gerente activas más la objetivo y las relee ya bloqueadas. `bloquear`
+ *    recibe ids: la lista leída antes puede quedar vieja mientras se espera
+ *    (otra baja que confirma en ese lapso), así que todo lo que sigue usa la
+ *    relectura. Una ficha que se activa entre la lectura y el bloqueo solo
+ *    suma gerentes activos; dos bajas toman el mismo conjunto en el mismo
+ *    orden y se serializan sin interbloqueos.
+ * 3. Objetivo releído: inexistente, ya inactivo o con otra `version`.
+ * 4. Sin contar al objetivo, tiene que quedar alguna ficha activa con cuenta
+ *    activa; si no, ULTIMO_GERENTE_ACTIVO (criterio 3, spec §3.4).
+ * 5. Motivo obligatorio si la cuenta registró operaciones (DEC-39). Una ficha
+ *    sin cuenta nunca fue actor de nada: el motivo es opcional. Si viene, se
+ *    guarda aunque no sea obligatorio.
+ * 6. `updateMany` condicionado a activa y `version` (Regla N.° 7).
+ * 7. Con cuenta: `desactivarCuenta`, que también revoca las sesiones.
+ * 8. El historial `DESACTIVAR` se escribe después del commit (Regla N.° 2).
+ * Nada se borra: las operaciones conservan su `usuarioId` y el DNI y el email
+ * siguen reservados.
+ */
+export async function desactivarGerente(
+  id: string,
+  input: DesactivarGerenteInput,
+  actor: ActorDominio,
+): Promise<EstadoGerenteCambiado> {
+  return transaccion(async (tx) => {
+    const objetivo = await tx.fichaGerente.findUnique({ where: { idFichaGerente: id }, select: { usuarioId: true } });
+    if (!objetivo) throw new ErrorDeDominio("errores.gerente.noEncontrado");
+    if (actor.tipo === "USUARIO" && objetivo.usuarioId !== null && objetivo.usuarioId === actor.usuarioId) {
+      throw new ErrorDeDominio("errores.gerente.noPuedeDesactivarseASiMismo");
+    }
+
+    const activas = await tx.fichaGerente.findMany({ where: { activoFichaGerente: true }, select: { idFichaGerente: true } });
+    const ids = [...new Set([...activas.map((f) => f.idFichaGerente), id])];
+    await bloquear(tx, { recursos: { fichasGerente: ids } });
+    const releidas = await tx.fichaGerente.findMany({
+      where: { idFichaGerente: { in: ids } },
+      select: { idFichaGerente: true, activoFichaGerente: true, version: true, usuarioId: true },
+    });
+
+    const ficha = releidas.find((f) => f.idFichaGerente === id);
+    if (!ficha) throw new ErrorDeDominio("errores.gerente.noEncontrado");
+    if (!ficha.activoFichaGerente) throw new ErrorDeDominio("errores.gerente.yaInactivo");
+    if (ficha.version !== input.version) throw new ErrorDeDominio("errores.gerente.conflictoEdicion");
+
+    if (await sinOtroGerenteActivo(tx, releidas, id)) throw new ErrorDeDominio("errores.gerente.ultimoGerenteActivo");
+    const motivo = input.motivo?.trim() || null;
+    if (!motivo && ficha.usuarioId && (await usuarioRegistroOperaciones(tx, ficha.usuarioId))) {
+      throw new ErrorDeDominio("errores.gerente.motivoRequerido");
+    }
+
+    const { count } = await tx.fichaGerente.updateMany({
+      where: { idFichaGerente: id, activoFichaGerente: true, version: input.version },
+      data: { activoFichaGerente: false, version: { increment: 1 }, modificadoPorUsuarioId: modificadoPor(actor) },
+    });
+    if (count === 0) throw new ErrorDeDominio("errores.gerente.conflictoEdicion");
+
+    // La ficha y la cuenta son una unidad (regla 3.1): si A falla, se deshace también la ficha.
+    if (ficha.usuarioId) await desactivarCuenta(tx, ficha.usuarioId);
+    registrarCambioEstado(tx, { entidad: "FICHA_GERENTE", id, accion: "DESACTIVAR", motivo, actor });
+    return { id, activo: false, version: input.version + 1 };
+  });
+}
+
+/**
+ * Reactivación (spec_modulo_G.md §2.6, HU-G-05 c5 y c6), en una única
+ * `transaccion`: bloquea solo la ficha y la relee (inexistente, ya activa u
+ * otra `version`), `updateMany` condicionado a inactiva y `version` y, con
+ * cuenta, `reactivarCuenta`, que no restaura las sesiones revocadas en la baja
+ * y conserva la marca de cambio de contraseña (HU-A-06 c7). No pide motivo ni
+ * mira «al menos un gerente activo»: reactivar solo suma. El historial
+ * `REACTIVAR` se escribe después del commit.
+ */
+export async function reactivarGerente(
+  id: string,
+  input: ReactivarGerenteInput,
+  actor: ActorDominio,
+): Promise<EstadoGerenteCambiado> {
+  return transaccion(async (tx) => {
+    await bloquear(tx, { recursos: { fichasGerente: [id] } });
+    const ficha = await tx.fichaGerente.findUnique({
+      where: { idFichaGerente: id },
+      select: { activoFichaGerente: true, version: true, usuarioId: true },
+    });
+    if (!ficha) throw new ErrorDeDominio("errores.gerente.noEncontrado");
+    if (ficha.activoFichaGerente) throw new ErrorDeDominio("errores.gerente.yaActivo");
+    if (ficha.version !== input.version) throw new ErrorDeDominio("errores.gerente.conflictoEdicion");
+
+    const { count } = await tx.fichaGerente.updateMany({
+      where: { idFichaGerente: id, activoFichaGerente: false, version: input.version },
+      data: { activoFichaGerente: true, version: { increment: 1 }, modificadoPorUsuarioId: modificadoPor(actor) },
+    });
+    if (count === 0) throw new ErrorDeDominio("errores.gerente.conflictoEdicion");
+
+    if (ficha.usuarioId) await reactivarCuenta(tx, ficha.usuarioId);
+    registrarCambioEstado(tx, { entidad: "FICHA_GERENTE", id, accion: "REACTIVAR", actor });
+    return { id, activo: true, version: input.version + 1 };
+  });
 }
 
 /**

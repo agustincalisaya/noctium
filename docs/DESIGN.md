@@ -229,6 +229,12 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
   A diferencia del caso de HU-D-07, usa el botón «Cerrar» (no «Entendido»),
   y se abre directamente desde la acción de desactivar, no desde un link de
   un aviso de error. No lleva lista ni tabla y no dispara toast.
+- **Caso agregado por HU-G-05 — aviso del último gerente activo:** al tocar
+  «Desactivar» en la ficha de un gerente que, según la ficha, es el último
+  gerente activo con cuenta activa, se muestra un `Dialog` informativo («No
+  se puede desactivar al gerente» y el texto de `ULTIMO_GERENTE_ACTIVO`) en
+  lugar de la confirmación, con el mismo recurso que el aviso de caja
+  abierta de HU-F-05: botón «Cerrar», sin lista ni tabla y sin toast.
 
 ### 6.4 Tabla resumen — qué usa cada acción del producto
 
@@ -275,7 +281,11 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 | Marca «(vos)» en el listado de gerentes (HU-G-03 c3, figura 96) | La fila del gerente autenticado lleva «(vos)» en la celda del apellido, junto al enlace y en la misma línea, con color atenuado y peso normal; lo decide el servidor (`esVos`) | Ninguno: es informativa |
 | Alta de gerente con cuenta (HU-G-01 con HU-A-06, P-48 alta, `/gerentes/nuevo`) | Página completa + `ConfirmarAccionDialog` («Registrar gerente») | Navegación a la ficha `/gerentes/[id]?creado=1` con banner inline «Gerente registrado correctamente. Se creó su cuenta: ingresa con su email y su DNI como contraseña, y la cambia en el primer ingreso.» |
 | Edición de gerente (HU-G-01, P-48 edición, `/gerentes/[id]/editar`) | Página completa + `ConfirmarAccionDialog` siempre («Guardar cambios»), con el aviso de que cambia el usuario de ingreso si cambia el email; si la ficha es la del propio gerente, el aviso dice que su sesión actual sigue abierta y que la próxima vez ingresa con el email nuevo (DEC-44) | Navegación a la ficha `/gerentes/[id]?actualizada=1` con banner inline «Gerente actualizado correctamente» |
-| Ficha del gerente (HU-G-01, P-48 consulta, `/gerentes/[id]`) | Página completa de solo lectura, con «Editar» solo con `gerentes:editar` y «Cuenta de acceso» debajo de «Registro». Sin «Desactivar», «Reactivar» ni historial de estados (los suma HU-G-05) | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
+| Ficha del gerente (HU-G-01, P-48 consulta, `/gerentes/[id]`) | Página completa de solo lectura, con «Editar» solo con `gerentes:editar` y «Cuenta de acceso» debajo de «Registro». Junto a «Editar», «Desactivar» (botón de contorno con estilo destructivo e ícono de encendido) si la ficha está activa, hay `gerentes:cambiar_estado` y no es la propia (`esVos`), o «Reactivar» si está inactiva y hay el permiso; «Cuenta de acceso» e «Historial de estados» van en una grilla de dos columnas debajo de «Registro» (HU-G-05) | Ninguno propio; muestra el banner de vuelta del alta o de la edición |
+| Desactivar gerente (HU-G-05, figura 98) | `ConfirmarAccionDialog` reversible: `destructiva` sin `irreversible` (sin leyenda «Esta acción no se puede deshacer.»), con el campo «Motivo de la baja» en `contenido` (hasta 300 caracteres, contador «n / 300»), obligatorio si el gerente registró operaciones (confirmar deshabilitado mientras esté vacío) u opcional. Nunca se ofrece en la ficha propia; si igual llega, el servidor responde `NO_PUEDE_DESACTIVARSE_A_SI_MISMO`. Los rechazos del servidor (último gerente activo, motivo, ya inactivo, conflicto de versión, propia ficha) se muestran dentro del mismo modal; al cerrarlo después de un rechazo, la ficha se refresca | Toast «Gerente desactivado correctamente» y `router.refresh()` |
+| Desactivar al último gerente activo (HU-G-05 c3) | `Dialog` informativo de una acción rechazada (6.3), en lugar de la confirmación: «No se puede desactivar al gerente», el texto de `ULTIMO_GERENTE_ACTIVO` («Debe quedar al menos un gerente activo») y un único botón «Cerrar» (y la X). Se abre al tocar «Desactivar» cuando la ficha ya indica que es el último gerente activo con cuenta activa; si deja de haber otro después de cargar la ficha, el rechazo aparece dentro del modal de confirmación. El servidor decide siempre | Ninguno: no modifica datos |
+| Reactivar gerente (HU-G-05) | `ConfirmarAccionDialog` sin motivo, con el aviso de que las sesiones cerradas en la baja no se restauran | Toast «Gerente reactivado correctamente» y `router.refresh()` |
+| Historial de estados del gerente (HU-G-05, figura 97) | Sección de la ficha, de solo lectura: cada baja o reactivación con la acción, la fecha y hora en la zona del centro, quien la hizo y el motivo, del más reciente al más antiguo (mismo formato de fecha y hora que «Registro» en la misma ficha) | Ninguno; sin entradas muestra «Sin bajas ni reactivaciones.» |
 | Wizard de turno, ambos modos (`/turnos/nuevo`) | Página completa | Banner inline |
 | Registrar pago buscando al alumno (HU-I-10) | Página completa + `AlertDialog` de C-25 (paso 3) | Banner inline (6.2) |
 | Resumen antes de inscripción propia (HU-C-20) | `ConfirmarAccionDialog` dentro de Solicitar clase | Navegación a `/alumno?inscripcion=exitosa` y banner existente de C-12 |
@@ -507,6 +517,16 @@ sus consumidores, sin editar sus fuentes.
   10 y el texto de «sin resultados» propuesto, pendiente de validar por el PO
   (P-F6). Corrige en la fila del listado mínimo de HU-G-01 la cláusula «sin
   búsqueda ni paginación», que deja de ser cierta.
+- **HU-G-05:** corrige en 6.4 la cláusula de la fila de la ficha del gerente
+  que decía «Sin "Desactivar", "Reactivar" ni historial de estados (los suma
+  HU-G-05)»: junto a «Editar», «Desactivar» (nunca en la ficha propia) o
+  «Reactivar» con `gerentes:cambiar_estado`, y «Cuenta de acceso» e
+  «Historial de estados» en dos columnas debajo de «Registro» (figura 97).
+  Agrega las filas de desactivar (confirmación reversible de C-25 con el
+  motivo, figura 98), del aviso del último gerente activo (`Dialog`
+  informativo de 6.3, con «Cerrar», sumado a la excepción de 6.3), de
+  reactivar y del historial de estados. Mismo patrón que la baja del
+  personal de mesa de entrada (HU-F-05), sin el aviso de caja abierta.
 
 ## Selección de asistencia (HU-E-11)
 

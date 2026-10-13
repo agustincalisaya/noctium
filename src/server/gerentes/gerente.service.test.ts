@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
 
-// Servicio de gerentes (spec_modulo_G.md §2.1, §2.2 y §2.4, HU-G-01) con la
-// base y el módulo A simulados: orden de los pasos, errores, `esVos` y que la
-// contraseña inicial nunca sale del servicio.
+// Servicio de gerentes (spec_modulo_G.md §2.1 a §2.6, HU-G-01 y HU-G-05) con
+// la base y el módulo A simulados: orden de los pasos, errores, `esVos`, el
+// detalle ampliado, la baja y la reactivación, y que la contraseña inicial
+// nunca sale del servicio.
 
 const m = vi.hoisted(() => {
   const tx = {
@@ -17,6 +18,15 @@ const m = vi.hoisted(() => {
     cambiarEmail: vi.fn(),
     verificarEmail: vi.fn(),
     resumen: vi.fn(),
+    desactivarCuenta: vi.fn(),
+    reactivarCuenta: vi.fn(),
+    filtrarActivas: vi.fn(),
+    revocarSesiones: vi.fn(),
+    bloquear: vi.fn(),
+    registroOperaciones: vi.fn(),
+    registrarCambio: vi.fn(),
+    listarHistorial: vi.fn(),
+    nombres: vi.fn(),
   };
 });
 
@@ -27,10 +37,29 @@ vi.mock("@/server/usuarios/cuenta.service", () => ({
   cambiarEmailCuenta: m.cambiarEmail,
   verificarEmailNoAsociadoAOtraCuenta: m.verificarEmail,
   obtenerResumenCuenta: m.resumen,
+  desactivarCuenta: m.desactivarCuenta,
+  reactivarCuenta: m.reactivarCuenta,
+  filtrarCuentasActivas: m.filtrarActivas,
+  revocarSesiones: m.revocarSesiones,
 }));
+vi.mock("@/server/shared/bloquear", () => ({ bloquear: m.bloquear }));
+vi.mock("@/server/shared/actividad-usuario", () => ({ usuarioRegistroOperaciones: m.registroOperaciones }));
+vi.mock("@/server/shared/historial-estados", () => ({
+  registrarCambioEstado: m.registrarCambio,
+  listarHistorialEstados: m.listarHistorial,
+}));
+vi.mock("@/server/personal/personal.publico", () => ({ obtenerNombresPersonal: m.nombres }));
 
-const { crearGerente, listarGerentes, modificarGerente, obtenerDetalleGerente, verificarDisponibilidadGerente } =
-  await import("@/server/gerentes/gerente.service");
+const {
+  crearGerente,
+  desactivarGerente,
+  listarGerentes,
+  modificarGerente,
+  obtenerDetalleGerente,
+  reactivarGerente,
+  verificarDisponibilidadGerente,
+} = await import("@/server/gerentes/gerente.service");
+const { actorUsuario, PROCESO_AUTOMATICO } = await import("@/server/shared/historial");
 
 const SESION = "ckgerentesesion";
 const FICHA = "ckficha";
@@ -99,6 +128,11 @@ beforeEach(() => {
     return { cambio: true };
   });
   m.resumen.mockResolvedValue(RESUMEN);
+  m.listarHistorial.mockResolvedValue([]);
+  m.nombres.mockResolvedValue([]);
+  m.registroOperaciones.mockResolvedValue(false);
+  m.filtrarActivas.mockImplementation(async (_db: unknown, ids: string[]) => ids);
+  m.tx.fichaGerente.findMany.mockResolvedValue([]);
 });
 
 describe("crearGerente", () => {
@@ -330,8 +364,12 @@ describe("obtenerDetalleGerente", () => {
       modificadoEl: null,
       cuenta: RESUMEN,
       esVos: false,
+      historialEstados: [],
+      motivoObligatorioAlDesactivar: false,
+      esUltimoGerenteActivo: false,
     });
     expect(m.resumen).toHaveBeenCalledWith(CUENTA, m.tx);
+    expect(m.listarHistorial).toHaveBeenCalledWith("FICHA_GERENTE", FICHA, m.tx);
   });
 
   it("esVos es true solo con la ficha propia", async () => {
@@ -347,9 +385,353 @@ describe("obtenerDetalleGerente", () => {
     expect((await obtenerDetalleGerente(FICHA, SESION)).modificadoEl).toBe(updatedAt);
   });
 
+
+  it("historial del más reciente al más antiguo, en camelCase y con el nombre de quien actuó", async () => {
+    m.tx.fichaGerente.findUnique.mockResolvedValue(FILA);
+    const reactivo = { id: "h2", accion: "REACTIVAR", motivo: null, fecha: new Date(2000), actor_tipo: "USUARIO", usuario_id: SESION };
+    const dioBaja = { id: "h1", accion: "DESACTIVAR", motivo: "Licencia", fecha: new Date(1000), actor_tipo: "USUARIO", usuario_id: "ckotro" };
+    const automatico = { id: "h0", accion: "DESACTIVAR", motivo: null, fecha: new Date(500), actor_tipo: "PROCESO_AUTOMATICO", usuario_id: null };
+    m.listarHistorial.mockResolvedValue([reactivo, dioBaja, automatico]);
+    m.nombres.mockResolvedValue([{ usuario_id: SESION, nombre_completo: "Paz, Carolina" }]);
+
+    expect((await obtenerDetalleGerente(FICHA, SESION)).historialEstados).toEqual([
+      { id: "h2", accion: "REACTIVAR", motivo: null, fecha: reactivo.fecha, usuarioId: SESION, usuarioNombre: "Paz, Carolina" },
+      { id: "h1", accion: "DESACTIVAR", motivo: "Licencia", fecha: dioBaja.fecha, usuarioId: "ckotro", usuarioNombre: null },
+      { id: "h0", accion: "DESACTIVAR", motivo: null, fecha: automatico.fecha, usuarioId: null, usuarioNombre: null },
+    ]);
+    expect(m.nombres).toHaveBeenCalledWith([SESION, "ckotro"], m.tx);
+  });
+
+  it("activa con cuenta: motivoObligatorioAlDesactivar sale del agregador de «registró operaciones»", async () => {
+    m.tx.fichaGerente.findUnique.mockResolvedValue({ ...FILA, activoFichaGerente: true });
+    m.tx.fichaGerente.findMany.mockResolvedValue([{ idFichaGerente: "ckotra", activoFichaGerente: true, usuarioId: "ckotracuenta" }]);
+    m.registroOperaciones.mockResolvedValue(true);
+    expect((await obtenerDetalleGerente(FICHA, SESION)).motivoObligatorioAlDesactivar).toBe(true);
+    expect(m.registroOperaciones).toHaveBeenCalledWith(m.tx, CUENTA);
+
+    m.registroOperaciones.mockResolvedValue(false);
+    expect((await obtenerDetalleGerente(FICHA, SESION)).motivoObligatorioAlDesactivar).toBe(false);
+  });
+
+  it("esUltimoGerenteActivo: otras fichas activas con cuenta, sin la objetivo, pasadas por filtrarCuentasActivas (sin bloqueo)", async () => {
+    m.tx.fichaGerente.findUnique.mockResolvedValue({ ...FILA, activoFichaGerente: true });
+    m.tx.fichaGerente.findMany.mockResolvedValue([{ idFichaGerente: "ckotra", activoFichaGerente: true, usuarioId: "ckotracuenta" }]);
+    expect((await obtenerDetalleGerente(FICHA, SESION)).esUltimoGerenteActivo).toBe(false);
+    expect(m.tx.fichaGerente.findMany).toHaveBeenCalledWith({
+      where: { activoFichaGerente: true, usuarioId: { not: null }, NOT: { idFichaGerente: FICHA } },
+      select: { idFichaGerente: true, activoFichaGerente: true, usuarioId: true },
+    });
+    expect(m.filtrarActivas).toHaveBeenCalledWith(m.tx, ["ckotracuenta"]);
+    expect(m.bloquear).not.toHaveBeenCalled();
+
+    // La otra ficha tiene la cuenta inactiva: no cuenta.
+    m.filtrarActivas.mockResolvedValue([]);
+    expect((await obtenerDetalleGerente(FICHA, SESION)).esUltimoGerenteActivo).toBe(true);
+    // No queda ninguna otra ficha activa con cuenta.
+    m.tx.fichaGerente.findMany.mockResolvedValue([]);
+    m.filtrarActivas.mockImplementation(async (_db: unknown, ids: string[]) => ids);
+    expect((await obtenerDetalleGerente(FICHA, SESION)).esUltimoGerenteActivo).toBe(true);
+    expect(m.filtrarActivas).toHaveBeenLastCalledWith(m.tx, []);
+  });
+
+  it("activa sin cuenta: motivo no obligatorio (no se consulta) y esUltimoGerenteActivo sí se calcula", async () => {
+    m.tx.fichaGerente.findUnique.mockResolvedValue({ ...FILA, activoFichaGerente: true, usuarioId: null });
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await obtenerDetalleGerente(FICHA, SESION)).toMatchObject({
+      motivoObligatorioAlDesactivar: false, esUltimoGerenteActivo: true, esVos: false,
+    });
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+  });
+
+  it("inactiva: los dos indicadores son false y no se consultan; esVos no cambia", async () => {
+    m.tx.fichaGerente.findUnique.mockResolvedValue({ ...FILA, activoFichaGerente: false, usuarioId: SESION });
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await obtenerDetalleGerente(FICHA, SESION)).toMatchObject({
+      motivoObligatorioAlDesactivar: false, esUltimoGerenteActivo: false, esVos: true,
+    });
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+    expect(m.tx.fichaGerente.findMany).not.toHaveBeenCalled();
+    expect(m.filtrarActivas).not.toHaveBeenCalled();
+  });
+
   it("inexistente: GERENTE_NO_ENCONTRADO", async () => {
     m.tx.fichaGerente.findUnique.mockResolvedValue(null);
     expect(await capturar(obtenerDetalleGerente("nada", SESION))).toMatchObject({ code: "GERENTE_NO_ENCONTRADO", status: 404 });
+  });
+});
+
+describe("desactivarGerente", () => {
+  const OTRA = "ckotraficha";
+  const OTRA_CUENTA = "ckotracuenta";
+  const ACTIVA = { idFichaGerente: FICHA, activoFichaGerente: true, version: 2, usuarioId: CUENTA };
+  const OTRA_ACTIVA = { idFichaGerente: OTRA, activoFichaGerente: true, version: 0, usuarioId: OTRA_CUENTA };
+
+  /**
+   * Registra el orden de los pasos de la baja: la lectura simple
+   * (`findUnique`), los ids de las activas y la relectura (`findMany`, en ese
+   * orden), el conteo, el motivo, la escritura, la cuenta y el historial.
+   */
+  function registrarPasos(opciones: { objetivo?: { usuarioId: string | null } | null; releidas?: object[] } = {}) {
+    const objetivo = opciones.objetivo === undefined ? { usuarioId: CUENTA } : opciones.objetivo;
+    const releidas = opciones.releidas ?? [ACTIVA, OTRA_ACTIVA];
+    m.tx.fichaGerente.findUnique.mockImplementation(async () => { m.pasos.push("leer"); return objetivo; });
+    m.tx.fichaGerente.findMany
+      .mockImplementationOnce(async () => { m.pasos.push("activas"); return [{ idFichaGerente: OTRA }, { idFichaGerente: FICHA }]; })
+      .mockImplementationOnce(async () => { m.pasos.push("releer"); return releidas; });
+    m.bloquear.mockImplementation(async () => { m.pasos.push("bloquear"); });
+    m.filtrarActivas.mockImplementation(async (_tx: unknown, ids: string[]) => { m.pasos.push("ultimo"); return ids; });
+    m.registroOperaciones.mockImplementation(async () => { m.pasos.push("motivo"); return false; });
+    m.desactivarCuenta.mockImplementation(async () => { m.pasos.push("cuenta"); return { cambio: true }; });
+    m.registrarCambio.mockImplementation(() => { m.pasos.push("historial"); return { id: "h1" }; });
+  }
+
+  /** Nada se escribió: ni la ficha, ni la cuenta, ni el historial. */
+  function sinEscrituras() {
+    expect(m.tx.fichaGerente.updateMany).not.toHaveBeenCalled();
+    expect(m.desactivarCuenta).not.toHaveBeenCalled();
+    expect(m.revocarSesiones).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  }
+
+  it("orden: lectura → no a sí mismo → activas + objetivo en un solo bloqueo → relectura → último gerente → motivo → updateMany → cuenta → historial", async () => {
+    registrarPasos();
+    expect(await desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION))).toEqual({ id: FICHA, activo: false, version: 3 });
+    expect(m.pasos).toEqual(["leer", "activas", "bloquear", "releer", "ultimo", "motivo", "updateMany", "cuenta", "historial"]);
+    expect(m.tx.fichaGerente.findUnique).toHaveBeenCalledWith({ where: { idFichaGerente: FICHA }, select: { usuarioId: true } });
+    expect(m.tx.fichaGerente.findMany).toHaveBeenNthCalledWith(1, {
+      where: { activoFichaGerente: true },
+      select: { idFichaGerente: true },
+    });
+    expect(m.bloquear).toHaveBeenCalledTimes(1);
+    expect(m.bloquear).toHaveBeenCalledWith(m.tx, { recursos: { fichasGerente: [OTRA, FICHA] } });
+    expect(m.tx.fichaGerente.findMany).toHaveBeenNthCalledWith(2, {
+      where: { idFichaGerente: { in: [OTRA, FICHA] } },
+      select: { idFichaGerente: true, activoFichaGerente: true, version: true, usuarioId: true },
+    });
+    // El objetivo no se cuenta.
+    expect(m.filtrarActivas).toHaveBeenCalledWith(m.tx, [OTRA_CUENTA]);
+    expect(m.registroOperaciones).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.tx.fichaGerente.updateMany).toHaveBeenCalledWith({
+      where: { idFichaGerente: FICHA, activoFichaGerente: true, version: 2 },
+      data: { activoFichaGerente: false, version: { increment: 1 }, modificadoPorUsuarioId: SESION },
+    });
+    expect(m.desactivarCuenta).toHaveBeenCalledWith(m.tx, CUENTA);
+    // desactivarCuenta ya revoca las sesiones: no se llama aparte.
+    expect(m.revocarSesiones).not.toHaveBeenCalled();
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, {
+      entidad: "FICHA_GERENTE", id: FICHA, accion: "DESACTIVAR", motivo: null, actor: actorUsuario(SESION),
+    });
+  });
+
+  it("el objetivo siempre entra en el bloqueo, aunque no figure entre las activas", async () => {
+    registrarPasos();
+    m.tx.fichaGerente.findMany.mockReset();
+    m.tx.fichaGerente.findMany
+      .mockResolvedValueOnce([{ idFichaGerente: OTRA }])
+      .mockResolvedValueOnce([ACTIVA, OTRA_ACTIVA]);
+    await desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION));
+    expect(m.bloquear).toHaveBeenCalledWith(m.tx, { recursos: { fichasGerente: [OTRA, FICHA] } });
+  });
+
+  it("autodesactivación: NO_PUEDE_DESACTIVARSE_A_SI_MISMO (422) antes de bloquear nada, aun con versión vieja", async () => {
+    registrarPasos();
+    expect(await capturar(desactivarGerente(FICHA, { version: 0 }, actorUsuario(CUENTA)))).toMatchObject({
+      code: "NO_PUEDE_DESACTIVARSE_A_SI_MISMO", status: 422,
+    });
+    expect(m.pasos).toEqual(["leer"]);
+    expect(m.bloquear).not.toHaveBeenCalled();
+    sinEscrituras();
+  });
+
+  it("ficha ajena: sí bloquea", async () => {
+    registrarPasos();
+    await desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION));
+    expect(m.bloquear).toHaveBeenCalled();
+  });
+
+  it("ficha sin cuenta y actor usuario: no es la propia", async () => {
+    registrarPasos({ objetivo: { usuarioId: null }, releidas: [{ ...ACTIVA, usuarioId: null }, OTRA_ACTIVA] });
+    expect(await desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION))).toMatchObject({ activo: false });
+  });
+
+  it("actor proceso automático: no se compara con la cuenta y modificadoPorUsuarioId queda null", async () => {
+    registrarPasos();
+    await desactivarGerente(FICHA, { version: 2 }, PROCESO_AUTOMATICO);
+    expect(m.tx.fichaGerente.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ modificadoPorUsuarioId: null }) }),
+    );
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, expect.objectContaining({ actor: PROCESO_AUTOMATICO }));
+  });
+
+  it("inexistente en la lectura simple: GERENTE_NO_ENCONTRADO sin bloquear", async () => {
+    registrarPasos({ objetivo: null });
+    expect(await capturar(desactivarGerente("nada", { version: 0 }, actorUsuario(SESION)))).toMatchObject({
+      code: "GERENTE_NO_ENCONTRADO", status: 404,
+    });
+    expect(m.pasos).toEqual(["leer"]);
+    sinEscrituras();
+  });
+
+  it.each([
+    ["inexistente al releer", [OTRA_ACTIVA], 2, "GERENTE_NO_ENCONTRADO", 404],
+    ["ya inactivo", [{ ...ACTIVA, activoFichaGerente: false }, OTRA_ACTIVA], 2, "GERENTE_YA_INACTIVO", 409],
+    ["versión vieja", [ACTIVA, OTRA_ACTIVA], 1, "CONFLICTO_EDICION_CONCURRENTE", 409],
+  ])("%s: %s, después del bloqueo y sin contar gerentes", async (_caso, releidas, version, code, status) => {
+    registrarPasos({ releidas });
+    expect(await capturar(desactivarGerente(FICHA, { version }, actorUsuario(SESION)))).toMatchObject({ code, status });
+    expect(m.pasos).toEqual(["leer", "activas", "bloquear", "releer"]);
+    sinEscrituras();
+  });
+
+  it("el estado releído manda: la lectura previa decía activa, la relectura inactiva", async () => {
+    registrarPasos({ releidas: [{ ...ACTIVA, activoFichaGerente: false }, OTRA_ACTIVA] });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION)))).toMatchObject({ code: "GERENTE_YA_INACTIVO" });
+  });
+
+  it("último gerente activo: sin otra ficha activa con cuenta activa → ULTIMO_GERENTE_ACTIVO, sin escribir ni mirar el motivo", async () => {
+    registrarPasos({ releidas: [ACTIVA] });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2, motivo: "x" }, actorUsuario(SESION)))).toMatchObject({
+      code: "ULTIMO_GERENTE_ACTIVO", status: 409, message: "Debe quedar al menos un gerente activo",
+    });
+    expect(m.pasos).toEqual(["leer", "activas", "bloquear", "releer", "ultimo"]);
+    expect(m.filtrarActivas).toHaveBeenCalledWith(m.tx, []);
+    sinEscrituras();
+  });
+
+  it("una ficha activa sin cuenta no cuenta como gerente activo", async () => {
+    registrarPasos({ releidas: [ACTIVA, { ...OTRA_ACTIVA, usuarioId: null }] });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION)))).toMatchObject({ code: "ULTIMO_GERENTE_ACTIVO" });
+    expect(m.filtrarActivas).toHaveBeenCalledWith(m.tx, []);
+  });
+
+  it("una ficha activa con la cuenta inactiva no cuenta como gerente activo", async () => {
+    registrarPasos();
+    m.filtrarActivas.mockImplementation(async () => { m.pasos.push("ultimo"); return []; });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION)))).toMatchObject({ code: "ULTIMO_GERENTE_ACTIVO" });
+    expect(m.filtrarActivas).toHaveBeenCalledWith(m.tx, [OTRA_CUENTA]);
+    sinEscrituras();
+  });
+
+  it("una ficha inactiva releída no cuenta (otra baja confirmó mientras se esperaba el bloqueo)", async () => {
+    registrarPasos({ releidas: [ACTIVA, { ...OTRA_ACTIVA, activoFichaGerente: false }] });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION)))).toMatchObject({ code: "ULTIMO_GERENTE_ACTIVO" });
+  });
+
+  it("queda al menos otro gerente activo con cuenta activa: no se dispara", async () => {
+    registrarPasos({ releidas: [ACTIVA, OTRA_ACTIVA, { ...OTRA_ACTIVA, idFichaGerente: "cksincuenta", usuarioId: null }] });
+    expect(await desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION))).toMatchObject({ activo: false });
+    expect(m.filtrarActivas).toHaveBeenCalledWith(m.tx, [OTRA_CUENTA]);
+  });
+
+  it("con motivo: se recorta y se guarda aunque no sea obligatorio; no consulta «registró operaciones»", async () => {
+    registrarPasos();
+    await desactivarGerente(FICHA, { version: 2, motivo: "  Dejó el centro " }, actorUsuario(SESION));
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, expect.objectContaining({ motivo: "Dejó el centro" }));
+  });
+
+  it("sin motivo y con operaciones: MOTIVO_REQUERIDO (400), sin escribir nada", async () => {
+    registrarPasos();
+    m.registroOperaciones.mockImplementation(async () => { m.pasos.push("motivo"); return true; });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION)))).toMatchObject({
+      code: "MOTIVO_REQUERIDO", status: 400,
+    });
+    expect(m.pasos).toEqual(["leer", "activas", "bloquear", "releer", "ultimo", "motivo"]);
+    sinEscrituras();
+  });
+
+  it("con operaciones y motivo: procede", async () => {
+    registrarPasos();
+    m.registroOperaciones.mockResolvedValue(true);
+    expect(await desactivarGerente(FICHA, { version: 2, motivo: "Renuncia" }, actorUsuario(SESION))).toMatchObject({ activo: false });
+  });
+
+  it("ficha sin cuenta: no consulta las operaciones ni toca ninguna cuenta; motivo opcional", async () => {
+    registrarPasos({ objetivo: { usuarioId: null }, releidas: [{ ...ACTIVA, usuarioId: null }, OTRA_ACTIVA] });
+    expect(await desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION))).toEqual({ id: FICHA, activo: false, version: 3 });
+    expect(m.pasos).toEqual(["leer", "activas", "bloquear", "releer", "ultimo", "updateMany", "historial"]);
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+    expect(m.desactivarCuenta).not.toHaveBeenCalled();
+  });
+
+  it("updateMany sin filas: conflicto, sin cuenta ni historial", async () => {
+    registrarPasos();
+    m.tx.fichaGerente.updateMany.mockResolvedValue({ count: 0 });
+    expect(await capturar(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION)))).toMatchObject({
+      code: "CONFLICTO_EDICION_CONCURRENTE",
+    });
+    expect(m.desactivarCuenta).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it("si la cuenta falla, la transacción revierte y el historial no se encola", async () => {
+    registrarPasos();
+    m.desactivarCuenta.mockRejectedValue(new Error("fallo de A"));
+    await expect(desactivarGerente(FICHA, { version: 2 }, actorUsuario(SESION))).rejects.toThrow("fallo de A");
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+});
+
+describe("reactivarGerente", () => {
+  const INACTIVA = { activoFichaGerente: false, version: 3, usuarioId: CUENTA };
+
+  function registrarPasos(ficha: object | null = INACTIVA) {
+    m.bloquear.mockImplementation(async () => { m.pasos.push("bloquear"); });
+    m.tx.fichaGerente.findUnique.mockImplementation(async () => { m.pasos.push("releer"); return ficha; });
+    m.reactivarCuenta.mockImplementation(async () => { m.pasos.push("cuenta"); return { cambio: true }; });
+    m.registrarCambio.mockImplementation(() => { m.pasos.push("historial"); return { id: "h2" }; });
+  }
+
+  it("bloqueo de la ficha → relectura → updateMany → cuenta → historial REACTIVAR sin motivo, sin regla de último gerente", async () => {
+    registrarPasos();
+    expect(await reactivarGerente(FICHA, { version: 3 }, actorUsuario(SESION))).toEqual({ id: FICHA, activo: true, version: 4 });
+    expect(m.pasos).toEqual(["bloquear", "releer", "updateMany", "cuenta", "historial"]);
+    expect(m.bloquear).toHaveBeenCalledWith(m.tx, { recursos: { fichasGerente: [FICHA] } });
+    expect(m.tx.fichaGerente.updateMany).toHaveBeenCalledWith({
+      where: { idFichaGerente: FICHA, activoFichaGerente: false, version: 3 },
+      data: { activoFichaGerente: true, version: { increment: 1 }, modificadoPorUsuarioId: SESION },
+    });
+    expect(m.reactivarCuenta).toHaveBeenCalledWith(m.tx, CUENTA);
+    expect(m.registrarCambio).toHaveBeenCalledWith(m.tx, {
+      entidad: "FICHA_GERENTE", id: FICHA, accion: "REACTIVAR", actor: actorUsuario(SESION),
+    });
+    expect(m.registroOperaciones).not.toHaveBeenCalled();
+    expect(m.filtrarActivas).not.toHaveBeenCalled();
+    expect(m.tx.fichaGerente.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["inexistente", null, 3, "GERENTE_NO_ENCONTRADO", 404],
+    ["ya activo", { ...INACTIVA, activoFichaGerente: true }, 3, "GERENTE_YA_ACTIVO", 409],
+    ["versión vieja", INACTIVA, 2, "CONFLICTO_EDICION_CONCURRENTE", 409],
+  ])("%s: %s, sin escribir", async (_caso, ficha, version, code, status) => {
+    registrarPasos(ficha);
+    expect(await capturar(reactivarGerente(FICHA, { version }, actorUsuario(SESION)))).toMatchObject({ code, status });
+    expect(m.pasos).toEqual(["bloquear", "releer"]);
+  });
+
+  it("updateMany sin filas: conflicto, sin cuenta ni historial", async () => {
+    registrarPasos();
+    m.tx.fichaGerente.updateMany.mockResolvedValue({ count: 0 });
+    expect(await capturar(reactivarGerente(FICHA, { version: 3 }, actorUsuario(SESION)))).toMatchObject({
+      code: "CONFLICTO_EDICION_CONCURRENTE",
+    });
+    expect(m.reactivarCuenta).not.toHaveBeenCalled();
+    expect(m.registrarCambio).not.toHaveBeenCalled();
+  });
+
+  it("ficha sin cuenta: reactiva sin tocar ninguna cuenta", async () => {
+    registrarPasos({ ...INACTIVA, usuarioId: null });
+    await reactivarGerente(FICHA, { version: 3 }, actorUsuario(SESION));
+    expect(m.pasos).toEqual(["bloquear", "releer", "updateMany", "historial"]);
+  });
+
+  it("actor proceso automático: modificadoPorUsuarioId null", async () => {
+    registrarPasos();
+    await reactivarGerente(FICHA, { version: 3 }, PROCESO_AUTOMATICO);
+    expect(m.tx.fichaGerente.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ modificadoPorUsuarioId: null }) }),
+    );
   });
 });
 

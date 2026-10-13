@@ -80,6 +80,12 @@ export const ERRORES_DE_DOMINIO = {
   "errores.gerente.dniDuplicado": { code: "DNI_DUPLICADO", status: 409 },
   "errores.gerente.noEncontrado": { code: "GERENTE_NO_ENCONTRADO", status: 404 },
   "errores.gerente.conflictoEdicion": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
+  // HU-G-05 (spec_modulo_G.md §2.5 y §2.6).
+  "errores.gerente.yaInactivo": { code: "GERENTE_YA_INACTIVO", status: 409 },
+  "errores.gerente.yaActivo": { code: "GERENTE_YA_ACTIVO", status: 409 },
+  "errores.gerente.ultimoGerenteActivo": { code: "ULTIMO_GERENTE_ACTIVO", status: 409 },
+  "errores.gerente.noPuedeDesactivarseASiMismo": { code: "NO_PUEDE_DESACTIVARSE_A_SI_MISMO", status: 422 },
+  "errores.gerente.motivoRequerido": { code: "MOTIVO_REQUERIDO", status: 400 },
 
   // Módulo A (spec_modulo_A.md §2.6.1).
   "errores.cuenta.emailYaAsociado": { code: "EMAIL_YA_ASOCIADO", status: 409 },

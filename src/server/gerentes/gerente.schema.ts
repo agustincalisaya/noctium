@@ -62,6 +62,31 @@ export function construirModificarGerenteSchema(dniLongitudMin: number, dniLongi
 
 export type ModificarGerenteInput = z.infer<ReturnType<typeof construirModificarGerenteSchema>>;
 
+/**
+ * Baja (spec_modulo_G.md §2.5, HU-G-05), con la forma de la de F-05: el
+ * motivo se recorta y vacío equivale a no enviado; si es obligatorio lo decide
+ * el servicio (DEC-39). `.strict()` rechaza `activo`, `usuarioId` y cualquier
+ * campo ajeno.
+ */
+export const DesactivarGerenteSchema = z
+  .object({
+    motivo: z
+      .string()
+      .trim()
+      .max(300, texto("errores.gerente.motivoDemasiadoLargo"))
+      .transform((motivo) => motivo || undefined)
+      .optional(),
+    version: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export type DesactivarGerenteInput = z.infer<typeof DesactivarGerenteSchema>;
+
+/** Reactivación (spec_modulo_G.md §2.6): solo la `version`; no pide motivo. */
+export const ReactivarGerenteSchema = z.object({ version: z.number().int().nonnegative() }).strict();
+
+export type ReactivarGerenteInput = z.infer<typeof ReactivarGerenteSchema>;
+
 /** Tamaño de página fijo del listado (spec_modulo_G.md §2.3, HU-G-03). */
 export const POR_PAGINA_GERENTES = 10;
 
