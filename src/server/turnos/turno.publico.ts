@@ -437,3 +437,14 @@ export async function usuarioRegistroOperaciones(usuarioId: string, db: Db = pri
 }
 
 export { contarTurnosFuturosDeProfesor, profesorTieneClasesPasadas, obtenerTurnosBasicos, listarTurnosFuturosDeProfesor, evaluarCambioDeProfesor, cancelarTurnoPorBajaDeProfesor, cambiarProfesorDeTurno } from "@/server/turnos/turno.baja-profesor.service";
+
+/** Lectura acotada C → E: contexto de origen, incluidos turnos futuros. */
+export async function obtenerClaseOrigenHistorial(turnoId: string, alumnoId: string, db: Db = prisma) {
+  const turno = await db.turno.findUnique({ where: { idTurno: turnoId },
+    select: { profesorId: true, materiaId: true,
+      alumnos: { where: { alumnoId }, select: { idInscripcion: true } } },
+  });
+  return turno ? { profesor_id: turno.profesorId, materia_id: turno.materiaId, alumno_inscripto: turno.alumnos.length > 0 } : null;
+}
+
+export { obtenerDetallesClasesHistorial } from "@/server/turnos/turno.historial-lecturas";

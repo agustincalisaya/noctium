@@ -1,4 +1,5 @@
 "use client";
+import { texto } from "@/lib/textos";
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -30,6 +31,7 @@ export function RegistrarResultadoExamenDialog({
   const [materiaId, setMateriaId] = useState("");
   const [fecha, setFecha] = useState(hoyBuenosAires);
   const [nota, setNota] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -42,6 +44,7 @@ export function RegistrarResultadoExamenDialog({
     setFecha(hoyBuenosAires());
     setNota("");
     setObservaciones("");
+    setDescripcion("");
     setError("");
     setCargando(true);
     try {
@@ -72,6 +75,7 @@ export function RegistrarResultadoExamenDialog({
           materia_id: materiaId,
           fecha_examen: fecha,
           nota: nota.trim().replace(",", "."),
+          descripcion_publica: descripcion.trim() || undefined,
           observaciones: observaciones.trim() || undefined,
         }),
       });
@@ -125,6 +129,11 @@ export function RegistrarResultadoExamenDialog({
                 <label htmlFor="nota-examen" className="text-sm font-medium">Nota ({escala.min} a {escala.max})</label>
                 <input id="nota-examen" type="text" inputMode="decimal" pattern="[0-9]{1,3}([,.][0-9])?" title="Ingresá un número entero o con un decimal" required value={nota} onChange={(evento) => setNota(evento.target.value)} disabled={cargando || guardando} placeholder="Ej. 8,5" className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="descripcion-examen" className="text-sm font-medium">{texto("ui.historial.examen.descripcionPublica")}</label>
+              <p className="text-xs text-muted-foreground">{texto("ui.historial.examen.descripcionAyuda")}</p>
+              <textarea id="descripcion-examen" maxLength={1000} value={descripcion} onChange={e => setDescripcion(e.target.value)} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div className="space-y-1.5">
               <label htmlFor="observaciones-examen" className="text-sm font-medium">Observaciones</label>

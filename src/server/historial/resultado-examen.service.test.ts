@@ -35,7 +35,7 @@ beforeEach(() => {
   parametro.mockImplementation((nombre: string) => Promise.resolve(nombre === "nota_minima" ? 1 : 10));
   tx.resultadoExamen.create.mockResolvedValue({
     idResultadoExamen: "examen-1", alumnoId: "alumno-1", materiaId: "materia-1",
-    fechaExamen: new Date("2026-09-29T00:00:00.000Z"), notaExamen: { toFixed: () => "8.5" }, observaciones: null,
+    fechaExamen: new Date("2026-09-29T00:00:00.000Z"), notaExamen: { toFixed: () => "8.5" }, observaciones: null, descripcionPublica: null,
   });
 });
 
@@ -65,15 +65,15 @@ describe("HU-E-06 listarOpcionesExamen", () => {
 describe("HU-E-06 registrarResultadoExamen", () => {
   it("crea un resultado con auditoría y normaliza la respuesta decimal", async () => {
     await expect(registrarResultadoExamen("alumno-1", input(), mesa)).resolves.toEqual({
-      id: "examen-1", alumno_id: "alumno-1", materia_id: "materia-1", fecha_examen: "2026-09-29", nota: "8.5", observaciones: null,
+      id: "examen-1", alumno_id: "alumno-1", materia_id: "materia-1", fecha_examen: "2026-09-29", nota: "8.5", observaciones: null, descripcion_publica: null,
     });
 
     expect(tx.resultadoExamen.create).toHaveBeenCalledWith({
       data: {
         alumnoId: "alumno-1", materiaId: "materia-1", fechaExamen: input().fecha_examen,
-        notaExamen: "8.5", observaciones: null, creadoPorUsuarioId: "mesa-1",
+        notaExamen: "8.5", observaciones: null, descripcionPublica: null, creadoPorUsuarioId: "mesa-1",
       },
-      select: { idResultadoExamen: true, alumnoId: true, materiaId: true, fechaExamen: true, notaExamen: true, observaciones: true },
+      select: { idResultadoExamen: true, alumnoId: true, materiaId: true, fechaExamen: true, notaExamen: true, observaciones: true, descripcionPublica: true },
     });
   });
 

@@ -12,7 +12,8 @@ vi.mock("@/server/profesores/profesor.publico", () => ({
   obtenerNombresProfesores: profesores,
   obtenerOpcionProfesorDeUsuario: profesorUsuario,
 }));
-vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario: email }));
+vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario: email, obtenerNombresPublicosDeUsuarios: vi.fn(async () => new Map([["mesa-1", "Julián Ferreyra"]])) }));
+vi.mock("@/server/turnos/turno.publico", () => ({ obtenerDetallesClasesHistorial: vi.fn(async () => new Map([["turno-1", { aula: "Aula 1", hora_inicio: "10:00", hora_fin: "11:00" }]])) }));
 vi.mock("@/server/shared/reloj", () => ({ ahora: () => now() }));
 vi.mock("./indicacion.service", () => ({ opcionesDeIndicacion: opciones }));
 vi.mock("./historial.publico", () => ({ asistenciaDeAlumno: asistencia, profesorPuedeRegistrarIndicacion: propia }));
@@ -75,6 +76,7 @@ describe("HU-E-05 obtenerHistorialAlumno", () => {
     const resultado = await obtenerHistorialAlumno("alumno-1", { pagina: 1, por_pagina: 10 }, mesa);
 
     expect(resultado).toEqual({
+      desglose: { clases_dictadas: 0, examenes: 0, indicaciones: 0 },
       asistencia_por_materia: [{ materia_id: "materia-1", presentes: 1, ausentes: 1, sin_control: 1, porcentaje: 50 }],
       alumno: { id: "alumno-1", nombre_completo: "Acosta, Emilia" },
       materias_disponibles: [{ id: "materia-1", nombre: "Programación I" }],
@@ -261,10 +263,10 @@ describe("HU-E-08 historial propio", () => {
     const data = await obtenerMiHistorial({ pagina: 1, por_pagina: 10 }, usuario);
     expect(propio).toHaveBeenCalledWith(usuario.id);
     expect(data).not.toHaveProperty("alumno");
-    expect(data.items[0]).toEqual({ tipo: "EXAMEN", id: "examen-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5" });
+    expect(data.items[0]).toEqual({ tipo: "EXAMEN", id: "examen-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, nota: "8.5", descripcion_publica: null, registrado_por: "Julián Ferreyra" });
     expect(data.items[1]).toMatchObject({ temas_vistos: "Límites", asistencia: null });
-    expect(data.items[2]).toEqual({ tipo: "INDICACION", id: "indicacion-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, indicacion: "Practicar ecuaciones" });
-    expect(JSON.stringify(data)).not.toMatch(/Privado|registrada_por|turno_id|observaciones|puede_corregir|clase_dictada_id/);
+    expect(data.items[2]).toEqual({ tipo: "INDICACION", id: "indicacion-1", fecha: "2026-09-30", materia: { id: "materia-1", nombre: "Programación I" }, indicacion: "Practicar ecuaciones", registrada_en: registroIndicacion.registrada_en.toISOString(), registrada_por: "Julián Ferreyra" });
+    expect(JSON.stringify(data)).not.toMatch(/Privado|turno_id|observaciones|puede_corregir|clase_dictada_id/);
     expect(opciones).not.toHaveBeenCalled();
   });
   it("rechaza otro dueño antes de ejecutar la consulta", async () => {

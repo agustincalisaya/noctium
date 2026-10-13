@@ -3,12 +3,11 @@ import type { Prisma, PrismaClient, RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verificarAlumnoActivo } from "@/server/alumnos/alumno.publico";
 import { obtenerMateriasPorIds } from "@/server/materias/materia.publico";
-import { obtenerOpcionProfesorDeUsuario } from "@/server/profesores/profesor.publico";
 import { obtenerEmailDeUsuario } from "@/server/usuarios/usuario.service";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
 import { ServiceError } from "@/server/shared/service-error";
 import { ahora } from "@/server/shared/reloj";
-import { profesorPuedeRegistrarIndicacion } from "./historial.publico";
+import { validarContextoIndicacion } from "@/server/historial/contexto-indicacion.service";
 import type { RegistrarIndicacionInput } from "./indicacion.schema";
 
 type UsuarioHistorial = { id: string; rol: RolUsuario };
@@ -26,10 +25,7 @@ export async function registrarIndicacion(
 
   // El profesor debe quedar fuera antes de consultar la existencia del alumno.
   if (usuario.rol === "PROFESOR") {
-    const profesor = await obtenerOpcionProfesorDeUsuario(usuario.id, tx);
-    if (!profesor || !(await profesorPuedeRegistrarIndicacion(profesor.id, alumnoId, input.materia_id, tx))) {
-      throw new ServiceError("SIN_PERMISO", "Solo podés registrar indicaciones en materias de tus clases dictadas con este alumno");
-    }
+    await validarContextoIndicacion(input.contexto_origen, usuario.id, alumnoId, input.materia_id, tx);
   }
 
   await verificarAlumnoActivo(alumnoId, tx);

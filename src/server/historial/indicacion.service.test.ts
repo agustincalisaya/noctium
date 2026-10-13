@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
-  verificar: vi.fn(), profesor: vi.fn(), permisoMateria: vi.fn(), email: vi.fn(), ahora: vi.fn(),
+  contexto: vi.fn(), verificar: vi.fn(), profesor: vi.fn(), permisoMateria: vi.fn(), email: vi.fn(), ahora: vi.fn(),
   cursada: vi.fn(), clase: vi.fn(), crear: vi.fn(),
 }));
+vi.mock("@/server/historial/contexto-indicacion.service", () => ({ validarContextoIndicacion: m.contexto }));
 vi.mock("@/server/alumnos/alumno.publico", () => ({ verificarAlumnoActivo: m.verificar }));
 vi.mock("@/server/profesores/profesor.publico", () => ({ obtenerOpcionProfesorDeUsuario: m.profesor }));
 vi.mock("@/server/usuarios/usuario.service", () => ({ obtenerEmailDeUsuario: m.email }));
@@ -21,6 +22,7 @@ const entrada = { materia_id: "materia-1", indicacion: "Practicar ecuaciones" };
 beforeEach(() => {
   vi.clearAllMocks();
   m.ahora.mockReturnValue(new Date("2026-10-09T14:00:00.000Z"));
+  m.contexto.mockResolvedValue(undefined);
   m.verificar.mockResolvedValue(undefined);
   m.profesor.mockResolvedValue({ id: "profesor-1" });
   m.permisoMateria.mockResolvedValue(true);
@@ -43,10 +45,9 @@ describe("HU-E-04 registrarIndicacion", () => {
   });
 
   it("authorizes a professor before looking up the student", async () => {
-    m.permisoMateria.mockResolvedValue(false);
+    m.contexto.mockRejectedValue({ code: "SIN_PERMISO" });
     await expect(registrarIndicacion(tx as never, "no-existe", entrada, { id: "profesor-usuario", rol: "PROFESOR" })).rejects.toMatchObject({ code: "SIN_PERMISO" });
-    expect(m.profesor).toHaveBeenCalledWith("profesor-usuario", tx);
-    expect(m.permisoMateria).toHaveBeenCalledWith("profesor-1", "no-existe", "materia-1", tx);
+    expect(m.contexto).toHaveBeenCalledWith(undefined, "profesor-usuario", "no-existe", "materia-1", tx);
     expect(m.verificar).not.toHaveBeenCalled();
   });
 

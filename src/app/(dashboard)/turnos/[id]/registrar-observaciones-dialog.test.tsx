@@ -52,7 +52,7 @@ describe("HU-E-07 diálogo de observaciones", () => {
     await ingresar("temas-vistos", "Funciones lineales");
     expect(dialog().querySelector('[role="alert"]')).toBeNull();
     await continuar();
-    expect(alertDialog().textContent).toContain("¿Registrar las observaciones de esta clase?");
+    expect(alertDialog().textContent).toContain("¿Estás seguro de que querés registrar las observaciones de esta clase?");
     expect(alertDialog().textContent).toContain("Esta acción no se puede deshacer.");
   });
 

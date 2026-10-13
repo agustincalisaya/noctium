@@ -798,3 +798,8 @@ Las escrituras son **directas y síncronas** (un `prisma.eventoSeguridad.create`
 
 > **Revisión 3.** Sin cambios en los parámetros de `ParametroSistema`. Las constantes nuevas del módulo, que **no** son parámetros configurables (P-A8): `MINUTOS_VALIDEZ_ENLACE_RECUPERACION = 30` (2.7) y `MAX_SOLICITUDES_RECUPERACION_POR_HORA = 3` (2.7.1). Variables de entorno nuevas (Regla N.° 9; las documenta el PR 0 en `.env.example`): `RESEND_API_KEY`, `EMAIL_FROM` y la URL pública del sistema (`NEXTAUTH_URL`, que NextAuth ya necesita).
 ```
+
+
+### Lecturas públicas autorizadas para revisión PO E04/E08 (13/10/2026)
+
+E08: `obtenerNombresPublicosDeUsuarios(ids, db)` devuelve únicamente nombres/apellidos de fichas vinculadas (profesor, alumno, mesa de entrada, gerente), omitiendo autores sin ficha. No devuelve emails ni identificadores técnicos como nombre. Resuelve las fichas mediante las fachadas B/D/F (`obtenerAlumnoDeUsuario` + `obtenerAlumnoBasico`, `obtenerOpcionProfesorDeUsuario`, `obtenerNombresPersonal`), sin consultar tablas internas de esos módulos.
