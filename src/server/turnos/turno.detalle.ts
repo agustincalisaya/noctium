@@ -1,6 +1,6 @@
 import type { RolUsuario } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { listarPagosDeTurno } from "@/server/pagos/pago.publico";
+import { listarPagosDeClase } from "@/server/pagos/pago.publico";
 import { inicioDeTurno, isoCentro } from "@/server/shared/fechas-centro";
 import { filtroVigenteEn } from "@/server/turnos/inscripcion.vigencia";
 import { obtenerClaseDictadaDeTurno, profesorPuedeRegistrarIndicacion } from "@/server/historial/historial.publico";
@@ -27,6 +27,20 @@ async function inscripcionesDelDetalle(turnoId: string, momento: Date) {
   return new Map(filas.map((fila) => [fila.alumnoId, fila]));
 }
 
+/**
+ * «Pagos registrados» (HU-I-06): los anulados incluidos y `puede_corregir`
+ * para quien consulta. Conserva el nombre `comprobante` del contrato del
+ * detalle (spec_modulo_C.md §2.4).
+ */
+async function pagosDelDetalle(turnoId: string, usuario: { id: string; rol: RolUsuario }) {
+  return (await listarPagosDeClase(turnoId, usuario)).map((pago) => ({
+    id: pago.id, alumno: pago.alumno, monto: pago.monto, forma_pago: pago.forma_pago, fecha_pago: pago.fecha_pago,
+    registrado_en: pago.registrado_en, comprobante: pago.comprobante_vigente, operacion_id: pago.operacion_id,
+    anulado: pago.anulado, anulacion: pago.anulacion, cambios: pago.cambios,
+    clases_de_la_operacion: pago.clases_de_la_operacion, puede_corregir: pago.puede_corregir,
+  }));
+}
+
 export type ResultadoDetalleTurno =
   | { resultado: "ok"; turno: TurnoDetalle }
   | { resultado: "sin_permiso" }
@@ -43,7 +57,7 @@ export async function obtenerDetalleTurno(
 
   // El Profesor nunca recibe datos de pago, aunque el rol tuviera el permiso.
   const [pagos, claseDictada] = await Promise.all([
-    capacidades.verPagos && usuario.rol !== "PROFESOR" ? listarPagosDeTurno(turno.id) : undefined,
+    capacidades.verPagos && usuario.rol !== "PROFESOR" ? pagosDelDetalle(turno.id, usuario) : undefined,
     obtenerClaseDictadaDeTurno(turno.id),
   ]);
   // Reservas pendientes y acceso a «Registrar pago» (HU-C-24, C §2.18.4): solo

@@ -13,7 +13,6 @@ import { ComprobanteDatosSchema } from "@/server/pagos/comprobante.schema";
 import {
   listarPagosDeAlumno,
   listarPagosDeClase,
-  listarPagosDeTurno,
   sumarPagosPorMes,
 } from "@/server/pagos/pago.publico";
 import { sqlFechaPagoVigente, sqlFormaPagoVigente, sqlMontoVigente, sqlPagoNoAnulado } from "@/server/pagos/pago.vigente";
@@ -175,16 +174,18 @@ describe.skipIf(!basePgHabilitada)("corrección y anulación de pagos con Postgr
     expect(enSql).toEqual(enTs);
   });
 
-  it("listarPagosDeClase incluye los anulados; listarPagosDeTurno y sumarPagosPorMes los excluyen y usan el monto vigente", async () => {
+  it("listarPagosDeClase incluye los anulados marcados y el monto vigente; sumarPagosPorMes los excluye", async () => {
     const op = await operacion(mesa, 2);
     await enTx((tx) => corregirPago(tx, { pagoId: op.pagos[0]!.id, monto: "11000", motivo: "x", usuario: mesa }));
     await enTx((tx) => anularPago(tx, { pagoId: op.pagos[1]!.id, motivo: "x", usuario: mesa }));
     const turnoA = op.pagos[0]!.turnoId;
     const turnoB = op.pagos[1]!.turnoId;
-    expect(await listarPagosDeClase(turnoB, db)).toEqual([expect.objectContaining({ id: op.pagos[1]!.id, anulado: true, operacion_id: op.operacion.id })]);
-    expect(await listarPagosDeTurno(turnoB, db)).toEqual([]);
-    expect(await listarPagosDeTurno(turnoA, db)).toEqual([
-      expect.objectContaining({ id: op.pagos[0]!.id, monto: "11000.00", forma_pago: { id: "formapago-efectivo", nombre: expect.any(String) } }),
+    expect(await listarPagosDeClase(turnoB, mesa, db)).toEqual([expect.objectContaining({ id: op.pagos[1]!.id, anulado: true, operacion_id: op.operacion.id, puede_corregir: false })]);
+    expect(await listarPagosDeClase(turnoA, mesa, db)).toEqual([
+      expect.objectContaining({
+        id: op.pagos[0]!.id, monto: "11000.00", anulado: false, puede_corregir: true,
+        forma_pago: { id: "formapago-efectivo", nombre: expect.any(String), is_active: true },
+      }),
     ]);
     const mes = op.operacion.fechaPago.toISOString().slice(0, 7);
     const [total] = await sumarPagosPorMes(mes, mes, db);

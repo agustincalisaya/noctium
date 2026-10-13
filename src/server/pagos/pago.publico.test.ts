@@ -12,7 +12,8 @@ const { db, tx, obtenerAlumnosBasicos } = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/server/alumnos/alumno.publico", () => ({ obtenerAlumnosBasicos }));
 
-const { listarPagosDeTurno, sumarPagosPorMes } = await import("./pago.publico");
+const { listarPagosDeClase, sumarPagosPorMes } = await import("./pago.publico");
+const { conReloj } = await import("@/server/shared/reloj");
 
 const FORMA = { idFormaPago: "fp-transferencia", nombreFormaPago: "Transferencia", activaFormaPago: true };
 /** Un pago del turno-1 en su propia operación, sin correcciones ni anulación. */
@@ -36,11 +37,11 @@ beforeEach(() => {
   tx.formaPago.findMany.mockResolvedValue([FORMA]);
 });
 
-describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
+describe("listarPagosDeClase (spec_modulo_I.md §2.17)", () => {
   it("devuelve [] sin consultar alumnos cuando el turno no tiene pagos", async () => {
     db.operacionPago.findMany.mockResolvedValue([]);
 
-    await expect(listarPagosDeTurno("turno-1")).resolves.toEqual([]);
+    await expect(listarPagosDeClase("turno-1")).resolves.toEqual([]);
     expect(obtenerAlumnosBasicos).not.toHaveBeenCalled();
   });
 
@@ -51,7 +52,7 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     ]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana")]);
 
-    const pagos = await listarPagosDeTurno("turno-1");
+    const pagos = await listarPagosDeClase("turno-1");
 
     expect(db.operacionPago.findMany).toHaveBeenCalledWith({
       where: { pagos: { some: { turnoId: "turno-1" } } },
@@ -68,18 +69,20 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     ]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-b", "Gómez", "Lucía"), basico("alumno-a", "Pérez", "Ana")]);
 
-    await expect(listarPagosDeTurno("turno-1")).resolves.toEqual([
+    await expect(listarPagosDeClase("turno-1")).resolves.toEqual([
       {
         id: "pago-2", alumno: { id: "alumno-b", nombre_completo: "Gómez, Lucía" }, monto: "12000.00",
-        forma_pago: { id: "fp-transferencia", nombre: "Transferencia" }, fecha_pago: "2026-09-28",
-        registrado_en: "2026-09-28T15:00:00.000Z",
-        comprobante: null,
+        forma_pago: { id: "fp-transferencia", nombre: "Transferencia", is_active: true }, fecha_pago: "2026-09-28",
+        registrado_en: "2026-09-28T15:00:00.000Z", inscripcion_id: "insc-alumno-b", operacion_id: "op-pago-2",
+        anulado: false, anulacion: null, comprobante_vigente: null, cambios: 0, clases_de_la_operacion: 1,
+        puede_corregir: false,
       },
       {
         id: "pago-1", alumno: { id: "alumno-a", nombre_completo: "Pérez, Ana" }, monto: "15000.50",
-        forma_pago: { id: "fp-transferencia", nombre: "Transferencia" }, fecha_pago: "2026-09-27",
-        registrado_en: "2026-09-27T13:30:00.000Z",
-        comprobante: null,
+        forma_pago: { id: "fp-transferencia", nombre: "Transferencia", is_active: true }, fecha_pago: "2026-09-27",
+        registrado_en: "2026-09-27T13:30:00.000Z", inscripcion_id: "insc-alumno-a", operacion_id: "op-pago-1",
+        anulado: false, anulacion: null, comprobante_vigente: null, cambios: 0, clases_de_la_operacion: 1,
+        puede_corregir: false,
       },
     ]);
   });
@@ -95,9 +98,9 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     db.operacionPago.findMany.mockResolvedValue([conComprobantes]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana")]);
 
-    const [pago] = await listarPagosDeTurno("turno-1");
+    const [pago] = await listarPagosDeClase("turno-1");
 
-    expect(pago?.comprobante).toEqual({ id: "comp-2", numero: "0001-00000124" });
+    expect(pago?.comprobante_vigente).toEqual({ id: "comp-2", numero: "0001-00000124" });
   });
 
   it("resuelve los nombres en una sola consulta en lote, aunque un alumno tenga varios pagos", async () => {
@@ -108,7 +111,7 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     ]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana"), basico("alumno-b", "Gómez", "Lucía")]);
 
-    const pagos = await listarPagosDeTurno("turno-1");
+    const pagos = await listarPagosDeClase("turno-1");
 
     expect(obtenerAlumnosBasicos).toHaveBeenCalledTimes(1);
     expect(obtenerAlumnosBasicos).toHaveBeenCalledWith(expect.arrayContaining(["alumno-a", "alumno-b"]), db);
@@ -119,7 +122,7 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     db.operacionPago.findMany.mockResolvedValue([fila("pago-1", "alumno-retirado", "5000", "2026-09-20", "2026-09-20T12:00:00.000Z")]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-retirado", "Ruiz", "Tomás")]);
 
-    const [pago] = await listarPagosDeTurno("turno-1");
+    const [pago] = await listarPagosDeClase("turno-1");
 
     expect(pago?.alumno).toEqual({ id: "alumno-retirado", nombre_completo: "Ruiz, Tomás" });
   });
@@ -128,7 +131,7 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     tx.operacionPago.findMany.mockResolvedValue([fila("pago-1", "alumno-a", "100", "2026-09-27", "2026-09-27T13:30:00.000Z")]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana")]);
 
-    await listarPagosDeTurno("turno-1", tx as never);
+    await listarPagosDeClase("turno-1", undefined, tx as never);
 
     expect(tx.operacionPago.findMany).toHaveBeenCalled();
     expect(db.operacionPago.findMany).not.toHaveBeenCalled();
@@ -139,10 +142,10 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     db.operacionPago.findMany.mockResolvedValue([fila("pago-1", "alumno-a", "100", "2026-09-27", "2026-09-27T13:30:00.000Z")]);
     obtenerAlumnosBasicos.mockResolvedValue([]);
 
-    await expect(listarPagosDeTurno("turno-1")).rejects.toThrow("Pago pago-1 sin alumno alumno-a");
+    await expect(listarPagosDeClase("turno-1")).rejects.toThrow("Pago pago-1 sin alumno alumno-a");
   });
 
-  it("valor vigente (PR-0.md §2.13): el monto corregido reemplaza al original y el pago anulado no figura", async () => {
+  it("valor vigente (PR-0.md §2.13): el monto corregido reemplaza al original y el pago anulado figura marcado (HU-I-06)", async () => {
     const corregido = fila("pago-2", "alumno-a", "12000", "2026-09-28", "2026-09-28T15:00:00.000Z");
     corregido.pagos[0]!.correcciones = [{ montoNuevo: new Prisma.Decimal("9000") }] as never;
     const anulado = fila("pago-1", "alumno-a", "100", "2026-09-27", "2026-09-27T13:30:00.000Z");
@@ -150,7 +153,42 @@ describe("listarPagosDeTurno (spec_modulo_I.md §2.3)", () => {
     db.operacionPago.findMany.mockResolvedValue([corregido, anulado]);
     obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana")]);
 
-    await expect(listarPagosDeTurno("turno-1")).resolves.toEqual([expect.objectContaining({ id: "pago-2", monto: "9000.00" })]);
+    await expect(listarPagosDeClase("turno-1")).resolves.toEqual([
+      expect.objectContaining({ id: "pago-2", monto: "9000.00", anulado: false, cambios: 1 }),
+      expect.objectContaining({ id: "pago-1", anulado: true, anulacion: { fecha: "2026-09-29T10:00:00.000Z", motivo: "Error" } }),
+    ]);
+  });
+
+  describe("puede_corregir (HU-I-06, spec_modulo_I.md §2.14.1)", () => {
+    const momento = new Date("2026-10-13T12:00:00.000Z");
+    const listar = (usuario?: { id: string; rol: "MESA_ENTRADA" | "GERENTE" | "PROFESOR" }) =>
+      conReloj(momento, () => listarPagosDeClase("turno-1", usuario));
+
+    beforeEach(() => {
+      db.operacionPago.findMany.mockResolvedValue([
+        fila("pago-reciente", "alumno-a", "100", "2026-10-10", "2026-10-10T12:00:00.000Z"),
+        fila("pago-viejo", "alumno-a", "100", "2026-09-01", "2026-09-01T12:00:00.000Z"),
+      ]);
+      obtenerAlumnosBasicos.mockResolvedValue([basico("alumno-a", "Pérez", "Ana")]);
+    });
+
+    it("sin usuario es siempre false", async () => {
+      expect((await listar()).map((p) => p.puede_corregir)).toEqual([false, false]);
+    });
+
+    it("mesa de entrada: solo lo registrado hace 30 días o menos con la caja abierta", async () => {
+      expect((await listar({ id: "m", rol: "MESA_ENTRADA" })).map((p) => [p.id, p.puede_corregir])).toEqual([["pago-reciente", true], ["pago-viejo", false]]);
+      db.caja.findMany.mockResolvedValue([{ idCaja: "caja-1", estado: "CERRADA" }]);
+      expect((await listar({ id: "m", rol: "MESA_ENTRADA" })).map((p) => p.puede_corregir)).toEqual([false, false]);
+    });
+
+    it("el gerente corrige cualquiera no anulado; el profesor ninguno; la caja nunca sale en la respuesta", async () => {
+      db.caja.findMany.mockResolvedValue([{ idCaja: "caja-1", estado: "CERRADA" }]);
+      const pagos = await listar({ id: "g", rol: "GERENTE" });
+      expect(pagos.map((p) => p.puede_corregir)).toEqual([true, true]);
+      expect(pagos[0]).not.toHaveProperty("caja_abierta");
+      expect((await listar({ id: "p", rol: "PROFESOR" })).map((p) => p.puede_corregir)).toEqual([false, false]);
+    });
   });
 });
 
