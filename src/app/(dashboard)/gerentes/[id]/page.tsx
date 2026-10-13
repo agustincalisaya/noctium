@@ -13,6 +13,8 @@ import { obtenerDetalleGerente } from "@/server/gerentes/gerente.service";
 import { esErrorDeDominio } from "@/server/shared/error-dominio";
 import { exigirPermiso, tienePermiso } from "@/server/shared/with-permission";
 import type { DetalleGerente } from "@/types/gerente.types";
+import { EstadoGerenteDialog } from "./estado-gerente-dialog";
+import { HistorialEstadosGerente } from "./historial-estados-gerente";
 
 const GENERO_LEGIBLE: Record<string, string> = {
   MASCULINO: texto("ui.comun.genero.masculino"),
@@ -56,10 +58,12 @@ function Datos({ datos }: { datos: [etiqueta: string, valor: string][] }) {
 /**
  * Ficha del gerente en modo consulta (P-48, HU-G-01; HU-A-06 c5): datos en
  * solo lectura, fechas de alta y de última modificación, y «Cuenta de acceso»
- * con `CuentaAccesoCard`. «Editar» solo con `gerentes:editar`. No ofrece
- * «Desactivar» ni «Reactivar» ni muestra historial de estados (HU-G-05). Los
- * banners de vuelta siguen el patrón de las otras fichas: `?creado=1` tras el
- * alta y `?actualizada=1` tras editar.
+ * con `CuentaAccesoCard`. «Editar» solo con `gerentes:editar`. HU-G-05 suma,
+ * junto a «Editar» y solo con `gerentes:cambiar_estado`, «Desactivar» si la
+ * ficha está activa y no es la propia (criterio 2; el servidor también lo
+ * rechaza) o «Reactivar» si está inactiva, y el «Historial de estados» al
+ * lado de «Cuenta de acceso». Los banners de vuelta siguen el patrón de las
+ * otras fichas: `?creado=1` tras el alta y `?actualizada=1` tras editar.
  */
 export default async function FichaGerentePage({
   params,
@@ -71,7 +75,12 @@ export default async function FichaGerentePage({
   const { id: sesionUsuarioId } = await exigirPermiso("gerentes:leer");
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const gerente = await cargarGerente(id, sesionUsuarioId);
-  const puedeEditar = await tienePermiso("gerentes:editar");
+  const [puedeEditar, puedeCambiarEstado] = await Promise.all([
+    tienePermiso("gerentes:editar"),
+    tienePermiso("gerentes:cambiar_estado"),
+  ]);
+  // Criterio 2: la propia ficha nunca ofrece «Desactivar».
+  const muestraEstado = puedeCambiarEstado && !(gerente.activo && gerente.esVos);
   const ausente = texto("ui.gerentes.valorAusente");
 
   return (
@@ -99,11 +108,29 @@ export default async function FichaGerentePage({
           <h1 className="text-2xl font-semibold">{`${gerente.nombre} ${gerente.apellido}`}</h1>
           {!gerente.activo && <Badge variant="muted">{texto("ui.gerentes.estado.inactivo")}</Badge>}
         </div>
-        {puedeEditar && (
-          <Link href={`/gerentes/${gerente.id}/editar`} className={buttonVariants({ variant: "outline" })}>
-            <Pencil className="size-4" aria-hidden />
-            {texto("ui.gerentes.ficha.editar")}
-          </Link>
+        {(puedeEditar || muestraEstado) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {puedeEditar && (
+              <Link href={`/gerentes/${gerente.id}/editar`} className={buttonVariants({ variant: "outline" })}>
+                <Pencil className="size-4" aria-hidden />
+                {texto("ui.gerentes.ficha.editar")}
+              </Link>
+            )}
+            {muestraEstado && (
+              <EstadoGerenteDialog
+                gerente={{
+                  id: gerente.id,
+                  nombre: gerente.nombre,
+                  apellido: gerente.apellido,
+                  activo: gerente.activo,
+                  version: gerente.version,
+                  tieneCuenta: gerente.cuenta.estado !== "SIN_CUENTA",
+                  esUltimoGerenteActivo: gerente.esUltimoGerenteActivo,
+                  motivoObligatorio: gerente.motivoObligatorioAlDesactivar,
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -146,6 +173,7 @@ export default async function FichaGerentePage({
 
       <div className="grid items-start gap-5 md:grid-cols-2">
         <CuentaAccesoCard cuenta={gerente.cuenta} />
+        <HistorialEstadosGerente historial={gerente.historialEstados} />
       </div>
     </div>
   );

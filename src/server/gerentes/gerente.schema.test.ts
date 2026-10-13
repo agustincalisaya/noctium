@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { flattenError } from "zod";
 import {
+  DesactivarGerenteSchema,
   ListarGerentesQuerySchema,
+  ReactivarGerenteSchema,
   POR_PAGINA_GERENTES,
   construirAltaGerenteSchema,
   construirModificarGerenteSchema,
@@ -162,5 +164,43 @@ describe("ListarGerentesQuerySchema (HU-G-03)", () => {
 
   it.each([{ por_pagina: "5" }, { orden: "dni" }])(".strict() rechaza %j: por_pagina no es parámetro", (extra) => {
     expect(ListarGerentesQuerySchema.safeParse({ pagina: "1", ...extra }).success).toBe(false);
+  });
+});
+
+describe("DesactivarGerenteSchema (HU-G-05)", () => {
+  it("motivo recortado; vacío o con solo espacios equivale a no enviado", () => {
+    expect(DesactivarGerenteSchema.parse({ version: 3, motivo: "  Dejó el centro  " })).toEqual({ version: 3, motivo: "Dejó el centro" });
+    expect(DesactivarGerenteSchema.parse({ version: 3, motivo: "   " })).toEqual({ version: 3, motivo: undefined });
+    expect(DesactivarGerenteSchema.parse({ version: 3, motivo: "" })).toEqual({ version: 3, motivo: undefined });
+    expect(DesactivarGerenteSchema.parse({ version: 0 })).toEqual({ version: 0 });
+  });
+
+  it("motivo de 300 caracteres pasa; de 301, el mensaje del archivo central", () => {
+    expect(DesactivarGerenteSchema.safeParse({ version: 0, motivo: "a".repeat(300) }).success).toBe(true);
+    const r = DesactivarGerenteSchema.safeParse({ version: 0, motivo: "a".repeat(301) });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(flattenError(r.error).fieldErrors.motivo).toEqual(["El motivo admite hasta 300 caracteres."]);
+  });
+
+  it.each([{}, { version: -1 }, { version: 1.5 }, { version: "2" }, { version: null }])("version obligatoria, entera y no negativa: %j", (cuerpo) => {
+    expect(DesactivarGerenteSchema.safeParse(cuerpo).success).toBe(false);
+  });
+
+  it.each([{ activo: false }, { usuarioId: "ckotro" }, { motivoBaja: "x" }])(".strict() rechaza %j", (extra) => {
+    expect(DesactivarGerenteSchema.safeParse({ version: 0, ...extra }).success).toBe(false);
+  });
+});
+
+describe("ReactivarGerenteSchema (HU-G-05)", () => {
+  it("solo la version", () => {
+    expect(ReactivarGerenteSchema.parse({ version: 4 })).toEqual({ version: 4 });
+  });
+
+  it.each([{}, { version: -1 }, { version: 1.5 }, { version: "4" }])("version obligatoria y entera: %j", (cuerpo) => {
+    expect(ReactivarGerenteSchema.safeParse(cuerpo).success).toBe(false);
+  });
+
+  it.each([{ motivo: "Vuelve" }, { activo: true }, { usuarioId: "ckotro" }])(".strict() rechaza %j (no pide motivo)", (extra) => {
+    expect(ReactivarGerenteSchema.safeParse({ version: 0, ...extra }).success).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import type { Genero } from "@prisma/client";
+import type { AccionHistorialEstado, Genero } from "@prisma/client";
 import type { ResumenCuenta } from "@/server/usuarios/cuenta.service";
 
 /**
@@ -31,12 +31,12 @@ export type ListadoGerentes = {
 };
 
 /**
- * Ficha del gerente (spec_modulo_G.md §2.4, parte de HU-G-01). `cuenta` es el
- * `ResumenCuenta` de A tal cual (snake_case), el que consume
+ * Ficha del gerente (spec_modulo_G.md §2.4, HU-G-01 y HU-G-05). `cuenta` es
+ * el `ResumenCuenta` de A tal cual (snake_case), el que consume
  * `CuentaAccesoCard`. `modificadoEl` es `null` si nunca se modificó. `esVos`
- * es `true` si la ficha es la del gerente autenticado (DEC-44). HU-G-05 suma
- * `historialEstados`, `motivoObligatorioAlDesactivar` y
- * `esUltimoGerenteActivo` sin cambiar la firma.
+ * es `true` si la ficha es la del gerente autenticado (DEC-44). Los dos
+ * indicadores de HU-G-05 son de solo lectura y solo se calculan con la ficha
+ * activa (si no, `false`); la baja repite las validaciones al confirmar.
  */
 export type DetalleGerente = {
   id: string;
@@ -54,6 +54,33 @@ export type DetalleGerente = {
   modificadoEl: Date | null;
   cuenta: ResumenCuenta;
   esVos: boolean;
+  /** Bajas y reactivaciones, de la más reciente a la más antigua. */
+  historialEstados: EntradaHistorialGerente[];
+  /** La cuenta de la ficha «registró operaciones» (DEC-39): la baja exige motivo. Solo con ficha activa y con cuenta. */
+  motivoObligatorioAlDesactivar: boolean;
+  /** Sin contar esta ficha, no queda ningún gerente activo con cuenta activa (criterio 3). Solo con ficha activa. */
+  esUltimoGerenteActivo: boolean;
+};
+
+/**
+ * Una baja o reactivación de la ficha (DEC-37). `usuarioNombre` es «Apellido,
+ * Nombre» de quien actuó; `null` si no se resuelve o si fue el proceso
+ * automático.
+ */
+export type EntradaHistorialGerente = {
+  id: string;
+  accion: AccionHistorialEstado;
+  motivo: string | null;
+  fecha: Date;
+  usuarioId: string | null;
+  usuarioNombre: string | null;
+};
+
+/** Respuesta de desactivar y reactivar (spec_modulo_G.md §2.5 y §2.6). */
+export type EstadoGerenteCambiado = {
+  id: string;
+  activo: boolean;
+  version: number;
 };
 
 /** Respuesta del alta (spec_modulo_G.md §2.1): nunca incluye la contraseña inicial. */

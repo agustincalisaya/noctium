@@ -3,7 +3,8 @@ import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 
 import { renderToStaticMarkup } from "react-dom/server";
 
 // Páginas de gerentes (P-47 y P-48, HU-G-01): listado, ficha en modo consulta,
-// alta y edición; HU-G-03 suma al listado la búsqueda, la paginación y «(vos)».
+// alta y edición; HU-G-03 suma al listado la búsqueda, la paginación y «(vos)»;
+// HU-G-05 suma a la ficha «Desactivar» o «Reactivar» y el historial de estados.
 // El permiso, el servicio y los componentes de cliente están simulados.
 
 const m = vi.hoisted(() => ({
@@ -39,6 +40,11 @@ vi.mock("@/components/shared/cuenta-acceso-card", () => ({
     <section data-cuenta={cuenta.estado} data-rol={cuenta.rol ?? ""} data-debe-cambiar={String(cuenta.debe_cambiar_password)} />
   ),
 }));
+vi.mock("./[id]/estado-gerente-dialog", () => ({
+  EstadoGerenteDialog: ({ gerente }: { gerente: Record<string, unknown> }) => (
+    <button data-estado={JSON.stringify(gerente)}>{gerente.activo ? "Desactivar" : "Reactivar"}</button>
+  ),
+}));
 vi.mock("./gerente-form", () => ({
   GerenteForm: (props: Record<string, unknown>) => {
     m.formulario(props);
@@ -69,7 +75,14 @@ const DETALLE = {
   modificadoEl: null,
   cuenta: { estado: "ACTIVA", email: "marcos@mail.com", rol: "GERENTE", debe_cambiar_password: true },
   esVos: false,
+  historialEstados: [],
+  motivoObligatorioAlDesactivar: false,
+  esUltimoGerenteActivo: false,
 };
+
+const sinPermisos = (...faltan: string[]) => m.tiene.mockImplementation(async (accion: string) => !faltan.includes(accion));
+/** Las props que la ficha le pasa al diálogo de estado (simulado). */
+const propsEstado = (html: string) => JSON.parse(html.match(/data-estado="([^"]*)"/)![1]!.replace(/&quot;/g, '"'));
 
 const ficha = async (query: Record<string, string> = {}) =>
   renderToStaticMarkup(await Ficha({ params: Promise.resolve({ id: ID }), searchParams: Promise.resolve(query) }));
@@ -221,14 +234,83 @@ describe("ficha en modo consulta (P-48)", () => {
     expect(html.indexOf("Registro")).toBeLessThan(html.indexOf('data-cuenta="ACTIVA"'));
   });
 
-  it("sin «Desactivar», «Reactivar» ni historial de estados (HU-G-05), también si es la propia", async () => {
+  it("sin gerentes:cambiar_estado no ofrece «Desactivar» ni «Reactivar», activa o inactiva y también si es la propia (HU-G-05)", async () => {
+    sinPermisos("gerentes:cambiar_estado");
     for (const esVos of [false, true]) {
-      m.detalle.mockResolvedValue({ ...DETALLE, esVos });
-      const html = await ficha();
-      expect(html).not.toMatch(/desactivar|reactivar|historial/i);
-      // Sus únicos enlaces de acción son las migas y «Editar».
-      expect(html.match(/<a /g)).toHaveLength(1);
+      for (const activo of [true, false]) {
+        m.detalle.mockResolvedValue({ ...DETALLE, esVos, activo });
+        const html = await ficha();
+        expect(m.tiene).toHaveBeenCalledWith("gerentes:cambiar_estado");
+        expect(html).not.toMatch(/desactivar|reactivar|data-estado/i);
+        // Sus únicos enlaces de acción son las migas y «Editar».
+        expect(html.match(/<a /g)).toHaveLength(1);
+      }
     }
+  });
+
+  it("ficha propia activa: no ofrece «Desactivar» aunque haya gerentes:cambiar_estado (criterio 2)", async () => {
+    m.detalle.mockResolvedValue({ ...DETALLE, esVos: true });
+    const html = await ficha();
+    expect(html).not.toMatch(/desactivar|reactivar|data-estado/i);
+    expect(html).toContain(`href="/gerentes/${ID}/editar"`);
+    expect(html).toContain("Historial de estados");
+  });
+
+  it("activa y ajena, con gerentes:cambiar_estado: «Desactivar» junto a «Editar», con la versión y los indicadores del detalle", async () => {
+    m.detalle.mockResolvedValue({ ...DETALLE, esUltimoGerenteActivo: true, motivoObligatorioAlDesactivar: true });
+    const html = await ficha();
+    expect(html).toContain(">Desactivar<");
+    expect(html).not.toContain(">Reactivar<");
+    expect(html.indexOf(`href="/gerentes/${ID}/editar"`)).toBeLessThan(html.indexOf(">Desactivar<"));
+    expect(propsEstado(html)).toEqual({
+      id: ID, nombre: "Marcos", apellido: "Ibarra", activo: true, version: 3,
+      tieneCuenta: true, esUltimoGerenteActivo: true, motivoObligatorio: true,
+    });
+  });
+
+  it("inactiva, con gerentes:cambiar_estado: «Reactivar» y no «Desactivar»", async () => {
+    m.detalle.mockResolvedValue({ ...DETALLE, activo: false, version: 4, cuenta: { ...DETALLE.cuenta, estado: "INACTIVA" } });
+    const html = await ficha();
+    expect(html).toContain(">Reactivar<");
+    expect(html).not.toContain(">Desactivar<");
+    expect(propsEstado(html)).toMatchObject({ activo: false, version: 4, tieneCuenta: true });
+  });
+
+  it("sin cuenta vinculada: el diálogo lo sabe (tieneCuenta false)", async () => {
+    m.detalle.mockResolvedValue({ ...DETALLE, cuenta: { estado: "SIN_CUENTA", email: null, rol: null, debe_cambiar_password: false } });
+    expect(propsEstado(await ficha())).toMatchObject({ tieneCuenta: false });
+  });
+
+  it("solo gerentes:cambiar_estado (sin editar): el botón de estado sin «Editar»", async () => {
+    sinPermisos("gerentes:editar");
+    const html = await ficha();
+    expect(html).not.toContain("/editar");
+    expect(html).toContain(">Desactivar<");
+  });
+
+  it("historial de estados vacío: «Sin bajas ni reactivaciones.» junto a «Cuenta de acceso», debajo de «Registro»", async () => {
+    const html = await ficha();
+    expect(html).toContain("Historial de estados");
+    expect(html).toContain("Sin bajas ni reactivaciones.");
+    expect(html.indexOf("Registro")).toBeLessThan(html.indexOf('data-cuenta="ACTIVA"'));
+    expect(html.indexOf('data-cuenta="ACTIVA"')).toBeLessThan(html.indexOf("Historial de estados"));
+  });
+
+  it("historial con entradas: acción, fecha y hora del centro, quien actuó (o «Usuario») y motivo", async () => {
+    m.detalle.mockResolvedValue({
+      ...DETALLE,
+      historialEstados: [
+        { id: "h2", accion: "REACTIVAR", motivo: null, fecha: new Date("2026-10-06T13:15:00.000Z"), usuarioId: "g", usuarioNombre: "Paz, Carolina" },
+        { id: "h1", accion: "DESACTIVAR", motivo: "Licencia larga", fecha: new Date("2026-10-04T12:00:00.000Z"), usuarioId: null, usuarioNombre: null },
+      ],
+    });
+    const html = await ficha();
+    expect(html).not.toContain("Sin bajas ni reactivaciones.");
+    expect(html.indexOf("Reactivación")).toBeLessThan(html.indexOf("Desactivación"));
+    expect(html).toContain("06/10/2026, 10:15");
+    expect(html).toContain("Paz, Carolina");
+    expect(html).toContain("· Usuario");
+    expect(html).toContain("Licencia larga");
   });
 
   it("ficha inactiva: la etiqueta «Inactivo»", async () => {

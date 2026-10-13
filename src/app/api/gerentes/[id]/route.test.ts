@@ -48,6 +48,12 @@ const DETALLE = {
   modificadoEl: null,
   cuenta: { estado: "ACTIVA", email: "marcos@mail.com", rol: "GERENTE", debe_cambiar_password: false },
   esVos: true,
+  historialEstados: [
+    { id: "h1", accion: "REACTIVAR", motivo: null, fecha: "2026-10-03T12:00:00.000Z", usuarioId: "ckotro", usuarioNombre: "Paz, Carolina" },
+    { id: "h0", accion: "DESACTIVAR", motivo: "Licencia", fecha: "2026-10-02T12:00:00.000Z", usuarioId: "ckotro", usuarioNombre: "Paz, Carolina" },
+  ],
+  motivoObligatorioAlDesactivar: true,
+  esUltimoGerenteActivo: false,
 };
 
 async function patch(body: unknown) {
@@ -76,7 +82,7 @@ beforeEach(() => {
 });
 
 describe("GET /api/gerentes/[id]", () => {
-  it("200 con el detalle (version, fechas, cuenta y esVos) y no-store; el servicio recibe al usuario de la sesión", async () => {
+  it("200 con el detalle (version, fechas, cuenta, esVos y los campos de HU-G-05) y no-store; el servicio recibe al usuario de la sesión", async () => {
     expect(await get()).toEqual({ status: 200, cuerpo: { data: DETALLE, error: null }, cache: expect.stringContaining("no-store") });
     expect(m.detalle).toHaveBeenCalledWith(ID, "gerente");
     expect(m.permiso).toHaveBeenCalledWith({ where: { rolPermiso_accionPermiso: { rolPermiso: "GERENTE", accionPermiso: "gerentes:leer" } } });
