@@ -39,6 +39,8 @@ const RUTAS_POR_ROL: Record<string, readonly RolUsuario[] | "CUALQUIERA"> = {
   // cierres) es de mesa de entrada; «Cierres de caja» de todo el personal, del Gerente.
   caja: ["MESA_ENTRADA"],
   cajas: ["GERENTE"],
+  // HU-C-26 (spec_modulo_C.md §2.20): «Reservas» es solo de mesa de entrada (`reservas:leer`).
+  reservas: ["MESA_ENTRADA"],
   // HU-G-01 (spec_modulo_G.md §3.7): los gerentes los gestiona solo el Gerente.
   // Distinta de `gerente` (el panel de indicadores): se compara por segmento completo.
   gerentes: ["GERENTE"],

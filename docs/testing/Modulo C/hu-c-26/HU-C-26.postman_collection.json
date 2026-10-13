@@ -1,0 +1,616 @@
+{
+  "info": {
+    "name": "HU-C-26 — Ver y gestionar las reservas pendientes de todas las clases",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "spec_modulo_C.md §2.20. Correr en una base DESCARTABLE (migraciones + seed), nunca en la habitual. Cada carpeta usa la sesión real del rol que la nombra (mesa.entrada@, gerente@, profesor1@ del seed); el login y el Cookie Jar quedan fuera de la colección: no se exportan cookies ni tokens. Orden: correr las carpetas en el orden en que aparecen (02 y 08 guardan variables que usan los casos siguientes; 10 quita una reserva real). inscripcion_pagada_id se completa con la consulta 1 de HU-C-26.sql."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "inscripcion_pendiente_id",
+      "value": ""
+    },
+    {
+      "key": "materia_id",
+      "value": ""
+    },
+    {
+      "key": "alumno_dni",
+      "value": ""
+    },
+    {
+      "key": "vencida_sin_marcar_id",
+      "value": ""
+    },
+    {
+      "key": "inscripcion_pagada_id",
+      "value": ""
+    },
+    {
+      "key": "turno_2_5",
+      "value": ""
+    },
+    {
+      "key": "alumno_2_5",
+      "value": ""
+    },
+    {
+      "key": "inscripcion_2_5",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Mesa de entrada",
+      "description": "Sesión de mesa.entrada@noctium.local.",
+      "item": [
+        {
+          "name": "01 Resumen — cuatro totales (criterios 1 y 7)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/resumen",
+            "description": "§2.20.1. Pendientes con el importe a cobrar, las que vencen en 3 h, hoy y las que vencieron hoy."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Envelope { data, error: null }\", () => { const b = pm.response.json(); pm.expect(b).to.have.property(\"data\"); pm.expect(b.error).to.equal(null); });",
+                  "pm.test(\"Cuatro totales numéricos\", () => { const d = pm.response.json().data; pm.expect(d.pendientes.cantidad).to.be.a(\"number\"); pm.expect(d.pendientes.importe_total).to.be.a(\"number\"); pm.expect(d.vencen_en_3_horas).to.be.a(\"number\"); pm.expect(d.vencen_hoy).to.be.a(\"number\"); pm.expect(d.vencieron_hoy).to.be.a(\"number\"); });",
+                  "pm.test(\"vencen_en_3_horas ≤ pendientes\", () => { const d = pm.response.json().data; pm.expect(d.vencen_en_3_horas).to.be.at.most(d.pendientes.cantidad); pm.expect(d.vencen_hoy).to.be.at.most(d.pendientes.cantidad); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Pendientes sin filtros — de a 10, por vencimiento ascendente (criterio 2)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes",
+            "description": "§2.20.2. Guarda inscripcion_pendiente_id, materia_id y alumno_dni del primer ítem para los casos siguientes."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Envelope { data, error: null }\", () => { const b = pm.response.json(); pm.expect(b).to.have.property(\"data\"); pm.expect(b.error).to.equal(null); });",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"Paginación de a 10\", () => { pm.expect(d.paginacion.por_pagina).to.equal(10); pm.expect(d.paginacion.pagina_actual).to.equal(1); pm.expect(d.items.length).to.be.at.most(10); pm.expect(d.items.length).to.be.above(0); });",
+                  "pm.test(\"Orden por vence_el ascendente\", () => { const v = d.items.map((i) => Date.parse(i.vence_el)); pm.expect(v).to.eql([...v].sort((a, b) => a - b)); });",
+                  "pm.test(\"Ninguna vencida: faltan_min ≥ 0 y vence_pronto = faltan_min ≤ 180\", () => d.items.forEach((i) => { pm.expect(i.faltan_min).to.be.at.least(0); pm.expect(i.vence_pronto).to.equal(i.faltan_min <= 180); }));",
+                  "pm.test(\"Contrato del ítem\", () => { const i = d.items[0]; pm.expect(i).to.have.all.keys(\"inscripcion_id\", \"vence_el\", \"faltan_min\", \"vence_pronto\", \"alumno\", \"clase\", \"profesor\", \"precio\"); pm.expect(i.alumno).to.have.all.keys(\"id\", \"nombre_para_mostrar\", \"dni\", \"reservas_pendientes\"); pm.expect(i.clase).to.include.keys(\"turno_id\", \"fecha\", \"hora_inicio\", \"hora_fin\", \"materia\", \"aula\"); });",
+                  "pm.collectionVariables.set(\"inscripcion_pendiente_id\", d.items[0].inscripcion_id);",
+                  "pm.collectionVariables.set(\"materia_id\", d.items[0].clase.materia.id);",
+                  "pm.collectionVariables.set(\"alumno_dni\", d.items[0].alumno.dni);",
+                  "const otra = d.items.find((i) => i.alumno.id !== d.items[0].alumno.id); if (otra) { pm.collectionVariables.set(\"turno_2_5\", otra.clase.turno_id); pm.collectionVariables.set(\"alumno_2_5\", otra.alumno.id); pm.collectionVariables.set(\"inscripcion_2_5\", otra.inscripcion_id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Pendientes — vencen en las próximas 3 h (criterio 4)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes?vencen=en_3_horas",
+            "description": "Solo las que vencen dentro de 180 minutos, todas con vence_pronto."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Todas vencen en ≤ 180 min y van en rojo\", () => { const d = pm.response.json().data; pm.expect(d.items.length).to.be.above(0); d.items.forEach((i) => { pm.expect(i.faltan_min).to.be.at.most(180); pm.expect(i.vence_pronto).to.equal(true); }); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Pendientes — por DNI del alumno (criterio 4, HU-B-05)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes?alumno={{alumno_dni}}",
+            "description": "Filtro por alumno o DNI desde 2 caracteres."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Todas son de ese DNI\", () => { const d = pm.response.json().data; pm.expect(d.items.length).to.be.above(0); d.items.forEach((i) => pm.expect(i.alumno.dni).to.equal(pm.collectionVariables.get(\"alumno_dni\"))); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 Pendientes — materia + vencen combinados (criterio 4)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes?materia_id={{materia_id}}&vencen=hoy",
+            "description": "Los filtros se combinan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Todas de esa materia\", () => pm.response.json().data.items.forEach((i) => pm.expect(i.clase.materia.id).to.equal(pm.collectionVariables.get(\"materia_id\"))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 Pendientes — materia_id inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes?materia_id=no-es-cuid",
+            "description": "Zod antes de la lectura (Regla N.° 6)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Envelope { data: null, error.code = VALIDATION_ERROR }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"VALIDATION_ERROR\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Detalle por campo\", () => pm.expect(pm.response.json().error.detalles.fieldErrors).to.have.property(\"materia_id\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Pendientes — por_pagina no admitido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes?por_pagina=50",
+            "description": "De a 10, fijo: `.strict()`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Envelope { data: null, error.code = VALIDATION_ERROR }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"VALIDATION_ERROR\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 Vencidas · últimos 7 días (criterio 3)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/vencidas",
+            "description": "§2.20.3. De la más reciente a la más antigua; incluye las vencidas sin marcar. Guarda vencida_sin_marcar_id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Envelope { data, error: null }\", () => { const b = pm.response.json(); pm.expect(b).to.have.property(\"data\"); pm.expect(b.error).to.equal(null); });",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"Orden por vencio_el descendente\", () => { const v = d.items.map((i) => Date.parse(i.vencio_el)); pm.expect(v).to.eql([...v].sort((a, b) => b - a)); });",
+                  "pm.test(\"Últimos 7 días\", () => d.items.forEach((i) => pm.expect(Date.now() - Date.parse(i.vencio_el)).to.be.below(8 * 24 * 3600 * 1000)));",
+                  "pm.test(\"Incluye una vencida sin marcar\", () => pm.expect(d.items.some((i) => i.sin_marcar === true)).to.equal(true));",
+                  "pm.test(\"Trae profesor y aula (nota de sincronización §2.20.3)\", () => d.items.forEach((i) => { pm.expect(i).to.have.property(\"profesor\"); pm.expect(i.clase).to.have.property(\"aula\"); }));",
+                  "const sinMarcar = d.items.find((i) => i.sin_marcar); if (sinMarcar) pm.collectionVariables.set(\"vencida_sin_marcar_id\", sinMarcar.inscripcion_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Vencidas — `vencen` no existe en esta pestaña (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/vencidas?vencen=hoy",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Envelope { data: null, error.code = VALIDATION_ERROR }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"VALIDATION_ERROR\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Quitar una reserva pendiente (criterio 6)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/{{inscripcion_pendiente_id}}/quitar",
+            "description": "§2.20.4, sin body. Queda QUITADA_CENTRO y se libera el lugar."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Envelope { data, error: null }\", () => { const b = pm.response.json(); pm.expect(b).to.have.property(\"data\"); pm.expect(b.error).to.equal(null); });",
+                  "pm.test(\"Contrato de §2.20.4\", () => { const d = pm.response.json().data; pm.expect(d).to.have.all.keys(\"inscripcion_id\", \"vigencia\", \"alumnos_inscriptos\", \"estado\"); pm.expect(d.inscripcion_id).to.equal(pm.collectionVariables.get(\"inscripcion_pendiente_id\")); pm.expect(d.vigencia).to.equal(\"QUITADA_CENTRO\"); pm.expect(d.alumnos_inscriptos).to.match(/^\\d+\\/\\d+$/); pm.expect([\"DISPONIBLE\", \"COMPLETO\"]).to.include(d.estado); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 Quitar la misma otra vez (409)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/{{inscripcion_pendiente_id}}/quitar",
+            "description": "Ya no está pendiente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Envelope { data: null, error.code = RESERVA_NO_PENDIENTE }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"RESERVA_NO_PENDIENTE\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"Texto literal del criterio 6\", () => pm.expect(pm.response.json().error.message).to.equal(\"Esta reserva ya no está pendiente: se pagó o venció.\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Quitar una inscripción pagada (409)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/{{inscripcion_pagada_id}}/quitar",
+            "description": "inscripcion_pagada_id: completar con el id de una inscripción PAGADA (consulta 1 de HU-C-26.sql). No se modifica."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Envelope { data: null, error.code = RESERVA_NO_PENDIENTE }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"RESERVA_NO_PENDIENTE\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 Quitar una vencida sin marcar (409)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/{{vencida_sin_marcar_id}}/quitar",
+            "description": "Nunca se quita como si siguiera pendiente."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Envelope { data: null, error.code = RESERVA_NO_PENDIENTE }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"RESERVA_NO_PENDIENTE\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 Quitar una inscripción inexistente (404)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/no-existe/quitar",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Envelope { data: null, error.code = INSCRIPCION_NO_ENCONTRADA }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"INSCRIPCION_NO_ENCONTRADA\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15 Pendientes ya no lista la reserva quitada",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes?alumno={{alumno_dni}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"La quitada no figura\", () => pm.expect(pm.response.json().data.items.map((i) => i.inscripcion_id)).to.not.include(pm.collectionVariables.get(\"inscripcion_pendiente_id\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15b Quitar desde el detalle de la clase (2.5, HU-C-04) — payload ampliado",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/turnos/{{turno_2_5}}/alumnos/{{alumno_2_5}}",
+            "description": "No es una ruta de esta HU: verifica el ajuste de una línea a quitarAlumnoTurno (spec §4, Revisión 6). El payload de eventos_turno se comprueba con la consulta 5 de HU-C-26.sql."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Envelope { data, error: null }\", () => { const b = pm.response.json(); pm.expect(b).to.have.property(\"data\"); pm.expect(b.error).to.equal(null); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gerente",
+      "description": "Sesión de gerente@noctium.local.",
+      "item": [
+        {
+          "name": "16a Resumen — gerente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/resumen",
+            "description": "Criterio 8."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16b Pendientes — gerente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes",
+            "description": "Criterio 8."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16c Vencidas — gerente (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/vencidas",
+            "description": "Criterio 8."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16d Quitar — gerente (403)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/no-existe/quitar",
+            "description": "El permiso se verifica antes que el id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Profesor",
+      "description": "Sesión de profesor1@noctium.local.",
+      "item": [
+        {
+          "name": "17a Resumen — profesor (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/resumen",
+            "description": "Criterio 8."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17b Pendientes — profesor (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes",
+            "description": "Criterio 8."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17c Vencidas — profesor (403)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/vencidas",
+            "description": "Criterio 8."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17d Quitar — profesor (403)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/no-existe/quitar",
+            "description": "El permiso se verifica antes que el id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Envelope { data: null, error.code = SIN_PERMISO }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SIN_PERMISO\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sin sesión",
+      "description": "Sin cookie.",
+      "item": [
+        {
+          "name": "18 Pendientes sin sesión (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/reservas/pendientes",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Envelope { data: null, error.code = SESION_INVALIDA }\", () => { const b = pm.response.json(); pm.expect(b.data).to.equal(null); pm.expect(b.error.code).to.equal(\"SESION_INVALIDA\"); pm.expect(b.error.message).to.be.a(\"string\").and.not.empty; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

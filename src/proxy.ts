@@ -78,5 +78,7 @@ export const config = {
     // HU-I-12: «Mi caja» (mesa de entrada) y «Cierres de caja» (gerente).
     "/caja/:path*",
     "/cajas/:path*",
+    // HU-C-26: «Reservas» (solo mesa de entrada).
+    "/reservas/:path*",
   ],
 };
