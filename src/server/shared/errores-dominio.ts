@@ -10,6 +10,7 @@ import type { ClaveTexto } from "@/lib/textos";
  * cuando el texto depende de quién opera (alumno o mesa de entrada).
  */
 export const ERRORES_DE_DOMINIO = {
+  "errores.configuracion.conflicto": { code: "CONFLICTO_EDICION_CONCURRENTE", status: 409 },
   "errores.materias.tarifaSinCambio": { code: "TARIFA_SIN_CAMBIO", status: 422 },
   "errores.materias.inactiva": { code: "MATERIA_INACTIVA", status: 422 },
   "errores.materias.noEncontrada": { code: "MATERIA_NO_ENCONTRADA", status: 404 },

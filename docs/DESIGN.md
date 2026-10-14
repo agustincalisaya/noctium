@@ -242,6 +242,7 @@ de un profesor), se permite un `Dialog` ancho que solo informa.
 
 | Acción | Disparador | Feedback de éxito |
 |---|---|---|
+| Guardar configuración del centro (HU-N-01, `/configuracion`) | Página completa + `ConfirmarAccionDialog` con cada valor anterior → nuevo; conflicto dentro del diálogo con «Recargar» | Banner inline «Configuración guardada», sin toast; historial actualizado en la misma pantalla |
 | Cancelar turno (HU-C-05) | `AlertDialog` | Toast |
 | Cancelar inscripción propia (HU-C-14, «Mis clases») | `ConfirmarAccionDialog` irreversible; rechazo dentro del diálogo | Toast «Cancelaste tu inscripción», con el aviso de reintegro si la respuesta trae `con_pagos`, y recarga del listado al cerrar. Fuera de plazo, la acción se muestra deshabilitada con la leyenda |
 | Reprogramar turno (HU-C-06) | `Dialog` | Toast |
