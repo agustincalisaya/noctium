@@ -2,7 +2,7 @@
 
 **Módulo:** I (Pagos) · **Sprint:** 3 · **Responsable:** Cali · **SP estimado:** 1.
 **Rama:** `feature/HU-I-05`, en copia/worktree propio.
-**Estado:** Fase 1 aprobada el 14/10/2026; Fase 2 implementada. Vista previa nativa de Edge para un comprobante normal verificada manualmente por el usuario; el criterio de impresión/PDF sigue parcial. Ver §6 y evidencia.
+**Estado:** Fase 1 aprobada el 14/10/2026; Fase 2 implementada. Criterio de impresión/PDF verificado mediante automatización y prueba manual informada por el usuario el 14/10/2026; los timeouts de `claves-textos.test.ts` y la suite general no aprobada íntegramente siguen documentados. Ver §6 y evidencia.
 **Base relevada:** copia local del repositorio `agustincalisaya/noctium`, HEAD y referencia local `develop` en `4d1d275de2a479592b7064680896b998a3ad7088` (13/10/2026). No se consultó ni actualizó el remoto; Claude debe revalidar su base antes de implementar, preservando trabajo paralelo.
 **Contrato de referencia:** `docs/specs/spec_modulo_I.md` §2.15 (contrato principal ya escrito), §2.13.1/2.13.2 (consulta y opciones compartidas), §2.17 (fachadas), §2.6.2 (valores vigentes), §2.9.3/2.9.4/2.9.5 (comprobante propio), §3.6/3.9/3.13/3.17 y §4. `docs/tasks/Sprint 3/HU-Sprint-3.md`, HU-I-05; tasks HU-I-02, HU-I-06, HU-I-11 y HU-I-12; `docs/RULES.md`, `docs/DESIGN.md`, `docs/adicionales/sdd-metodologia.md`.
 **RBAC:** `pagos:leer_propios` y `comprobantes:leer_propios`, exclusivos de ALUMNO y ya sembrados. No agregar permisos ni ampliar `pagos:leer` al alumno.
@@ -97,7 +97,7 @@ Relevamiento aprobado explícitamente por el usuario antes de escribir código.
 5. **Dependencias/E2E:** `npm ci` si `package.json` y el lock están sincronizados, sin modificarlos; Playwright con el Chrome del sistema (`channel: "chrome"`), sin descargar navegadores. Archivos E2E en `scripts/testing/hu-i-05-*`, `scripts/testing/run-hu-i-05.mjs` y `playwright.hu-i-05.config.ts`, con base descartable.
 6. **Comprobante `null`:** la UI muestra «—» como defensa, pero eso no cierra el criterio 7: se investiga el origen y todos los pagos válidos de la verificación deben abrir su comprobante correcto.
 7. **Regresión PostgreSQL I-02:** su test exige `127.0.0.1:55434`; no se cuenta como aprobado si se saltea. Se intenta en un entorno aislado compatible; si no es posible, se documenta el bloqueo y la cobertura efectiva.
-8. **Impresión:** evidencia automatizada con `emulateMedia('print')`, captura y `page.pdf()`, más verificación de que el botón invoca `window.print()`. Eso no certifica el diálogo nativo: su prueba manual queda Pendiente/Bloqueada hasta ejecutarse, con instrucciones.
+8. **Impresión:** evidencia automatizada con `emulateMedia('print')`, captura y `page.pdf()`, más verificación de que el botón invoca `window.print()`. Eso no certifica el diálogo nativo: en Fase 1 su prueba manual quedó pendiente; el usuario informó su ejecución el 14/10/2026, según §6.3 y la evidencia.
 
 ---
 
@@ -325,7 +325,7 @@ Confirmar `no-store` en éxitos propios. Prueba de cuenta sin ficha usa BD aisla
 | 4. Sesión y rechazo de consultas ajenas | **Verificado**: query extra 400, endpoints administrativos 403 `SIN_PERMISO`, comprobante ajeno 403 `FUERA_DE_ALCANCE` | `api-check-resultados.json`, `comprobante-ajeno-sin-permiso.png` |
 | 5. Estado sin pagos | **Verificado** en UI y HTTP | `sin-pagos.png`, `e2e-salida.txt` |
 | 6. Solo consulta | **Verificado**: sin acciones de escritura y huellas SQL idénticas antes/después | `sql-evidencia.json`, `api-check-resultados.json` |
-| 7. Ver e imprimir comprobante | **Parcial**: enlace, `window.print()`, CSS de impresión y PDF de Chrome automatizados; vista previa nativa de un comprobante normal en Edge, una hoja limpia, verificada manualmente por el usuario el 14/10. Faltan guardado efectivo del PDF, comprobante anulado y pruebas nativas en Chrome/Firefox | `comprobante-propio.pdf`, `comprobante-propio-impresion.png`, `e2e-salida.txt`; testimonio manual y pasos pendientes en `HU-I-05-evidencia.md` (capturas Edge no archivadas) |
+| 7. Ver e imprimir comprobante | **Verificado**: enlace, `window.print()`, CSS de impresión y PDF automatizados; el usuario confirmó el 14/10 vista previa normal en Edge, guardado y apertura del PDF desde el diálogo, impresión de un comprobante anulado y revisión del diálogo en Chrome y Firefox | `comprobante-propio.pdf`, `comprobante-propio-impresion.png`, `e2e-salida.txt` (automatizados); confirmación manual en `HU-I-05-evidencia.md`. Sin archivos nuevos para PDF guardado, anulado o Chrome/Firefox; las capturas Edge no se atribuyen a esos pasos |
 
 ### 6.4. Cierre explícito de verificaciones diferidas de HU-I-11
 
@@ -334,7 +334,7 @@ Los diferidos también figuran en `docs/validacion/Sprint 3/HU-I-11.md`; el task
 | Diferido de I-11 | Prueba que debe cerrar HU-I-05 | Evidencia requerida | Estado inicial |
 |---|---|---|---|
 | Criterio 2: vista del comprobante del alumno | Desde fila de Mis pagos al documento propio; 21 pagos con `registrado_en_el_centro: true`, sin `registrado_por` | 14/10/2026, base `e3ea18d`, PostgreSQL/HTTP/E2E aislados: **cerrado para la vista propia**. `api-check-resultados.json`, `comprobante-escritorio.png`, `comprobante-propio.pdf` | Verificado |
-| Criterio 4: 403 por comprobante ajeno | A pide pagos de B de la misma clase y de otra; API 403 `FUERA_DE_ALCANCE`, página `/sin-permiso` sin datos | 14/10/2026, base `e3ea18d`, HTTP/E2E aislados: **control de acceso verificado**. `api-check-resultados.json`, `comprobante-ajeno-sin-permiso.png`. Impresión/PDF automatizados; usuario verificó vista previa nativa normal en Edge el 14/10 (capturas no archivadas). | Verificado en acceso y vista previa Edge normal; PDF guardado, anulado y Chrome/Firefox pendientes |
+| Criterio 4: 403 por comprobante ajeno | A pide pagos de B de la misma clase y de otra; API 403 `FUERA_DE_ALCANCE`, página `/sin-permiso` sin datos | 14/10/2026, base `e3ea18d`, HTTP/E2E aislados: **control de acceso verificado**. `api-check-resultados.json`, `comprobante-ajeno-sin-permiso.png`. Impresión/PDF automatizados; confirmación manual del usuario sobre Edge, PDF guardado, anulado y Chrome/Firefox en `HU-I-05-evidencia.md`, sin nuevos archivos de evidencia. | Verificado para el acceso y la impresión propia |
 | Criterio 5: motivo de anulación omitido | Anulación total/parcial por I-06; marcas correctas y motivo ausente en JSON, HTML, UI y PDF/impresión automatizados | 14/10/2026, base `e3ea18d`, PostgreSQL/HTTP/E2E aislados: **cerrado para la vista propia**. `sql-evidencia.json`, `api-check-resultados.json`, capturas y PDFs de anulación. | Verificado |
 
 Al finalizar, registrar fecha, entorno, commit/base, caso, resultado y referencia de archivo de evidencia por cada fila. Actualizar de forma aditiva la validación de I-11 para estos tres puntos; no marcar todos sus criterios ni riesgos como resueltos. Si uno queda Bloqueado, explicarlo en DoD/informe final: no se cierra ficticiamente.
@@ -353,7 +353,7 @@ Al finalizar, registrar fecha, entorno, commit/base, caso, resultado y referenci
 - [x] Sin usuario registrador, precio, motivo, caja ni historial interno en respuestas propias.
 - [x] Enlace por idPago al comprobante existente; sin duplicar página/modal/API ni emisión.
 - [x] Abrir comprobante desde Mis pagos y ver la vista previa nativa de un documento normal en Edge (verificación manual aportada el 14/10; capturas no archivadas).
-- [ ] Guardar y abrir el PDF desde el diálogo nativo; imprimir/previsualizar el comprobante anulado; repetir en Chrome y Firefox.
+- [x] Guardar y abrir el PDF desde el diálogo nativo; imprimir el comprobante anulado y revisar el diálogo en Chrome y Firefox (prueba manual informada por el usuario el 14/10/2026; sin archivos nuevos de esos pasos).
 - [x] Diferido I-11 C2 cerrado con evidencia de vista propia desde Mis pagos.
 - [x] Diferido I-11 C4 cerrado con evidencia de 403 ajeno y permisos.
 - [x] Diferido I-11 C5 cerrado con evidencia de motivo ausente en JSON/UI/impresión automatizada tras anulación.
