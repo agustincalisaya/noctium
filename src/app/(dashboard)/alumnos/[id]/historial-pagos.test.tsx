@@ -179,4 +179,56 @@ describe("HU-I-06 acciones del historial de pagos", () => {
     expect(m.fetch).toHaveBeenCalledWith("/api/pagos/p1/anulacion", expect.objectContaining({ method: "POST", body: JSON.stringify({ motivo: "Reintegro" }) }));
     expect(consultas).toBe(antes + 1);
   });
+
+  it("Gerente en modo consulta (HU-E-02 criterio 8): sin «Registrar pago», pero corrige y anula según puede_corregir", async () => {
+    let consultas = 0;
+    m.fetch.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes("/opciones?")) return Promise.resolve(ok({ formas_pago: [{ id: "f1", nombre: "Efectivo", is_active: true }], materias: [] }));
+      if (url === "/api/formas-pago/opciones") return Promise.resolve(ok([{ id: "f1", nombre: "Efectivo" }]));
+      if (init?.method === "POST") return Promise.resolve(ok({}));
+      consultas += 1;
+      return Promise.resolve(ok({
+        modo: "HISTORIAL", total_pagado: "12000.00",
+        items: [item({}), item({ pago_id: "p2", anulado: true, puede_corregir: false })],
+        paginacion: { total: 2, pagina_actual: 1, total_paginas: 1, por_pagina: 10 },
+      }));
+    });
+    await act(async () => root.render(<HistorialPagos alumnoId="a" alumnoNombre="Sofía Acosta" puedeRegistrarPago={false} iniciales={{}} />));
+    await esperar();
+    expect(contenedor.querySelector('a[href^="/pagos/registrar"]')).toBeNull();
+    const filas = () => [...contenedor.querySelectorAll("tbody tr")];
+    expect([...filas()[0]!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Corregir", "Anular", "Ver detalle"]);
+    expect([...filas()[1]!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Ver detalle"]);
+
+    // Corregir el monto.
+    await act(async () => [...filas()[0]!.querySelectorAll("button")].find((b) => b.textContent === "Corregir")!.click());
+    const cambiar = async (selector: string, valor: string) => {
+      const campo = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)!;
+      const prototipo = campo instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototipo, "value")!.set!.call(campo, valor);
+      await act(async () => { campo.dispatchEvent(new Event("input", { bubbles: true })); });
+    };
+    await cambiar("#pago-p1-monto", "11000");
+    await cambiar("#pago-p1-motivo", "Se cargó mal");
+    await act(async () => {
+      document.querySelector('[role="dialog"]')!.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    const confirmar = document.querySelector('[role="alertdialog"]')!;
+    expect(confirmar.textContent).toContain("Monto: $ 12.000 → $ 11.000");
+    await act(async () => [...confirmar.querySelectorAll("button")].find((b) => b.textContent === "Corregir pago")!.click());
+    await esperar();
+    const correccion = m.fetch.mock.calls.find(([url]) => url === "/api/pagos/p1/correccion");
+    expect(correccion?.[1]).toMatchObject({ method: "POST" });
+    expect(JSON.parse(correccion![1].body)).toEqual({ monto: "11000", motivo: "Se cargó mal" });
+
+    // Anular.
+    const antes = consultas;
+    await act(async () => [...filas()[0]!.querySelectorAll("button")].find((b) => b.textContent === "Anular")!.click());
+    const confirmacion = document.querySelector('[role="alertdialog"]')!;
+    await act(async () => [...confirmacion.querySelectorAll("button")].find((b) => b.textContent === "Usar el motivo «Reintegro»")!.click());
+    await act(async () => [...confirmacion.querySelectorAll("button")].find((b) => b.textContent === "Anular pago")!.click());
+    await esperar();
+    expect(m.fetch).toHaveBeenCalledWith("/api/pagos/p1/anulacion", expect.objectContaining({ method: "POST", body: JSON.stringify({ motivo: "Reintegro" }) }));
+    expect(consultas).toBe(antes + 1);
+  });
 });

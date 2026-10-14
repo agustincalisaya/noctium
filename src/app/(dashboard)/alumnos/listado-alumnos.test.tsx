@@ -146,6 +146,22 @@ describe("HU-B-05 listado de alumnos con búsqueda", () => {
     expect(contenedor.querySelector('a[href="/alumnos/nueva"]')?.textContent).toBe("Nuevo alumno");
   });
 
+  it("el Gerente (modo consulta, HU-E-02 criterio 8) busca igual, pero sin coincidencias no ve «Nuevo alumno»", async () => {
+    fetchAutenticado.mockResolvedValue(respuesta(listado([])));
+    await act(async () => {
+      root.render(<ListadoAlumnos inicial={listado(["Acosta", "Aguirre"], 40)} qInicial="" esMesaDeEntrada={false} />);
+    });
+
+    await escribir("juan perez");
+    await esperar(ESPERA_BUSQUEDA_MS);
+
+    expect(fetchAutenticado).toHaveBeenCalledTimes(1);
+    expect(String(fetchAutenticado.mock.calls[0]![0])).toContain("q=juan+perez");
+    expect(contenedor.textContent).toContain("No se encontraron alumnos para «juan perez»");
+    expect(contenedor.querySelector('a[href="/alumnos/nueva"]')).toBeNull();
+    expect(contenedor.textContent).not.toContain("Nuevo alumno");
+  });
+
   it("descarta la respuesta de una búsqueda anterior", async () => {
     let resolverVieja: (valor: unknown) => void = () => {};
     fetchAutenticado
