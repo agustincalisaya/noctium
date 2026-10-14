@@ -94,6 +94,22 @@ describe("HU-I-10 paso 1: buscar alumno", () => {
 });
 
 describe("HU-I-10 paso 2: clases del alumno", () => {
+  it("mantiene accesibles importes y selección con varias clases y textos largos", async () => {
+    const datos = pendientes();
+    datos.clases[0].materia.nombre = "Introducción a la programación y estructuras de datos avanzadas";
+    datos.clases[0].profesor!.nombre_completo = "Fernández de la Torre, María Alejandra";
+    datos.clases.push({ ...datos.clases[1], turno_id: "t10", materia: { id: "m3", nombre: "Matemática aplicada" } });
+    rutas = (url) => url.startsWith("/api/pagos/pendientes") ? respuesta(datos) : undefined;
+    await montar();
+    const tabla = container.querySelector('section[aria-labelledby="paso-clases-titulo"] table')!;
+    expect(tabla.querySelectorAll("tbody tr")).toHaveLength(3);
+    expect(tabla.textContent).toContain(datos.clases[0].materia.nombre);
+    expect(tabla.textContent).toContain(datos.clases[0].profesor!.nombre_completo);
+    expect(tabla.querySelector('th:last-child')?.textContent).toBe("Importe a cobrar");
+    expect(tabla.querySelectorAll('button')).toHaveLength(3);
+    await pulsar(casilla("Introducción a la programación"));
+    expect(totalResumen()).toBe("$ 12.000");
+  });
   it("muestra estado de pago y origen del precio; el total se recalcula al marcar, desmarcar y modificar el importe", async () => {
     await montar();
     expect(container.textContent).toContain("Reservada · pagar antes del Dom 11/10 18:00");
@@ -150,6 +166,25 @@ describe("HU-I-10 paso 3: forma de pago y confirmación", () => {
     expect(dialogo()?.textContent).toContain("Transferencia · fecha de pago");
     // La operación se puede corregir o anular después (HU-I-06): no es irreversible.
     expect(dialogo()?.textContent).not.toContain("Esta acción no se puede deshacer.");
+    expect(container.textContent).not.toContain("Precio original");
+    expect(dialogo()?.textContent).not.toContain("Precio original");
+  });
+  it("muestra precio original, importe a cobrar y motivo en el paso y en el diálogo cuando hay ajuste", async () => {
+    await montar();
+    await pulsar(casilla("Física I"));
+    await pulsar(boton("Modificar importe"));
+    await escribir(container.querySelector("#importe-i1") as HTMLInputElement, "10000");
+    await escribir(container.querySelector("#importe-i1-motivo") as HTMLInputElement, "Beca parcial");
+    await pulsar(boton("Continuar a confirmación"));
+    const detalle = container.querySelector('section[aria-labelledby="paso-confirmacion-titulo"] table')!;
+    expect(detalle.textContent).toContain("Precio original$ 12.000");
+    expect(detalle.textContent).toContain("Importe a cobrar$ 10.000");
+    expect(detalle.textContent).toContain("Motivo: Beca parcial");
+    await pulsar(boton("Confirmar pago"));
+    const confirmacion = dialogo()!;
+    expect(confirmacion.textContent).toContain("Precio original$ 12.000");
+    expect(confirmacion.textContent).toContain("Importe a cobrar$ 10.000");
+    expect(confirmacion.textContent).toContain("Motivo: Beca parcial");
   });
   it("MOTIVO_AJUSTE_REQUERIDO: el diálogo no se cierra, muestra el aviso de tarifa y recarga el precio", async () => {
     rutas = (url) => url.startsWith("/api/pagos/pendientes") ? respuesta(pendientes())

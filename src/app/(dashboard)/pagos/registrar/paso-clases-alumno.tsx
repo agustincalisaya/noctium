@@ -42,8 +42,17 @@ export function PasoClasesAlumno({ nombreAlumno, clases, seleccion, errores, avi
     {clases.length === 0 ? (
       <p role="status" className="rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground">{texto("ui.pagos.sinClasesPendientes")}</p>
     ) : (
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[40rem] text-sm">
+      <div>
+        <p className="mb-2 text-xs text-muted-foreground lg:hidden" id="aviso-desplazar-clases">{texto("ui.pagos.clases.desplazarTabla")}</p>
+        <div className="max-w-full overflow-x-auto rounded-lg border border-border" role="region" aria-label={texto("ui.pagos.clases.titulo", { alumno: nombreAlumno })} aria-describedby="aviso-desplazar-clases" tabIndex={0}>
+          <table className="w-full min-w-[44rem] table-fixed text-sm lg:min-w-0">
+            <colgroup>
+              <col className="w-[6%]" />
+              <col className="w-[20%]" />
+              <col className="w-[26%]" />
+              <col className="w-[20%]" />
+              <col className="w-[28%]" />
+            </colgroup>
           <thead className="text-xs uppercase text-muted-foreground">
             <tr className="border-b border-border">
               <th scope="col" className="w-10 px-4 py-3"><span className="sr-only">{texto("ui.pagos.resumen.clases")}</span></th>
@@ -66,19 +75,19 @@ export function PasoClasesAlumno({ nombreAlumno, clases, seleccion, errores, avi
                     aria-label={texto("ui.pagos.clases.elegir", { materia: clase.materia.nombre, fecha })}
                     onChange={(evento) => onCambiarFila(clave, { elegida: evento.target.checked })} />
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 font-mono">{fecha} {clase.hora_inicio}</td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-3 font-mono"><span className="block">{fecha}</span><span className="block">{clase.hora_inicio}</span></td>
+                <td className="break-words px-3 py-3">
                   <span className="block">{clase.materia.nombre}</span>
-                  {clase.profesor && <span className="block text-xs text-muted-foreground">{clase.profesor.nombre_completo}</span>}
+                  {clase.profesor && <span className="block break-words text-xs text-muted-foreground">{clase.profesor.nombre_completo}</span>}
                 </td>
-                <td className="px-4 py-3"><EstadoPagoBadge estado={clase.estado_pago} venceEl={clase.vence_el} /></td>
-                <td className="px-4 py-3 text-right">
+                <td className="break-words px-3 py-3"><EstadoPagoBadge estado={clase.estado_pago} venceEl={clase.vence_el} /></td>
+                <td className="break-words px-3 py-3 text-right">
                   <span className="block font-mono font-semibold">{formatearMonto(clase.precio)}</span>
                   <span className="block text-xs text-muted-foreground">
                     {clase.origen_precio === "INSCRIPCION" ? texto("ui.pagos.origen.inscripcion") : texto("ui.pagos.origen.tarifaVigente")}
                   </span>
                   {fila.modificando ? (
-                    <div className="mt-2 space-y-2 text-left">
+                    <div className="mt-2 min-w-0 space-y-2 text-left">
                       <label htmlFor={idMonto} className="block text-xs font-medium">{texto("ui.pagos.importe.etiqueta", { materia: clase.materia.nombre })}</label>
                       <Input id={idMonto} inputMode="decimal" value={fila.monto} aria-invalid={Boolean(error?.monto)}
                         aria-describedby={error?.monto ? `${idMonto}-error` : undefined}
@@ -114,6 +123,7 @@ export function PasoClasesAlumno({ nombreAlumno, clases, seleccion, errores, avi
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
     )}
 
