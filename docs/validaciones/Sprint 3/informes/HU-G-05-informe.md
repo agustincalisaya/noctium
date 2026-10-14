@@ -1,79 +1,77 @@
 # Validación PO — HU-G-05 · Desactivar y reactivar gerente
 
-**Rama revisada:** `feature/HU-C-27` @ `1f503e9` (= `develop`). La HU entró con el commit `fb64e50 feat(G05): desactivar y reactivar gerente`, ya incluido en `HEAD`. El árbol tiene cambios sin commitear **de HU-C-27** (turnos, `textos.ts`, `RULES.md`, una migración de índices), pero **ninguno toca archivos de HU-G-05**: `src/server/gerentes/**`, `src/app/(dashboard)/gerentes/**`, `src/app/api/gerentes/**` y la fixture `hu-g-05.ts` están iguales a `HEAD`, y el diff de `textos.ts` no tiene ninguna clave `gerente`.
-**Fuente de verdad:** el texto de la HU del pedido de validación. Coincide palabra por palabra con `docs/tasks/Sprint 3/HU-Sprint-3.md` (líneas 727-733).
-**Leído:** `prisma/schema.prisma`, `docs/RULES.md` (reglas generales y «Aplicación HU-G-05»), `docs/DESIGN.md` (§6.3 y §6.4, filas de G-05, historial), `prisma/seed.ts` y la fixture `prisma/seed/fixtures/hu-g-05.ts`, `docs/specs/spec_modulo_G.md` (§2.4 a §2.6, §3.4, §3.7 y la nota de implementación de G-05), `docs/tasks/Sprint 3/Modulo G/HU-G-05.md`, `docs/tasks/Sprint 3/HU-Sprint-3.md` (convenciones 7 a 9) y `docs/tasks/Sprint 3/PR-0.md` (es el documento de developers del Sprint 3; no hay otro en `docs/`).
+**Rama revisada:** `develop` @ `030e0e7`, árbol limpio (sin cambios sin commitear). Este informe reemplaza al anterior, que se había hecho sobre `feature/HU-C-27`.
+**Fuente de verdad:** el texto de la HU del pedido de validación. Coincide palabra por palabra con `docs/tasks/Sprint 3/HU-Sprint-3.md` (líneas 721-733).
+**Leído:** `prisma/schema.prisma`, `docs/RULES.md` (Reglas N.° 1 a 11, «Aplicación HU-A-06», «HU-D-08», «HU-F-05», «HU-G-01», «HU-G-03» y «HU-G-05»), `docs/DESIGN.md` (§4, §6.3, §6.4 y §9), `prisma/seed.ts` y la fixture `prisma/seed/fixtures/hu-g-05.ts`, `docs/specs/spec_modulo_G.md` (§2.4 a §2.6, §3.4 a §3.7, §4 y las notas de implementación de G-01, G-03 y G-05), `docs/tasks/Sprint 3/Modulo G/HU-G-05.md`, `docs/tasks/Sprint 3/HU-Sprint-3.md` (convenciones 7 a 9 y HU-C-25 c4) y `docs/tasks/Sprint 3/PR-0.md` (el documento de developers del Sprint 3; no hay otro en `docs/`).
 
 **Pruebas corridas (sin modificar nada):**
 
 | Qué | Resultado |
 |---|---|
-| `vitest run` de la HU (`src/server/gerentes`, `src/app/(dashboard)/gerentes`, `src/app/api/gerentes`) | **12 archivos, 327 tests en verde** (2 archivos PG omitidos en esta pasada, sin base) |
-| `npm run test:pg -- src/server/gerentes` (base descartable) | `gerente.estado.pg.test.ts` (el de esta HU): **15/15 en verde**. `gerente.service.pg.test.ts` (G-01/G-03): 1 `beforeAll` superó el límite de 10 s (crea fichas con bcrypt) y se saltearon 7 tests. **Corrido solo: 24/24 en verde.** Es lentitud de la máquina, no un defecto de G-05 |
-| `npx tsx scripts/verificar-claves-textos.ts` (comprobador HU-C-23) | «Claves de textos verificadas.» |
-| `npx eslint` sobre los archivos de la HU | Sin errores ni avisos |
-| `vitest run` completo | **306 archivos en verde, 1 con fallos por timeout**: `src/lib/claves-textos.test.ts` (2 tests) superó los 60 s con la suite completa en paralelo. **Corrido solo: 36/36 en verde (144 s).** Mismo caso ya visto al validar HU-G-03; no es de esta HU |
-| Consulta **de solo lectura** a la base de desarrollo (`fichas_gerente` + `usuarios` + `historial_estados`) | 20 fichas; las 4 de la fixture G-05 en el estado esperado (ver sección 6) |
+| `npx vitest run` de la HU (`src/server/gerentes`, `src/app/(dashboard)/gerentes`, `src/app/api/gerentes`) | **12 archivos y 327 tests en verde.** Los 2 archivos `*.pg.test.ts` se omiten en esta pasada porque no tienen base de datos; se corren abajo |
+| `npm run test:pg -- src/server/gerentes/gerente.estado.pg.test.ts` (base descartable, nunca toca `noctium_dev`) | **15/15 en verde.** Incluye las bajas cruzadas, la lectura vieja y la autodesactivación |
+| `npm run test:pg -- src/server/gerentes/gerente.service.pg.test.ts` | **24/24 en verde** |
+| `npx tsx scripts/verificar-claves-textos.ts` (comprobador de HU-C-23) | «Claves de textos verificadas.» |
+| `npx eslint` sobre los archivos de la HU y la fixture | Sin errores ni avisos |
+| `npx vitest run` completo (dos pasadas) | **326 o 327 archivos en verde y 2 o 3 con fallos**, según la pasada. (1) `src/server/shared/actividad-usuario.test.ts`: 2 tests fallan de forma **determinista** con `TypeError: Cannot read properties of undefined (reading 'findFirst')` en `configuracion.publico.ts:9`. El commit `068239d` (HU-N-01) sumó la línea N al agregador, pero no actualizó el `tx` simulado del test. **No es código de G-05**, aunque es el agregador que usa el criterio 1 (ver sección 4). (2) `turno-configuracion.test.tsx` (HU-C-03) y `claves-textos.test.ts` fallan **por timeout** con la suite en paralelo; **corridos solos: 56/56 en verde** |
+| Consulta de **solo lectura** a `noctium_dev` (`fichas_gerente`, `usuarios`, `historial_estados`) | Las 4 fichas de la fixture están en el estado esperado (ver sección 6) |
 
 ---
 
 ## 1. Trazabilidad de criterios
 
-Archivos principales: servicio `src/server/gerentes/gerente.service.ts`, schemas `src/server/gerentes/gerente.schema.ts`, Server Actions `src/server/gerentes/actions.ts`, rutas `src/app/api/gerentes/[id]/desactivar/route.ts` y `.../reactivar/route.ts`, ficha `src/app/(dashboard)/gerentes/[id]/page.tsx`, diálogo `.../[id]/estado-gerente-dialog.tsx`, historial `.../[id]/historial-estados-gerente.tsx`.
+Archivos principales: el servicio `src/server/gerentes/gerente.service.ts`, los schemas `src/server/gerentes/gerente.schema.ts`, las Server Actions `src/server/gerentes/actions.ts`, las rutas `src/app/api/gerentes/[id]/desactivar/route.ts` y `.../reactivar/route.ts`, la ficha `src/app/(dashboard)/gerentes/[id]/page.tsx`, el diálogo `.../[id]/estado-gerente-dialog.tsx` y el historial `.../[id]/historial-estados-gerente.tsx`.
 
 | # | Criterio (viñeta) | Dónde está implementado | Estado | Justificación |
 |---|---|---|---|---|
-| 1a | «Desactivar» desde la ficha solicita confirmación con el texto literal | Botón en `page.tsx:120` → `EstadoGerenteDialog`; confirmación con `ConfirmarAccionDialog` (HU-C-25) y título `ui.gerentes.baja.titulo` (`estado-gerente-dialog.tsx:100-104`) | **CUBIERTO** | Texto idéntico, `<gerente>` = «{nombre} {apellido}». Baja reversible: `destructiva` sin `irreversible` |
-| 1b | La confirmación pide un motivo de hasta 300 caracteres | Textarea con `maxLength=300` y contador «n / 300» (`estado-gerente-dialog.tsx:110-128`); servidor: `DesactivarGerenteSchema` `.trim().max(300)` (`gerente.schema.ts:71-83`) | **CUBIERTO** | El tope se valida en los dos lados; 301 → `400 VALIDATION_ERROR` con el mensaje de `textos.ts` |
-| 1c | Motivo obligatorio cuando el gerente registró operaciones | Servidor: `usuarioRegistroOperaciones(tx, usuarioId)` → `MOTIVO_REQUERIDO` (`gerente.service.ts:411-414`). Pantalla: `motivoObligatorioAlDesactivar` del detalle (`:329, :350`) deshabilita «Desactivar» con el campo vacío (`dialog.tsx:108`) | **CUBIERTO** | Agregador común de F-05 (DEC-39). Un gerente que dio de baja a otro ya «registró operaciones» (test PG). Sin cuenta: opcional. Si viene motivo, se guarda aunque no sea obligatorio |
-| 2a | La acción no aparece en su propia ficha | `muestraEstado = puedeCambiarEstado && !(gerente.activo && gerente.esVos)` (`page.tsx:83`) | **CUBIERTO** | Test de pantalla: con permiso, la ficha propia no muestra «Desactivar» |
-| 2b | El servidor rechaza el intento | `desactivarGerente`, paso 1, antes de tomar bloqueos: `NO_PUEDE_DESACTIVARSE_A_SI_MISMO` 422 (`gerente.service.ts:391-395`) | **CUBIERTO** | Test PG: 422 sin cambiar ficha, cuenta ni historial, incluso con versión vieja |
-| 3a | No se puede desactivar al último gerente activo (ficha activa con cuenta activa): «Debe quedar al menos un gerente activo» | `sinOtroGerenteActivo` (`gerente.service.ts:289-294`): cuenta fichas activas **con** cuenta activa (`filtrarCuentasActivas`), sin el objetivo → `ULTIMO_GERENTE_ACTIVO` 409 (`:410`). Pantalla: aviso informativo si `esUltimoGerenteActivo` (`dialog.tsx:54-58, 140-153`); si cambia después, el rechazo aparece en el modal | **CUBIERTO** | Fichas sin cuenta o con cuenta inactiva no cuentan (test PG «único gerente activo con cuenta…») |
-| 3b | Verificación y desactivación en la misma transacción, después de bloquear **todas** las fichas de gerente activas | `transaccion(...)` (READ COMMITTED) → lee ids de fichas activas, `bloquear(tx, { fichasGerente: [...activas, id] })` (`SELECT … FOR UPDATE` ordenado por id, `bloquear.ts:147`), **relee** y cuenta sobre la relectura (`gerente.service.ts:397-410`) | **CUBIERTO** | Opción «bloquear todas las fichas activas» del criterio. Tests PG: dos bajas cruzadas (A↔B) en los dos órdenes y sin pausas → una confirma y la otra `ULTIMO_GERENTE_ACTIVO`; lectura vieja con relectura posterior al bloqueo; tres gerentes con dos bajas simultáneas confirman las dos |
-| 4a | La ficha y su cuenta pasan a inactivas | `updateMany` condicionado (`activo: true, version`) + `desactivarCuenta(tx, usuarioId)` en la misma transacción (`gerente.service.ts:416-423`) | **CUBIERTO** | Test PG de rollback: si falla la cuenta, la ficha sigue activa y no queda historial |
-| 4b | Después de confirmada la operación, la baja queda en el historial de estados (fecha, usuario y acción) | `registrarCambioEstado` (entidad `FICHA_GERENTE`, `DESACTIVAR`, motivo, actor) encolado con `despuesDelCommit` (`gerente.service.ts:424`); se muestra en «Historial de estados» (`historial-estados-gerente.tsx`) con acción, fecha y hora, usuario y motivo | **CUBIERTO** | Opción (b) de la Regla N.° 2. Test: encolado para después del commit y descartado si revierte |
-| 4c | Se revocan sus sesiones vigentes (mismo mecanismo que HU-D-08 c4) | `desactivarCuenta` → `revocarSesiones` fija `sesionesValidasDesdeUsuario` (`cuenta.service.ts:116-132`); `withPermission` rechaza con 401 una cuenta inactiva o una sesión anterior al umbral (`with-permission.ts:115-128`) | **CUBIERTO** | Es exactamente la misma función que usa D-08. Test PG verifica el umbral |
-| 4d | Las operaciones que registró se conservan con su nombre | Sin `DELETE`; `obtenerNombresPersonal` resuelve nombres de gerentes sin filtrar por activo (`personal.publico.ts`) | **CUBIERTO** | Test PG «nada se borra y su nombre se sigue resolviendo» |
-| 5a | Se informa «Gerente desactivado correctamente» | `toast.success(ui.gerentes.baja.exito)` + `router.refresh()` (`dialog.tsx:134-137`) | **CUBIERTO** | Literal exacto |
-| 5b | Sigue en el listado con la etiqueta «Inactivo» | El listado (G-03) no filtra por estado; `Badge` «Inactivo» y fila atenuada (`listado-gerentes.tsx:145-170`); la acción revalida `/gerentes` (`actions.ts:103-106`) | **CUBIERTO** | Test PG «el listado refleja el estado». La ficha también muestra «Inactivo» junto al nombre (`page.tsx:109`) |
-| 6a | Desde la ficha del inactivo, «Reactivar» pide confirmación «¿Estás seguro de que querés reactivar a <gerente>?» | Mismo componente; título `ui.gerentes.reactivacion.titulo` con `ConfirmarAccionDialog`, sin motivo | **CUBIERTO** | Literal exacto |
-| 6b | Vuelve a estado Activo; la reactivación queda en el historial después de confirmada (se conservan todas las bajas y reactivaciones) | `reactivarGerente` (`gerente.service.ts:438-463`): bloqueo de la ficha, relectura, `updateMany` condicionado a inactiva y `version`, `registrarCambioEstado` `REACTIVAR` post-commit | **CUBIERTO** | Test PG: varias bajas y reactivaciones conservan todas las filas. Sin regla de «último gerente» (reactivar solo suma) |
-| 6c | Se informa «Gerente reactivado correctamente» | `toast.success(ui.gerentes.reactivacion.exito)` | **CUBIERTO** | Literal exacto |
-| 6d | Si tenía cuenta, vuelve a quedar activa y debe iniciar sesión de nuevo | `reactivarCuenta` (no toca `sesionesValidasDesde`, así que las sesiones viejas siguen inválidas) (`cuenta.service.ts:135-138`) | **CUBIERTO** | Test PG: umbral de sesiones y marca de cambio de contraseña conservados. El modal lo avisa |
-| 7 | Solo el Gerente; el servidor rechaza con 403 a otros roles | Rutas `withPermission("gerentes:cambiar_estado")`; Server Actions `verificarPermiso` **antes** de Zod (`actions.ts:118, 136`); página `exigirPermiso("gerentes:leer")` + proxy; permiso sembrado solo para GERENTE (`seed.ts:981`, migración `20261008120200_sprint3_permisos`) | **CUBIERTO** | Tests de rutas: 403 para MESA_ENTRADA, PROFESOR y ALUMNO; 401 sin sesión |
+| 1a | Desde la ficha, «Desactivar» solicita confirmación con el texto literal | Botón en `page.tsx:83` (`muestraEstado`) → `EstadoGerenteDialog`. La confirmación usa `ConfirmarAccionDialog` (HU-C-25), con el título `ui.gerentes.baja.titulo` (`estado-gerente-dialog.tsx:98-104`) | **CUBIERTO** | El texto es idéntico; `<gerente>` se reemplaza por «{nombre} {apellido}». Es una baja reversible: `destructiva` y sin `irreversible`, como pide HU-C-25 c4 |
+| 1b | La confirmación pide un motivo de hasta 300 caracteres | `textarea` con `maxLength=300` y contador «n / 300» (`estado-gerente-dialog.tsx:110-128`). En el servidor, `DesactivarGerenteSchema` con `.trim().max(300)` (`gerente.schema.ts:71-82`) | **CUBIERTO** | El tope se controla en la pantalla y en el servidor. Con 301 caracteres, el servidor responde `400 VALIDATION_ERROR` con el mensaje de `textos.ts` |
+| 1c | El motivo es obligatorio cuando el gerente registró operaciones (Regla N.° 1) | En el servidor, `usuarioRegistroOperaciones(tx, usuarioId)` → `MOTIVO_REQUERIDO` (`gerente.service.ts:411-414`). En la pantalla, `motivoObligatorioAlDesactivar` del detalle deshabilita «Desactivar» mientras el campo está vacío (`dialog.tsx:108`) | **CUBIERTO** | Usa el agregador común `src/server/shared/actividad-usuario.ts`, que hoy suma las líneas de I (pagos y cajas), C, L, **N (configuración, ya incorporada)** e historial de estados. Sin cuenta, el motivo es opcional. Si viene un motivo, se guarda aunque no fuera obligatorio |
+| 2a | La acción no aparece en su propia ficha | `muestraEstado = puedeCambiarEstado && !(gerente.activo && gerente.esVos)` (`page.tsx:83`) | **CUBIERTO** | Hay un test de pantalla que lo verifica: aun con el permiso, la ficha propia no muestra «Desactivar» |
+| 2b | El servidor rechaza el intento | `desactivarGerente`: lectura simple y comparación `usuarioId === actor.usuarioId` → `NO_PUEDE_DESACTIVARSE_A_SI_MISMO` 422, antes de tomar cualquier bloqueo (`gerente.service.ts:391-395`) | **CUBIERTO** | Test con PostgreSQL: devuelve 422 sin cambiar la ficha, la cuenta ni el historial, incluso con una versión vieja |
+| 3a | No se puede desactivar al último gerente activo (ficha activa con cuenta activa): «Debe quedar al menos un gerente activo» | `sinOtroGerenteActivo` (`gerente.service.ts:289-294`) cuenta, sin el objetivo, las fichas activas con cuenta activa (`filtrarCuentasActivas`, módulo A) → `ULTIMO_GERENTE_ACTIVO` 409 (`:410`). En la pantalla, si `esUltimoGerenteActivo` es verdadero se abre un `Dialog` informativo (`dialog.tsx:54-58, 140-153`) | **CUBIERTO** | La definición de «gerente activo» es exactamente la de la HU: no cuentan las fichas sin cuenta ni las que tienen la cuenta inactiva (test con PostgreSQL) |
+| 3b | La verificación y la desactivación van en la misma transacción, después de bloquear todas las fichas de gerente activas | `transaccion(...)` (READ COMMITTED). Dentro: lee los ids de las fichas activas, llama a `bloquear(tx, { fichasGerente: [...activas, id] })` (`SELECT … FOR UPDATE` ordenado por id, `bloquear.ts:147`), relee bajo bloqueo y cuenta sobre esa relectura (`gerente.service.ts:397-410`). El `updateMany` y la cuenta van en la misma transacción | **CUBIERTO** | Usa la primera opción del criterio (bloquear todas las fichas activas). Es seguro aunque la lista de ids se lea antes del bloqueo: una ficha que se activa en ese lapso solo agrega gerentes activos, y dos bajas concurrentes comparten fichas bloqueadas, así que se serializan. Tests con PostgreSQL que pasaron en esta validación: bajas cruzadas A↔B (en los dos órdenes y sin pausas, siempre una confirma y la otra recibe `ULTIMO_GERENTE_ACTIVO`), lectura vieja y tres gerentes con dos bajas simultáneas |
+| 4a | Al confirmar, la ficha y su cuenta pasan a inactivas | `updateMany` condicionado a `activo: true` y `version` + `desactivarCuenta(tx, usuarioId)`, en la misma transacción (`gerente.service.ts:416-423`) | **CUBIERTO** | Test de rollback con PostgreSQL: si falla la cuenta, la ficha sigue activa y no queda historial |
+| 4b | Después de confirmada la operación, la baja queda en el historial de estados (fecha, usuario y acción; Regla N.° 2) | `registrarCambioEstado` → `encolarHistorial` → `despuesDelCommit` (`gerente.service.ts:424`, `historial.ts:177-180`, `transaccion.ts`: la cola se vacía después del COMMIT y se descarta si la transacción revierte). La ficha lo muestra en «Historial de estados» con la acción, la fecha y hora, el usuario y el motivo | **CUBIERTO** | Opción (b) de la Regla N.° 2: una fila nueva por cada cambio |
+| 4c | Se revocan sus sesiones vigentes (RNF-SEG-04, mismo mecanismo que HU-D-08 c4) | `desactivarCuenta` → `revocarSesiones` fija `sesionesValidasDesdeUsuario` (`cuenta.service.ts:116-132`). `withPermission`, `verificarPermiso` y `exigirPermiso` rechazan con 401 una cuenta inactiva o una sesión anterior al umbral | **CUBIERTO** | Es la misma función que usa D-08 (`profesor.estado.service.ts:51`). Un test con PostgreSQL verifica el umbral |
+| 4d | Las operaciones que registró se conservan con su nombre | No hay ningún `DELETE` en el módulo. `obtenerNombresPersonal` resuelve el nombre del gerente aunque esté inactivo | **CUBIERTO** | Test con PostgreSQL: «nada se borra y su nombre se sigue resolviendo» |
+| 5a | Se informa «Gerente desactivado correctamente» | `toast.success(texto("ui.gerentes.baja.exito"))` + `router.refresh()` (`dialog.tsx:134-137`) | **CUBIERTO** | El texto es literal |
+| 5b | Sigue en el listado con la etiqueta «Inactivo» | El listado de G-03 no filtra por estado: muestra `Badge` «Inactivo» y la fila atenuada (`listado-gerentes.tsx:145-170`). La acción revalida `/gerentes` (`actions.ts:103-106`). La ficha también muestra «Inactivo» junto al nombre (`page.tsx:109`) | **CUBIERTO** | Test con PostgreSQL: «el listado refleja el estado» |
+| 6a | Desde la ficha del inactivo, «Reactivar» pide la confirmación «¿Estás seguro de que querés reactivar a <gerente>?» | El mismo componente, con el título `ui.gerentes.reactivacion.titulo` y `ConfirmarAccionDialog`, sin campo de motivo | **CUBIERTO** | El texto es literal |
+| 6b | Vuelve a Activo y la reactivación queda en el historial después de confirmada, conservando todas las bajas y reactivaciones | `reactivarGerente` (`gerente.service.ts:438-463`): bloquea la ficha, la relee, hace un `updateMany` condicionado a inactiva y `version`, y registra `REACTIVAR` después del commit | **CUBIERTO** | Test con PostgreSQL: después de varias bajas y reactivaciones se conservan todas las filas. No aplica la regla del último gerente, porque reactivar solo suma gerentes |
+| 6c | Se informa «Gerente reactivado correctamente» | `toast.success(texto("ui.gerentes.reactivacion.exito"))` | **CUBIERTO** | El texto es literal |
+| 6d | Si tenía cuenta, vuelve a quedar activa y debe iniciar sesión de nuevo | `reactivarCuenta` (`cuenta.service.ts:135-138`) no toca `sesionesValidasDesde`, así que las sesiones anteriores a la baja siguen siendo inválidas | **CUBIERTO** | Test con PostgreSQL: se conservan el umbral de sesiones y la marca de cambio de contraseña. El modal lo avisa: «…tiene que iniciar sesión de nuevo.» |
+| 7 | Solo el Gerente; el servidor rechaza con 403 a otros roles | Rutas con `withPermission("gerentes:cambiar_estado")`; Server Actions con `verificarPermiso` **antes** de Zod (`actions.ts:118, 136`); página con `exigirPermiso("gerentes:leer")` + `tienePermiso`. El permiso se siembra solo para GERENTE (`seed.ts:981`, migración `20261008120200_sprint3_permisos:68`) | **CUBIERTO** | Tests de rutas: 403 `SIN_PERMISO` para MESA_ENTRADA, PROFESOR y ALUMNO y 401 sin sesión. `/api/gerentes/**` no está en el `matcher` del proxy, así que el 403 lo responde la propia ruta en JSON (no hay redirección) |
 
-**Desvíos task ↔ HU:** no hay desvíos en la implementación. Hay uno **solo documental**: la tabla 9.1 de la task numera los criterios distinto que la HU. Por ejemplo, llama «c7» a «desactivar la ficha desactiva la cuenta» (en la HU, c7 es «solo el Gerente») y reparte el contenido de c4/c5. Todo lo que pide la HU está cubierto igual. Conviene corregir esa tabla para que el informe de cierre no confunda.
+**Desvíos task ↔ HU:** la implementación no tiene desvíos; cumple la HU tal como está escrita. Hay uno **solo documental** en la task: la tabla 9.1 numera los criterios distinto que la HU. Por ejemplo, llama «c7» a «desactivar la ficha desactiva la cuenta» (en la HU, c7 es «solo el Gerente») y reparte de otra forma el contenido de c4, c5 y c6. No afecta al código, pero conviene corregirla para que el cierre no confunda.
 
 ---
 
 ## 2. Textos literales (HU-C-23)
 
-| Criterio | Texto de la HU | Clave en `src/lib/textos.ts` | ¿Coincide? |
+Todos los textos entre comillas de la HU están en `src/lib/textos.ts` y coinciden **palabra por palabra**:
+
+| Criterio | Texto de la HU | Clave en `textos.ts` | ¿Coincide? |
 |---|---|---|---|
-| 1 | «Desactivar» | `ui.gerentes.ficha.desactivar` / `ui.gerentes.baja.confirmar` = «Desactivar» | Sí |
+| 1 | «Desactivar» | `ui.gerentes.ficha.desactivar` / `ui.gerentes.baja.confirmar` | Sí |
 | 1 | «¿Estás seguro de que querés desactivar a <gerente>? No podrá ingresar al sistema.» | `ui.gerentes.baja.titulo` = «¿Estás seguro de que querés desactivar a {nombre} {apellido}? No podrá ingresar al sistema.» | Sí |
-| 3 | «Debe quedar al menos un gerente activo» | `errores.gerente.ultimoGerenteActivo` = «Debe quedar al menos un gerente activo» (sin punto, igual que la HU) | Sí |
+| 3 | «Debe quedar al menos un gerente activo» | `errores.gerente.ultimoGerenteActivo` (sin punto final, igual que la HU) | Sí |
 | 5 | «Gerente desactivado correctamente» | `ui.gerentes.baja.exito` | Sí |
 | 5 | «Inactivo» | `ui.gerentes.estado.inactivo` | Sí |
 | 6 | «Reactivar» | `ui.gerentes.ficha.reactivar` / `ui.gerentes.reactivacion.confirmar` | Sí |
 | 6 | «¿Estás seguro de que querés reactivar a <gerente>?» | `ui.gerentes.reactivacion.titulo` = «¿Estás seguro de que querés reactivar a {nombre} {apellido}?» | Sí |
 | 6 | «Gerente reactivado correctamente» | `ui.gerentes.reactivacion.exito` | Sí |
 
-**No coincide ninguno: 0 diferencias.**
+**No hay textos que difieran.** La HU no fija los siguientes textos; los propuso la task y están **pendientes de validar por el PO**:
 
-**Textos que la HU no fija y la task marca como «propuestos, a validar por el PO»** (decidir en la prueba manual):
-
-| Clave | Texto |
-|---|---|
-| `errores.gerente.noPuedeDesactivarseASiMismo` | «No podés desactivarte a vos mismo.» |
-| `errores.gerente.motivoRequerido` | «Ingresá el motivo de la baja: el gerente registró operaciones.» |
-| `errores.gerente.motivoDemasiadoLargo` | «El motivo admite hasta 300 caracteres.» |
-| `errores.gerente.yaInactivo` / `yaActivo` | «El gerente ya está inactivo.» / «El gerente ya está activo.» |
-| `ui.gerentes.baja.detalle` / `detalleSinCuenta` | «Las operaciones que registró se conservan con su nombre. Su cuenta pasa a inactiva y se cierran todas sus sesiones.» / «… No tiene una cuenta de acceso vinculada.» |
-| `ui.gerentes.baja.motivo` / `motivoOpcional` / `motivoObligatorio` | «Motivo de la baja» / «Opcional» / «Obligatorio: tiene operaciones registradas» |
-| `ui.gerentes.baja.ultimoActivoTitulo` / `cerrar` | «No se puede desactivar al gerente» / «Cerrar» |
-| `ui.gerentes.reactivacion.detalle` / `detalleSinCuenta` | «Su cuenta vuelve a quedar activa. Las sesiones cerradas en la baja no se restauran: tiene que iniciar sesión de nuevo.» / «Vuelve a figurar como activo. No tiene una cuenta de acceso vinculada.» |
-| `ui.gerentes.historial.*` | «Historial de estados», «Sin bajas ni reactivaciones.», «Desactivación», «Reactivación», «Usuario» |
+- «No podés desactivarte a vos mismo.»
+- «Ingresá el motivo de la baja: el gerente registró operaciones.»
+- «El motivo admite hasta 300 caracteres.»
+- «El gerente ya está inactivo.» / «El gerente ya está activo.»
+- «Obligatorio: tiene operaciones registradas» / «Opcional»
+- «No se puede desactivar al gerente» / «Cerrar»
+- Los detalles de la baja y de la reactivación, con y sin cuenta.
+- «Desactivación», «Reactivación» y «Usuario» del historial.
 
 ---
 
@@ -81,176 +79,156 @@ Archivos principales: servicio `src/server/gerentes/gerente.service.ts`, schemas
 
 | Regla | Verificación | Estado |
 |---|---|---|
-| Validación Zod (Regla N.° 6) | `DesactivarGerenteSchema` `{ motivo?: string (trim, ≤300, vacío = no enviado), version: int ≥0 }.strict()` y `ReactivarGerenteSchema { version }.strict()`. Campo ajeno, `version` faltante, cuerpo ausente o motivo de 301 → `400 VALIDATION_ERROR` con `detalles` | OK |
-| Permisos (Regla N.° 10, c7) | `withPermission` / `verificarPermiso("gerentes:cambiar_estado")`, solo GERENTE en seed y migración. Las acciones verifican el permiso **antes** de Zod: otro rol no recibe ni siquiera un 400 | OK |
-| Lógica en el servicio (Regla N.° 4) | Rutas y acciones solo validan, llaman al servicio y traducen `ErrorDeDominio` | OK |
-| Concurrencia (Regla N.° 7 y c3) | La baja abre una transacción READ COMMITTED, hace `FOR UPDATE` de **todas** las fichas activas más la objetivo (en una sola llamada y por id ascendente, sin interbloqueos), relee, cuenta y escribe con `updateMany` condicionado a `activo` + `version` (`count === 0` → 409). Reactivar bloquea la ficha y usa el mismo `updateMany` condicionado. Las cuentas no se bloquean, pero ninguna otra operación del sistema desactiva cuentas de gerente sin pasar por este bloqueo | OK |
-| Sin borrado físico (Regla N.° 1) | Baja lógica (`activoFichaGerente=false`, cuenta inactiva); motivo en el historial; DNI y email siguen reservados (test PG) | OK |
-| Trazabilidad (Regla N.° 2) | Opción (b) `historial_estados` después del commit + opción (a) `version`/`modificadoPorUsuarioId` en la misma fila | OK |
-| Registros nuevos en lugar de modificar (Regla N.° 8) | Cada baja o reactivación **inserta** una fila nueva en `historial_estados`; ninguna se actualiza ni se borra (test PG con varias bajas y reactivaciones) | OK |
+| Validación Zod previa (Regla N.° 6) | `DesactivarGerenteSchema` y `ReactivarGerenteSchema` son `.strict()`: rechazan campos ajenos como `activo` o `usuarioId`, exigen `version` entera ≥ 0 y el motivo se recorta, hasta 300, con vacío = no enviado. Se validan con `safeParse` antes de llamar al servicio | OK |
+| Permisos (Regla N.° 10, c7) | Rutas: `withPermission`. Actions: `verificarPermiso` antes de Zod, así que sin permiso no se filtra información de validación. Página: `exigirPermiso` + `tienePermiso` | OK |
+| Transacción y bloqueo (Regla N.° 7, c3) | Una sola `transaccion()` en READ COMMITTED, con `lock_timeout` y `statement_timeout`. Bloquea con `FOR UPDATE` todas las fichas activas más la objetivo, por id ascendente (sin interbloqueos), relee y cuenta después de tener los bloqueos. La mutación usa `updateMany` condicionado a estado y `version`; `count === 0` → 409 | OK |
+| Concurrencia optimista | `version` obligatoria; si no coincide, `CONFLICTO_EDICION_CONCURRENTE` 409 | OK |
+| Sin borrado físico (Regla N.° 1) | No hay `delete`/`DELETE` en `src/server/gerentes` ni en sus rutas o pantallas | OK |
+| Trazabilidad (Regla N.° 2) | (b) `registrarCambioEstado` después del commit, con reintento; (a) `version` y `modificadoPorUsuarioId` en la misma fila | OK |
+| Registros nuevos en lugar de modificar (Regla N.° 8) | El historial solo inserta: cada baja o reactivación es una fila nueva y nunca se actualiza una anterior. La ficha y la cuenta no son «hechos consumados»: su estado se cambia con versión, como pide la spec | OK |
+| Capa delgada (Regla N.° 4) / contrato (Regla N.° 5) | Las rutas y actions solo validan, verifican el permiso, llaman al servicio y traducen a `{ data, error }` con el status de `ErrorDeDominio` | OK |
 
 ### Endpoints
 
-| Método | Ruta | Permiso | Respuestas |
-|---|---|---|---|
-| `POST` | `/api/gerentes/[id]/desactivar` — cuerpo `{ "version": n, "motivo"?: "…" }` | `gerentes:cambiar_estado` | `200 { data: { id, activo: false, version } }` · `400 VALIDATION_ERROR` / `MOTIVO_REQUERIDO` · `401` · `403 SIN_PERMISO` · `404 GERENTE_NO_ENCONTRADO` · `409 GERENTE_YA_INACTIVO` / `ULTIMO_GERENTE_ACTIVO` / `CONFLICTO_EDICION_CONCURRENTE` · `422 NO_PUEDE_DESACTIVARSE_A_SI_MISMO` |
-| `POST` | `/api/gerentes/[id]/reactivar` — cuerpo `{ "version": n }` | `gerentes:cambiar_estado` | `200 { data: { id, activo: true, version } }` · `400` · `401` · `403` · `404` · `409 GERENTE_YA_ACTIVO` / `CONFLICTO_EDICION_CONCURRENTE` |
-| `GET` | `/api/gerentes/[id]` (ficha, con `version`, `esVos`, `historialEstados`, `motivoObligatorioAlDesactivar`, `esUltimoGerenteActivo`) | `gerentes:leer` | `200` · `401` · `403` · `404` |
-| Server Actions | `desactivarGerente(id, datos)` / `reactivarGerente(id, datos)` en `src/server/gerentes/actions.ts` (las usa la pantalla) | `gerentes:cambiar_estado` | `{ data, error }` con los mismos códigos |
-| (pantalla) | `/gerentes/[id]` | `exigirPermiso("gerentes:leer")` + proxy | Otros roles → `/sin-permiso` |
+| Método y ruta | Permiso | Respuestas |
+|---|---|---|
+| `POST /api/gerentes/[id]/desactivar` · cuerpo `{ "version": n, "motivo"?: "…" }` | `gerentes:cambiar_estado` | 200 `{ id, activo: false, version }` · 400 `VALIDATION_ERROR` / `MOTIVO_REQUERIDO` · 401 · 403 `SIN_PERMISO` · 404 `GERENTE_NO_ENCONTRADO` · 409 `GERENTE_YA_INACTIVO` / `ULTIMO_GERENTE_ACTIVO` / `CONFLICTO_EDICION_CONCURRENTE` · 422 `NO_PUEDE_DESACTIVARSE_A_SI_MISMO` |
+| `POST /api/gerentes/[id]/reactivar` · cuerpo `{ "version": n }` | `gerentes:cambiar_estado` | 200 `{ id, activo: true, version }` · 400 · 401 · 403 · 404 · 409 `GERENTE_YA_ACTIVO` / `CONFLICTO_EDICION_CONCURRENTE` |
+| `GET /api/gerentes/[id]` (detalle con `historialEstados`, `motivoObligatorioAlDesactivar`, `esUltimoGerenteActivo`) | `gerentes:leer` | 200 · 401 · 403 · 404 |
+| Server Actions `desactivarGerente(id, datos)` y `reactivarGerente(id, datos)` (`src/server/gerentes/actions.ts`, son las que usa la pantalla) | `gerentes:cambiar_estado` | Mismo `{ data, error }`; sin permiso, `SIN_PERMISO` (cubierto por `actions.test.ts`) |
 
-### Snippets para comprobar el 403
+### Snippet para comprobar el 403 desde la consola del navegador
 
-**Paso previo, con sesión de Gerente** (`gerente@noctium.local`), para anotar los ids de las fichas de prueba:
-
-```js
-fetch("/api/gerentes?q=prueba baja").then(r => r.json()).then(j => console.table(j.data.items.map(g => ({ id: g.id, nombre: `${g.apellido}, ${g.nombre}`, dni: g.dni, activo: g.activo }))));
-```
-
-**Con sesión de Mesa de entrada, Profesor o Alumno** (F12 → Console, en cualquier pantalla de `http://localhost:3000`). Reemplazar `<ID_ACTIVO>` por el id de Lucas (88066001) y `<ID_INACTIVO>` por el de Camila (88066004):
+Iniciá sesión con **otro rol** (por ejemplo `mesa.entrada@noctium.local`, `profesor1@noctium.local` o `alumno01@noctium.local`, todos con `Password123!`), abrí la consola (F12) en cualquier página de la app y pegá:
 
 ```js
-// 1) Desactivar: 403 SIN_PERMISO (el permiso se verifica antes que el cuerpo)
-fetch("/api/gerentes/<ID_ACTIVO>/desactivar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: 0, motivo: "prueba" }) })
-  .then(async r => console.log(r.status, await r.json()));
-
-// 2) Reactivar: 403 SIN_PERMISO
-fetch("/api/gerentes/<ID_INACTIVO>/reactivar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: 1 }) })
-  .then(async r => console.log(r.status, await r.json()));
-
-// 3) Cuerpo inválido: sigue siendo 403, no 400 (no revela nada a otro rol)
-fetch("/api/gerentes/<ID_ACTIVO>/desactivar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ activo: false }) })
-  .then(async r => console.log(r.status, await r.json()));
-
-// 4) Ficha: 403
-fetch("/api/gerentes/<ID_ACTIVO>").then(async r => console.log(r.status, await r.json()));
+// Ficha de 88066001 (Lucas Prueba Baja) en la base actual; si se volvió a correr el seed, copiá el id de la URL /gerentes/<id>
+const id = "cmv84cl5201v3uxmkqv8gbnww";
+const pruebas = [
+  ["POST", `/api/gerentes/${id}/desactivar`, { version: 0, motivo: "Prueba 403" }],
+  ["POST", `/api/gerentes/${id}/reactivar`, { version: 0 }],
+  ["GET", `/api/gerentes/${id}`],
+];
+for (const [method, url, body] of pruebas) {
+  const r = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  console.log(method, url, "→", r.status, await r.json().catch(() => null));
+}
+// Esperado: 403 con error.code = "SIN_PERMISO" en los tres, y la ficha sin cambios.
 ```
 
-Esperado: `403 { data: null, error: { code: "SIN_PERMISO", message: "No tenés permisos para acceder a esta sección" } }`. Ninguno cambia datos.
-
-**Criterio 2 por HTTP, con sesión de Gerente sobre su PROPIA ficha** (por ejemplo `gerente@`, id de «Paredes, Silvia» en el listado):
+Para el criterio 2, desde la sesión de un gerente sobre **su propia** ficha. Usá `g05.operaciones@noctium.local` / `Password123!` (Renata, 88066002), no un gerente del seed:
 
 ```js
-const ID = "<ID_PROPIO>";
-const { data } = await (await fetch(`/api/gerentes/${ID}`)).json();
-console.log("esVos:", data.esVos, "version:", data.version);
-fetch(`/api/gerentes/${ID}/desactivar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: data.version, motivo: "prueba" }) })
-  .then(async r => console.log(r.status, await r.json())); // 422 NO_PUEDE_DESACTIVARSE_A_SI_MISMO, sin ningún cambio
+const propia = "cmv84clht01v6uxmk5tmmsali"; // ficha de 88066002
+const r = await fetch(`/api/gerentes/${propia}/desactivar`, {
+  method: "POST", headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ version: 0, motivo: "Intento propio" }),
+});
+console.log(r.status, await r.json()); // Esperado: 422 NO_PUEDE_DESACTIVARSE_A_SI_MISMO, sin cambios
 ```
+
+Para comprobar el tope del motivo, desde una sesión de gerente: con `motivo: "x".repeat(301)` → `400 VALIDATION_ERROR` con «El motivo admite hasta 300 caracteres.».
 
 ---
 
 ## 4. Definición de Terminado
 
-| Ítem | Estado |
+| Punto | Estado |
 |---|---|
-| Textos visibles en el archivo central | **Cumple.** Todos los textos de la ficha, el diálogo, el aviso, el historial y los errores salen de `texto(...)`; el comprobador de HU-C-23 aprueba |
-| Ningún texto visible dice «turno» | **Cumple.** Ninguna clave `ui.gerentes.*` ni `errores.gerente.*` lo contiene. La ficha importa `fechaCorta`/`fechaHoraDeInstante` desde `@/lib/turno-detalle`, pero es solo el nombre del módulo, no un texto visible |
-| Confirmación con el componente común de HU-C-25 en toda operación que guarda | **Cumple.** Desactivar y reactivar usan `ConfirmarAccionDialog`. El aviso del último gerente activo es un `Dialog` informativo que **no guarda nada** (excepción documentada en DESIGN.md §6.3) |
-| Tests en verde | **Cumple con observación.** Los tests de la HU pasan: 327 unitarios y 15/15 con PostgreSQL. En la suite completa hubo 2 timeouts en `claves-textos.test.ts` (36/36 en verde corrido solo) y 1 `beforeAll` lento en el PG de G-03 (24/24 en verde corrido solo). No son de esta HU, pero el equipo debería subirles el límite de tiempo para que la suite completa no dé falsos rojos |
+| Textos visibles en el archivo central (`textos.ts`) | **Cumple.** La ficha, el diálogo y el historial usan solo `texto(…)`. El comprobador de claves pasa |
+| Ningún texto visible dice «turno» | **Cumple.** Ninguna clave `ui.gerentes.*` ni `errores.gerente.*` contiene «turno». El import `@/lib/turno-detalle` (`fechaHoraDeInstante`) es un nombre técnico, no un texto visible |
+| Confirmación con el componente común de HU-C-25 en toda operación que guarda | **Cumple.** La baja y la reactivación usan `ConfirmarAccionDialog`. El aviso del último gerente es un `Dialog` informativo que no guarda nada (excepción documentada en DESIGN §6.3) |
+| Tests en verde | **Cumple para la HU**: 327 unitarios + 15 + 24 con PostgreSQL, todos en verde. **En `develop`, la suite completa no está en verde**: `actividad-usuario.test.ts` falla (2 tests). Ese test es del agregador «registró operaciones» y lo rompió HU-N-01, no G-05. El comportamiento real está bien: los tests con PostgreSQL de G-05 que dependen del agregador pasan, porque usan una base real y no el `tx` simulado. Lo tiene que corregir el responsable de HU-N-01 actualizando el `tx` simulado del test. Los otros dos fallos fueron timeouts por carga y pasan corridos solos |
 
-**Incumplimientos: ninguno.**
+**Incumplimientos de la DoD propios de G-05:** ninguno. **Pendiente ajeno que afecta al sprint:** el test roto del agregador (HU-N-01), que hay que corregir antes del cierre para que la rama principal quede en verde.
 
 ---
 
 ## 5. Extras y violaciones
 
-### Implementado sin que la HU lo pida
+### Cosas implementadas que la HU no pide (ninguna contradice la HU)
 
-- **Aviso informativo «No se puede desactivar al gerente»**, que se abre en lugar de la confirmación cuando la ficha ya indica que es el último gerente activo (lo pide la spec G, no la HU). Con datos consistentes casi no se alcanza (ver 6.c3).
-- **Errores 409 «ya inactivo» / «ya activo»** y conflicto de versión (`version` obligatoria en el cuerpo). Al cerrar el modal después de un rechazo, la ficha se refresca.
-- **Fichas sin cuenta de acceso** (fixtures): se pueden desactivar y reactivar, con detalle propio en el modal.
-- **Rutas HTTP además de las Server Actions** (la pantalla usa las actions; las rutas sirven para Postman y los tests).
-- **Detalle del gerente ampliado** con `historialEstados`, `motivoObligatorioAlDesactivar` y `esUltimoGerenteActivo`. El historial muestra también el **motivo**: la HU pide fecha, usuario y acción.
-- El modal de reactivación avisa que las sesiones cerradas no se restauran.
-- Fixture `hu-g-05.ts` con 4 gerentes de prueba.
+1. **Aviso informativo previo del último gerente activo**: un `Dialog` con «No se puede desactivar al gerente» que se abre en lugar de la confirmación. Está documentado en DESIGN §6.3 y §6.4.
+2. **Rutas REST además de las Server Actions**, para las pruebas por HTTP.
+3. **Fichas de gerente sin cuenta**: se pueden dar de baja y reactivar sin tocar ninguna cuenta. Entran en el bloqueo, pero no cuentan como gerente activo.
+4. **El motivo se guarda aunque sea opcional**, y se muestra en el historial.
+5. **Avisos de detalle en los modales**: en la baja, «Su cuenta pasa a inactiva y se cierran todas sus sesiones.»; en la reactivación, «Las sesiones cerradas en la baja no se restauran…». Esto cumple HU-C-25 c4, que pide explicar los efectos que no se restauran.
+6. **Rechazos del servidor dentro del modal** (último gerente, motivo, versión, ya inactivo, propia ficha), con refresco de la ficha al cerrar.
+7. **Fixture `hu-g-05.ts`** con cuatro fichas de prueba (88066001 a 88066004).
 
-Todo es coherente con la HU y no le cambia el alcance.
+### Violaciones a RULES.md o DESIGN.md
 
-### Violaciones / puntos a mirar respecto de RULES.md / DESIGN.md
-
-- **Ninguna violación** de las reglas 1 a 11 ni de DESIGN.md. Los colores usan tokens (`destructive`, `muted`, `border`…), sin hexadecimales ni paleta por defecto. Las filas de DESIGN.md §6.4 están actualizadas.
-- **Menor (documental):** `docs/RULES.md:180`, en la sección de G-01, todavía dice «El detalle no ofrece desactivar ni reactivar ni historial (HU-G-05)». Quedó vieja: la sección «Aplicación HU-G-05» (línea 191) ya describe lo vigente. No bloquea.
-- **Menor (documental):** la numeración de criterios de la tabla 9.1 de la task (ver sección 1).
-- **Deuda declarada:** duplicación entre `desactivarIntegrante`/`desactivarGerente` y entre los diálogos e historiales de F-05 y G-05. La línea de N en «registró operaciones» sigue siendo deuda de HU-N-01. Ninguna bloquea.
+- **Ninguna bloqueante.**
+- **Menor, transversal (DESIGN §4, «regla análoga para el rojo»):** el botón «Desactivar» usa `hover:bg-destructive-soft hover:text-destructive` (`estado-gerente-dialog.tsx:91`). Sobre `--destructive-soft` el texto debería ir en `--destructive-soft-foreground`, porque `--destructive` sobre ese fondo da ~4.3:1, por debajo de AA. Solo pasa durante el hover, y el mismo patrón está en otros 7 botones de la app (personal, alumnos, profesores, caja, etc.; `turno-detalle-encabezado.tsx` es el único que lo hace bien). No es propio de esta HU: conviene registrarlo como deuda de diseño en DESIGN §7.
+- **Menor:** si el historial no puede resolver el nombre de quien actuó, muestra el genérico «Usuario». Con gerentes no debería pasar (siempre actúa un usuario con ficha), así que no hace falta corregirlo.
+- Sin colores hex ni de la paleta default de Tailwind en los archivos de la HU.
 
 ---
 
 ## 6. Datos para la prueba manual
 
-Contraseña de las cuentas del seed y de 88066002: **`Password123!`**. 88066001 nace con la contraseña = DNI (`88066001`) y la marca de cambio obligatorio.
+**Credenciales** (todas con `Password123!` salvo donde se indica):
 
-**Estado actual de la base de desarrollo (consulta de solo lectura):**
+| Cuenta | Rol / ficha | Uso |
+|---|---|---|
+| `gerente@noctium.local` | GERENTE · Silvia Paredes (24100001) | Quien da de baja. En su propia ficha, «(vos)» en el listado y sin «Desactivar» |
+| `gerente2@noctium.local` | GERENTE · Roberto Quiroga (24100002) | Segundo actor (criterio 3) |
+| `g05.operaciones@noctium.local` | GERENTE · Renata Prueba Baja (88066002), **con operaciones** (dio de baja a 88066004) | Motivo obligatorio; sesión para probar la autodesactivación y la revocación de sesiones |
+| `g05.sinoperaciones@noctium.local` / contraseña **`88066001`** | GERENTE · Lucas Prueba Baja (88066001), sin operaciones, con la marca de cambio obligatorio | Motivo opcional; después de reactivar sigue yendo a `/primer-ingreso` |
+| — | Bruno Prueba Baja (88066003), **sin cuenta** | Baja y reactivación sin cuenta |
+| `g05.inactivo@noctium.local` / contraseña **`88066004`** | Camila Prueba Baja (88066004), **inactiva**, con historial («Licencia prolongada», hecho por Renata) | «Reactivar» y historial con datos reales |
+| `mesa.entrada@noctium.local`, `profesor1@noctium.local`, `alumno01@noctium.local` | Otros roles | 403 (criterio 7) |
 
-| DNI | Ficha | Estado | Cuenta | Para qué |
-|---|---|---|---|---|
-| 24100001 | Paredes, Silvia | Activa | `gerente@noctium.local` (activa) | **Quien opera.** Su propia ficha, para el criterio 2. **No usarla como objetivo** |
-| 24100002 | Quiroga, Roberto | Activa | `gerente2@noctium.local` (activa) | Segundo gerente que opera. No usarla como objetivo |
-| 88066001 | Prueba Baja, Lucas | Activa, v0 | `g05.sinoperaciones@noctium.local` (activa, con marca) | c1 con **motivo opcional**, c4, c5, c6 |
-| 88066002 | Prueba Baja, Renata | Activa, v0 | `g05.operaciones@noctium.local` (activa, **sin marca**, `Password123!`) | c1 con **motivo obligatorio** (dio de baja a Camila), c4 revocación de sesiones, c6 «debe iniciar sesión de nuevo» |
-| 88066003 | Prueba Baja, Bruno | Activa, v0 | **Sin cuenta** | Baja y reactivación sin cuenta (motivo opcional, otro detalle en el modal) |
-| 88066004 | Prueba Baja, Camila | **Inactiva**, v1 | `g05.inactivo@noctium.local` (inactiva) | c6 «Reactivar»; ya tiene 1 entrada de historial («Licencia prolongada», hecha por Renata) |
-| 88064002 | Prueba Gerente, Valeria | Inactiva, sin historial | `g01.inactivo@…` | Otra ficha inactiva para «Reactivar» (historial vacío al empezar) |
-| — | `mesa.entrada@noctium.local`, `profesor1@noctium.local`, `alumno01@noctium.local` | — | — | c7 (403 y `/sin-permiso`) |
+Estado actual de `noctium_dev` (consulta de solo lectura): 24100001, 24100002, 88064001, 88066001, 88066002 y 88066003 están activos; 88064002 y 88066004 están inactivos; 88066004 tiene 1 entrada de historial. Ids: 88066001 `cmv84cl5201v3uxmkqv8gbnww`, 88066002 `cmv84clht01v6uxmk5tmmsali`, 88066003 `cmv84clsp01v9uxmkeudkzcg7`, 88066004 `cmv84cm2u01vcuxmkoww5up03`, 88064001 `cmv84ckal01u9uxmkyultyi2f`, 24100001 `cmv84b9wo000kuxmkez8b7l53`, 24100002 `cmv84b9wz000muxmk9f82doa3`.
 
-**Casos por criterio:**
+### Caso por criterio
 
 | Criterio | Cómo probarlo |
 |---|---|
-| 1 (opcional) | Como `gerente@` → Gerentes → «Prueba Baja, Lucas» → «Desactivar». Verificar el título literal, «Motivo de la baja», «Opcional», el contador «0 / 300», que el campo no deja pasar de 300 caracteres y que «Desactivar» está habilitado vacío. Confirmar sin motivo |
-| 1 (obligatorio) | Ficha de **Renata** → «Desactivar»: ayuda «Obligatorio: tiene operaciones registradas» y botón deshabilitado con el campo vacío o con solo espacios. Escribir un motivo → se habilita |
-| 2 | Como `gerente@`, abrir la ficha propia (Paredes): solo «Editar», sin «Desactivar». Rechazo del servidor: snippet de la sección 3 → `422` |
-| 3 | Ver «Preparar el caso del último gerente activo», más abajo. La concurrencia (dos bajas cruzadas) **no se puede probar a mano**; la cubren los 4 tests con PostgreSQL de `gerente.estado.pg.test.ts` |
-| 4 | Antes de dar de baja a Renata: en **otra ventana de incógnito**, entrar como `g05.operaciones@` y dejar una pantalla abierta. Dar de baja a Renata desde `gerente@` (con motivo). En la ventana de Renata, navegar o recargar → vuelve al login. Al ingresar de nuevo → «La cuenta está inactiva». En la ficha de Renata, «Historial de estados» muestra «Desactivación», fecha y hora, «Paredes, Silvia» y el motivo. En la ficha de Camila, la entrada vieja sigue mostrando «Prueba Baja, Renata» como autora (nombre conservado) |
-| 5 | Después de cada baja: toast «Gerente desactivado correctamente», «Inactivo» junto al nombre; en «Gerentes → Listado» (página 2), la fila atenuada con «Inactivo» |
-| 6 | Ficha de **Camila** (o de Renata después de c4) → «Reactivar»: título literal, sin motivo, aviso de sesiones. Confirmar: toast «Gerente reactivado correctamente», sin «Inactivo», historial con «Reactivación» arriba y la baja anterior conservada. Con Renata: su ventana de incógnito sigue fuera; tiene que volver a iniciar sesión (`Password123!`) y entra. Hacer baja → reactivación → baja otra vez y ver que se acumulan las tres entradas |
-| Sin cuenta | Bruno (88066003): «Desactivar» con el detalle «No tiene una cuenta de acceso vinculada», motivo opcional; después «Reactivar» |
-| 7 | Con `mesa.entrada@`, `profesor1@` y `alumno01@`: el menú no muestra «Gerentes», `http://localhost:3000/gerentes/<ID>` lleva a `/sin-permiso` y los snippets de la sección 3 dan `403` |
-| Textos propuestos | Revisar los de la tabla de la sección 2 y aprobarlos o pedir cambios |
+| 1 | Como Silvia: **Gerentes → Lucas (88066001) → Desactivar**. Verificá el título literal, «Motivo de la baja» con «Opcional» y el contador «n / 300»; no se pueden tipear más de 300 caracteres. Después, **Renata (88066002) → Desactivar**: la ayuda dice «Obligatorio…» y «Desactivar» queda deshabilitado hasta escribir un motivo |
+| 2 | Como Silvia, abrí tu propia ficha desde el listado (fila con «(vos)»): solo aparece «Editar». Para el servidor, usá el snippet del criterio 2 (sección 3) con la sesión de Renata → 422 |
+| 3 | Ver «Preparación del criterio 3» más abajo; necesita un dato inconsistente. La parte concurrente (dos bajas cruzadas a la vez) no se puede reproducir a mano de forma confiable: la cubren los tests con PostgreSQL, que pasaron 15/15 en esta validación |
+| 4 | (a) Abrí la app como Renata en una ventana de incógnito. (b) En la ventana normal, como Silvia, desactivá a Renata con un motivo. (c) Ficha de Renata: «Inactivo» junto al nombre, «Cuenta de acceso» Inactiva y el historial con «Desactivación», fecha y hora, «Silvia Paredes» y el motivo. (d) En la ventana de Renata, recargá o navegá: te manda a `/login`, y el login falla porque la cuenta está inactiva. (e) Ficha de Camila (88066004): el historial sigue mostrando «Renata Prueba Baja» como quien la dio de baja, es decir, sus operaciones se conservan con su nombre |
+| 5 | Después de cada baja aparece el toast «Gerente desactivado correctamente»; en `/gerentes` la fila se ve atenuada con la etiqueta «Inactivo» |
+| 6 | Como Silvia: **Camila (88066004) → Reactivar** → título literal, sin motivo → toast «Gerente reactivado correctamente»; el historial muestra las dos entradas (la baja y la reactivación) y la cuenta queda Activa. Reactivá también a Renata: su ventana de incógnito anterior sigue sin sesión y tiene que volver a iniciar sesión con `Password123!`. Con Bruno (88066003, sin cuenta) probá la baja y la reactivación sin cuenta |
+| 7 | Snippet de la sección 3 con mesa de entrada, profesor y alumno → 403 `SIN_PERMISO`. Si además entrás a `/gerentes/<id>` con esos roles, la app te manda a `/sin-permiso` |
 
-**No usar** `g05.sinoperaciones@` ni `g01.activo@` para iniciar sesión: nacen con «debe cambiar la contraseña» y entrar con ellas obliga a cambiarla, lo que modifica los datos de prueba.
+### Preparación del criterio 3 (último gerente activo)
 
-### Preparar el caso del último gerente activo (c3) sin tocar código
+Con datos coherentes, la regla nunca se dispara desde la pantalla: quien opera ya es un gerente activo con cuenta activa y no puede ser el objetivo. Para verla hace falta una ficha **inactiva con la cuenta activa**, que es justamente el dato inconsistente que la regla cubre. Sin tocar código:
 
-Con datos consistentes no se alcanza: quien opera siempre es un gerente activo con cuenta activa y no puede ser el objetivo, así que siempre «queda uno». Para ver el aviso y el `409`, hay que dejar **temporalmente** como única ficha activa con cuenta activa a la del objetivo, y que quien opera tenga la cuenta activa pero la ficha inactiva. El script solo cambia `activoFichaGerente` de 4 fichas, y el de restauración lo deja todo como estaba. Correrlo con `next dev` levantado y **sin sesiones abiertas**, salvo la de Renata.
-
-```bash
-# PREPARAR: Renata opera (cuenta activa, ficha inactiva); Paredes, Quiroga y Tomás quedan con la ficha inactiva.
-# Lucas (88066001) queda como único gerente activo con cuenta activa.
-docker exec -i noctium_db psql -U noctium -d noctium_dev <<'SQL'
-UPDATE fichas_gerente SET "activoFichaGerente" = false
-WHERE "dniFichaGerente" IN ('24100001','24100002','88064001','88066002');
-SQL
-```
-
-1. Entrar como `g05.operaciones@noctium.local` / `Password123!` → Gerentes → «Prueba Baja, Lucas» → «Desactivar» → aparece el aviso «No se puede desactivar al gerente» / «Debe quedar al menos un gerente activo» / «Cerrar».
-2. Rechazo del servidor, en la consola con la misma sesión:
-   ```js
-   const ID = "<ID_LUCAS>";
-   const { data } = await (await fetch(`/api/gerentes/${ID}`)).json();
-   fetch(`/api/gerentes/${ID}/desactivar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: data.version }) })
-     .then(async r => console.log(r.status, await r.json())); // 409 ULTIMO_GERENTE_ACTIVO
+1. Entrá como **Roberto** (`gerente2@noctium.local`) y desactivá desde la pantalla a **Tomás (88064001)**, **Renata (88066002, con motivo)** y **Silvia (24100001, con motivo)**. Así, los únicos activos con cuenta quedan Roberto y Lucas (88066001).
+2. Abrí la ficha de **Lucas** y tocá «Desactivar»: aparece la confirmación normal, porque todavía queda Roberto. **No confirmes** y dejá el modal abierto.
+3. Corré este SQL una sola vez (deja la ficha de Roberto inactiva y su cuenta activa, para que pueda seguir operando):
+   ```bash
+   docker exec noctium_db psql -U noctium -d noctium_dev -c "UPDATE fichas_gerente SET \"activoFichaGerente\" = false WHERE \"dniFichaGerente\" = '24100002';"
    ```
-3. **Restaurar enseguida:**
+4. En el modal abierto escribí un motivo y confirmá: el rechazo «Debe quedar al menos un gerente activo» aparece **dentro del modal**, y al cerrarlo la ficha se refresca.
+5. Tocá «Desactivar» otra vez: ahora se abre directamente el aviso «No se puede desactivar al gerente» con «Debe quedar al menos un gerente activo» y el botón «Cerrar».
+6. Opcional, desde la consola con la sesión de Roberto: `fetch("/api/gerentes/cmv84cl5201v3uxmkqv8gbnww/desactivar", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({version:0})}).then(r=>r.json()).then(console.log)` → `ULTIMO_GERENTE_ACTIVO` (409).
+7. **Restaurar:**
+   ```bash
+   docker exec noctium_db psql -U noctium -d noctium_dev -c "UPDATE fichas_gerente SET \"activoFichaGerente\" = true WHERE \"dniFichaGerente\" = '24100002';"
+   ```
+   Después, como Roberto, reactivá desde la pantalla a Silvia, Renata y Tomás (esto también sirve como prueba del criterio 6). Otra opción es dejar todo como el seed con `npx prisma migrate reset --force`, que **borra toda la base de desarrollo** y la regenera con el seed.
 
-```bash
-docker exec -i noctium_db psql -U noctium -d noctium_dev <<'SQL'
-UPDATE fichas_gerente SET "activoFichaGerente" = true
-WHERE "dniFichaGerente" IN ('24100001','24100002','88064001','88066002');
-SQL
-```
-
-(Si ya diste de baja a Renata en c4, reactivala primero o sacá `'88066002'` del script de restauración.) Alternativa a los scripts: `npx prisma studio` → `FichaGerente` → cambiar `activoFichaGerente` de esas 4 filas y volverlo atrás. Para dejar toda la base como al inicio, después de la prueba manual: `npx prisma migrate reset --force` (borra la base de desarrollo y vuelve a correr el seed con todas las fixtures).
+> El cambio del paso 3 se hace por fuera de la aplicación, así que no queda en el historial de estados de Roberto. Es intencional: simula un dato inconsistente y se revierte en el paso 7.
 
 ---
 
 ## 7. Veredicto preliminar
 
-### **Lista para prueba manual**
+**Lista para prueba manual.**
 
 **Bloqueantes:** ninguno.
 
-Para decidir o corregir en la prueba manual (no bloquean):
-1. Aprobar o cambiar los **textos propuestos** de la sección 2 (sobre todo «No podés desactivarte a vos mismo.» y «Ingresá el motivo de la baja: el gerente registró operaciones.»).
-2. Pedir que suban el límite de tiempo de `src/lib/claves-textos.test.ts` y del `beforeAll` de `gerente.service.pg.test.ts`: en una máquina lenta, la suite completa da falsos rojos (los dos pasan corridos solos).
-3. Correcciones documentales: `RULES.md:180` (frase vieja en la sección de G-01) y la numeración de criterios de la tabla 9.1 de la task.
+Observaciones no bloqueantes para el PO y el dev:
+1. Validar los textos propuestos de la sección 2 (no los fija la HU).
+2. Corregir la numeración de criterios de la tabla 9.1 de la task (solo documental).
+3. Registrar como deuda de diseño transversal el contraste del hover de los botones «Desactivar» (DESIGN §4).
+4. El criterio 3 en su parte concurrente solo se puede verificar con los tests automáticos con PostgreSQL, que pasaron. La parte visible necesita el dato inconsistente de la sección 6.
+5. **Ajeno a G-05, pero a resolver antes del cierre:** `src/server/shared/actividad-usuario.test.ts` está en rojo en `develop` desde `068239d` (HU-N-01): el `tx` simulado no tiene `historialParametro`. Es el agregador del criterio 1 de esta HU; su comportamiento real está verificado con PostgreSQL. Avisar al responsable de HU-N-01.

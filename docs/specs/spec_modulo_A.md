@@ -133,6 +133,8 @@ E02 implementa `/alumnos/[id]/clases` y `GET /api/alumnos/[id]/clases` exclusiva
 
 Figuras 66–67: pestaña Clases y aviso de modo consulta; no se agregan Desactivar ni Pagos, historias aún fuera del alcance. Sidebar conservado por instrucción del usuario; su enlace general de Profesor queda rechazado por ruta y API. Fixtures usan fachadas PR0 para estados C14/C24/B07 sin declarar completadas esas historias. Changelog aditivo: integración E02 y revocación de compatibilidad de Sprint 2.
 
+> **Corrección 14/10/2026 (HU-E-02, criterio 8).** El párrafo anterior quedó desactualizado: el Gerente tiene «Alumnos > Listado» en el menú lateral y accede al listado, a la búsqueda y a la ficha del alumno en modo consulta, con las pestañas Datos, Clases, Historial académico y Pagos. No edita datos, no inscribe ni registra pagos, y el servidor sigue respondiendo `403 SIN_PERMISO` a toda escritura suya sobre alumnos. En la pestaña Pagos puede corregir o anular según HU-I-06 (`puedeCorregirPago`: siempre que el pago no esté anulado). Rige lo de esta corrección donde difiera del párrafo anterior.
+
 ### Nota de implementación HU-A-06
 
 Aditiva: no cambia ningún contrato de esta spec.

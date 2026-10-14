@@ -140,6 +140,12 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
               }
             ],
     },
+    // HU-E-02 criterio 8: el Gerente consulta los alumnos (alumnos:leer, modo consulta).
+    {
+      label: textoC19("ui.clases.menu.alumnos"),
+      icon: Users,
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/alumnos", icon: Contact }],
+    },
     {
       label: textoC19("ui.clases.menu.materias"),
       icon: BookOpen,

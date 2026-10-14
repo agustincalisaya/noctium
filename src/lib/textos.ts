@@ -683,7 +683,7 @@ export const TEXTOS = {
   "ui.historial.clasesAlumno.error": "No se pudieron cargar las clases. Intentá nuevamente.",
   "ui.historial.clasesAlumno.reintentar": "Reintentar",
   "ui.historial.clasesAlumno.rangoInvalido": "«Desde» no puede ser posterior a «Hasta»",
-  "ui.historial.clasesAlumno.consulta": "Modo consulta: no editás datos, no inscribís ni registrás pagos.",
+  "ui.historial.clasesAlumno.consulta": "Modo consulta: no editás datos, no inscribís ni registrás pagos. En Pagos podés corregir o anular un pago.",
   "ui.historial.clasesAlumno.volverClase": "Volver a la clase",
   "ui.historial.clasesAlumno.tabla": "Historial de clases",
   "ui.historial.clasesAlumno.sinDato": "—",
