@@ -450,21 +450,41 @@ describe("HU-C-09 detalle de turno (mockup pág. 5)", () => {
 
   it("HU-I-10: la tarjeta Pago solo informa pagos; el cobro se ofrece por alumno", async () => {
     fetch.mockResolvedValue(respuesta(detalle({
-      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: true }],
+      alumnos: [
+        { id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", vence_el: "2026-10-06T15:00:00-03:00", precio: 24000 }, puede_registrar_pago: true },
+        { id: "alumno-2", nombre: "Gómez, Lucía", dni: "30999888", inscripcion: { id: "i-2", estado_pago: "PAGO_SIN_REGISTRAR", precio: 24000 }, puede_registrar_pago: true },
+      ],
     })));
     await montar();
     const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
     expect(tarjeta.textContent).toContain("Total registrado");
-    expect(tarjeta.querySelector("button")).toBeNull();
-    expect(container.querySelector('a[aria-label="Registrar pago de Pérez, Juan"]')?.getAttribute("href"))
-      .toBe("/pagos/registrar?alumno=alumno-1&clase=turno-1");
+    expect([...tarjeta.querySelectorAll("button")].some((boton) => boton.textContent === "Registrar pago")).toBe(false);
+    expect([...tarjeta.querySelectorAll("button")].map((boton) => boton.textContent)).toEqual(["Ver detalle", "Ver detalle"]);
+    expect([...container.querySelectorAll('a[aria-label^="Registrar pago de"]')].map((acceso) => [acceso.getAttribute("aria-label"), acceso.getAttribute("href")])).toEqual([
+      ["Registrar pago de Pérez, Juan", "/pagos/registrar?alumno=alumno-1&clase=turno-1"],
+      ["Registrar pago de Gómez, Lucía", "/pagos/registrar?alumno=alumno-2&clase=turno-1"],
+    ]);
   });
 
   it("HU-I-10: la tarjeta Pago conserva la lectura en una clase cancelada", async () => {
-    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [] })));
+    fetch.mockResolvedValue(respuesta(detalle({ estado: "CANCELADO", acciones_habilitadas: [],
+      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "RESERVADA", precio: 24000 }, puede_registrar_pago: false }],
+    })));
     await montar();
-    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')).not.toBeNull();
-    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"] button')).toBeNull();
+    const tarjeta = container.querySelector('section[aria-labelledby="pago-turno-titulo"]')!;
+    expect(tarjeta).not.toBeNull();
+    expect([...tarjeta.querySelectorAll("button")].map((boton) => boton.textContent)).toEqual(["Ver detalle", "Ver detalle"]);
+    expect(tarjeta.textContent).not.toContain("Registrar pago");
+    expect(container.querySelector('a[aria-label^="Registrar pago de"]')).toBeNull();
+  });
+
+  it("HU-I-10: una clase ya iniciada no ofrece cobro desde la fila del alumno", async () => {
+    fetch.mockResolvedValue(respuesta(detalle({ fecha: "2026-10-01", acciones_habilitadas: [],
+      alumnos: [{ id: "alumno-1", nombre: "Pérez, Juan", dni: "30123456", inscripcion: { id: "i-1", estado_pago: "PAGO_SIN_REGISTRAR", precio: 24000 }, puede_registrar_pago: false }],
+    })));
+    await montar();
+    expect(container.querySelector('a[aria-label^="Registrar pago de"]')).toBeNull();
+    expect(container.querySelector('section[aria-labelledby="pago-turno-titulo"]')?.textContent).not.toContain("Registrar pago");
   });
 
   it("tarjeta «Pago» vacía → «Ninguno todavía.»", async () => {

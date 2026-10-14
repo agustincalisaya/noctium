@@ -52,10 +52,10 @@ export function BuscadorAlumnos({ id, excluir, deshabilitado, avisoDeshabilitado
   const seleccionar = (alumno: AlumnoBuscado) => { onSeleccionar(alumno); setQuery(""); setResultados([]); };
 
   return <div className="space-y-2">
-    <Input id={id} value={query} onChange={(event) => { setQuery(event.target.value); setResultados([]); setError(""); }} disabled={deshabilitado} placeholder="Nombre, apellido o DNI (mínimo 2 caracteres)" autoComplete="off" aria-describedby={deshabilitado && avisoDeshabilitado ? `${id}-aviso` : undefined} />
+    <Input id={id} value={query} onChange={(event) => { setQuery(event.target.value); setResultados([]); setError(""); }} disabled={deshabilitado} placeholder={texto("ui.turnos.buscador.placeholder")} autoComplete="off" aria-describedby={deshabilitado && avisoDeshabilitado ? `${id}-aviso` : undefined} />
     {deshabilitado && avisoDeshabilitado && <p id={`${id}-aviso`} role="status" className="text-sm text-muted-foreground">{avisoDeshabilitado}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {activa && !error && <p role="status" className="text-sm text-muted-foreground">{buscando ? "Buscando…" : visibles.length === 0 ? (textoSinResultados?.(query.trim()) ?? "No se encontraron alumnos activos para agregar") : `${visibles.length} ${visibles.length === 1 ? "resultado" : "resultados"}`}</p>}
-    {visibles.length > 0 && <ul className="space-y-1" aria-label="Resultados de alumnos">{visibles.map((alumno) => <li key={alumno.id}><Button type="button" variant="outline" className="h-auto w-full justify-start text-left" onClick={() => seleccionar(alumno)}>{etiquetaAlumno(alumno)} · DNI {alumno.dni}</Button></li>)}</ul>}
+    {activa && !error && <p role="status" className="text-sm text-muted-foreground">{buscando ? texto("ui.turnos.buscador.buscando") : visibles.length === 0 ? (textoSinResultados?.(query.trim()) ?? texto("ui.turnos.buscador.sinResultados")) : visibles.length === 1 ? texto("ui.turnos.buscador.unResultado") : texto("ui.turnos.buscador.resultados", { n: visibles.length })}</p>}
+    {visibles.length > 0 && <ul className="space-y-1" aria-label={texto("ui.turnos.buscador.lista")}>{visibles.map((alumno) => <li key={alumno.id}><Button type="button" variant="outline" className="h-auto w-full justify-start text-left" onClick={() => seleccionar(alumno)}>{etiquetaAlumno(alumno)} · DNI {alumno.dni}</Button></li>)}</ul>}
   </div>;
 }
