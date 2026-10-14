@@ -17,6 +17,7 @@ import {
   Banknote,
   BriefcaseBusiness,
   Hourglass,
+  Settings2,
   type LucideIcon
 } from "lucide-react";
 import { texto } from "@/lib/textos";
@@ -172,6 +173,7 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       icon: BriefcaseBusiness,
       items: [{ label: texto("ui.profesores.estado.listado"), href: "/gerentes", icon: ListOrdered }],
     },
+    { label: texto("ui.configuracion.titulo"), href: "/configuracion", icon: Settings2 },
   ],
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
   // operar otros módulos (ej. asociar sus propias materias, HU-D-03).
