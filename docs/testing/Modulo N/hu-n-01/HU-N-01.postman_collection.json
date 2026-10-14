@@ -1,0 +1,773 @@
+{
+  "info": {
+    "name": "HU-N-01 — Configuración del centro",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar contra una base de prueba descartable con migraciones/seed. Usar sesiones reales en el Cookie Jar de Postman; la colección no contiene cookies ni credenciales. Para el conflicto 409: abrir dos sesiones Gerente, hacer GET en ambas, guardar un valor en una y enviar desde la otra un PUT con esperados antiguos; verificar que ninguna otra clave se haya modificado. Para 10/11 filas de historial, repetir cambios reales y consultar páginas 1 y 2."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Sin sesión",
+      "item": [
+        {
+          "name": "GET sin sesión → 401",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT sin sesión → 401",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historial sin sesión → 401",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gerente",
+      "item": [
+        {
+          "name": "01 GET parámetros",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json().data.parametros;",
+                  "pm.test('tres enteros y metadatos', () => { pm.expect(p).to.have.length(3); p.forEach(x => { pm.expect(x.valor).to.be.a('number'); pm.expect(x.valor % 1).to.eql(0); }); });",
+                  "p.forEach(x => pm.collectionVariables.set('esperado_'+x.campo, x.valor));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 PUT no-op",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"valores\":{\"plazoPagoHoras\":{{esperado_plazoPagoHoras}},\"cancelacionAnticipacionHoras\":{{esperado_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{esperado_umbralPresentismo}}},\"esperados\":{\"plazoPagoHoras\":{{esperado_plazoPagoHoras}},\"cancelacionAnticipacionHoras\":{{esperado_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{esperado_umbralPresentismo}}}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('sin cambios', () => pm.expect(pm.response.json().data.cambios).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 PUT borde inferior",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"valores\":{\"plazoPagoHoras\":1,\"cancelacionAnticipacionHoras\":1,\"umbralPresentismo\":1},\"esperados\":{\"plazoPagoHoras\":{{esperado_plazoPagoHoras}},\"cancelacionAnticipacionHoras\":{{esperado_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{esperado_umbralPresentismo}}}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 GET después de borde inferior",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.response.json().data.parametros.forEach(x => pm.collectionVariables.set('esperado_'+x.campo, x.valor));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 PUT borde superior",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"valores\":{\"plazoPagoHoras\":72,\"cancelacionAnticipacionHoras\":72,\"umbralPresentismo\":100},\"esperados\":{\"plazoPagoHoras\":{{esperado_plazoPagoHoras}},\"cancelacionAnticipacionHoras\":{{esperado_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{esperado_umbralPresentismo}}}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "06 GET después de borde superior",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.response.json().data.parametros.forEach(x => pm.collectionVariables.set('esperado_'+x.campo, x.valor));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "07 Historial página 1",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial?pagina=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const d=pm.response.json().data; pm.test('paginación y actor/fecha',()=>{pm.expect(d.por_pagina).to.eql(10); pm.expect(d.items.length).to.be.at.most(10); d.items.forEach(x=>{pm.expect(x.usuario.id).to.be.a('string');pm.expect(x.fecha).to.be.a('string');});});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "08 Historial página fuera de rango",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial?pagina=99999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('vacía con total real',()=>{const d=pm.response.json().data;pm.expect(d.items).to.eql([]);pm.expect(d.total).to.be.a('number');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "09 Decimal → 400",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 1.5,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10 Fuera de rango → 400",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 101\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11 Clave extra anidada → 400",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75,\n    \"centro_nombre\": \"otro\"\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12 Esperados ausentes → 400",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"valores\":{\"plazoPagoHoras\":24,\"cancelacionAnticipacionHoras\":24,\"umbralPresentismo\":75}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13 Historial query extra vacía → 400",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial?foo="
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14 Historial página inválida → 400",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial?pagina=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Concurrencia — dos lecturas Gerente",
+      "description": "Ejecutar en orden con sesión Gerente sobre una base de prueba. El segundo PUT usa el snapshot inicial; intenta cambiar cancelación antes que plazo en el orden alfabético para probar rollback.",
+      "item": [
+        {
+          "name": "01 Snapshot de ambos editores",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200',()=>pm.response.to.have.status(200));",
+                  "const v=Object.fromEntries(pm.response.json().data.parametros.map(p=>[p.campo,p.valor]));",
+                  "Object.entries(v).forEach(([k,x])=>pm.collectionVariables.set('stale_'+k,x));",
+                  "const primero=v.plazoPagoHoras===24?48:24;pm.collectionVariables.set('primer_pago',primero);pm.collectionVariables.set('segundo_pago',primero===36?48:36);",
+                  "pm.collectionVariables.set('nueva_cancelacion',v.cancelacionAnticipacionHoras===24?48:24);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 Primer editor guarda plazo",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"valores\":{\"plazoPagoHoras\":{{primer_pago}},\"cancelacionAnticipacionHoras\":{{stale_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{stale_umbralPresentismo}}},\"esperados\":{\"plazoPagoHoras\":{{stale_plazoPagoHoras}},\"cancelacionAnticipacionHoras\":{{stale_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{stale_umbralPresentismo}}}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 Segundo editor intenta dos cambios con snapshot viejo",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"valores\":{\"plazoPagoHoras\":{{segundo_pago}},\"cancelacionAnticipacionHoras\":{{nueva_cancelacion}},\"umbralPresentismo\":{{stale_umbralPresentismo}}},\"esperados\":{\"plazoPagoHoras\":{{stale_plazoPagoHoras}},\"cancelacionAnticipacionHoras\":{{stale_cancelacionAnticipacionHoras}},\"umbralPresentismo\":{{stale_umbralPresentismo}}}}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 sin parcial',()=>{pm.response.to.have.status(409);pm.expect(pm.response.json().error.code).to.eql('CONFLICTO_EDICION_CONCURRENTE');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 Confirmar rollback",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 y cancelación intacta',()=>{pm.response.to.have.status(200);const v=Object.fromEntries(pm.response.json().data.parametros.map(p=>[p.campo,p.valor]));pm.expect(v.plazoPagoHoras).to.eql(Number(pm.collectionVariables.get('primer_pago')));pm.expect(v.cancelacionAnticipacionHoras).to.eql(Number(pm.collectionVariables.get('stale_cancelacionAnticipacionHoras')));});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Historial 10/11",
+      "description": "Preparar antes once cambios reales en la base descartable con sesión Gerente (alternar valores válidos); ejecutar estas dos consultas y comprobar usuario y fecha.",
+      "item": [
+        {
+          "name": "Página 1: diez filas",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial?pagina=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('10 de al menos 11',()=>{pm.response.to.have.status(200);const d=pm.response.json().data;pm.expect(d.total).to.be.at.least(11);pm.expect(d.items).to.have.length(10);d.items.forEach(x=>{pm.expect(x.usuario.id).to.be.a('string');pm.expect(x.fecha).to.be.a('string');});});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Página 2: fila restante",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial?pagina=2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('segunda página',()=>{pm.response.to.have.status(200);const d=pm.response.json().data;pm.expect(d.pagina).to.eql(2);pm.expect(d.items.length).to.be.at.least(1);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mesa de entrada",
+      "description": "Iniciar sesión real como Mesa de entrada antes de ejecutar.",
+      "item": [
+        {
+          "name": "GET → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT → 403",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historial → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Profesor",
+      "description": "Iniciar sesión real como Profesor antes de ejecutar.",
+      "item": [
+        {
+          "name": "GET → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT → 403",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historial → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Alumno",
+      "description": "Iniciar sesión real como Alumno antes de ejecutar.",
+      "item": [
+        {
+          "name": "GET → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT → 403",
+          "request": {
+            "method": "PUT",
+            "url": "{{base_url}}/api/configuracion",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"valores\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  },\n  \"esperados\": {\n    \"plazoPagoHoras\": 24,\n    \"cancelacionAnticipacionHoras\": 24,\n    \"umbralPresentismo\": 75\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historial → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/configuracion/historial"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

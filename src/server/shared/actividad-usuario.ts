@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { usuarioRegistroOperaciones as registroConfiguracion } from "@/server/configuracion/configuracion.publico";
 import { usuarioRegistroOperaciones as registroPagosYCajas } from "@/server/pagos/pago.publico";
 import { usuarioRegistroOperaciones as registroClases } from "@/server/turnos/turno.publico";
 import { usuarioRegistroOperaciones as registroTarifas } from "@/server/materias/materia.publico";
@@ -20,6 +21,8 @@ export async function usuarioRegistroOperaciones(tx: Prisma.TransactionClient, u
     () => registroClases(usuarioId, tx),
     // L: cambios de tarifa.
     () => registroTarifas(usuarioId, tx),
+    // N: cambios de parámetros del centro.
+    () => registroConfiguracion(usuarioId, tx),
     // Bajas y reactivaciones de cualquier entidad.
     () => usuarioRegistroCambiosDeEstado(usuarioId, tx),
   ];
