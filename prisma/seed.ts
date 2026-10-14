@@ -89,6 +89,11 @@
 //    escenarios los inscriba. Giménez (profesor1) tiene 7 (+1 pasado).
 //  - 2 en el PASADO a propósito (1 y 2 días operativos antes de hoy,
 //    DISPONIBLE) para que el calendario muestre historial.
+//  - HU-C-27 (filtro «Período» del listado): 3 clases de HOY (2 DISPONIBLE y
+//    1 PENDIENTE; solo si hoy es día operativo) y 4 de días anteriores (3, 4 y
+//    5 días operativos antes): 1 DISPONIBLE, 1 CANCELADO, 1 PENDIENTE (sin
+//    «Continuar configuración») y 1 PENDIENTE de la materia inactiva
+//    "Historia de la Ciencia" (opción «Inactiva» del filtro «Materia»).
 //  El cupo es la capacidad del aula; ningún turno usa "Sala individual" ni
 //  "Sala grupal". Como el día de la semana de cada fecha depende de cuándo se
 //  corre el seed, los profesores con turnos tienen una franja común todos los
@@ -1005,6 +1010,12 @@ type TurnoSeed = {
   semanal?: { dia: DiaSemana; ocurrencia: number };
   // Fecha absoluta (historial de Indicadores, ver planificarHistorico).
   fecha?: Date;
+  // HU-C-27: la clase es del día en que se corre el seed (filtro «Hoy» del
+  // listado). Solo se crea si hoy es día operativo (ver main()).
+  hoy?: true;
+  // HU-C-27: clase de una materia dada de baja (opción «Inactiva» del filtro
+  // «Materia»). Solo en el pasado y PENDIENTE sin profesor ni aula.
+  materiaInactiva?: true;
   hora: string; // "HH:mm"
   duracionMin: number; // uno de DURACIONES_PERMITIDAS_TURNO_MIN
   materia: string;
@@ -1089,6 +1100,19 @@ const TURNOS: TurnoSeed[] = [
   // mes, la vista previa marca esa fecha «Aula ocupada» y el resto OK. Se
   // corrige cambiando el aula a «Aula 10» (libre todos los martes 18-20).
   { id: "seed-turno-demo-p1", semanal: { dia: "MARTES", ocurrencia: 2 }, hora: "18:00", duracionMin: 120, materia: "Programación I", profesor: 3, aula: "Aula 11", alumnos: rango(30, 34) }, // 5/35
+  // HU-C-27: clases de hoy y de días anteriores para el filtro «Período» del
+  // listado. Mismas combinaciones de profesor, materia, hora y duración que las
+  // de otras filas, en días sin otras clases del seed. Sin profesor1 ni las
+  // aulas 1, 2 y 11, que usan los fixtures con fechas fijas (HU-E-02, E-09,
+  // E-11, H-03, H-10): así no chocan con cualquier SEED_FECHA_HOY. Sin
+  // alumnos: los pasos 13 y 14 no inscriben en clases de hoy.
+  { id: "seed-turno-c27-hoy-1", hoy: true, hora: "10:00", duracionMin: 120, materia: "Programación I", profesor: 1, aula: "Laboratorio", alumnos: [] }, // ya terminada si se siembra a la tarde
+  { id: "seed-turno-c27-hoy-2", hoy: true, hora: "16:00", duracionMin: 120, materia: "Inglés Técnico", profesor: 3, aula: "Aula 10", alumnos: [], prioridad: "ALTA" },
+  { id: "seed-turno-c27-hoy-3", hoy: true, hora: "14:00", duracionMin: 60, materia: "Química", profesor: null, aula: null, alumnos: [] }, // PENDIENTE de hoy: sí ofrece «Continuar configuración»
+  { id: "seed-turno-c27-ant-1", diaOperativo: -3, hora: "10:00", duracionMin: 120, materia: "Programación I", profesor: 1, aula: "Laboratorio", alumnos: [] },
+  { id: "seed-turno-c27-ant-2", diaOperativo: -3, hora: "12:00", duracionMin: 60, materia: "Bases de Datos", profesor: 1, aula: "Aula 1", alumnos: [], cancelado: true },
+  { id: "seed-turno-c27-ant-3", diaOperativo: -4, hora: "14:00", duracionMin: 60, materia: "Química", profesor: null, aula: null, alumnos: [] }, // PENDIENTE anterior: sin «Continuar configuración», con «Descartar»
+  { id: "seed-turno-c27-inactiva", diaOperativo: -5, hora: "10:00", duracionMin: 60, materia: "Historia de la Ciencia", profesor: null, aula: null, alumnos: [], materiaInactiva: true }, // opción «Historia de la Ciencia · Inactiva»
 ];
 
 // Registro de pagos (HU-I-10): alumnos que se suman al plan `alumnos` de
@@ -1203,6 +1227,7 @@ function fechaSemanal(hoy: Date, dia: DiaSemana, ocurrencia: number): Date {
 
 /** Fecha de un turno de seed según el campo que la fija (ver TurnoSeed). */
 function fechaDeTurno(hoy: Date, t: TurnoSeed): Date {
+  if (t.hoy) return hoy;
   if (t.fecha) return t.fecha;
   if (t.semanal) return fechaSemanal(hoy, t.semanal.dia, t.semanal.ocurrencia);
   return fechaOperativa(hoy, t.diaOperativo ?? 0);
@@ -1329,13 +1354,19 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
   // FECHA_PASADA: los diaOperativo < 0 y el historial de Indicadores son
   // pasados a propósito.
   for (const t of turnos) {
-    if ([t.diaOperativo, t.semanal, t.fecha].filter((x) => x !== undefined).length !== 1) {
-      errores.push(`${t.id}: la fecha se fija con exactamente uno de diaOperativo, semanal o fecha`);
+    if ([t.diaOperativo, t.semanal, t.fecha, t.hoy].filter((x) => x !== undefined).length !== 1) {
+      errores.push(`${t.id}: la fecha se fija con exactamente uno de diaOperativo, semanal, fecha u hoy`);
     }
     const fecha = fechas.get(t.id)!;
     const dia = diaSemanaDeFecha(fecha);
     const { inicio, fin } = intervaloDe(t);
-    if (!materiasActivas.has(t.materia)) errores.push(`${t.id}: materia inactiva`);
+    if (t.materiaInactiva) {
+      // HU-C-27: una materia dada de baja después de tener una clase; solo en
+      // el pasado y sin profesor ni aula (no hay nada que configurar).
+      if (MATERIAS.find((m) => m.nombre === t.materia)?.activa !== false) errores.push(`${t.id}: materiaInactiva con una materia activa`);
+      if (fecha >= hoy) errores.push(`${t.id}: materiaInactiva solo en el pasado`);
+      if (t.profesor !== null || t.aula !== null || t.alumnos.length > 0 || t.pendiente) errores.push(`${t.id}: materiaInactiva solo en un PENDIENTE sin profesor, aula ni alumnos`);
+    } else if (!materiasActivas.has(t.materia)) errores.push(`${t.id}: materia inactiva`);
     if (fecha > fechaMaxima) errores.push(`${t.id}: supera anticipacion_maxima_dias`);
     if (!PARAMETROS_HORARIO.diasOperativos.includes(dia)) errores.push(`${t.id}: día no operativo`);
     if (inicio % PARAMETROS_HORARIO.granularidadMinutos !== 0) errores.push(`${t.id}: hora no granular`);
@@ -1372,6 +1403,8 @@ function validarDatos(hoy: Date, turnos: readonly TurnoSeed[], fechas: Map<strin
 
     if (t.profesor === null) {
       if (t.aula !== null || t.alumnos.length > 0) errores.push(`${t.id}: PENDIENTE con aula o alumnos`);
+      // HU-C-27: la clase de una materia inactiva ya no se puede configurar.
+      if (t.materiaInactiva) continue;
       // Tiene que poder configurarse (HU-C-15): algún profesor activo que
       // dicte la materia, con horario que cubra el turno en el día REAL de la
       // fecha y libre de otros turnos agendados en ese intervalo.
@@ -1535,7 +1568,11 @@ async function main() {
   // «Hoy» sale del reloj del dominio (PR-0.md §2.16): SEED_FECHA_HOY lo fija
   // (ver el final del archivo) y, si no, es el día real del centro.
   const hoy = fechaCentro(ahora());
-  const turnosSeed = turnosConInscriptos();
+  // HU-C-27: las clases de hoy solo se crean si hoy es día operativo (si no,
+  // validarDatos las rechazaría por día no operativo).
+  const hoyOperativo = PARAMETROS_HORARIO.diasOperativos.includes(diaSemanaDeFecha(hoy));
+  const turnosSeed = turnosConInscriptos().filter((t) => hoyOperativo || !t.hoy);
+  if (!hoyOperativo) console.log("  · Hoy no es día operativo: no se crean las clases de hoy (HU-C-27). Usar SEED_FECHA_HOY=AAAA-MM-DD con un día hábil.");
   const fechasTurnos = calcularFechasTurnos(hoy, turnosSeed);
   validarDatos(hoy, turnosSeed, fechasTurnos);
   if (soloValidar) {

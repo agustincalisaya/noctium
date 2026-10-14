@@ -1,0 +1,137 @@
+{
+  "info": {
+    "name": "HU-C-27 — Ver todas las clases con filtros de período, fechas y materia",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "spec_modulo_C.md §2.4 y §2.7 (HU-C-27). GET /api/turnos con periodo, desde, hasta y materia_id. Correr con la app levantada (next dev) y una base con migraciones + seed. Cada carpeta usa la sesión real del rol que la nombra (mesa.entrada@, profesor1@ del seed); el login y el Cookie Jar quedan fuera de la colección: no se exportan cookies ni tokens. materia_id y profesor_ajeno_id se completan con ids de la base (consulta 5 de HU-C-27.sql y la tabla profesores)."
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "materia_id", "value": "" },
+    { "key": "materia_inexistente_id", "value": "ckmateriainexistente00001" },
+    { "key": "profesor_ajeno_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Mesa de entrada",
+      "description": "Sesión de mesa.entrada@noctium.local.",
+      "item": [
+        {
+          "name": "01 Sin parámetros → período «hoy»",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());",
+            "const items = pm.response.json().data.items;",
+            "pm.test('todas las clases son de hoy', () => items.forEach((t) => pm.expect(t.fecha).to.eql(hoy)));",
+            "pm.test('cada ítem trae es_dia_anterior=false', () => items.forEach((t) => pm.expect(t.es_dia_anterior).to.eql(false)));"
+          ] } }]
+        },
+        {
+          "name": "02 periodo=anteriores → fechas < hoy, orden descendente",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=anteriores&por_pagina=20" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());",
+            "const items = pm.response.json().data.items;",
+            "pm.test('fechas anteriores a hoy', () => items.forEach((t) => pm.expect(t.fecha < hoy).to.be.true));",
+            "pm.test('es_dia_anterior=true', () => items.forEach((t) => pm.expect(t.es_dia_anterior).to.be.true));",
+            "const claves = items.map((t) => t.fecha + ' ' + t.hora_inicio);",
+            "pm.test('fecha y hora descendente', () => pm.expect(claves).to.eql([...claves].sort().reverse()));"
+          ] } }]
+        },
+        {
+          "name": "03 periodo=proximas → fechas > hoy",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=proximas" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date());",
+            "pm.response.json().data.items.forEach((t) => pm.expect(t.fecha > hoy).to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "04 periodo=todas → anteriores, de hoy y próximas",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=todas&por_pagina=20" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const claves = pm.response.json().data.items.map((t) => t.fecha + ' ' + t.hora_inicio);",
+            "pm.test('fecha y hora ascendente', () => pm.expect(claves).to.eql([...claves].sort()));"
+          ] } }]
+        },
+        {
+          "name": "05 Rango desde–hasta inclusive",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?desde=2026-10-06&hasta=2026-10-13&por_pagina=20" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "pm.response.json().data.items.forEach((t) => pm.expect(t.fecha >= '2026-10-06' && t.fecha <= '2026-10-13').to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "06 Desde posterior a Hasta → 400",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?desde=2026-10-20&hasta=2026-10-01" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400 VALIDACION', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error.code).to.eql('VALIDACION'); });",
+            "pm.test('mensaje en desde', () => pm.expect(pm.response.json().error.detalles.fieldErrors.desde[0]).to.eql('La fecha Desde no puede ser posterior a Hasta'));"
+          ] } }]
+        },
+        {
+          "name": "07 Período junto con rango → 400",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=hoy&desde=2026-10-01" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400', () => pm.response.to.have.status(400));"
+          ] } }]
+        },
+        {
+          "name": "08 Período inválido / fecha inválida → 400",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=ayer" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400', () => pm.response.to.have.status(400));"
+          ] } }]
+        },
+        {
+          "name": "09 materia_id existente → solo esa materia",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=todas&materia_id={{materia_id}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "pm.response.json().data.items.forEach((t) => pm.expect(t.materia_id).to.eql(pm.collectionVariables.get('materia_id')));"
+          ] } }]
+        },
+        {
+          "name": "10 materia_id inexistente → 400",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?materia_id={{materia_inexistente_id}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400 VALIDACION', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error.message).to.eql('La materia elegida no existe'); });"
+          ] } }]
+        },
+        {
+          "name": "11 estados sigue fuera del producto → 400",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?estados=CANCELADO" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400', () => pm.response.to.have.status(400));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Profesor",
+      "description": "Sesión de profesor1@noctium.local.",
+      "item": [
+        {
+          "name": "12 periodo=todas → solo sus clases",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?periodo=todas&por_pagina=20" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const ids = new Set(pm.response.json().data.items.map((t) => t.profesor_id));",
+            "pm.test('un solo profesor', () => pm.expect(ids.size).to.be.at.most(1));"
+          ] } }]
+        },
+        {
+          "name": "13 profesor_id ajeno → 403",
+          "request": { "method": "GET", "url": "{{base_url}}/api/turnos?profesor_id={{profesor_ajeno_id}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('403 SIN_PERMISO', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().error.code).to.eql('SIN_PERMISO'); });"
+          ] } }]
+        }
+      ]
+    }
+  ]
+}

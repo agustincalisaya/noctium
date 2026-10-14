@@ -63,7 +63,7 @@ export function MiCaja({ caja, puedeAbrir, puedeCerrar, puedeMovimientos }: {
             </Button>
           )}
           {puedeCerrar && (
-            <Button type="button" variant="outline" className="border-destructive text-destructive hover:bg-destructive-soft"
+            <Button type="button" variant="outline" className="border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive"
               onClick={() => setCerrando(true)}>
               {texto("ui.caja.cerrar")}
             </Button>

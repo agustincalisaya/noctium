@@ -88,7 +88,7 @@ export function EstadoGerenteDialog({ gerente }: { gerente: GerenteParaEstado })
     <>
       <Button
         variant="outline"
-        className={activo ? "border-destructive text-destructive hover:bg-destructive-soft" : undefined}
+        className={activo ? "border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive" : undefined}
         onClick={iniciar}
       >
         <Power className="size-4" aria-hidden />

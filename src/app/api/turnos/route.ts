@@ -9,13 +9,16 @@ export const GET = withPermission("turnos:leer", async (req) => {
   if (!parsed.success) {
     return NextResponse.json({ data: null, error: { code: "VALIDACION", message: "Parámetros inválidos", detalles: parsed.error.flatten() } }, { status: 400 });
   }
+  const { pagina, por_pagina, q, profesor_id, periodo, desde, hasta, materia_id } = parsed.data;
   try {
-    const data = await listarTurnos(parsed.data.pagina, parsed.data.por_pagina, req.auth!.user, { q: parsed.data.q, profesor_id: parsed.data.profesor_id });
+    const data = await listarTurnos(pagina, por_pagina, req.auth!.user, { q, profesor_id, periodo, desde, hasta, materia_id });
     return NextResponse.json({ data, error: null });
   } catch (error) {
     // HU-C-08: profesor ajeno o sin ficha (Profesor) → 403; profesor inexistente o inactivo (Gerente/Mesa) → 404.
-    if (error instanceof ServiceError && (error.code === "SIN_PERMISO" || error.code === "PROFESOR_NO_ENCONTRADO")) {
-      return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status: error.code === "SIN_PERMISO" ? 403 : 404 });
+    // HU-C-27: materia inexistente (o período y rango combinados) → 400.
+    if (error instanceof ServiceError && (error.code === "SIN_PERMISO" || error.code === "PROFESOR_NO_ENCONTRADO" || error.code === "VALIDACION")) {
+      const status = error.code === "SIN_PERMISO" ? 403 : error.code === "PROFESOR_NO_ENCONTRADO" ? 404 : 400;
+      return NextResponse.json({ data: null, error: { code: error.code, message: error.message } }, { status });
     }
     throw error;
   }

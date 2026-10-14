@@ -111,13 +111,21 @@ function DetalleClases({ clases }: { clases: ClaseAConfirmar[] }) {
       </tr>
     </thead>
     <tbody>
-      {clases.map(({ clase, importe, motivo }) => <tr key={clase.inscripcion_id ?? clase.turno_id} className="border-b border-border last:border-b-0 text-foreground">
-        <td className="py-2">
-          <span className="block">{clase.materia.nombre} · {diaAbreviadoYFecha(clase.fecha)} {clase.hora_inicio}</span>
-          {motivo && <span className="block text-xs text-muted-foreground">{texto("ui.pagos.confirmacion.motivo", { motivo })}</span>}
-        </td>
-        <td className="py-2 text-right font-mono align-top">{formatearMonto(Number(importe))}</td>
-      </tr>)}
+       {clases.map(({ clase, importe, motivo }) => {
+         const ajustado = Number(importe) !== Number(clase.precio);
+         return <tr key={clase.inscripcion_id ?? clase.turno_id} className="border-b border-border last:border-b-0 text-foreground">
+           <td className="py-2 pr-3 align-top">
+             <span className="block break-words">{clase.materia.nombre} · {diaAbreviadoYFecha(clase.fecha)} {clase.hora_inicio}</span>
+             {ajustado && motivo && <span className="block break-words text-xs text-muted-foreground">{texto("ui.pagos.confirmacion.motivo", { motivo })}</span>}
+           </td>
+           <td className="py-2 text-right align-top">
+             {ajustado ? <dl className="space-y-1 text-xs">
+               <div><dt className="text-muted-foreground">{texto("ui.pagos.confirmacion.precioOriginal")}</dt><dd className="font-mono">{formatearMonto(clase.precio)}</dd></div>
+               <div><dt className="font-medium">{texto("ui.pagos.confirmacion.importeCobrar")}</dt><dd className="font-mono font-semibold">{formatearMonto(Number(importe))}</dd></div>
+             </dl> : <span className="font-mono">{formatearMonto(Number(importe))}</span>}
+           </td>
+         </tr>;
+       })}
     </tbody>
   </table>;
 }

@@ -32,6 +32,30 @@ export async function obtenerMateriasPorIds(
 }
 
 /**
+ * Opciones del filtro «Materia» del listado de clases (HU-C-27, criterio 4):
+ * las materias cuyo id está en `idsConClases`, activas o inactivas (C le
+ * pasa las que tienen al menos una clase, así L no lee `turnos`), y además,
+ * con `incluirActivasSinClases`, todas las activas. Orden por nombre
+ * normalizado. Solo lectura.
+ */
+export async function listarMateriasParaFiltroDeClases(
+  idsConClases: string[],
+  { incluirActivasSinClases }: { incluirActivasSinClases: boolean },
+  db: Prisma.TransactionClient = prisma,
+): Promise<{ id: string; nombre: string; activa: boolean }[]> {
+  const ids = [...new Set(idsConClases)];
+  if (!incluirActivasSinClases && ids.length === 0) return [];
+  const materias = await db.materia.findMany({
+    where: incluirActivasSinClases
+      ? { OR: [{ activaMateria: true }, { idMateria: { in: ids } }] }
+      : { idMateria: { in: ids } },
+    select: { idMateria: true, nombreMateria: true, activaMateria: true },
+    orderBy: { nombreNormalizadaMateria: "asc" },
+  });
+  return materias.map((materia) => ({ id: materia.idMateria, nombre: materia.nombreMateria, activa: materia.activaMateria }));
+}
+
+/**
  * Tarifas por hora de las materias pedidas (spec_modulo_L.md §2.10, P-L5):
  * activas o inactivas, `tarifaHora: null` si la materia no tiene tarifa (el
  * consumidor rechaza con MATERIA_SIN_TARIFA). Los ids inexistentes se omiten

@@ -72,6 +72,13 @@ describe("baja (M-21)", () => {
     expect(confirmarBaja().className).toContain("bg-destructive");
   });
 
+  it("el botón de baja conserva el texto rojo al pasar o apretar (prototipo: .btn-danger-o:hover)", async () => {
+    await montar();
+    const clases = boton("Desactivar alumno")!.className.split(" ");
+    expect(clases).toEqual(expect.arrayContaining(["text-destructive", "hover:bg-destructive-soft", "hover:text-destructive"]));
+    expect(clases).not.toContain("hover:text-accent-foreground");
+  });
+
   it("si no se puede obtener el impacto avisa con un toast y no abre la confirmación", async () => {
     m.fetch.mockResolvedValue({ ok: false, json: async () => ({ data: null, error: { code: "ALUMNO_YA_INACTIVO", message: "El alumno ya está inactivo." } }) });
     await montar();

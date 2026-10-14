@@ -40,7 +40,7 @@ export function EstadoAlumnoDialog({ alumno }: { alumno: { id: string; nombre: s
 
   return (
     <>
-      <Button variant="outline" className={alumno.activo ? "border-destructive text-destructive hover:bg-destructive-soft" : undefined} onClick={iniciar}>
+      <Button variant="outline" className={alumno.activo ? "border-destructive text-destructive hover:bg-destructive-soft hover:text-destructive" : undefined} onClick={iniciar}>
         <Power className="size-4" aria-hidden />
         {texto(alumno.activo ? "ui.alumnos.estado.desactivar" : "ui.alumnos.estado.reactivar")}
       </Button>

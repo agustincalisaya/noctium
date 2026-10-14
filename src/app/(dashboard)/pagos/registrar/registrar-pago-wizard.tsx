@@ -148,7 +148,7 @@ export function RegistrarPagoWizard({ alumnoInicialId, claseInicialId }: { alumn
       <p className="text-sm text-muted-foreground">{texto("ui.pagos.registrar.descripcion")}</p>
     </header>
     <ProgresoRegistrarPago paso={paso} />
-    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <div className={`grid items-start gap-6 ${paso === 2 ? "2xl:grid-cols-[minmax(0,1fr)_18rem]" : "lg:grid-cols-[minmax(0,1fr)_18rem]"}`}>
       <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-card-foreground sm:p-7">
         {paso === 1 ? <PasoBuscarAlumno onSeleccionar={elegirAlumno} /> :
           errorCarga ? <div role="alert" className="space-y-3">
