@@ -9,7 +9,7 @@ import {
   obtenerClasesBasicas,
   listarInscripcionesDeAlumno,
 } from "@/server/turnos/inscripcion.publico";
-import { buscarAlumnosActivos, obtenerAlumnosBasicos } from "@/server/alumnos/alumno.publico";
+import { buscarAlumnosActivos, obtenerAlumnoDeUsuario, obtenerAlumnosBasicos } from "@/server/alumnos/alumno.publico";
 import { obtenerTarifasPorIds } from "@/server/materias/materia.publico";
 import { listarFormasPagoActivas, verificarFormaPagoActiva } from "@/server/pagos/forma-pago.publico";
 import { registrarOperacion, type ItemOperacion } from "@/server/pagos/operacion.service";
@@ -19,10 +19,10 @@ import { ahora } from "@/server/shared/reloj";
 import { instanteCentro, isoCentro } from "@/server/shared/fechas-centro";
 import { normalizarTexto } from "@/lib/normalizar-texto";
 import { obtenerNombresPersonal } from "@/server/personal/personal.publico";
-import { listarPagosDeAlumno } from "@/server/pagos/pago.publico";
+import { listarPagosDeAlumno, type PagoDeAlumno } from "@/server/pagos/pago.publico";
 import { puedeCorregirPago, type UsuarioOperador } from "@/server/pagos/correccion.service";
-import type { HistorialPagosQuery } from "@/server/pagos/pago.schema";
-import type { HistorialPagosData, OpcionesHistorialPagos, PagoHistorialItem, EstadoPagoHistorialItem, PaginacionHistorialPagos } from "@/types/pago.types";
+import type { HistorialPagosQuery, MisPagosQuery } from "@/server/pagos/pago.schema";
+import type { HistorialPagosData, OpcionesHistorialPagos, PagoHistorialItem, EstadoPagoHistorialItem, PaginacionHistorialPagos, MisPagoItem, MisPagosData, OpcionesMisPagos } from "@/types/pago.types";
 import { ServiceError } from "@/server/shared/service-error";
 import { transaccion } from "@/server/shared/transaccion";
 import type { RegistrarOperacionInput, RegistrarPagoInput } from "@/server/pagos/pago.schema";
@@ -249,6 +249,27 @@ function paginarHistorial<T>(items: T[], solicitada: number): { items: T[]; pagi
   };
 }
 
+type ClaseBasica = Awaited<ReturnType<typeof obtenerClasesBasicas>>[number];
+
+/**
+ * Cada pago con su clase, en una sola lectura en lote de C (Regla N.° 3). Un
+ * pago sin clase es una inconsistencia: se informa, no se inventa ni se omite.
+ */
+async function pagosConClase(pagos: PagoDeAlumno[]): Promise<{ pago: PagoDeAlumno; clase: ClaseBasica }[]> {
+  const clases = await obtenerClasesBasicas(pagos.map((p) => p.turno_id));
+  const clasePorId = new Map(clases.map((c) => [c.turno_id, c]));
+  return pagos.map((pago) => {
+    const clase = clasePorId.get(pago.turno_id);
+    if (!clase) throw new Error(`Pago ${pago.pago_id} sin clase ${pago.turno_id}`);
+    return { pago, clase };
+  });
+}
+
+/** Suma exacta (Decimal) de los montos vigentes no anulados, con dos decimales. */
+function totalNoAnulados(pagos: PagoDeAlumno[]): string {
+  return pagos.reduce((suma, p) => p.anulado ? suma : suma.plus(p.monto), new Prisma.Decimal(0)).toFixed(2);
+}
+
 async function exigirAlumnoDelHistorial(alumnoId: string) {
   const [alumno] = await obtenerAlumnosBasicos([alumnoId]);
   if (!alumno) throw new ErrorDeDominio("errores.alumno.noEncontrado");
@@ -287,21 +308,15 @@ export async function listarHistorialDePagos(
   const pagos = await listarPagosDeAlumno(query.alumno_id, {
     desde, hasta, formaPagoId: query.forma_pago_id,
   });
-  const [clases, nombres] = await Promise.all([
-    obtenerClasesBasicas(pagos.map((p) => p.turno_id)),
+  const [conClase, nombres] = await Promise.all([
+    pagosConClase(pagos),
     obtenerNombresPersonal(pagos.flatMap((p) => [p.registrado_por, ...(p.ajustado_por ? [p.ajustado_por] : [])])),
   ]);
-  const clasePorId = new Map(clases.map((c) => [c.turno_id, c]));
   const nombrePorId = new Map(nombres.map((n) => [n.usuario_id, n.nombre_completo]));
   const momento = ahora();
-  const filtrados = pagos.filter((p) => {
-    const clase = clasePorId.get(p.turno_id);
-    if (!clase) throw new Error(`Pago ${p.pago_id} sin clase ${p.turno_id}`);
-    return !query.materia_id || clase.materia.id === query.materia_id;
-  });
-  const total = filtrados.reduce((suma, p) => p.anulado ? suma : suma.plus(p.monto), new Prisma.Decimal(0));
-  const items: PagoHistorialItem[] = filtrados.map((p) => {
-    const clase = clasePorId.get(p.turno_id)!;
+  const filtrados = conClase.filter(({ clase }) => !query.materia_id || clase.materia.id === query.materia_id);
+  const total = totalNoAnulados(filtrados.map(({ pago }) => pago));
+  const items: PagoHistorialItem[] = filtrados.map(({ pago: p, clase }) => {
     return {
       pago_id: p.pago_id,
       fecha_pago: p.fecha_pago,
@@ -326,7 +341,7 @@ export async function listarHistorialDePagos(
     };
   });
   const pagina = paginarHistorial(items, query.pagina);
-  return { modo: "HISTORIAL", total_pagado: total.toFixed(2), ...pagina };
+  return { modo: "HISTORIAL", total_pagado: total, ...pagina };
 }
 
 /** Opciones solo de los pagos del alumno, incluso anulados; valores vigentes. */
@@ -340,4 +355,45 @@ export async function obtenerOpcionesHistorialPagos(alumnoId: string): Promise<O
     formas_pago: [...formas.values()].sort(ordenarNombre),
     materias: [...materias.values()].sort(ordenarNombre),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Mis pagos (HU-I-05, spec I §2.15)
+// ---------------------------------------------------------------------------
+
+/** El alumno sale siempre de la sesión; una cuenta sin ficha es 404 ALUMNO_NO_ENCONTRADO. */
+async function alumnoDeSesion(usuarioId: string) {
+  const alumno = await obtenerAlumnoDeUsuario(usuarioId);
+  if (!alumno) throw new ErrorDeDominio("errores.alumno.noEncontrado");
+  return alumno;
+}
+
+/**
+ * Pagos del alumno de la sesión como pagador, con valores vigentes y los
+ * anulados incluidos. Proyección propia por allowlist: no pasa por el DTO del
+ * historial administrativo ni lleva precio, ajuste, motivo, actores ni cajas.
+ */
+export async function listarMisPagos(usuarioId: string, query: MisPagosQuery): Promise<MisPagosData> {
+  const alumno = await alumnoDeSesion(usuarioId);
+  const pagos = await listarPagosDeAlumno(alumno.id, { desde: fechaQuery(query.desde), hasta: fechaQuery(query.hasta) });
+  const filtrados = (await pagosConClase(pagos))
+    .filter(({ clase }) => !query.materia_id || clase.materia.id === query.materia_id);
+  const items: MisPagoItem[] = filtrados.map(({ pago, clase }) => ({
+    pago_id: pago.pago_id,
+    fecha_pago: pago.fecha_pago,
+    clase: { fecha: clase.fecha, hora_inicio: clase.hora_inicio, materia: { id: clase.materia.id, nombre: clase.materia.nombre } },
+    monto: pago.monto,
+    forma_pago: { id: pago.forma_pago.id, nombre: pago.forma_pago.nombre },
+    anulado: pago.anulado,
+    comprobante: pago.comprobante_vigente ? { id: pago.comprobante_vigente.id, numero: pago.comprobante_vigente.numero } : null,
+  }));
+  return { total_pagado: totalNoAnulados(filtrados.map(({ pago }) => pago)), ...paginarHistorial(items, query.pagina) };
+}
+
+/** Materias de todas las clases con pagos del alumno (anulados incluidos), sin duplicados y en orden alfabético. */
+export async function obtenerOpcionesMisPagos(usuarioId: string): Promise<OpcionesMisPagos> {
+  const alumno = await alumnoDeSesion(usuarioId);
+  const conClase = await pagosConClase(await listarPagosDeAlumno(alumno.id));
+  const materias = new Map(conClase.map(({ clase }) => [clase.materia.id, { id: clase.materia.id, nombre: clase.materia.nombre }]));
+  return { materias: [...materias.values()].sort(ordenarNombre) };
 }

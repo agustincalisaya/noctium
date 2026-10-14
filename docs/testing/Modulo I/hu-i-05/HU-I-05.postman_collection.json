@@ -1,0 +1,934 @@
+{
+  "info": {
+    "name": "HU-I-05 — Mis pagos",
+    "description": "Contrato de spec_modulo_I.md §2.15 y cierre de diferidos de HU-I-11. Sin cookies ni secretos guardados: completar las variables en un entorno local (las cookies salen de iniciar sesión en la app de pruebas). Ejecución automatizada equivalente: api-check.mjs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3105"
+    },
+    {
+      "key": "cookieAlumnoA",
+      "value": ""
+    },
+    {
+      "key": "cookieAlumnoSinPagos",
+      "value": ""
+    },
+    {
+      "key": "cookieAlumnoSinFicha",
+      "value": ""
+    },
+    {
+      "key": "cookieMesa",
+      "value": ""
+    },
+    {
+      "key": "cookieGerente",
+      "value": ""
+    },
+    {
+      "key": "cookieProfesor",
+      "value": ""
+    },
+    {
+      "key": "alumnoAId",
+      "value": ""
+    },
+    {
+      "key": "alumnoBId",
+      "value": ""
+    },
+    {
+      "key": "materiaId",
+      "value": ""
+    },
+    {
+      "key": "desde",
+      "value": ""
+    },
+    {
+      "key": "hasta",
+      "value": ""
+    },
+    {
+      "key": "pagoA",
+      "value": ""
+    },
+    {
+      "key": "comprobanteA",
+      "value": ""
+    },
+    {
+      "key": "pagoAnuladoTotal",
+      "value": ""
+    },
+    {
+      "key": "pagoB",
+      "value": ""
+    },
+    {
+      "key": "pagoBOtraClase",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Listado propio y filtros",
+      "item": [
+        {
+          "name": "A · listado página 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.match(/^no-store/));",
+                  "const s = JSON.stringify(b); [\"registrado_por\",\"precio\",\"monto_original\",\"ajuste\",\"motivo\",\"caja\",\"operacion\",\"puede_corregir\"].forEach((k) => pm.test(\"sin \" + k, () => pm.expect(s).to.not.include(k)));",
+                  "pm.test(\"10 filas y paginación de a 10\", () => { pm.expect(b.data.items.length).to.be.at.most(10); pm.expect(b.data.paginacion.por_pagina).to.eql(10); });",
+                  "pm.test(\"claves exactas del ítem\", () => b.data.items.forEach((i) => pm.expect(Object.keys(i).sort()).to.eql([\"anulado\",\"clase\",\"comprobante\",\"fecha_pago\",\"forma_pago\",\"monto\",\"pago_id\"])));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos"
+          }
+        },
+        {
+          "name": "A · página 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.match(/^no-store/));",
+                  "const s = JSON.stringify(b); [\"registrado_por\",\"precio\",\"monto_original\",\"ajuste\",\"motivo\",\"caja\",\"operacion\",\"puede_corregir\"].forEach((k) => pm.test(\"sin \" + k, () => pm.expect(s).to.not.include(k)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?pagina=2"
+          }
+        },
+        {
+          "name": "A · fecha + materia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.match(/^no-store/));",
+                  "const s = JSON.stringify(b); [\"registrado_por\",\"precio\",\"monto_original\",\"ajuste\",\"motivo\",\"caja\",\"operacion\",\"puede_corregir\"].forEach((k) => pm.test(\"sin \" + k, () => pm.expect(s).to.not.include(k)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?desde={{desde}}&hasta={{hasta}}&materia_id={{materiaId}}"
+          }
+        },
+        {
+          "name": "A · filtros sin coincidencias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.match(/^no-store/));",
+                  "const s = JSON.stringify(b); [\"registrado_por\",\"precio\",\"monto_original\",\"ajuste\",\"motivo\",\"caja\",\"operacion\",\"puede_corregir\"].forEach((k) => pm.test(\"sin \" + k, () => pm.expect(s).to.not.include(k)));",
+                  "pm.test(\"vacío y total 0.00\", () => { pm.expect(b.data.items).to.eql([]); pm.expect(b.data.total_pagado).to.eql(\"0.00\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?desde=2025-01-01&hasta=2025-01-31"
+          }
+        },
+        {
+          "name": "A · opciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.match(/^no-store/));",
+                  "const s = JSON.stringify(b); [\"registrado_por\",\"precio\",\"monto_original\",\"ajuste\",\"motivo\",\"caja\",\"operacion\",\"puede_corregir\"].forEach((k) => pm.test(\"sin \" + k, () => pm.expect(s).to.not.include(k)));",
+                  "pm.test(\"solo materias\", () => pm.expect(Object.keys(b.data)).to.eql([\"materias\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/opciones"
+          }
+        },
+        {
+          "name": "Alumno sin pagos · listado vacío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"no-store\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.match(/^no-store/));",
+                  "const s = JSON.stringify(b); [\"registrado_por\",\"precio\",\"monto_original\",\"ajuste\",\"motivo\",\"caja\",\"operacion\",\"puede_corregir\"].forEach((k) => pm.test(\"sin \" + k, () => pm.expect(s).to.not.include(k)));",
+                  "pm.test(\"vacío\", () => pm.expect(b.data.paginacion).to.eql({ total: 0, pagina_actual: 1, total_paginas: 0, por_pagina: 10 }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoSinPagos}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Validación 400",
+      "item": [
+        {
+          "name": "A · alumno_id de B → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?alumno_id={{alumnoBId}}"
+          }
+        },
+        {
+          "name": "A · forma_pago_id → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?forma_pago_id=formapago-efectivo"
+          }
+        },
+        {
+          "name": "A · estado_pago → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?estado_pago=PAGADA"
+          }
+        },
+        {
+          "name": "A · por_pagina → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?por_pagina=50"
+          }
+        },
+        {
+          "name": "A · campo extra → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?x=1"
+          }
+        },
+        {
+          "name": "A · fecha inexistente → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?desde=2026-02-31"
+          }
+        },
+        {
+          "name": "A · rango invertido → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?desde=2026-10-15&hasta=2026-10-14"
+          }
+        },
+        {
+          "name": "A · página 0 → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));",
+                  "pm.test(\"flatten en detalles\", () => pm.expect(b.error.detalles).to.have.property(\"fieldErrors\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos?pagina=0"
+          }
+        },
+        {
+          "name": "A · opciones con alumno_id → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code VALIDACION\", () => pm.expect(b.error.code).to.eql(\"VALIDACION\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/opciones?alumno_id={{alumnoBId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sesión y permisos",
+      "item": [
+        {
+          "name": "Sin sesión → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/mis-pagos"
+          }
+        },
+        {
+          "name": "Mesa → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieMesa}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos"
+          }
+        },
+        {
+          "name": "Gerente → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieGerente}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos"
+          }
+        },
+        {
+          "name": "Profesor → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieProfesor}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/opciones"
+          }
+        },
+        {
+          "name": "Alumno sin ficha → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code ALUMNO_NO_ENCONTRADO\", () => pm.expect(b.error.code).to.eql(\"ALUMNO_NO_ENCONTRADO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoSinFicha}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos"
+          }
+        },
+        {
+          "name": "A · historial administrativo → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/pagos/historial?alumno_id={{alumnoAId}}"
+          }
+        },
+        {
+          "name": "A · opciones administrativas → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/pagos/historial/opciones?alumno_id={{alumnoAId}}"
+          }
+        },
+        {
+          "name": "A · Ver detalle interno → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/pagos/{{pagoA}}/historial"
+          }
+        },
+        {
+          "name": "A · comprobante administrativo → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/comprobantes/{{comprobanteA}}"
+          }
+        },
+        {
+          "name": "A · anular → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/pagos/{{pagoA}}/anulacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"motivo\":\"Intento del alumno\"}"
+            }
+          }
+        },
+        {
+          "name": "A · corregir → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code SIN_PERMISO\", () => pm.expect(b.error.code).to.eql(\"SIN_PERMISO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/pagos/{{pagoA}}/correccion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"monto\":\"1.00\",\"motivo\":\"Intento del alumno\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comprobante propio (cierre diferidos I-11)",
+      "item": [
+        {
+          "name": "A · comprobante propio por pago_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"Registrado en el centro, sin registrado_por\", () => { pm.expect(b.data.registrado_en_el_centro).to.eql(true); pm.expect(b.data).to.not.have.property(\"registrado_por\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/{{pagoA}}/comprobante"
+          }
+        },
+        {
+          "name": "A · comprobante de pago anulado (sin motivo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"ANULADO solo con fecha\", () => pm.expect(Object.keys(b.data.marcas.anulado)).to.eql([\"fecha\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/{{pagoAnuladoTotal}}/comprobante"
+          }
+        },
+        {
+          "name": "A · pago de B en la misma clase → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code FUERA_DE_ALCANCE\", () => pm.expect(b.error.code).to.eql(\"FUERA_DE_ALCANCE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/{{pagoB}}/comprobante"
+          }
+        },
+        {
+          "name": "A · pago de B en otra clase → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code FUERA_DE_ALCANCE\", () => pm.expect(b.error.code).to.eql(\"FUERA_DE_ALCANCE\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/{{pagoBOtraClase}}/comprobante"
+          }
+        },
+        {
+          "name": "A · pago inexistente → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "const b = pm.response.json(); pm.test(\"sobre { data, error }\", () => { pm.expect(b).to.have.property(\"data\"); pm.expect(b).to.have.property(\"error\"); });",
+                  "pm.test(\"code PAGO_NO_ENCONTRADO\", () => pm.expect(b.error.code).to.eql(\"PAGO_NO_ENCONTRADO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{cookieAlumnoA}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/mis-pagos/no-existe/comprobante"
+          }
+        }
+      ]
+    }
+  ]
+}

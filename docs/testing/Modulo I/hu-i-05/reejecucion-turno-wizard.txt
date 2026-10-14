@@ -1,0 +1,17 @@
+node.exe : npm notice run noctium@0.1.0 npx
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\agust\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm notice run noctium@0.1.0 npx:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+npm notice run vitest run --no-file-parallelism --testTimeout 120000
+src/app/(dashboard)/turnos/nuevo/turno-wizard.test.tsx
+
+ RUN  v5.0.3 D:/Proyectos Facultad/noctium
+
+
+ Test Files  1 passed (1)
+      Tests  45 passed (45)
+   Start at  04:48:56
+   Duration  30.81s (tests 68%, environment 18%, import 8%, transform 5%)

@@ -1,0 +1,14 @@
+node.exe : npm notice run noctium@0.1.0 npx
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\agust\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm notice run noctium@0.1.0 npx:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+npm notice run vitest run --no-file-parallelism --testTimeout 120000 src/lib/claves-textos.test.ts
+src/server/shared/errores-dominio.test.ts src/app/(dashboard)/alumnos/[id]/historial-pagos.test.tsx
+src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx src/app/(dashboard)/turnos/nuevo/turno-wizard.test.tsx
+src/app/(dashboard)/turnos/[id]/turno-detalle.test.tsx src/app/(dashboard)/turnos/turnos-listado.test.tsx
+src/app/(dashboard)/turnos/turno-configuracion.test.tsx
+
+ RUN  v5.0.3 D:/Proyectos Facultad/noctium

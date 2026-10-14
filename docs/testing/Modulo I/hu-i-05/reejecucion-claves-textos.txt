@@ -1,0 +1,97 @@
+node.exe : npm notice run noctium@0.1.0 npx
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\agust\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm notice run noctium@0.1.0 npx:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+npm notice run vitest run --no-file-parallelism --testTimeout 180000 src/lib/claves-textos.test.ts
+
+ RUN  v5.0.3 D:/Proyectos Facultad/noctium
+
+ ❯ src/lib/claves-textos.test.ts (36 tests | 3 failed | 33 skipped) 337742ms
+   ❯ claves del proyecto (misma comprobación que CLI/PR) (36)
+     × todas las referencias reales tienen texto, incluidos errores y wrappers 62876ms
+     × detecta los negativos sin confiar en casts ni símbolos homónimos 66715ms
+     × eliminar una clave usada rompe la misma comprobación 63191ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/claves-textos.test.ts > claves del proyecto (misma comprobación que CLI/PR) > escrituras sobre
+conjuntos finitos
+Error: Hook timed out in 60000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ src/lib/claves-textos.test.ts:103:5
+    101| `;
+    102|     let resultado: ReturnType<typeof verificarClavesTextos>;
+    103|     beforeAll(() => {
+       |     ^
+    104|       comprobarTiposFixture(ruta, contenido);
+    105|       resultado = verificarClavesTextos({ fuentes: { [ruta]: contenido…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/lib/claves-textos.test.ts > claves del proyecto (misma comprobación que CLI/PR) > escapes y usos directos
+de símbolos centrales
+Error: Hook timed out in 60000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ src/lib/claves-textos.test.ts:145:5
+    143| `;
+    144|     let resultado: ReturnType<typeof verificarClavesTextos>;
+    145|     beforeAll(() => {
+       |     ^
+    146|       comprobarTiposFixture(ruta, contenido);
+    147|       resultado = verificarClavesTextos({ fuentes: { [ruta]: contenido…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/claves-textos.test.ts > claves del proyecto (misma comprobación que CLI/PR) > todas las referencias
+reales tienen texto, incluidos errores y wrappers
+Error: Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/lib/claves-textos.test.ts:25:3
+     23|
+     24| describe("claves del proyecto (misma comprobación que CLI/PR)", () => {
+     25|   it("todas las referencias reales tienen texto, incluidos errores y w…
+       |   ^
+     26|     expect(verificarClavesTextos()).toEqual([]);
+     27|   }, LIMITE_MS);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/lib/claves-textos.test.ts > claves del proyecto (misma comprobación que CLI/PR) > detecta los negativos sin
+confiar en casts ni símbolos homónimos
+Error: Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/lib/claves-textos.test.ts:28:3
+     26|     expect(verificarClavesTextos()).toEqual([]);
+     27|   }, LIMITE_MS);
+     28|   it("detecta los negativos sin confiar en casts ni símbolos homónimos…
+       |   ^
+     29|     const fuentes = {
+     30|       "src/__claves_fixture.ts": `
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/lib/claves-textos.test.ts > claves del proyecto (misma comprobación que CLI/PR) > eliminar una clave usada
+rompe la misma comprobación
+Error: Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/lib/claves-textos.test.ts:68:3
+     66|     expect(resultado.some((d) => d.mensaje.includes("homonimo"))).toBe…
+     67|   }, LIMITE_MS);
+     68|   it("eliminar una clave usada rompe la misma comprobación", () => {
+       |   ^
+     69|     const catalogo = readFileSync(resolve("src/lib/textos.ts"), "utf8"…
+     70|     const sinClave = catalogo.replace(/^  "ui\.comun\.paginacion\.nomb…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 33 skipped (36)
+   Start at  04:50:29
+   Duration  340.98s (tests 99%)

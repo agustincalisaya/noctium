@@ -1,0 +1,252 @@
+{
+  "base": "noctium_pruebas_i05_85e24a23",
+  "fecha": "2026-10-14T06:15:43.464Z",
+  "vigentes": [
+    {
+      "pago_id": "cmv7pr04…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-10-21",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-10-06",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": true
+    },
+    {
+      "pago_id": "cmv7pr02…",
+      "materia": "Física I",
+      "fecha_clase": "2026-10-13",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-10-06",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr15…",
+      "materia": "Física I",
+      "fecha_clase": "2026-10-26",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-10-05",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": true
+    },
+    {
+      "pago_id": "cmv7pr1s…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-10-28",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-10-04",
+      "forma_vigente": "formapago-efectivo",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr1g…",
+      "materia": "Física I",
+      "fecha_clase": "2026-10-27",
+      "monto_original": "12000",
+      "monto_vigente": "10500",
+      "fecha_pago_vigente": "2026-10-01",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr25…",
+      "materia": "Física I",
+      "fecha_clase": "2026-10-29",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-09-23",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr2j…",
+      "materia": "Física I",
+      "fecha_clase": "2026-10-30",
+      "monto_original": "15000.5",
+      "monto_vigente": "15000.5",
+      "fecha_pago_vigente": "2026-09-19",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr2w…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-10-31",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-09-15",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr36…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-01",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-09-11",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr3f…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-02",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-09-07",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr3o…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-11-03",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-09-03",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr3x…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-04",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-08-30",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr45…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-05",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-08-26",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr4i…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-11-06",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-08-22",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr4r…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-07",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-08-18",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr55…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-08",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-08-14",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr5t…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-11-09",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-08-10",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr69…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-10",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-08-06",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr6w…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-11",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-08-02",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr7h…",
+      "materia": "Matemática II",
+      "fecha_clase": "2026-11-12",
+      "monto_original": "11000",
+      "monto_vigente": "11000",
+      "fecha_pago_vigente": "2026-07-29",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    },
+    {
+      "pago_id": "cmv7pr7v…",
+      "materia": "Física I",
+      "fecha_clase": "2026-11-13",
+      "monto_original": "12000",
+      "monto_vigente": "12000",
+      "fecha_pago_vigente": "2026-07-25",
+      "forma_vigente": "formapago-mercado-pago",
+      "anulado": false
+    }
+  ],
+  "total_sql": "223500.50",
+  "total_api": "223500.50",
+  "anulaciones_con_motivo_en_base": [
+    {
+      "pago": "cmv7pr04…",
+      "motivo_presente": true
+    },
+    {
+      "pago": "cmv7pr15…",
+      "motivo_presente": true
+    }
+  ],
+  "huella_antes": {
+    "pagos": "82aab55e04a47914aa5ec95fb385f522",
+    "correcciones": "ae0e68edd522168c317307dc98425089",
+    "correcciones_operacion": "4a8ae39e86e095ef40b03a326adb24c8",
+    "anulaciones": "94c26b2f555adc1fc9ac05bff8844d3b",
+    "operaciones": "4c913dafd594cc91624a453cdd1e0d8e",
+    "comprobantes": "02ef19ad884cdc685abe3dc6e1da8477",
+    "inscripciones": "400529eeb3903af0120f68f64594d8b0",
+    "cajas": "01edf04367c5b6268691e8b761936e8b",
+    "ajustes_caja": "d41d8cd98f00b204e9800998ecf8427e",
+    "parametros": "2349ab1ffdb8080f4ac8d43b1d3a3e4b"
+  },
+  "huella_despues": {
+    "pagos": "82aab55e04a47914aa5ec95fb385f522",
+    "correcciones": "ae0e68edd522168c317307dc98425089",
+    "correcciones_operacion": "4a8ae39e86e095ef40b03a326adb24c8",
+    "anulaciones": "94c26b2f555adc1fc9ac05bff8844d3b",
+    "operaciones": "4c913dafd594cc91624a453cdd1e0d8e",
+    "comprobantes": "02ef19ad884cdc685abe3dc6e1da8477",
+    "inscripciones": "400529eeb3903af0120f68f64594d8b0",
+    "cajas": "01edf04367c5b6268691e8b761936e8b",
+    "ajustes_caja": "d41d8cd98f00b204e9800998ecf8427e",
+    "parametros": "2349ab1ffdb8080f4ac8d43b1d3a3e4b"
+  }
+}

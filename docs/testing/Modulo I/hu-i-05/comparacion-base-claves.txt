@@ -1,0 +1,37 @@
+node.exe : npm notice run noctium@0.1.0 npx
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\agust\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm notice run noctium@0.1.0 npx:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+npm notice run vitest run --no-file-parallelism --testTimeout 180000 src/lib/claves-textos.test.ts -t todas las
+referencias reales
+
+ RUN  v5.0.3 C:/Users/agust/AppData/Local/Temp/noctium-i05-base-audit/repo
+
+ ❯ src/lib/claves-textos.test.ts (36 tests | 1 failed | 35 skipped) 64885ms
+   ❯ claves del proyecto (misma comprobación que CLI/PR) (36)
+     × todas las referencias reales tienen texto, incluidos errores y wrappers 64877ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/claves-textos.test.ts > claves del proyecto (misma comprobación que CLI/PR) > todas las referencias
+reales tienen texto, incluidos errores y wrappers
+Error: Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/lib/claves-textos.test.ts:25:3
+     23|
+     24| describe("claves del proyecto (misma comprobación que CLI/PR)", () => {
+     25|   it("todas las referencias reales tienen texto, incluidos errores y w…
+       |   ^
+     26|     expect(verificarClavesTextos()).toEqual([]);
+     27|   }, LIMITE_MS);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 35 skipped (36)
+   Start at  05:04:50
+   Duration  67.35s (tests 98%, import 2%, transform 1%)

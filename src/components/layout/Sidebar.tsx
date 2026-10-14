@@ -201,6 +201,8 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
       items: [
         { label: textoC19("ui.turnos.solicitar.misClases"), href: "/alumno", icon: CalendarDays },
         { label: textoC19("ui.turnos.solicitar.titulo"), href: "/alumno/turnos/solicitar", icon: CalendarPlus2 },
+        // HU-I-05: «Mis pagos» (pagos:leer_propios); activo también en /mis-pagos/[id]/comprobante.
+        { label: texto("ui.pagos.propios.menu"), href: "/mis-pagos", icon: Wallet },
       ],
     },
   ],
