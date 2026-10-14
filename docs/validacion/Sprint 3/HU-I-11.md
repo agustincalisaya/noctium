@@ -123,3 +123,17 @@ Después de emitir, cambiar estos datos y volver a abrir el comprobante: **no de
 | Nombre de la forma de pago | `/formas-pago` | Gerente |
 
 Otras pruebas manuales: **Imprimir** en Chrome y Firefox (la vista previa debe mostrar solo la tarjeta, sin sidebar/navbar/botones, con la leyenda, y permitir «Guardar como PDF»); repetir `migrate reset` y verificar que tras el reset la numeración vuelve a arrancar (fixture → 1…24, primer cobro manual → 25).
+
+---
+
+## 5. Cierre de verificaciones diferidas por HU-I-05 (adición, 14/10/2026)
+
+**Rama/base:** `feature/HU-I-05` sobre `e3ea18d`. **Entorno:** bases PostgreSQL descartables (`noctium_pruebas_i05_*`), `next start` de producción, Chrome del sistema (Playwright). Evidencia completa en `docs/testing/Modulo I/hu-i-05/HU-I-05-evidencia.md`. Esta adición cierra **solo** los tres puntos diferidos a HU-I-05; no modifica el estado de los demás criterios ni de los riesgos R1–R9 de este informe.
+
+| Diferido | Caso ejecutado | Resultado | Evidencia |
+|---|---|---|---|
+| C2 — vista del comprobante del alumno desde «Mis pagos» | Navegación real desde una fila de `/mis-pagos` a `/mis-pagos/{pago_id}/comprobante`; los 21 pagos del alumno de prueba abren por API el mismo comprobante que muestra el listado, con `registrado_en_el_centro: true` y sin `registrado_por`. El usuario confirmó manualmente listado y comprobante normal el 14/10/2026 | **Cerrado para la vista propia** | `api-check-resultados.json`, E2E escenarios 2–3, `comprobante-escritorio.png`, `comprobante-propio.pdf`; testimonio manual (capturas no archivadas) |
+| C4 — 403 por comprobante ajeno (y acceso desde «Mis pagos») | El alumno A pide el comprobante de pagos de B (misma clase y otra clase): `403 FUERA_DE_ALCANCE` sin datos de B; la página redirige a `/sin-permiso`. «Imprimir» invoca `window.print()` y la vista de impresión/PDF automatizada (Chrome) contiene solo el comprobante. El usuario verificó manualmente el 14/10/2026 la vista previa nativa de Edge de un comprobante normal: una hoja, sin menú ni botones dentro del documento | **Acceso cerrado; vista previa normal Edge verificada. Siguen pendientes el guardado efectivo del PDF, la impresión del anulado y Chrome/Firefox.** | `api-check-resultados.json`, E2E escenario 5, `comprobante-ajeno-sin-permiso.png`, `comprobante-propio.pdf`; testimonio manual (capturas Edge no archivadas) y pasos en `HU-I-05-evidencia.md` |
+| C5 — marcas sin motivo en la vista del alumno | Anulación parcial y total por `POST /api/pagos/[id]/anulacion` (mesa de entrada, I-06). El anulado parcial abre el original «Reemplazado por», el vigente el reemplazo «Reemplaza al…», la total «ANULADO · Anulado el …». El motivo no aparece en el JSON, el HTML, la pantalla ni la impresión/PDF; el SQL confirma que el motivo existe en `anulaciones_pago` | **Cerrado** | `api-check-resultados.json`, `sql-evidencia.json`, E2E escenario 4, capturas y PDFs de anulación |
+
+Observación relacionada con R2 (sin cambios de código): un `pago_id` inexistente sigue respondiendo `404 PAGO_NO_ENCONTRADO` y uno ajeno `403`, tal como fija el contrato de HU-I-05 §4.4.

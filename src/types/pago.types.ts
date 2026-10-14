@@ -154,6 +154,30 @@ export type OpcionesHistorialPagos = {
   formas_pago: { id: string; nombre: string; is_active: boolean }[];
   materias: { id: string; nombre: string }[];
 };
+
+/**
+ * HU-I-05 «Mis pagos» (spec_modulo_I.md §2.15): proyección propia del alumno,
+ * armada por allowlist en el servidor. Sin precio, ajuste, motivo, usuario que
+ * registró, caja, operación ni historial de cambios.
+ */
+export type MisPagoItem = {
+  pago_id: string;
+  /** `YYYY-MM-DD`, fecha de pago vigente. */
+  fecha_pago: string;
+  clase: { fecha: string; hora_inicio: string; materia: { id: string; nombre: string } };
+  /** Monto vigente, decimal con dos decimales. */
+  monto: string;
+  forma_pago: { id: string; nombre: string };
+  anulado: boolean;
+  /** El vigente de la operación; para un anulado, el último que lo incluyó. */
+  comprobante: { id: string; numero: string } | null;
+};
+export type MisPagosData = {
+  total_pagado: string;
+  items: MisPagoItem[];
+  paginacion: PaginacionHistorialPagos;
+};
+export type OpcionesMisPagos = { materias: { id: string; nombre: string }[] };
 /** HU-I-06: respuesta de `POST /api/pagos/[id]/correccion` (spec_modulo_I.md §2.14.2), con los valores vigentes. */
 export type PagoCorregidoDto = {
   pago_id: string;

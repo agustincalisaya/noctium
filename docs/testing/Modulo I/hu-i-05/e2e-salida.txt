@@ -1,0 +1,291 @@
+◇ injected env (3) from .env
+Base descartable: noctium_pruebas_i05_85e24a23
+
+$ npx "prisma" "migrate" "deploy"
+npm notice run noctium@0.1.0 npx
+npm notice run prisma migrate deploy
+◇ injected env (0) from .env
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "noctium_pruebas_i05_85e24a23", schema "public" at "localhost:5433"
+
+42 migrations found in prisma/migrations
+
+Applying migration `20260921053305_init_sprint1`
+Applying migration `20260921204216_add_roles`
+Applying migration `20260921204800_alumno_fecha_nacimiento_contacto_opcional`
+Applying migration `20260921210000_sprint1_modelo_completo`
+Applying migration `20260922170025_add_login_security_events`
+Applying migration `20260922182052_add_rol_permiso`
+Applying migration `20260922190448_add_campos_token_revocado`
+Applying migration `20260922211841_add_nombre_normalizado_materia_nullable`
+Applying migration `20260922212500_nombre_normalizado_materia_not_null_unique`
+Applying migration `20260922213000_turnos_leer_permiso`
+Applying migration `20260922234000_turnos_crear_permiso`
+Applying migration `20260922235000_turno_modificado_por_usuario`
+Applying migration `20260923010000_eventos_configuracion_turno`
+Applying migration `20260923015526_profesor_contacto_modificado_por`
+Applying migration `20260923021000_alumnos_editar_permiso`
+Applying migration `20260923061201_add_nombre_normalizado_aula_nullable`
+Applying migration `20260923061316_aula_nombre_normalizado_not_null_unique`
+Applying migration `20260923065226_add_apellido_nombre_normalizado_alumno_nullable`
+Applying migration `20260923065412_add_natural_es_collation_aula_nombre`
+Applying migration `20260923065522_apellido_nombre_normalizado_alumno_not_null`
+Applying migration `20260923065533_alumnos_leer_permiso`
+Applying migration `20260923143156_profesor_materia_auditoria`
+Applying migration `20260923160000_turnos_asignar_participantes_permiso`
+Applying migration `20260923200000_profesor_nombre_normalizado_y_leer_permiso`
+Applying migration `20260924020844_alumno_version`
+Applying migration `20260924035837_solicitud_autorregistro`
+Applying migration `20260924050441_solicitud_autorregistro_email_destino`
+Applying migration `20260924051145_reenvio_codigo`
+Applying migration `20260924120000_turno_cupo_y_estados`
+Applying migration `20260924150000_turnos_reservas_recursos_v2`
+Applying migration `20260924235924_turno_cupo_nullable`
+Applying migration `20260928150000_sprint2_enum`
+Applying migration `20260928150100_sprint2_modelo`
+Applying migration `20260930120000_c17_generacion_maxima_meses`
+Applying migration `20260930180000_resultado_examen_observaciones`
+Applying migration `20261008120000_sprint3_eventos_seguridad`
+Applying migration `20261008120100_sprint3_modelo`
+Applying migration `20261008120200_sprint3_permisos`
+Applying migration `20261009180000_hu_e02_alcance_profesor`
+Applying migration `20261013040000_hu_e11_anulacion_append_only`
+Applying migration `20261013120000_examen_descripcion_publica`
+Applying migration `20261013153953_hu_c_27_indices_turnos`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260921053305_init_sprint1/
+    └─ migration.sql
+  └─ 20260921204216_add_roles/
+    └─ migration.sql
+  └─ 20260921204800_alumno_fecha_nacimiento_contacto_opcional/
+    └─ migration.sql
+  └─ 20260921210000_sprint1_modelo_completo/
+    └─ migration.sql
+  └─ 20260922170025_add_login_security_events/
+    └─ migration.sql
+  └─ 20260922182052_add_rol_permiso/
+    └─ migration.sql
+  └─ 20260922190448_add_campos_token_revocado/
+    └─ migration.sql
+  └─ 20260922211841_add_nombre_normalizado_materia_nullable/
+    └─ migration.sql
+  └─ 20260922212500_nombre_normalizado_materia_not_null_unique/
+    └─ migration.sql
+  └─ 20260922213000_turnos_leer_permiso/
+    └─ migration.sql
+  └─ 20260922234000_turnos_crear_permiso/
+    └─ migration.sql
+  └─ 20260922235000_turno_modificado_por_usuario/
+    └─ migration.sql
+  └─ 20260923010000_eventos_configuracion_turno/
+    └─ migration.sql
+  └─ 20260923015526_profesor_contacto_modificado_por/
+    └─ migration.sql
+  └─ 20260923021000_alumnos_editar_permiso/
+    └─ migration.sql
+  └─ 20260923061201_add_nombre_normalizado_aula_nullable/
+    └─ migration.sql
+  └─ 20260923061316_aula_nombre_normalizado_not_null_unique/
+    └─ migration.sql
+  └─ 20260923065226_add_apellido_nombre_normalizado_alumno_nullable/
+    └─ migration.sql
+  └─ 20260923065412_add_natural_es_collation_aula_nombre/
+    └─ migration.sql
+  └─ 20260923065522_apellido_nombre_normalizado_alumno_not_null/
+    └─ migration.sql
+  └─ 20260923065533_alumnos_leer_permiso/
+    └─ migration.sql
+  └─ 20260923143156_profesor_materia_auditoria/
+    └─ migration.sql
+  └─ 20260923160000_turnos_asignar_participantes_permiso/
+    └─ migration.sql
+  └─ 20260923200000_profesor_nombre_normalizado_y_leer_permiso/
+    └─ migration.sql
+  └─ 20260924020844_alumno_version/
+    └─ migration.sql
+  └─ 20260924035837_solicitud_autorregistro/
+    └─ migration.sql
+  └─ 20260924050441_solicitud_autorregistro_email_destino/
+    └─ migration.sql
+  └─ 20260924051145_reenvio_codigo/
+    └─ migration.sql
+  └─ 20260924120000_turno_cupo_y_estados/
+    └─ migration.sql
+  └─ 20260924150000_turnos_reservas_recursos_v2/
+    └─ migration.sql
+  └─ 20260924235924_turno_cupo_nullable/
+    └─ migration.sql
+  └─ 20260928150000_sprint2_enum/
+    └─ migration.sql
+  └─ 20260928150100_sprint2_modelo/
+    └─ migration.sql
+  └─ 20260930120000_c17_generacion_maxima_meses/
+    └─ migration.sql
+  └─ 20260930180000_resultado_examen_observaciones/
+    └─ migration.sql
+  └─ 20261008120000_sprint3_eventos_seguridad/
+    └─ migration.sql
+  └─ 20261008120100_sprint3_modelo/
+    └─ migration.sql
+  └─ 20261008120200_sprint3_permisos/
+    └─ migration.sql
+  └─ 20261009180000_hu_e02_alcance_profesor/
+    └─ migration.sql
+  └─ 20261013040000_hu_e11_anulacion_append_only/
+    └─ migration.sql
+  └─ 20261013120000_examen_descripcion_publica/
+    └─ migration.sql
+  └─ 20261013153953_hu_c_27_indices_turnos/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+
+$ npx "tsx" "prisma/seed.ts"
+npm notice run noctium@0.1.0 npx
+npm notice run tsx prisma/seed.ts
+◇ injected env (0) from .env
+✓ 15 usuarios creados (1 inactivo)
+✓ 2 fichas de mesa de entrada y 2 de gerente creadas
+✓ 4 formas de pago (1 de efectivo)
+✓ 52 alumnos creados (51 activos, 1 inactivo, 45 sin cuenta)
+✓ 24 profesores creados (2 inactivo)
+✓ 7 materias creadas con tarifa (2 sin código, 1 inactiva)
+✓ 8 aulas creadas (1 inactiva)
+✓ 34 asociaciones profesor-materia y 45 horarios de atención creados
+✓ 45 turnos (45 creados en esta corrida; 36 DISPONIBLE, 7 PENDIENTE, 2 CANCELADO; 6 en el pasado), sin inscripciones
+✓ 24 parámetros del sistema y 6 parámetros configurables / datos del centro
+✓ 91 permisos RBAC creados (65 acciones)
+✓ Cajas de prueba: 2 abiertas en esta corrida (2 cuentas de mesa de entrada)
+✓ Fixture HU-D-08
+✓ Fixture HU-I-07
+✓ Fixture HU-E-09
+✓ Fixture HU-E-07
+✓ Fixture HU-E-04
+✓ Fixture HU-E-10
+✓ Fixture HU-E-11
+✓ Fixture HU-E-08
+✓ Fixture HU-E-02
+✓ Fixture hu-h-06
+✓ Fixture HU-H-07
+✓ Fixture HU-H-03
+✓ Fixture HU-H-10
+✓ Fixture HU-A-06
+✓ Fixture HU-A-05
+✓ Fixture HU-F-01
+✓ Fixture HU-F-03
+✓ Fixture HU-F-05
+✓ Fixture HU-G-01
+✓ Fixture HU-G-03
+✓ Fixture HU-G-05
+✓ Fixture Presentismo por materia (demo)
+✓ 162 inscripciones en clases futuras creadas en esta corrida (reservas pendientes de pago)
+✓ 13 alumnos inscriptos y pagados en clases pasadas en esta corrida (para registrar la clase dictada)
+
+Seed completo. Contraseña de todos los usuarios: Password123!
+
+$ npx "tsx" "scripts/testing/hu-i-05-fixtures.ts"
+npm notice run noctium@0.1.0 npx
+npm notice run tsx scripts/testing/hu-i-05-fixtures.ts
+◇ injected env (0) from .env
+Fixtures HU-I-05 listos: 21 pagos de A, 2 de B.
+
+$ node "docs/testing/Modulo I/hu-i-05/api-check.mjs"
+OK   Mesa anula el pago de Matemática II de la operación doble (parcial, I-06) → 200
+OK   Mesa anula el pago de una operación de una clase (total, I-06) → 200
+OK   A: listado página 1 → 200
+OK   A: página 2 (mismo total) → 200
+OK   A: página 3 → 200
+OK   A: página fuera de rango → última → 200
+OK   A: filtro Física I (14 filas, dos páginas) → 200
+OK   A: rango de un día (fecha vigente corregida 04/10) → 200
+OK   A: rango + materia combinados → 200
+OK   A: filtros sin coincidencias → 200
+OK   A: materia que solo pagó B → vacío → 200
+OK   A: opciones (materias propias, anulados incluidos, alfabéticas) → 200
+OK   Alumno sin pagos: listado vacío → 200
+OK   Alumno sin pagos: opciones vacías → 200
+OK   B: su listado no contiene pagos de A → 200
+OK   A: listado con alumno_id de B → 400 → 400 VALIDACION
+OK   A: listado con forma_pago_id → 400 → 400 VALIDACION
+OK   A: listado con estado_pago → 400 → 400 VALIDACION
+OK   A: listado con por_pagina → 400 → 400 VALIDACION
+OK   A: listado con campo extra → 400 → 400 VALIDACION
+OK   A: listado con fecha inexistente → 400 → 400 VALIDACION
+OK   A: listado con rango invertido → 400 → 400 VALIDACION
+OK   A: listado con página 0 → 400 → 400 VALIDACION
+OK   A: listado con página fraccionaria → 400 → 400 VALIDACION
+OK   A: listado con fecha vacía → 400 → 400 VALIDACION
+OK   A: opciones con alumno_id de B → 400 → 400 VALIDACION
+OK   Sin sesión: listado → 401 → 401 SESION_INVALIDA
+OK   Sin sesión: opciones → 401 → 401 SESION_INVALIDA
+OK   Sesión inválida: listado → 401 → 401 SESION_INVALIDA
+OK   Mesa: listado propio → 403 → 403 SIN_PERMISO
+OK   Mesa: opciones propias → 403 → 403 SIN_PERMISO
+OK   Gerente: listado propio → 403 → 403 SIN_PERMISO
+OK   Gerente: opciones propias → 403 → 403 SIN_PERMISO
+OK   Profesor: listado propio → 403 → 403 SIN_PERMISO
+OK   Profesor: opciones propias → 403 → 403 SIN_PERMISO
+OK   Alumno sin ficha: listado → 404 → 404 ALUMNO_NO_ENCONTRADO
+OK   Alumno sin ficha: opciones → 404 → 404 ALUMNO_NO_ENCONTRADO
+OK   A: historial administrativo → 403 → 403 SIN_PERMISO
+OK   A: opciones del historial administrativo → 403 → 403 SIN_PERMISO
+OK   A: historial interno del pago (Ver detalle) → 403 → 403 SIN_PERMISO
+OK   A: comprobante administrativo por id → 403 → 403 SIN_PERMISO
+OK   A: comprobante administrativo por pago → 403 → 403 SIN_PERMISO
+OK   A: anular un pago → 403 → 403 SIN_PERMISO
+OK   A: corregir un pago → 403 → 403 SIN_PERMISO
+OK   A: registrar una operación → 403 → 403 SIN_PERMISO
+OK   A: registrar un pago (atajo) → 403 → 403 SIN_PERMISO
+OK   A: comprobante propio de cmv7pr041000xuwrcnfuowsis (anulado) → 200
+OK   A: comprobante propio de cmv7pr027000vuwrcddbj2njg → 200
+OK   A: comprobante propio de cmv7pr15x001nuwrcqtq3o9n9 (anulado) → 200
+OK   A: comprobante propio de cmv7pr1se0027uwrczlet2ebm → 200
+OK   A: comprobante propio de cmv7pr1g5001xuwrc2kzryzdz → 200
+OK   A: comprobante propio de cmv7pr258002huwrckrp0zlnv → 200
+OK   A: comprobante propio de cmv7pr2j8002ruwrccfkaek44 → 200
+OK   A: comprobante propio de cmv7pr2wl0031uwrc0zuz65xf → 200
+OK   A: comprobante propio de cmv7pr36r003buwrcuafb48fc → 200
+OK   A: comprobante propio de cmv7pr3fx003luwrcvrk1px16 → 200
+OK   A: comprobante propio de cmv7pr3oa003vuwrcqermbo8o → 200
+OK   A: comprobante propio de cmv7pr3xa0045uwrc1lwjxv2m → 200
+OK   A: comprobante propio de cmv7pr45b004fuwrcogjvx3de → 200
+OK   A: comprobante propio de cmv7pr4im004puwrclihrj7j3 → 200
+OK   A: comprobante propio de cmv7pr4rt004zuwrce3goveb7 → 200
+OK   A: comprobante propio de cmv7pr55s0059uwrckdwbh8j7 → 200
+OK   A: comprobante propio de cmv7pr5tj005juwrcm4dstc46 → 200
+OK   A: comprobante propio de cmv7pr69a005tuwrcxv7mjewf → 200
+OK   A: comprobante propio de cmv7pr6wx0063uwrc9uyd6mat → 200
+OK   A: comprobante propio de cmv7pr7hd006duwrcxtr783iq → 200
+OK   A: comprobante propio de cmv7pr7v5006nuwrcb8fufgen → 200
+OK   A: comprobante de B (misma clase) → 403 → 403 FUERA_DE_ALCANCE
+OK   A: comprobante de B (otra clase) → 403 → 403 FUERA_DE_ALCANCE
+OK   B: su propio comprobante → 200 → 200
+OK   A: pago inexistente → 404 → 404 PAGO_NO_ENCONTRADO
+OK   Alumno sin ficha: comprobante → 403 (contrato I-11) → 403 FUERA_DE_ALCANCE
+OK   Mesa: comprobante propio del alumno → 403 → 403 SIN_PERMISO
+OK   Sin escrituras por la consulta
+
+77/77 casos OK
+
+$ npx "playwright" "test" "-c" "playwright.hu-i-05.config.ts"
+npm notice run noctium@0.1.0 npx
+npm notice run playwright test -c playwright.hu-i-05.config.ts
+
+Running 7 tests using 1 worker
+
+  ✓  1 scripts\testing\hu-i-05.e2e.ts:67:7 › HU-I-05 Mis pagos › menú, listado de escritorio, total completo y sin acciones de escritura (c1, c2, c3, c6) (20.6s)
+  ✓  2 scripts\testing\hu-i-05.e2e.ts:92:7 › HU-I-05 Mis pagos › filtros + página 2 → comprobante → Cerrar conserva filtros y página; también con teclado y Atrás (7.8s)
+  ✓  3 scripts\testing\hu-i-05.e2e.ts:127:7 › HU-I-05 Mis pagos › comprobante propio vigente: contenido, Imprimir invoca window.print, vista de impresión y PDF (diferido I-11 C2) (8.3s)
+  ✓  4 scripts\testing\hu-i-05.e2e.ts:152:7 › HU-I-05 Mis pagos › anulación parcial y total: marcas correctas y sin motivo en UI, HTML, API ni impresión (diferido I-11 C5) (15.6s)
+  ✓  5 scripts\testing\hu-i-05.e2e.ts:185:7 › HU-I-05 Mis pagos › comprobante de otro alumno: API 403 FUERA_DE_ALCANCE y página denegada sin datos (diferido I-11 C4) (8.6s)
+  ✓  6 scripts\testing\hu-i-05.e2e.ts:199:7 › HU-I-05 Mis pagos › móvil: filtros y total sin desbordar la página, tabla con scroll local; comprobante legible (7.2s)
+  ✓  7 scripts\testing\hu-i-05.e2e.ts:219:7 › HU-I-05 Mis pagos › vacíos, filtros sin resultados, error con Reintentar y cuenta sin ficha (c5) (19.7s)
+
+  7 passed (1.8m)
+Base descartable borrada: noctium_pruebas_i05_85e24a23

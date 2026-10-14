@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BuscarAlumnosCobroQuerySchema, formaPagoIdSchema, montoSchema, motivoSchema, OpcionesPagoQuerySchema,
-  PendientesQuerySchema, RegistrarOperacionSchema, RegistrarPagoSchema,
+  PendientesQuerySchema, RegistrarOperacionSchema, RegistrarPagoSchema, MisPagosQuerySchema, OpcionesMisPagosQuerySchema,
 } from "@/server/pagos/pago.schema";
 
 const valido = { turno_id: "seed-turno-02", alumno_id: "c123456789012345678901234", monto: "1500.50", forma_pago_id: "c223456789012345678901234" };
@@ -116,5 +116,33 @@ describe("HU-I-10 RegistrarOperacionSchema", () => {
   it("rechaza campos extra en la operación y en el ítem (el precio no viaja)", () => {
     expect(RegistrarOperacionSchema.safeParse({ ...operacion, total: "12000" }).success).toBe(false);
     expect(RegistrarOperacionSchema.safeParse({ ...operacion, items: [{ inscripcion_id: CUID_2, monto: "1", precio: 12000 }] }).success).toBe(false);
+  });
+});
+
+describe("HU-I-05 query de Mis pagos (§2.15)", () => {
+  it("default página 1, fechas calendario a Date UTC y límites inclusivos (desde = hasta)", () => {
+    expect(MisPagosQuerySchema.parse({})).toEqual({ pagina: 1 });
+    const q = MisPagosQuerySchema.parse({ desde: "2026-10-01", hasta: "2026-10-01", materia_id: " m1 ", pagina: "2" });
+    expect(q).toEqual({ desde: new Date("2026-10-01T00:00:00.000Z"), hasta: new Date("2026-10-01T00:00:00.000Z"), materia_id: "m1", pagina: 2 });
+  });
+  it.each([
+    [{ desde: "2026-02-31" }], [{ hasta: "2026-13-01" }], [{ desde: "01/10/2026" }], [{ desde: "" }],
+    [{ desde: "2026-10-15", hasta: "2026-10-14" }],
+    [{ pagina: "0" }], [{ pagina: "-1" }], [{ pagina: "1.5" }], [{ pagina: "dos" }], [{ pagina: "" }],
+    [{ materia_id: "" }], [{ materia_id: "   " }],
+    [{ alumno_id: "c123456789012345678901234" }], [{ forma_pago_id: "formapago-efectivo" }],
+    [{ estado_pago: "PAGADA" }], [{ por_pagina: "50" }], [{ desconocido: "x" }],
+  ])("rechaza %j", (entrada) => {
+    expect(MisPagosQuerySchema.safeParse(entrada).success).toBe(false);
+  });
+  it("el rango invertido informa el mensaje del contrato", () => {
+    const r = MisPagosQuerySchema.safeParse({ desde: "2026-10-15", hasta: "2026-10-14" });
+    expect(r.success).toBe(false);
+    expect(r.error!.flatten().formErrors).toContain("Desde no puede ser posterior a Hasta");
+  });
+  it("opciones: query vacía estricta", () => {
+    expect(OpcionesMisPagosQuerySchema.safeParse({}).success).toBe(true);
+    expect(OpcionesMisPagosQuerySchema.safeParse({ alumno_id: "x" }).success).toBe(false);
+    expect(OpcionesMisPagosQuerySchema.safeParse({ pagina: "1" }).success).toBe(false);
   });
 });

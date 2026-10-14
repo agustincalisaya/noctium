@@ -79,3 +79,17 @@ export const HistorialPagosQuerySchema = z.object({
 
 export const OpcionesHistorialPagosQuerySchema = z.object({ alumno_id: z.string().cuid() }).strict();
 export type HistorialPagosQuery = z.infer<typeof HistorialPagosQuerySchema>;
+
+// HU-I-05 (spec_modulo_I.md §2.15): el alumno sale de la sesión; `alumno_id`,
+// forma, estado, `por_pagina` o cualquier otro campo son 400.
+export const MisPagosQuerySchema = z.object({
+  desde: fechaCalendarioValidaSchema.optional(),
+  hasta: fechaCalendarioValidaSchema.optional(),
+  materia_id: z.string().trim().min(1).optional(),
+  pagina: z.coerce.number().int().positive().default(1),
+}).strict().refine(
+  (q) => !q.desde || !q.hasta || q.desde.getTime() <= q.hasta.getTime(),
+  "Desde no puede ser posterior a Hasta",
+);
+export type MisPagosQuery = z.infer<typeof MisPagosQuerySchema>;
+export const OpcionesMisPagosQuerySchema = z.object({}).strict();

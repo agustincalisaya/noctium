@@ -1,0 +1,493 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\Proyectos Facultad\\noctium\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "-c",
+      "playwright.hu-i-05.config.ts"
+    ],
+    "configFile": "D:\\Proyectos Facultad\\noctium\\playwright.hu-i-05.config.ts",
+    "rootDir": "D:/Proyectos Facultad/noctium/scripts/testing",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/agust/AppData/Local/Temp/noctium-hu-i-05-playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "D:/Proyectos Facultad/noctium/scripts/testing",
+        "testIgnore": [],
+        "testMatch": [
+          "hu-i-05.e2e.ts"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "C:\\Users\\agust\\AppData\\Local\\Temp\\noctium-hu-i-05-playwright",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "D:\\Proyectos Facultad\\noctium\\scripts\\testing",
+        "snapshotDir": "D:\\Proyectos Facultad\\noctium\\scripts\\testing",
+        "testIgnore": [],
+        "testMatch": "hu-i-05.e2e.ts",
+        "timeout": 120000,
+        "use": {
+          "baseURL": "http://127.0.0.1:3105",
+          "channel": "chrome",
+          "headless": true,
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "locale": "es-AR",
+          "timezoneId": "America/Argentina/Buenos_Aires",
+          "trace": "retain-on-failure"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "docs/testing/Modulo I/hu-i-05/playwright-resultados.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "hu-i-05.e2e.ts",
+      "file": "hu-i-05.e2e.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "HU-I-05 Mis pagos",
+          "file": "hu-i-05.e2e.ts",
+          "line": 66,
+          "column": 15,
+          "specs": [
+            {
+              "title": "menú, listado de escritorio, total completo y sin acciones de escritura (c1, c2, c3, c6)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 20627,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:16:21.703Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-3b01ccc3faee20d87b35",
+              "file": "hu-i-05.e2e.ts",
+              "line": 67,
+              "column": 7
+            },
+            {
+              "title": "filtros + página 2 → comprobante → Cerrar conserva filtros y página; también con teclado y Atrás",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7773,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:16:44.264Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-c56f96de9cdf71226f6d",
+              "file": "hu-i-05.e2e.ts",
+              "line": 92,
+              "column": 7
+            },
+            {
+              "title": "comprobante propio vigente: contenido, Imprimir invoca window.print, vista de impresión y PDF (diferido I-11 C2)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8316,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:16:52.171Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-fec806bf58c4f51dac74",
+              "file": "hu-i-05.e2e.ts",
+              "line": 127,
+              "column": 7
+            },
+            {
+              "title": "anulación parcial y total: marcas correctas y sin motivo en UI, HTML, API ni impresión (diferido I-11 C5)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 15598,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:17:00.547Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-b23a2847518f92b1fcb7",
+              "file": "hu-i-05.e2e.ts",
+              "line": 152,
+              "column": 7
+            },
+            {
+              "title": "comprobante de otro alumno: API 403 FUERA_DE_ALCANCE y página denegada sin datos (diferido I-11 C4)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8555,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:17:16.207Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-f432bf70ce16334e48e5",
+              "file": "hu-i-05.e2e.ts",
+              "line": 185,
+              "column": 7
+            },
+            {
+              "title": "móvil: filtros y total sin desbordar la página, tabla con scroll local; comprobante legible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7172,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:17:24.821Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-4ee48153b851e57830df",
+              "file": "hu-i-05.e2e.ts",
+              "line": 199,
+              "column": 7
+            },
+            {
+              "title": "vacíos, filtros sin resultados, error con Reintentar y cuenta sin ficha (c5)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 120000,
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                        "line": 66,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 19689,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-14T06:17:32.033Z",
+                      "annotations": [
+                        {
+                          "type": "serial",
+                          "location": {
+                            "file": "D:\\Proyectos Facultad\\noctium\\scripts\\testing\\hu-i-05.e2e.ts",
+                            "line": 66,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ee1c05b5ddf1b3f77548-71b4adc5b33f9c735cf5",
+              "file": "hu-i-05.e2e.ts",
+              "line": 219,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-14T06:16:12.002Z",
+    "duration": 110097.313,
+    "expected": 7,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

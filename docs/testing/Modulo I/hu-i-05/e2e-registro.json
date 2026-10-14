@@ -1,0 +1,38 @@
+{
+  "listado": {
+    "total_api": "223500.50",
+    "filas_pagina_1": 10,
+    "total": 21
+  },
+  "regreso": {
+    "conserva_filtro_y_pagina": true
+  },
+  "comprobante_propio": {
+    "numero": "0001-00000062",
+    "pdf_paginas": 1,
+    "pdf_bytes": 81791,
+    "window_print": 1
+  },
+  "anulaciones": {
+    "parcial_reemplazado_por": "0001-00000062",
+    "total_anulado_fecha": "2026-10-14",
+    "motivo_en_ui_api_impresion": false
+  },
+  "ajeno": {
+    "api": 403,
+    "pagina": "/sin-permiso"
+  },
+  "movil": {
+    "doc": 390,
+    "vw": 390,
+    "tabla": 752,
+    "visible": 356,
+    "overflow": "auto"
+  },
+  "estados": {
+    "filtros_sin_resultados": true,
+    "error_reintentar": true,
+    "sin_pagos": true,
+    "sin_ficha_error_inline": true
+  }
+}

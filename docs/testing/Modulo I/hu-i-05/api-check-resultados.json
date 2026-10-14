@@ -1,0 +1,682 @@
+{
+  "fecha": "2026-10-14T06:15:43.471Z",
+  "total": 77,
+  "fallidos": 0,
+  "resultados": [
+    {
+      "nombre": "Mesa anula el pago de Matemática II de la operación doble (parcial, I-06)",
+      "metodo": "POST",
+      "ruta": "/api/pagos/cmv7pr041000xuwrcnfuowsis/anulacion",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "Mesa anula el pago de una operación de una clase (total, I-06)",
+      "metodo": "POST",
+      "ruta": "/api/pagos/cmv7pr15x001nuwrcqtq3o9n9/anulacion",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado página 1",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: página 2 (mismo total)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?pagina=2",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: página 3",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?pagina=3",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: página fuera de rango → última",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?pagina=99",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: filtro Física I (14 filas, dos páginas)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?materia_id=cmv7pqzou000fuwrcnocjpj7r",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: rango de un día (fecha vigente corregida 04/10)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?desde=2026-10-04&hasta=2026-10-04",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: rango + materia combinados",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?desde=2026-10-05&hasta=2026-10-06&materia_id=cmv7pqzp5000guwrctatjkgoi",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: filtros sin coincidencias",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?desde=2025-01-01&hasta=2025-01-31",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: materia que solo pagó B → vacío",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?materia_id=cmv7pqzpa000huwrczffm4why",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: opciones (materias propias, anulados incluidos, alfabéticas)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "Alumno sin pagos: listado vacío",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "Alumno sin pagos: opciones vacías",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "B: su listado no contiene pagos de A",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con alumno_id de B → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?alumno_id=cmv7pqzmh000auwrclir4995q",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con forma_pago_id → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?forma_pago_id=formapago-efectivo",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con estado_pago → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?estado_pago=PAGADA",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con por_pagina → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?por_pagina=50",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con campo extra → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?x=1",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con fecha inexistente → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?desde=2026-02-31",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con rango invertido → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?desde=2026-10-15&hasta=2026-10-14",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con página 0 → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?pagina=0",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con página fraccionaria → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?pagina=1.5",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: listado con fecha vacía → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos?desde=",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "A: opciones con alumno_id de B → 400",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones?alumno_id=cmv7pqzmh000auwrclir4995q",
+      "esperado": 400,
+      "status": 400,
+      "code": "VALIDACION",
+      "pasa": true
+    },
+    {
+      "nombre": "Sin sesión: listado → 401",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 401,
+      "status": 401,
+      "code": "SESION_INVALIDA",
+      "pasa": true
+    },
+    {
+      "nombre": "Sin sesión: opciones → 401",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 401,
+      "status": 401,
+      "code": "SESION_INVALIDA",
+      "pasa": true
+    },
+    {
+      "nombre": "Sesión inválida: listado → 401",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 401,
+      "status": 401,
+      "code": "SESION_INVALIDA",
+      "pasa": true
+    },
+    {
+      "nombre": "Mesa: listado propio → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Mesa: opciones propias → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Gerente: listado propio → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Gerente: opciones propias → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Profesor: listado propio → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Profesor: opciones propias → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Alumno sin ficha: listado → 404",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos",
+      "esperado": 404,
+      "status": 404,
+      "code": "ALUMNO_NO_ENCONTRADO",
+      "pasa": true
+    },
+    {
+      "nombre": "Alumno sin ficha: opciones → 404",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/opciones",
+      "esperado": 404,
+      "status": 404,
+      "code": "ALUMNO_NO_ENCONTRADO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: historial administrativo → 403",
+      "metodo": "GET",
+      "ruta": "/api/pagos/historial?alumno_id=cmv7pqzkk0007uwrc5clzotj4",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: opciones del historial administrativo → 403",
+      "metodo": "GET",
+      "ruta": "/api/pagos/historial/opciones?alumno_id=cmv7pqzkk0007uwrc5clzotj4",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: historial interno del pago (Ver detalle) → 403",
+      "metodo": "GET",
+      "ruta": "/api/pagos/cmv7pr2wl0031uwrc0zuz65xf/historial",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante administrativo por id → 403",
+      "metodo": "GET",
+      "ruta": "/api/comprobantes/cmv7pr09o000zuwrce51syicv",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante administrativo por pago → 403",
+      "metodo": "GET",
+      "ruta": "/api/pagos/cmv7pr2wl0031uwrc0zuz65xf/comprobante",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: anular un pago → 403",
+      "metodo": "POST",
+      "ruta": "/api/pagos/cmv7pr2wl0031uwrc0zuz65xf/anulacion",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: corregir un pago → 403",
+      "metodo": "POST",
+      "ruta": "/api/pagos/cmv7pr2wl0031uwrc0zuz65xf/correccion",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: registrar una operación → 403",
+      "metodo": "POST",
+      "ruta": "/api/pagos/operaciones",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: registrar un pago (atajo) → 403",
+      "metodo": "POST",
+      "ruta": "/api/pagos",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr041000xuwrcnfuowsis (anulado)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr041000xuwrcnfuowsis/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr027000vuwrcddbj2njg",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr027000vuwrcddbj2njg/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr15x001nuwrcqtq3o9n9 (anulado)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr15x001nuwrcqtq3o9n9/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr1se0027uwrczlet2ebm",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr1se0027uwrczlet2ebm/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr1g5001xuwrc2kzryzdz",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr1g5001xuwrc2kzryzdz/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr258002huwrckrp0zlnv",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr258002huwrckrp0zlnv/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr2j8002ruwrccfkaek44",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr2j8002ruwrccfkaek44/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr2wl0031uwrc0zuz65xf",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr2wl0031uwrc0zuz65xf/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr36r003buwrcuafb48fc",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr36r003buwrcuafb48fc/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr3fx003luwrcvrk1px16",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr3fx003luwrcvrk1px16/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr3oa003vuwrcqermbo8o",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr3oa003vuwrcqermbo8o/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr3xa0045uwrc1lwjxv2m",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr3xa0045uwrc1lwjxv2m/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr45b004fuwrcogjvx3de",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr45b004fuwrcogjvx3de/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr4im004puwrclihrj7j3",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr4im004puwrclihrj7j3/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr4rt004zuwrce3goveb7",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr4rt004zuwrce3goveb7/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr55s0059uwrckdwbh8j7",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr55s0059uwrckdwbh8j7/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr5tj005juwrcm4dstc46",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr5tj005juwrcm4dstc46/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr69a005tuwrcxv7mjewf",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr69a005tuwrcxv7mjewf/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr6wx0063uwrc9uyd6mat",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr6wx0063uwrc9uyd6mat/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr7hd006duwrcxtr783iq",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr7hd006duwrcxtr783iq/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante propio de cmv7pr7v5006nuwrcb8fufgen",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr7v5006nuwrcb8fufgen/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "Marcas de comprobantes tras corrección y anulación parcial/total",
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante de B (misma clase) → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr0k90013uwrc4adq8yc8/comprobante",
+      "esperado": 403,
+      "status": 403,
+      "code": "FUERA_DE_ALCANCE",
+      "pasa": true
+    },
+    {
+      "nombre": "A: comprobante de B (otra clase) → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr0vm001duwrcfl4j6baz/comprobante",
+      "esperado": 403,
+      "status": 403,
+      "code": "FUERA_DE_ALCANCE",
+      "pasa": true
+    },
+    {
+      "nombre": "B: su propio comprobante → 200",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr0k90013uwrc4adq8yc8/comprobante",
+      "esperado": 200,
+      "status": 200,
+      "code": null,
+      "pasa": true
+    },
+    {
+      "nombre": "A: pago inexistente → 404",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/no-existe/comprobante",
+      "esperado": 404,
+      "status": 404,
+      "code": "PAGO_NO_ENCONTRADO",
+      "pasa": true
+    },
+    {
+      "nombre": "Alumno sin ficha: comprobante → 403 (contrato I-11)",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr2wl0031uwrc0zuz65xf/comprobante",
+      "esperado": 403,
+      "status": 403,
+      "code": "FUERA_DE_ALCANCE",
+      "pasa": true
+    },
+    {
+      "nombre": "Mesa: comprobante propio del alumno → 403",
+      "metodo": "GET",
+      "ruta": "/api/mis-pagos/cmv7pr2wl0031uwrc0zuz65xf/comprobante",
+      "esperado": 403,
+      "status": 403,
+      "code": "SIN_PERMISO",
+      "pasa": true
+    },
+    {
+      "nombre": "Consultas, opciones, comprobantes e intentos del alumno no cambian pagos/compensatorios/inscripciones/cajas/parámetros/comprobantes",
+      "pasa": true
+    },
+    {
+      "nombre": "SQL de valores vigentes coincide con el total y la cantidad del API",
+      "pasa": true,
+      "sql_total": "223500.50",
+      "api_total": "223500.50"
+    },
+    {
+      "nombre": "El motivo existe en la base (contraste) y no llegó a ninguna respuesta del alumno",
+      "pasa": true
+    }
+  ]
+}

@@ -1,0 +1,451 @@
+node.exe : npm notice run noctium@0.1.0 npx
+En línea: 1 Carácter: 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\agust\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm notice run noctium@0.1.0 npx:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+npm notice run vitest run --no-file-parallelism --no-isolate --testTimeout 120000
+src/app/(dashboard)/turnos/nuevo/turno-wizard.test.tsx src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx
+
+ RUN  v5.0.3 D:/Proyectos Facultad/noctium
+
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx (30 tests | 27 failed) 12617ms
+   ❯ HU-C-17: configuración recurrente en una pantalla (8)
+     × carga franjas y aulas, ordena franjas y limita horas por duración 356ms
+     × renderiza tabla y resumen de todas las fechas libres con payload intacto 470ms
+     × muestra alerta, badges de motivos y filas libres junto a conflictos 394ms
+     × confirma desde el panel, usa el payload vigente e impide doble submit 368ms
+     × 409 pide sola una vista previa nueva e interactiva, con el aviso de disponibilidad 451ms
+   ❯ HU-C-21: acciones por fila de la vista previa (15)
+     × muestra cada fila según su situación: libre, aula ocupada, sin aulas libres y profesor con otra clase 368ms
+     × «Cambiar aula» abre el selector en la fila, con estados, orden del servidor y reintento 423ms
+     × elegir un aula pide la vista previa con esa fecha, marca «(cambiada)» y el cupo distinto sin tocar las demás filas 394ms
+     × «Deshacer» quita la fecha de aulas_por_fecha y vuelve a pedir la vista previa 401ms
+     × si el aula elegida se ocupa y la por defecto se libera, elegir la por defecto equivale a «Deshacer» (nunca se envía, D10) 404ms
+     × si el selector llega vacío, se cierra y pide una vista previa nueva 398ms
+     × excluye fechas libres y con conflicto, muestra «Excluida» e «Incluir de nuevo», y la última no se puede excluir 448ms
+     × si una acción falla, conserva la vista previa anterior y no cambia las listas 364ms
+     × cambiar un dato del formulario vacía las listas y la vista previa (D9) 493ms
+     × descarta una respuesta que vuelve después de cambiar el formulario 495ms
+     × el diálogo muestra los datos de la generación y el resumen final informa los tres números 483ms
+     × sin cambios ni exclusiones, el diálogo no lleva detalle y el resumen dice «ninguna» 456ms
+     × otro rechazo al confirmar se ve dentro del diálogo, sin cerrarlo 449ms
+     × el 409 conserva las elecciones al pedir la vista previa nueva (§5.7) 420ms
+     × ningún texto visible de la generación dice «turno» 455ms
+   ❯ HU-C-21: «Resolver todas» (7)
+     × el botón aparece solo con candidatas, con su ayuda, y desaparece después de resolver 468ms
+     × «todas»: resuelve, deja la vista previa vigente y se puede confirmar con las aulas derivadas 357ms
+     × «todas» en singular 446ms
+     × «algunas»: la que no se puede resolver queda para elegir a mano 385ms
+     × «ninguna», en plural y en singular 365ms
+     × no pisa elecciones hechas a mano ni toca las excluidas, y manda las listas actuales 414ms
+     × el banner desaparece con la acción siguiente 411ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 27 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-17: configuración recurrente en una pantalla
+> carga franjas y aulas, ordena franjas y limita horas por duración
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:142:95
+    140|     await seleccionar("materia-recurrente", "materia-1");
+    141|     await seleccionar("profesor-recurrente", "profesor-1");
+    142|     expect(llamadas("GET", "/api/turnos/profesores/profesor-1/franjas?…
+       |                                                                                               ^
+    143|     expect([...container.querySelectorAll<HTMLOptionElement>("#franja-…
+    144|     expect([...container.querySelectorAll<HTMLInputElement>('input[nam…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-17: configuración recurrente en una pantalla
+> renderiza tabla y resumen de todas las fechas libres con payload intacto
+SyntaxError: "undefined" is not valid JSON
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:154:17
+    152|     await configurar(); await pulsar(boton("Ver vista previa"));
+    153|     const payload = { materia_id: "materia-1", profesor_id: "profesor-…
+    154|     expect(JSON.parse(String(llamadas("POST", "/api/turnos/generacion/…
+       |                 ^
+    155|     expect(container.querySelector('[data-testid="configuracion-recurr…
+    156|     const panel = container.querySelector('[data-testid="vista-previa-…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-17: configuración recurrente en una pantalla
+> muestra alerta, badges de motivos y filas libres junto a conflictos
+AssertionError: expected  to have a length of 2 but got +0
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:184:19
+    182|     const panel = container.querySelector('[data-testid="vista-previa-…
+    183|     const filas = panel.querySelectorAll('table[aria-label="Fechas de …
+    184|     expect(filas).toHaveLength(2);
+       |                   ^
+    185|     expect(panel.textContent).toContain("1 fecha tiene conflicto.");
+    186|     expect(panel.textContent).toContain("Cambiá el aula de las fechas …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-17: configuración recurrente en una pantalla
+> confirma desde el panel, usa el payload vigente e impide doble submit
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:235:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-17: configuración recurrente en una pantalla
+> 409 pide sola una vista previa nueva e interactiva, con el aviso de disponibilidad
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:249:72
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+muestra cada fila según su situación: libre, aula ocupada, sin aulas libres y profesor con otra clase
+TypeError: Cannot read properties of null (reading 'querySelectorAll')
+ ❯ badges src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:286:54
+    284|   const ultimoPedido = () => pedidos().at(-1)!;
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+       |                                                      ^
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:306:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+«Cambiar aula» abre el selector en la fila, con estados, orden del servidor y reintento
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:322:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+elegir un aula pide la vista previa con esa fecha, marca «(cambiada)» y el cupo distinto sin tocar las demás filas
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:339:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+«Deshacer» quita la fecha de aulas_por_fecha y vuelve a pedir la vista previa
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:362:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa > si
+el aula elegida se ocupa y la por defecto se libera, elegir la por defecto equivale a «Deshacer» (nunca se envía, D10)
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:372:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa > si
+el selector llega vacío, se cierra y pide una vista previa nueva
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:390:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+excluye fechas libres y con conflicto, muestra «Excluida» e «Incluir de nuevo», y la última no se puede excluir
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:400:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa > si
+una acción falla, conserva la vista previa anterior y no cambia las listas
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:422:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+cambiar un dato del formulario vacía las listas y la vista previa (D9)
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:434:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+descarta una respuesta que vuelve después de cambiar el formulario
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:452:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa > el
+diálogo muestra los datos de la generación y el resumen final informa los tres números
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:462:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+sin cambios ni exclusiones, el diálogo no lleva detalle y el resumen dice «ninguna»
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:483:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+otro rechazo al confirmar se ve dentro del diálogo, sin cerrarlo
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:494:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa > el
+409 conserva las elecciones al pedir la vista previa nueva (§5.7)
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:503:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: acciones por fila de la vista previa >
+ningún texto visible de la generación dice «turno»
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ accion src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:287:66
+    285|   const filaDe = (fecha: string) => container.querySelector<HTMLTableR…
+    286|   const badges = (fecha: string) => [...filaDe(fecha).querySelectorAll…
+    287|   const accion = (fecha: string, inicio: string) => filaDe(fecha).quer…
+       |                                                                  ^
+    288|   const accionesDe = (fecha: string) => [...filaDe(fecha).querySelecto…
+    289|   const verVistaPrevia = async () => { await configurar(); await selec…
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:523:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > el botón aparece solo
+con candidatas, con su ayuda, y desaparece después de resolver
+AssertionError: expected undefined to be defined
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:578:27
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > «todas»: resuelve,
+deja la vista previa vigente y se puede confirmar con las aulas derivadas
+TypeError: Cannot read properties of undefined (reading 'disabled')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:588:41
+    586|     ocupadas = { [desde]: ["aula-1"], [hasta]: ["aula-1"] };
+    587|     await verVistaPrevia();
+    588|     expect(boton("Confirmar generación").disabled).toBe(true);
+       |                                         ^
+    589|     await resolver();
+    590|     expect(banner()?.getAttribute("role")).toBe("status");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > «todas» en singular
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+
+ Test Files  1 failed | 1 passed (2)
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ resolver src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:561:40
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:607:35
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > «algunas»: la que no
+se puede resolver queda para elegir a mano
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ resolver src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:561:40
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:613:35
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > «ninguna», en plural y
+en singular
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ resolver src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:561:40
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:628:35
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > no pisa elecciones
+hechas a mano ni toca las excluidas, y manda las listas actuales
+TypeError: Cannot read properties of null (reading 'querySelector')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:639:33
+    637|     ocupadas = { [desde]: ["aula-1"], [hasta]: ["aula-1"], [tercera]: …
+    638|     await verVistaPrevia();
+    639|     await pulsar(filaDe(tercera).querySelector('button[aria-label^="Ex…
+       |                                 ^
+    640|     rutas = (url, init) => url === "/api/turnos/generacion/vista-previ…
+    641|       : url.startsWith("/api/turnos/generacion/aulas-libres?") ? respu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/27]⎯
+
+ FAIL  src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx > HU-C-21: «Resolver todas» > el banner desaparece
+con la acción siguiente
+TypeError: Cannot read properties of undefined (reading 'click')
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:97
+     58|   elemento.textContent?.trim() === texto || (texto === "Confirmar gene…
+     59| const botonDialogo = (texto: string) => [...document.body.querySelecto…
+     60| const pulsar = async (elemento: Element) => { await act(async () => { …
+       |                                                                                                 ^
+     61| const radio = async (nombre: string, valor: string) => pulsar(containe…
+     62| const llamadas = (metodo: string, ruta: string) => fetch.mock.calls.fi…
+ ❯ Proxy.process.env.NODE_ENV.exports.act node_modules/react/cjs/react.development.js:814:22
+ ❯ pulsar src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:60:53
+ ❯ resolver src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:561:40
+ ❯ src/app/(dashboard)/turnos/nuevo/turno-recurrente.test.tsx:654:35
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/27]⎯
+
+      Tests  27 failed | 48 passed (75)
+   Start at  04:47:47
+   Duration  50.38s (tests 76%, environment 14%, import 6%, transform 5%)

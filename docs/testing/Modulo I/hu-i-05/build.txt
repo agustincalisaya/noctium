@@ -1,0 +1,225 @@
+npm notice run noctium@0.1.0 build
+npm notice run next build
+▲ Next.js 16.3.8 (Turbopack)
+- Environments: .env
+✓ Running next.config.ts took 630ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.7min
+  Running TypeScript ...
+✓ Finished filesystem cache database compaction in 20.6s
+  Finished TypeScript in 52s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/67) ...
+  Generating static pages using 3 workers (16/67)
+  Generating static pages using 3 workers (33/67)
+  Generating static pages using 3 workers (50/67)
+✓ Generating static pages using 3 workers (67/67) in 2.6s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /alumno
+├ ƒ /alumno/turnos/solicitar
+├ ƒ /alumnos
+├ ƒ /alumnos/[id]
+├ ƒ /alumnos/[id]/clases
+├ ƒ /alumnos/[id]/contacto
+├ ƒ /alumnos/[id]/editar
+├ ƒ /alumnos/[id]/forma-pago
+├ ƒ /alumnos/[id]/pagos
+├ ƒ /alumnos/nueva
+├ ƒ /api/alumnos
+├ ƒ /api/alumnos/[id]
+├ ƒ /api/alumnos/[id]/clases
+├ ƒ /api/alumnos/[id]/contacto
+├ ƒ /api/alumnos/[id]/desactivar
+├ ƒ /api/alumnos/[id]/examenes
+├ ƒ /api/alumnos/[id]/examenes/[examenId]/anulacion
+├ ƒ /api/alumnos/[id]/examenes/[examenId]/correccion
+├ ƒ /api/alumnos/[id]/examenes/opciones
+├ ƒ /api/alumnos/[id]/forma-pago
+├ ƒ /api/alumnos/[id]/historial
+├ ƒ /api/alumnos/[id]/impacto-baja
+├ ƒ /api/alumnos/[id]/indicaciones
+├ ƒ /api/alumnos/[id]/reactivar
+├ ƒ /api/aulas
+├ ƒ /api/aulas/[id]
+├ ƒ /api/auth/[...nextauth]
+├ ƒ /api/auth/autorregistro
+├ ƒ /api/auth/autorregistro/reenviar-codigo
+├ ƒ /api/auth/autorregistro/verificar-codigo
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/ping
+├ ƒ /api/auth/recuperar-password
+├ ƒ /api/auth/restablecer-password
+├ ƒ /api/cajas
+├ ƒ /api/cajas/[id]
+├ ƒ /api/cajas/[id]/ausencia/cierre
+├ ƒ /api/cajas/[id]/ausencia/declaracion
+├ ƒ /api/cajas/[id]/ausencia/resumen
+├ ƒ /api/cajas/mia
+├ ƒ /api/cajas/mia/cierre
+├ ƒ /api/cajas/mia/cierres
+├ ƒ /api/cajas/mia/cierres/[id]
+├ ƒ /api/cajas/mia/declaracion
+├ ƒ /api/cajas/mia/movimientos
+├ ƒ /api/cajas/mia/movimientos/[movimientoId]/anulacion
+├ ƒ /api/cajas/mia/resumen
+├ ƒ /api/calendario/materia/[materiaId]
+├ ƒ /api/calendario/profesor/[profesorId]
+├ ƒ /api/comprobantes/[id]
+├ ƒ /api/formas-pago
+├ ƒ /api/formas-pago/[id]
+├ ƒ /api/formas-pago/[id]/desactivacion
+├ ƒ /api/formas-pago/[id]/impacto
+├ ƒ /api/formas-pago/[id]/reactivacion
+├ ƒ /api/formas-pago/opciones
+├ ƒ /api/gerentes
+├ ƒ /api/gerentes/[id]
+├ ƒ /api/gerentes/[id]/desactivar
+├ ƒ /api/gerentes/[id]/reactivar
+├ ƒ /api/indicadores/alumnos-presentismo-bajo
+├ ƒ /api/indicadores/cancelaciones-por-materia
+├ ƒ /api/indicadores/cancelaciones-por-mes
+├ ƒ /api/indicadores/clases-por-materia
+├ ƒ /api/indicadores/clases-por-profesor
+├ ƒ /api/indicadores/ingresos-por-mes
+├ ƒ /api/indicadores/ocupacion-por-mes
+├ ƒ /api/indicadores/ocupacion-resumen
+├ ƒ /api/indicadores/presentismo-por-materia
+├ ƒ /api/indicadores/presentismo-por-mes
+├ ƒ /api/materias
+├ ƒ /api/materias/[id]
+├ ƒ /api/materias/[id]/tarifa
+├ ƒ /api/materias/tarifas
+├ ƒ /api/mi-historial
+├ ƒ /api/mis-pagos
+├ ƒ /api/mis-pagos/[id]/comprobante
+├ ƒ /api/mis-pagos/opciones
+├ ƒ /api/pagos
+├ ƒ /api/pagos/[id]/anulacion
+├ ƒ /api/pagos/[id]/comprobante
+├ ƒ /api/pagos/[id]/correccion
+├ ƒ /api/pagos/[id]/historial
+├ ƒ /api/pagos/buscar-alumnos
+├ ƒ /api/pagos/historial
+├ ƒ /api/pagos/historial/opciones
+├ ƒ /api/pagos/opciones
+├ ƒ /api/pagos/operaciones
+├ ƒ /api/pagos/pendientes
+├ ƒ /api/personal
+├ ƒ /api/personal/[id]
+├ ƒ /api/personal/[id]/desactivar
+├ ƒ /api/personal/[id]/reactivar
+├ ƒ /api/procesos/vencer-reservas
+├ ƒ /api/profesores
+├ ƒ /api/profesores/[id]
+├ ƒ /api/profesores/[id]/desactivar
+├ ƒ /api/profesores/[id]/horarios
+├ ƒ /api/profesores/[id]/impacto-baja
+├ ƒ /api/profesores/[id]/materias
+├ ƒ /api/profesores/[id]/materias/[materiaId]/turnos-futuros
+├ ƒ /api/profesores/[id]/reactivar
+├ ƒ /api/profesores/[id]/turnos-futuros
+├ ƒ /api/profesores/[id]/turnos-futuros/cambio-profesor
+├ ƒ /api/profesores/[id]/turnos-futuros/cambio-profesor/previsualizacion
+├ ƒ /api/profesores/[id]/turnos-futuros/cancelacion
+├ ƒ /api/reservas/[inscripcionId]/quitar
+├ ƒ /api/reservas/pendientes
+├ ƒ /api/reservas/resumen
+├ ƒ /api/reservas/vencidas
+├ ƒ /api/turnos
+├ ƒ /api/turnos/[id]
+├ ƒ /api/turnos/[id]/alumnos
+├ ƒ /api/turnos/[id]/alumnos/[alumnoId]
+├ ƒ /api/turnos/[id]/aula
+├ ƒ /api/turnos/[id]/cancelacion
+├ ƒ /api/turnos/[id]/clase-dictada
+├ ƒ /api/turnos/[id]/clase-dictada/anulacion
+├ ƒ /api/turnos/[id]/clase-dictada/correccion-asistencia
+├ ƒ /api/turnos/[id]/clase-dictada/observaciones
+├ ƒ /api/turnos/[id]/configuracion
+├ ƒ /api/turnos/[id]/inscripcion
+├ ƒ /api/turnos/[id]/inscripcion/cancelacion
+├ ƒ /api/turnos/[id]/inscripcion/resumen
+├ ƒ /api/turnos/[id]/participantes
+├ ƒ /api/turnos/[id]/prioridad
+├ ƒ /api/turnos/[id]/reprogramacion
+├ ƒ /api/turnos/[id]/reprogramacion/opciones
+├ ƒ /api/turnos/aula/opciones
+├ ƒ /api/turnos/configuracion
+├ ƒ /api/turnos/filtros/profesores
+├ ƒ /api/turnos/generacion
+├ ƒ /api/turnos/generacion/aulas-libres
+├ ƒ /api/turnos/generacion/vista-previa
+├ ƒ /api/turnos/inscripcion/opciones
+├ ƒ /api/turnos/participantes/alumnos
+├ ƒ /api/turnos/participantes/alumnos/opciones
+├ ƒ /api/turnos/profesores/[profesorId]/agenda-wizard
+├ ƒ /api/turnos/profesores/[profesorId]/disponibilidad
+├ ƒ /api/turnos/profesores/[profesorId]/franjas
+├ ƒ /api/turnos/profesores/opciones
+├ ƒ /api/turnos/profesores/opciones-wizard
+├ ƒ /api/turnos/profesores/por-materia
+├ ƒ /api/turnos/propios
+├ ƒ /aulas
+├ ƒ /aulas/[id]
+├ ƒ /aulas/nueva
+├ ƒ /caja
+├ ƒ /caja/cierres/[id]
+├ ƒ /cajas
+├ ƒ /cajas/[id]
+├ ƒ /calendario
+├ ƒ /calendario/materia
+├ ƒ /calendario/profesor
+├ ƒ /comprobantes/[id]
+├ ƒ /formas-pago
+├ ƒ /gerente
+├ ƒ /gerentes
+├ ƒ /gerentes/[id]
+├ ƒ /gerentes/[id]/editar
+├ ƒ /gerentes/nuevo
+├ ƒ /home
+├ ƒ /login
+├ ƒ /materias
+├ ƒ /materias/[id]
+├ ƒ /materias/nueva
+├ ƒ /mesa-entrada
+├ ƒ /mi-cuenta
+├ ƒ /mi-historial
+├ ƒ /mis-pagos
+├ ƒ /mis-pagos/[id]/comprobante
+├ ƒ /pagos/registrar
+├ ƒ /personal
+├ ƒ /personal/[id]
+├ ƒ /personal/[id]/editar
+├ ƒ /personal/nuevo
+├ ƒ /primer-ingreso
+├ ƒ /profesor
+├ ƒ /profesores
+├ ƒ /profesores/[id]
+├ ƒ /profesores/[id]/contacto
+├ ƒ /profesores/[id]/materias
+├ ƒ /profesores/horarios/nuevo
+├ ƒ /profesores/nuevo
+├ ○ /recuperar-contrasena
+├ ƒ /registro
+├ ƒ /reservas
+├ ƒ /restablecer-contrasena
+├ ƒ /sin-permiso
+├ ƒ /turnos
+├ ƒ /turnos/[id]
+├ ƒ /turnos/[id]/alumnos/[alumnoId]/historial
+├ ƒ /turnos/[id]/configuracion
+├ ƒ /turnos/[id]/participantes
+└ ƒ /turnos/nuevo
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+BUILD_EXIT=0

@@ -1,0 +1,158 @@
+◇ injected env (3) from .env
+Base descartable: noctium_pruebas_5e3e26d0
+npm notice run noctium@0.1.0 npx
+npm notice run prisma migrate deploy
+◇ injected env (0) from .env
+Loaded Prisma config from prisma.config.ts.
+
+Prisma config detected, skipping environment variable loading.
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "noctium_pruebas_5e3e26d0", schema "public" at "127.0.0.1:55434"
+
+42 migrations found in prisma/migrations
+
+Applying migration `20260921053305_init_sprint1`
+Applying migration `20260921204216_add_roles`
+Applying migration `20260921204800_alumno_fecha_nacimiento_contacto_opcional`
+Applying migration `20260921210000_sprint1_modelo_completo`
+Applying migration `20260922170025_add_login_security_events`
+Applying migration `20260922182052_add_rol_permiso`
+Applying migration `20260922190448_add_campos_token_revocado`
+Applying migration `20260922211841_add_nombre_normalizado_materia_nullable`
+Applying migration `20260922212500_nombre_normalizado_materia_not_null_unique`
+Applying migration `20260922213000_turnos_leer_permiso`
+Applying migration `20260922234000_turnos_crear_permiso`
+Applying migration `20260922235000_turno_modificado_por_usuario`
+Applying migration `20260923010000_eventos_configuracion_turno`
+Applying migration `20260923015526_profesor_contacto_modificado_por`
+Applying migration `20260923021000_alumnos_editar_permiso`
+Applying migration `20260923061201_add_nombre_normalizado_aula_nullable`
+Applying migration `20260923061316_aula_nombre_normalizado_not_null_unique`
+Applying migration `20260923065226_add_apellido_nombre_normalizado_alumno_nullable`
+Applying migration `20260923065412_add_natural_es_collation_aula_nombre`
+Applying migration `20260923065522_apellido_nombre_normalizado_alumno_not_null`
+Applying migration `20260923065533_alumnos_leer_permiso`
+Applying migration `20260923143156_profesor_materia_auditoria`
+Applying migration `20260923160000_turnos_asignar_participantes_permiso`
+Applying migration `20260923200000_profesor_nombre_normalizado_y_leer_permiso`
+Applying migration `20260924020844_alumno_version`
+Applying migration `20260924035837_solicitud_autorregistro`
+Applying migration `20260924050441_solicitud_autorregistro_email_destino`
+Applying migration `20260924051145_reenvio_codigo`
+Applying migration `20260924120000_turno_cupo_y_estados`
+Applying migration `20260924150000_turnos_reservas_recursos_v2`
+Applying migration `20260924235924_turno_cupo_nullable`
+Applying migration `20260928150000_sprint2_enum`
+Applying migration `20260928150100_sprint2_modelo`
+Applying migration `20260930120000_c17_generacion_maxima_meses`
+Applying migration `20260930180000_resultado_examen_observaciones`
+Applying migration `20261008120000_sprint3_eventos_seguridad`
+Applying migration `20261008120100_sprint3_modelo`
+Applying migration `20261008120200_sprint3_permisos`
+Applying migration `20261009180000_hu_e02_alcance_profesor`
+Applying migration `20261013040000_hu_e11_anulacion_append_only`
+Applying migration `20261013120000_examen_descripcion_publica`
+Applying migration `20261013153953_hu_c_27_indices_turnos`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260921053305_init_sprint1/
+    └─ migration.sql
+  └─ 20260921204216_add_roles/
+    └─ migration.sql
+  └─ 20260921204800_alumno_fecha_nacimiento_contacto_opcional/
+    └─ migration.sql
+  └─ 20260921210000_sprint1_modelo_completo/
+    └─ migration.sql
+  └─ 20260922170025_add_login_security_events/
+    └─ migration.sql
+  └─ 20260922182052_add_rol_permiso/
+    └─ migration.sql
+  └─ 20260922190448_add_campos_token_revocado/
+    └─ migration.sql
+  └─ 20260922211841_add_nombre_normalizado_materia_nullable/
+    └─ migration.sql
+  └─ 20260922212500_nombre_normalizado_materia_not_null_unique/
+    └─ migration.sql
+  └─ 20260922213000_turnos_leer_permiso/
+    └─ migration.sql
+  └─ 20260922234000_turnos_crear_permiso/
+    └─ migration.sql
+  └─ 20260922235000_turno_modificado_por_usuario/
+    └─ migration.sql
+  └─ 20260923010000_eventos_configuracion_turno/
+    └─ migration.sql
+  └─ 20260923015526_profesor_contacto_modificado_por/
+    └─ migration.sql
+  └─ 20260923021000_alumnos_editar_permiso/
+    └─ migration.sql
+  └─ 20260923061201_add_nombre_normalizado_aula_nullable/
+    └─ migration.sql
+  └─ 20260923061316_aula_nombre_normalizado_not_null_unique/
+    └─ migration.sql
+  └─ 20260923065226_add_apellido_nombre_normalizado_alumno_nullable/
+    └─ migration.sql
+  └─ 20260923065412_add_natural_es_collation_aula_nombre/
+    └─ migration.sql
+  └─ 20260923065522_apellido_nombre_normalizado_alumno_not_null/
+    └─ migration.sql
+  └─ 20260923065533_alumnos_leer_permiso/
+    └─ migration.sql
+  └─ 20260923143156_profesor_materia_auditoria/
+    └─ migration.sql
+  └─ 20260923160000_turnos_asignar_participantes_permiso/
+    └─ migration.sql
+  └─ 20260923200000_profesor_nombre_normalizado_y_leer_permiso/
+    └─ migration.sql
+  └─ 20260924020844_alumno_version/
+    └─ migration.sql
+  └─ 20260924035837_solicitud_autorregistro/
+    └─ migration.sql
+  └─ 20260924050441_solicitud_autorregistro_email_destino/
+    └─ migration.sql
+  └─ 20260924051145_reenvio_codigo/
+    └─ migration.sql
+  └─ 20260924120000_turno_cupo_y_estados/
+    └─ migration.sql
+  └─ 20260924150000_turnos_reservas_recursos_v2/
+    └─ migration.sql
+  └─ 20260924235924_turno_cupo_nullable/
+    └─ migration.sql
+  └─ 20260928150000_sprint2_enum/
+    └─ migration.sql
+  └─ 20260928150100_sprint2_modelo/
+    └─ migration.sql
+  └─ 20260930120000_c17_generacion_maxima_meses/
+    └─ migration.sql
+  └─ 20260930180000_resultado_examen_observaciones/
+    └─ migration.sql
+  └─ 20261008120000_sprint3_eventos_seguridad/
+    └─ migration.sql
+  └─ 20261008120100_sprint3_modelo/
+    └─ migration.sql
+  └─ 20261008120200_sprint3_permisos/
+    └─ migration.sql
+  └─ 20261009180000_hu_e02_alcance_profesor/
+    └─ migration.sql
+  └─ 20261013040000_hu_e11_anulacion_append_only/
+    └─ migration.sql
+  └─ 20261013120000_examen_descripcion_publica/
+    └─ migration.sql
+  └─ 20261013153953_hu_c_27_indices_turnos/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+npm notice run noctium@0.1.0 npx
+npm notice run vitest run --no-file-parallelism src/server/pagos/comprobante.lectura.pg.test.ts src/server/pagos/pago.historial.pg.test.ts src/server/pagos/pago.mis-pagos.pg.test.ts src/server/pagos/pago.publico.pg.test.ts
+
+ RUN  v5.0.3 D:/Proyectos Facultad/noctium
+
+
+ Test Files  4 passed (4)
+      Tests  21 passed (21)
+   Start at  05:12:18
+   Duration  74.27s (tests 81%, import 13%, transform 6%)
+
+    Isolate  4 workers spawned · ~1.29s startup each (spawn + environment, per file)
+             at least ~3.87s faster with isolate: false — reuses workers across files instead of one per file
