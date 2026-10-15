@@ -154,47 +154,56 @@ function TarjetaTurno({ turno, vista }: { turno: TurnoPropio; vista: Vista }) {
   return (
     <article
       className={cn(
-        "flex min-h-32 items-center gap-5 rounded-xl border p-5 sm:p-6",
+        "flex h-full min-h-32 items-center gap-5 rounded-xl border p-5 sm:p-6",
         tarjetaCanceladaProxima && "border-destructive bg-destructive-soft text-destructive-soft-foreground",
         tarjetaCanceladaAnterior && "border-border bg-muted/60 text-muted-foreground",
         !cancelado && "border-border bg-card text-card-foreground",
       )}
     >
       <FechaTurno fecha={turno.fecha} />
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-semibold leading-snug">{turno.materia}</h2>
-          <EstadoBadge estado={turno.estado} />
-          {vista === "anteriores" && turno.clase_dictada && (
-            <Badge variant="outline" className="bg-card font-normal text-card-foreground">{textoUi("ui.turnos.propios.dictada")}</Badge>
+      <div className="flex min-w-0 flex-1 flex-col self-stretch">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-semibold leading-snug">{turno.materia}</h2>
+            <EstadoBadge estado={turno.estado} />
+            {vista === "anteriores" && turno.clase_dictada && (
+              <Badge variant="outline" className="bg-card font-normal text-card-foreground">{textoUi("ui.turnos.propios.dictada")}</Badge>
+            )}
+          </div>
+          <p className="text-sm tabular-nums">
+            <time>{turno.hora_inicio}–{turno.hora_fin}</time>
+            <span aria-hidden> · </span>{turno.profesor}
+            <span aria-hidden> · </span>{turno.aula}
+          </p>
+          {inscripcionVigente(turno.inscripcion) && (
+            <>
+              <p className="text-sm">{situacionInscripcion(turno.inscripcion)}</p>
+              <p className="text-sm font-medium">{textoUi("ui.turnos.resumen.precio")}: {formatearMonto(turno.inscripcion.precio)}</p>
+            </>
           )}
         </div>
-        <p className="text-sm tabular-nums">
-          <time>{turno.hora_inicio}–{turno.hora_fin}</time>
-          <span aria-hidden> · </span>{turno.profesor}
-          <span aria-hidden> · </span>{turno.aula}
-        </p>
-        <p className="text-sm">{situacionInscripcion(turno.inscripcion)}</p>
-        {inscripcionVigente(turno.inscripcion) && <p className="text-sm font-medium">{textoUi("ui.turnos.resumen.precio")}: {formatearMonto(turno.inscripcion.precio)}</p>}
-        {vista === "proximos" && turno.inscripcion.cancelacion === "FUERA_DE_PLAZO" && (
-          <div className="space-y-1 pt-2">
-            <Button type="button" variant="outline" disabled aria-describedby={`cancelacion-${turno.turno_id}`}>
-              {textoUi("ui.turnos.cancelacion.accion")}
-            </Button>
-            <p id={`cancelacion-${turno.turno_id}`} className="text-sm text-muted-foreground">{textoUi("ui.turnos.cancelacion.fueraDePlazo")}</p>
-          </div>
-        )}
-        {vista === "proximos" && turno.inscripcion.cancelacion === "PERMITIDA" && (
-          <div className="pt-2">
-            <CancelarInscripcion
-              turnoId={turno.turno_id}
-              materia={turno.materia}
-              fecha={fechaLarga(turno.fecha).toLocaleLowerCase("es-AR")}
-              hora={turno.hora_inicio}
-              conPagos={turno.inscripcion.situacion === "PAGADA"}
-            />
-          </div>
-        )}
+        <div className="mt-auto space-y-1.5 pt-2">
+          {!inscripcionVigente(turno.inscripcion) && <p className="text-sm">{situacionInscripcion(turno.inscripcion)}</p>}
+          {vista === "proximos" && turno.inscripcion.cancelacion === "FUERA_DE_PLAZO" && (
+            <div className="space-y-1">
+              <Button type="button" variant="outline" disabled aria-describedby={`cancelacion-${turno.turno_id}`}>
+                {textoUi("ui.turnos.cancelacion.accion")}
+              </Button>
+              <p id={`cancelacion-${turno.turno_id}`} className="text-sm text-muted-foreground">{textoUi("ui.turnos.cancelacion.fueraDePlazo")}</p>
+            </div>
+          )}
+          {vista === "proximos" && turno.inscripcion.cancelacion === "PERMITIDA" && (
+            <div>
+              <CancelarInscripcion
+                turnoId={turno.turno_id}
+                materia={turno.materia}
+                fecha={fechaLarga(turno.fecha).toLocaleLowerCase("es-AR")}
+                hora={turno.hora_inicio}
+                conPagos={turno.inscripcion.situacion === "PAGADA"}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );
