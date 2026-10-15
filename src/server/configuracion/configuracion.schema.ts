@@ -1,8 +1,15 @@
 import { z } from "zod";
+import { texto } from "@/lib/textos";
 import { CATALOGO } from "@/server/configuracion/parametros-configurables";
 
-const enteroEnRango = (clave: keyof typeof CATALOGO) =>
-  z.number().int().min(CATALOGO[clave].min).max(CATALOGO[clave].max);
+// Mismos mensajes que la validación de la pantalla: el 400 se muestra junto al campo.
+const enteroEnRango = (clave: keyof typeof CATALOGO) => {
+  const { min, max } = CATALOGO[clave];
+  const enteroRequerido = texto("ui.configuracion.enteroRequerido");
+  const fueraDeRango = texto("ui.configuracion.fueraDeRango", { min, max });
+  return z.number({ error: enteroRequerido }).int({ error: enteroRequerido })
+    .min(min, { error: fueraDeRango }).max(max, { error: fueraDeRango });
+};
 
 const valoresSchema = z.object({
   plazoPagoHoras: enteroEnRango("plazo_pago_horas"),

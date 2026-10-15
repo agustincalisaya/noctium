@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmarAccionDialog } from "@/components/shared/confirmar-accion-dialog";
+import { Pagination } from "@/components/shared/pagination";
 import { Button } from "@/components/ui/button";
 import { texto } from "@/lib/textos";
 import { guardarConfiguracion } from "@/server/configuracion/actions";
@@ -198,7 +199,7 @@ export function ConfiguracionForm() {
                 <p className="text-xs text-muted-foreground">{texto(parametro.unidad === "h" ? "ui.configuracion.rangoHoras" : "ui.configuracion.rangoPorcentaje", { min: parametro.min, max: parametro.max, defecto: parametro.porDefecto })}</p>
                 <div className="flex items-center gap-2">
                   <input id={parametro.campo} type="number" step="1" min={parametro.min} max={parametro.max} value={inputs[parametro.campo]} aria-invalid={Boolean(erroresVisibles[parametro.campo])} aria-describedby={`${parametro.campo}-ayuda ${parametro.campo}-error`} onChange={(event) => { setInputs({ ...inputs, [parametro.campo]: event.target.value }); setErrores({ ...errores, [parametro.campo]: undefined }); setGuardada(false); }} className="w-24 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground" />
-                  <span className="text-sm text-muted-foreground">{parametro.unidad === "h" ? texto("ui.configuracion.unidadHoras") : parametro.unidad}</span>
+                  <span className="text-sm text-muted-foreground">{texto(parametro.unidad === "h" ? "ui.configuracion.unidadHoras" : "ui.configuracion.unidadPorcentaje")}</span>
                 </div>
                 {erroresVisibles[parametro.campo] && <p id={`${parametro.campo}-error`} role="alert" className="text-xs text-destructive">{erroresVisibles[parametro.campo]}</p>}
                 <p id={`${parametro.campo}-ayuda`} className="text-xs leading-relaxed text-muted-foreground">{texto(AYUDAS[parametro.campo])}</p>
@@ -220,16 +221,15 @@ export function ConfiguracionForm() {
                 <p className="text-xs text-muted-foreground">{item.usuario.nombre} · {new Intl.DateTimeFormat("es-AR", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date(item.fecha))}</p>
               </li>)}
             </ol>
-            {historial.total_paginas > 1 && <div className="mt-4 flex items-center justify-between gap-2 text-sm">
-              <Button type="button" variant="outline" disabled={pagina <= 1} onClick={() => setPagina(pagina - 1)}>{texto("ui.configuracion.historialAnterior")}</Button>
-              <span>{texto("ui.configuracion.historialPagina", { pagina, total: historial.total_paginas })}</span>
-              <Button type="button" variant="outline" disabled={pagina >= historial.total_paginas} onClick={() => setPagina(pagina + 1)}>{texto("ui.configuracion.historialSiguiente")}</Button>
-            </div>}
+            <div className="mt-4">
+              <Pagination paginaActual={pagina} totalPaginas={historial.total_paginas} total={historial.total} porPagina={historial.por_pagina}
+                mostrarRango mostrarNumeros buildHref={(numero) => `?pagina=${numero}`} onPageChange={setPagina} />
+            </div>
           </>}
         </section>
       </div>
 
-      <ConfirmarAccionDialog abierto={confirmando} onCerrar={() => { setConfirmando(false); setConflicto(false); }} titulo={texto("confirmaciones.configuracion.guardar")} textoConfirmar={texto("ui.configuracion.guardarConfiguracion")} detalle={<ul className="space-y-1">{cambios.map((parametro) => <li key={parametro.clave}>{texto(NOMBRES[parametro.campo])}: {parametro.valor} → {evaluacion?.valores[parametro.campo]} {parametro.unidad}</li>)}</ul>} onConfirmar={confirmar} accionError={conflicto ? <Button type="button" variant="outline" onClick={() => void recargar()}>{texto("ui.configuracion.recargar")}</Button> : undefined} />
+      <ConfirmarAccionDialog abierto={confirmando} onCerrar={() => { setConfirmando(false); setConflicto(false); }} titulo={texto("confirmaciones.configuracion.guardar")} textoConfirmar={texto("ui.configuracion.guardarConfiguracion")} detalle={<ul className="space-y-1">{cambios.map((parametro) => <li key={parametro.clave}>{texto(NOMBRES[parametro.campo])}: {texto(parametro.unidad === "h" ? "ui.configuracion.cambioHoras" : "ui.configuracion.cambioPorcentaje", { anterior: parametro.valor, nuevo: evaluacion?.valores[parametro.campo] })}</li>)}</ul>} onConfirmar={confirmar} accionError={conflicto ? <Button type="button" variant="outline" onClick={() => void recargar()}>{texto("ui.configuracion.recargar")}</Button> : undefined} />
     </div>
   );
 }

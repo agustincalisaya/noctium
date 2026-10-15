@@ -184,6 +184,13 @@ const SECCIONES_POR_ROL: Record<RolUsuario, (SidebarSeccionConfig | SidebarEnlac
   // materias:leer (HU-L-02): Profesor también consulta el catálogo al
   // operar otros módulos (ej. asociar sus propias materias, HU-D-03).
   PROFESOR: [
+    // HU-C-08 y HU-C-27 criterio 11: el Profesor usa el mismo listado «Clases»
+    // (turnos:leer), acotado a sus clases por el servidor y sin selector de profesor.
+    {
+      label: textoC19("ui.pagos.resumen.clases"),
+      icon: CalendarClock,
+      items: [{ label: textoC19("ui.profesores.estado.listado"), href: "/turnos", icon: ListOrdered }],
+    },
     // Para el rol Profesor, /calendario/profesor es "Mi agenda" (su propia
     // agenda, resuelta desde la sesión en la página).
     {

@@ -49,6 +49,21 @@ describe("HU-C-08 GET /api/turnos?profesor_id=", () => {
     expect(listar).not.toHaveBeenCalled();
   });
 
+  it("el Profesor consulta con su sesión: el servicio recibe al usuario, nunca un profesor elegido por la ruta", async () => {
+    sesion.actual = { user: { id: "usuario-prof", rol: "PROFESOR" } };
+    const respuesta = await consultar("?periodo=todas");
+    expect(respuesta.status).toBe(200);
+    expect(listar).toHaveBeenCalledWith(1, undefined, { id: "usuario-prof", rol: "PROFESOR" }, expect.objectContaining({ profesor_id: undefined, periodo: "todas" }));
+  });
+
+  it("el Profesor con un profesor_id ajeno recibe 403 sin datos", async () => {
+    sesion.actual = { user: { id: "usuario-prof", rol: "PROFESOR" } };
+    listar.mockRejectedValue(new ServiceError("SIN_PERMISO", "mensaje"));
+    const respuesta = await consultar(`?profesor_id=${PROFESOR}`);
+    expect(respuesta.status).toBe(403);
+    expect((await respuesta.json()).data).toBeNull();
+  });
+
   it.each([
     ["SIN_PERMISO", 403],
     ["PROFESOR_NO_ENCONTRADO", 404],

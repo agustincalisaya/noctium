@@ -175,6 +175,25 @@ describe("HU-C-08 filtro por profesor (spec §2.7)", () => {
     expect(turno.count).not.toHaveBeenCalled();
   });
 
+  it("Gerente y Mesa sin profesor_id ven las clases de todos los profesores, sin consultar fichas", async () => {
+    for (const usuarioListado of [gerente, mesa]) {
+      vi.clearAllMocks();
+      turno.count.mockResolvedValue(3);
+      turno.findMany.mockResolvedValue([]);
+      await listarTurnos(1, undefined, usuarioListado);
+      expect(turno.count).toHaveBeenCalledWith({ where: { fechaTurno: desdeHoy } });
+      expect(profesor.findUnique).not.toHaveBeenCalled();
+    }
+  });
+
+  it("el Profesor nunca obtiene clases ajenas: el alcance sale de la sesión y pisa cualquier otro filtro", async () => {
+    profesor.findUnique.mockResolvedValue(fichaProfesor(PROFESOR_PROPIO));
+    await listarTurnos(1, undefined, profesorRol, { q: "fisica", periodo: "todas", materia_id: "cmmateria0000000000000001" });
+    const where = turno.count.mock.calls[0][0].where;
+    expect(where.profesorId).toBe(PROFESOR_PROPIO);
+    expect(turno.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+  });
+
   it("una cuenta de Profesor sin ficha recibe SIN_PERMISO", async () => {
     profesor.findUnique.mockResolvedValue(null);
     await expect(listarTurnos(1, undefined, profesorRol)).rejects.toMatchObject({ code: "SIN_PERMISO" });
