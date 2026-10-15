@@ -86,13 +86,15 @@ const ACCESOS_POR_ROL: Partial<Record<Rol, Acceso[]>> = {
   GERENTE: [
     {
       titulo: textoC19("ui.clases.inicio.indicadoresDelCentro"),
-      detalle: textoC19("ui.clases.inicio.seguimientoDeClasesPagosYOcupacionModuloH"),
+      detalle: "Seguimiento de turnos, pagos y ocupación.",
       icono: GraduationCap,
+      href: "/gerente",
     },
     {
-      titulo: textoC19("ui.clases.inicio.gestionDePagos"),
-      detalle: textoC19("ui.clases.inicio.revisaLosPagosRegistradosYSuEstado"),
+      titulo: "Control de cajas",
+      detalle: "Supervisá los movimientos y el estado de las cajas.",
       icono: Wallet,
+      href: "/cajas",
     },
   ],
 };
