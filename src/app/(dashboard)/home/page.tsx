@@ -1,10 +1,12 @@
 import { texto as textoC19 } from "@/lib/textos";
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   BarChart3,
   Bell,
   BookOpen,
+  CalendarCheck,
   CalendarClock,
   CalendarRange,
   ClipboardList,
@@ -26,6 +28,7 @@ type Acceso = {
   titulo: string;
   detalle: string;
   icono: typeof CalendarClock;
+  href?: string;
 };
 
 type Rol = keyof typeof ROL_LEGIBLE;
@@ -36,11 +39,13 @@ const ACCESOS_POR_ROL: Partial<Record<Rol, Acceso[]>> = {
       titulo: textoC19("ui.clases.inicio.tusProximasClases"),
       detalle: textoC19("ui.clases.inicio.revisaLasClasesQueTenesReservadasYSuHorario"),
       icono: CalendarClock,
+      href: "/alumno",
     },
     {
-      titulo: textoC19("ui.clases.inicio.tusMaterias"),
-      detalle: textoC19("ui.clases.inicio.consultaLasMateriasDelCentroYSuInformacion"),
-      icono: BookOpen,
+      titulo: "Tus pagos",
+      detalle: "Consultá el estado de tus pagos y su información.",
+      icono: Wallet,
+      href: "/mis-pagos",
     },
   ],
 
@@ -62,29 +67,34 @@ const ACCESOS_POR_ROL: Partial<Record<Rol, Acceso[]>> = {
       titulo: textoC19("ui.clases.inicio.gestionDeClases"),
       detalle: textoC19("ui.clases.inicio.cargaModificaOCancelaClasesDeAlumnosYProfesores"),
       icono: ClipboardList,
+      href: "/turnos",
     },
     {
-      titulo: textoC19("ui.clases.inicio.alumnosYProfesores"),
-      detalle: textoC19("ui.clases.inicio.consultaYActualizaLasFichasDelCentro"),
-      icono: Users,
+      titulo: "Registrar pago",
+      detalle: "Registrá pagos de alumnos y consultá su estado.",
+      icono: Wallet,
+      href: "/pagos/registrar",
     },
     {
-      titulo: textoC19("ui.clases.inicio.aulasYMaterias"),
-      detalle: textoC19("ui.clases.inicio.gestionaLaDisponibilidadDeEspaciosYLaOfertaAcademica"),
-      icono: DoorOpen,
+      titulo: "Reservas",
+      detalle: "Consultá y gestioná las reservas del centro.",
+      icono: CalendarCheck,
+      href: "/reservas",
     },
   ],
 
   GERENTE: [
     {
       titulo: textoC19("ui.clases.inicio.indicadoresDelCentro"),
-      detalle: textoC19("ui.clases.inicio.seguimientoDeClasesPagosYOcupacionModuloH"),
+      detalle: "Seguimiento de turnos, pagos y ocupación.",
       icono: GraduationCap,
+      href: "/gerente",
     },
     {
-      titulo: textoC19("ui.clases.inicio.gestionDePagos"),
-      detalle: textoC19("ui.clases.inicio.revisaLosPagosRegistradosYSuEstado"),
+      titulo: "Control de cajas",
+      detalle: "Supervisá los movimientos y el estado de las cajas.",
       icono: Wallet,
+      href: "/cajas",
     },
   ],
 };
@@ -151,7 +161,7 @@ const MOVIMIENTO =
  * Sombras en dos capas teñidas con tokens (nunca negro puro): una de
  * contacto, corta y nítida, que asienta la card; y una ambiental,
  * amplia y difusa, en el tono de --primary. En hover crece solo la
- * ambiental: la card no se "levanta" porque todavía no es un link.
+ * ambiental: la card no se "levanta".
  */
 const SOMBRA =
   "shadow-[0_1px_2px_-1px_color-mix(in_oklab,var(--foreground)_14%,transparent),0_6px_16px_-10px_color-mix(in_oklab,var(--primary)_18%,transparent)]";
@@ -515,12 +525,8 @@ function Separador() {
    --primary, el único de la vista) y por el rótulo "Principal",
    alineado a la línea base del título.
 
-   Todavía no es un link: el hover solo tiñe borde, sombra e ícono —
-   sin cursor de mano, sin flecha, sin "levantar" la card — para no
-   prometer una navegación que no existe. Cuando la ruta esté
-   confirmada: envolver el texto del <h3> en <Link> con
-   `after:absolute after:inset-0` (card clickeable accesible); el
-   anillo de foco ya está preparado con `has-focus-visible:`.
+   Cuando el acceso tiene ruta, el enlace del título cubre toda la card;
+   el anillo de foco se aplica al contenedor con `has-focus-visible:`.
 ================================================================ */
 
 function TarjetaAcceso({
@@ -564,7 +570,7 @@ function TarjetaAcceso({
         {/* pt-2: centra la primera línea del título con el ícono */}
         <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline pt-2">
           <h3 className="text-base font-semibold leading-6 tracking-[-0.011em] text-foreground">
-            {item.titulo}
+            {item.href ? <Link href={item.href} className="after:absolute after:inset-0">{item.titulo}</Link> : item.titulo}
           </h3>
           {/* En cards angostas (3 columnas) el rótulo se oculta antes que
               obligar al título a partirse; el ícono sólido ya la distingue. */}
