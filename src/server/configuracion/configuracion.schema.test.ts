@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { texto } from "@/lib/textos";
 import { GuardarConfiguracionSchema, ListarHistorialQuerySchema } from "@/server/configuracion/configuracion.schema";
 import { CATALOGO, CLAVES_CONFIGURABLES } from "@/server/configuracion/parametros-configurables";
 import { rolPuedeAccederRuta } from "@/server/shared/rutas-por-rol";
@@ -39,6 +40,17 @@ describe("HU-N-01 schemas", () => {
     { esperados: { ...valores, centro_nombre: "Otro" } },
   ])("rechaza payload inválido %j", (cambio) => {
     expect(GuardarConfiguracionSchema.safeParse({ ...payload, ...cambio }).success).toBe(false);
+  });
+
+  it("los errores de cada campo usan los textos de la pantalla", () => {
+    const mensaje = (cambio: Record<string, unknown>) => {
+      const r = GuardarConfiguracionSchema.safeParse({ ...payload, valores: { ...valores, ...cambio } });
+      return r.success ? null : r.error.issues[0]?.message;
+    };
+    expect(mensaje({ plazoPagoHoras: 73 })).toBe(texto("ui.configuracion.fueraDeRango", { min: 1, max: 72 }));
+    expect(mensaje({ umbralPresentismo: 0 })).toBe(texto("ui.configuracion.fueraDeRango", { min: 1, max: 100 }));
+    expect(mensaje({ plazoPagoHoras: 1.5 })).toBe(texto("ui.configuracion.enteroRequerido"));
+    expect(mensaje({ plazoPagoHoras: "24" })).toBe(texto("ui.configuracion.enteroRequerido"));
   });
 
   it("requiere esperados y rechaza claves ajenas arriba", () => {

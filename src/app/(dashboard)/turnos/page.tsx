@@ -33,6 +33,9 @@ export default async function TurnosPage({ searchParams }: { searchParams: Promi
   // props y la consulta sin remontarse, así la tabla no vuelve a "Cargando".
   // HU-C-08: el selector de profesor es solo de Gerente y Mesa de Entrada; el
   // Profesor ve sus turnos sin selector (el servidor acota por la sesión).
+  // Para el Profesor el `profesor_id` de la URL se descarta: la pantalla no lo
+  // reenvía a la API (que respondería 403 con uno ajeno, spec §2.7).
   const rol = session?.user?.rol;
-  return <TurnosListado pagina={paginaActual} q={texto(params.q)} profesorId={texto(params.profesor_id)} periodo={periodo} desde={desde} hasta={hasta} materiaId={materiaId} materias={materias} puedeConfigurar={rol === "MESA_ENTRADA"} puedeDescartar={puedeDescartar} puedeFiltrarProfesor={rol === "GERENTE" || rol === "MESA_ENTRADA"} />;
+  const puedeFiltrarProfesor = rol === "GERENTE" || rol === "MESA_ENTRADA";
+  return <TurnosListado pagina={paginaActual} q={texto(params.q)} profesorId={puedeFiltrarProfesor ? texto(params.profesor_id) : ""} periodo={periodo} desde={desde} hasta={hasta} materiaId={materiaId} materias={materias} puedeConfigurar={rol === "MESA_ENTRADA"} puedeDescartar={puedeDescartar} puedeFiltrarProfesor={puedeFiltrarProfesor} />;
 }

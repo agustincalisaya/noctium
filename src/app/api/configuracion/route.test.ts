@@ -1,18 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorDeDominio } from "@/server/shared/error-dominio";
 
-const m = vi.hoisted(() => ({ leer: vi.fn(), guardar: vi.fn() }));
+const m = vi.hoisted(() => ({ leer: vi.fn(), guardar: vi.fn(), concedidos: new Set<string>() }));
 vi.mock("@/server/configuracion/configuracion.service", () => ({ obtenerConfiguracion: m.leer, guardarConfiguracion: m.guardar }));
-vi.mock("@/server/shared/with-permission", () => ({ withPermission: (_: string, handler: (req: unknown) => Promise<Response>) => handler }));
+// Cada handler queda envuelto con su permiso: sin él, 403 sin llegar al handler.
+vi.mock("@/server/shared/with-permission", () => ({ withPermission: (permiso: string, handler: (req: unknown) => Promise<Response>) =>
+  (req: unknown) => m.concedidos.has(permiso) ? handler(req) : Response.json({ data: null, error: { code: "SIN_PERMISO" } }, { status: 403 }) }));
 
 const { GET, PUT } = await import("@/app/api/configuracion/route");
 const request = (body: unknown) => ({ json: async () => body, auth: { user: { id: "gerente-1" } } });
 const valores = { plazoPagoHoras: 24, cancelacionAnticipacionHoras: 24, umbralPresentismo: 75 };
 const payload = { valores: { ...valores, plazoPagoHoras: 48 }, esperados: valores };
 
-beforeEach(() => { vi.clearAllMocks(); m.leer.mockResolvedValue({ parametros: [] }); m.guardar.mockResolvedValue({ cambios: ["plazo_pago_horas"] }); });
+beforeEach(() => { vi.clearAllMocks(); m.concedidos = new Set(["configuracion:leer", "configuracion:editar"]); m.leer.mockResolvedValue({ parametros: [] }); m.guardar.mockResolvedValue({ cambios: ["plazo_pago_horas"] }); });
 
 describe("/api/configuracion", () => {
+  it("GET exige configuracion:leer y PUT configuracion:editar; sin permiso, 403 sin llamar al servicio", async () => {
+    m.concedidos = new Set(["configuracion:leer"]);
+    expect((await GET(request(null) as never)).status).toBe(200);
+    const sinEditar = await PUT(request(payload) as never);
+    expect(sinEditar.status).toBe(403);
+    expect((await sinEditar.json()).error.code).toBe("SIN_PERMISO");
+    expect(m.guardar).not.toHaveBeenCalled();
+    m.concedidos = new Set(["configuracion:editar"]);
+    expect((await GET(request(null) as never)).status).toBe(403);
+    expect(m.leer).toHaveBeenCalledTimes(1);
+  });
+
   it("GET devuelve envelope sin caché por el wrapper de permisos", async () => {
     const respuesta = await GET(request(null) as never);
     expect(await respuesta.json()).toEqual({ data: { parametros: [] }, error: null });

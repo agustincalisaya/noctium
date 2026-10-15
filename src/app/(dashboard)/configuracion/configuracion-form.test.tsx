@@ -113,4 +113,22 @@ describe("pantalla de configuración", () => {
     await act(async () => { [...contenedor.querySelectorAll<HTMLButtonElement>("button")].find((boton) => boton.textContent === "Reintentar")!.click(); });
     expect(contenedor.querySelectorAll('input[type="number"]')).toHaveLength(3);
   });
+
+  it("pagina el historial de a 10 con el componente común y muestra el rango", async () => {
+    await act(async () => { root.unmount(); });
+    root = createRoot(contenedor);
+    const item = (i: number) => ({ id: `h${i}`, clave: "plazo_pago_horas", valorAnterior: 24, valorNuevo: 48, usuario: { id: "g", nombre: "Silvia Paredes" }, fecha: "2026-10-14T12:00:00.000Z" });
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const pagina = Number(new URL(url, "http://localhost").searchParams.get("pagina") ?? 1);
+      return { ok: true, json: async () => ({ data: url.includes("historial")
+        ? { items: Array.from({ length: pagina === 1 ? 10 : 1 }, (_, i) => item(i + (pagina - 1) * 10)), pagina, por_pagina: 10, total: 11, total_paginas: 2 }
+        : { parametros } }) };
+    }));
+    await act(async () => { root.render(<ConfiguracionForm />); });
+    expect(contenedor.querySelector('nav[aria-label="Paginación"]')).not.toBeNull();
+    expect(contenedor.textContent).toContain("Mostrando 1–10 de 11");
+    await act(async () => { contenedor.querySelector<HTMLButtonElement>('button[aria-label="Página siguiente"]')!.click(); });
+    expect(contenedor.textContent).toContain("Mostrando 11–11 de 11");
+    expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => String(url).endsWith("historial?pagina=2"))).toBe(true);
+  });
 });
