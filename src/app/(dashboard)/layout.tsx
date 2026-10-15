@@ -38,11 +38,11 @@ export default async function DashboardLayout({
         <ProtegerCacheNavegador />
         <Toaster />
         <AvisoExpiracion expiresISO={session.expires} avisoAnticipadoMin={avisoAnticipadoMin} />
-        <div className="flex h-screen overflow-hidden bg-background">
+        <div className="flex h-screen overflow-hidden bg-background has-[#panel-actividad]:h-auto has-[#panel-actividad]:min-h-screen has-[#panel-actividad]:overflow-visible lg:[&:has(#panel-actividad)>aside]:sticky lg:[&:has(#panel-actividad)>aside]:top-0 lg:[&:has(#panel-actividad)>aside]:h-screen lg:[&:has(#panel-actividad)>aside]:self-start">
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <Navbar />
-            <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+            <main className="flex-1 overflow-y-auto p-4 has-[#panel-actividad]:overflow-visible lg:p-6">{children}</main>
             <Footer />
           </div>
         </div>
